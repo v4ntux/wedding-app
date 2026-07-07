@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Taklifnoma</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Экран выбора языка (первый вход) -->
+<div id="lang-screen">
+  <div class="lang-card">
+    <div class="lang-orn">✦ · ✦ · ✦</div>
+    <h1>Taklifnoma</h1>
+    <p>Tilni tanlang · Выберите язык</p>
+    <button id="lang-uz" type="button" class="lang-btn">🇺🇿 O‘zbekcha</button>
+    <button id="lang-ru" type="button" class="lang-btn ghost">Русский</button>
+  </div>
+</div>
+
+<div id="form-screen" hidden>
+
+  <header class="hero">
+    <div class="lang-switch">
+      <button id="sw-uz" type="button">O‘z</button><button id="sw-ru" type="button">Ру</button>
+    </div>
+    <div class="hero-orn">✦ · ✦ · ✦</div>
+    <h1 data-i18n="heroTitle">Taklifnoma</h1>
+    <p data-i18n="heroSub"></p>
+  </header>
+
+  <section data-step="names">
+    <div class="sec-head"><h2 data-i18n="sec1"></h2></div>
+    <div class="field">
+      <label for="groom" data-i18n="groom"></label>
+      <input id="groom" type="text" maxlength="100">
+    </div>
+    <div class="field">
+      <label for="bride" data-i18n="bride"></label>
+      <input id="bride" type="text" maxlength="100">
+    </div>
+  </section>
+
+  <section data-step="datetime" hidden>
+    <div class="sec-head"><h2 data-i18n="sec2"></h2></div>
+    <div class="calendar">
+      <div class="cal-nav">
+        <button id="cal-prev" type="button">‹</button>
+        <div id="cal-title"></div>
+        <button id="cal-next" type="button">›</button>
+      </div>
+      <div id="cal-grid"></div>
+    </div>
+    <p class="date-label" id="date-label"></p>
+    <div class="time-row">
+      <div id="time-chips"></div>
+      <div class="field time-field">
+        <label for="time" data-i18n="time"></label>
+        <input id="time" type="time" value="18:00">
+      </div>
+    </div>
+  </section>
+
+  <section data-step="location" hidden>
+    <div class="sec-head"><h2 data-i18n="sec3"></h2></div>
+    <p class="hint" data-i18n="locHint"></p>
+    <div class="search-row">
+      <input id="geo-search" type="text">
+      <button id="geo-search-btn" type="button" data-i18n="find"></button>
+    </div>
+    <div id="map"></div>
+    <div class="field">
+      <label for="address" data-i18n="address"></label>
+      <input id="address" type="text" maxlength="120">
+    </div>
+    <p class="hint" id="coords-hint"></p>
+  </section>
+
+  <section data-step="template" hidden>
+    <div class="sec-head"><h2 data-i18n="sec4"></h2></div>
+    <p class="hint" data-i18n="tplHint"></p>
+    <div class="tpl-carousel" id="tpl-carousel">
+      <div id="templates"></div>
+    </div>
+  </section>
+
+  <section data-step="photos" hidden>
+    <div class="sec-head"><h2 data-i18n="sec5"></h2></div>
+    <p class="hint" id="photo-req"></p>
+    <div id="photo-grid"></div>
+    <p class="hint" id="photo-hint"></p>
+    <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+  </section>
+
+  <section data-step="music" hidden>
+    <div class="sec-head"><h2 data-i18n="sec6"></h2></div>
+    <div id="music-tabs">
+      <button type="button" data-mt="none" class="chip active" data-i18n="mtNone"></button>
+      <button type="button" data-mt="catalog" class="chip" data-i18n="mtCatalog"></button>
+      <button type="button" data-mt="own" class="chip" data-i18n="mtOwn"></button>
+    </div>
+
+    <div id="music-catalog" hidden>
+      <div class="search-row">
+        <input id="music-q" type="text">
+        <button id="music-q-btn" type="button">🔍</button>
+      </div>
+      <div id="music-scroll">
+        <div id="top-tracks"></div>
+        <div id="track-list"></div>
+      </div>
+    </div>
+
+    <div id="music-own" hidden>
+      <p class="hint" data-i18n="ownHint"></p>
+      <input id="music-link" type="url" maxlength="300" placeholder="https://...">
+      <div class="own-row">
+        <span class="hint" data-i18n="or"></span>
+        <button id="music-upload-btn" type="button" class="ghost-btn" data-i18n="upload"></button>
+        <input id="music-file" type="file" accept="audio/*,.mp3,.m4a,.ogg,.wav" hidden>
+      </div>
+    </div>
+
+    <div id="music-selected" hidden>
+      <div class="sel-track">
+        <span class="sel-icon">🎵</span>
+        <div class="sel-info"><span data-i18n="selected"></span> <b id="sel-name"></b></div>
+        <button id="sel-change" type="button" class="ghost-btn" data-i18n="change"></button>
+      </div>
+      <div id="trimmer" hidden>
+        <p class="hint" data-i18n="cutTitle"></p>
+        <div class="trim-box" id="trim-box">
+          <canvas id="trim-wave"></canvas>
+          <div id="trim-sel"></div>
+          <div id="trim-l" class="trim-handle"></div>
+          <div id="trim-r" class="trim-handle"></div>
+        </div>
+        <div class="trim-row">
+          <button id="cut-test" type="button" class="ghost-btn" data-i18n="listen"></button>
+          <span id="trim-lbl"></span>
+        </div>
+      </div>
+      <div id="cut-num-row" hidden>
+        <p class="hint" data-i18n="cutTitle"></p>
+        <div class="cut-row">
+          <div class="field"><label data-i18n="cutStart"></label><input id="cut-start" type="number" min="0" step="1" placeholder="0"></div>
+          <div class="field"><label data-i18n="cutEnd"></label><input id="cut-end" type="number" min="1" step="1" placeholder="—"></div>
+        </div>
+      </div>
+      <audio id="cut-audio" preload="metadata" hidden></audio>
+    </div>
+  </section>
+
+  <section data-step="premium" hidden>
+    <div class="sec-head"><h2 data-i18n="sec7"></h2></div>
+    <label class="switch-row">
+      <input id="premium" type="checkbox">
+      <span class="switch"></span>
+      <span><span data-i18n="premium"></span> <b id="premium-price"></b></span>
+    </label>
+    <div id="guests-block" hidden>
+      <p class="hint" id="guests-hint"></p>
+      <textarea id="guests" rows="6" placeholder="Aziz&#10;Shahzoda&#10;Alisher"></textarea>
+      <p class="hint" id="guest-count"></p>
+    </div>
+  </section>
+
+  <p class="error" id="form-error" hidden></p>
+  <div class="spacer"></div>
+</div>
+
+<div class="bottom-bar" id="bottom-bar" hidden>
+  <div class="total"><span data-i18n="total"></span> <b id="total">—</b></div>
+  <button id="submit" type="button" class="primary" data-i18n="submit"></button>
+</div>
+
+<!-- Окно подтверждения: полное демо + контакты -->
+<div id="confirm-modal" hidden>
+  <div class="confirm-head">
+    <h2 data-i18n="confirmTitle"></h2>
+  </div>
+  <iframe id="confirm-frame" title="Preview"></iframe>
+  <div class="confirm-panel">
+    <div class="field">
+      <label for="phone" data-i18n="phoneLabel"></label>
+      <input id="phone" type="tel" maxlength="20" placeholder="+998 90 123 45 67">
+    </div>
+    <p class="hint confirm-note">📩 <span data-i18n="confirmNote"></span></p>
+    <div class="confirm-btns">
+      <button id="confirm-back" type="button" class="ghost-btn" data-i18n="back"></button>
+      <button id="confirm-ok" type="button" class="primary" data-i18n="confirmOk"></button>
+    </div>
+  </div>
+</div>
+
+<div id="success-screen" hidden>
+  <div class="success-card">
+    <div class="success-icon">💌</div>
+    <h1 data-i18n="okTitle"></h1>
+    <p data-i18n="okText"></p>
+  </div>
+</div>
+
+<div id="demo-modal" hidden>
+  <div class="demo-bar">
+    <button id="demo-close" type="button" data-i18n="close"></button>
+    <button id="demo-select" type="button" class="primary" data-i18n="choose"></button>
+  </div>
+  <iframe id="demo-frame" title="Demo"></iframe>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
