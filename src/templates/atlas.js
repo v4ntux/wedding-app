@@ -1,4 +1,4 @@
-import { GRAIN, experienceCSS, envelopeHTML, experienceScript, audioWidget, countdownScript } from './shared.js';
+import { GRAIN, experienceCSS, envelopeHTML, experienceScript, audioWidget, countdownScript, mapEmbed } from './shared.js';
 
 // Atlas — слоновая кость, мягкое золото и приглушённый гранат (анор).
 // Мотивы сюзане: восьмилепестковый медальон, стежковые рамки, арка-михраб для фото.
@@ -75,8 +75,8 @@ h1,h2,.forum{font-family:'Forum',serif;font-weight:400}
 .when-time{margin-top:10px;font-family:'Forum',serif;font-size:1.5rem;color:var(--anor)}
 .s-venue{padding:16px 34px 42px;text-align:center}
 .s-venue .addr{font-size:1.05rem;max-width:340px;margin:0 auto 16px}
-.btn{display:inline-block;margin:4px 5px;padding:11px 22px;border:1px solid var(--gold);color:var(--brown);text-decoration:none;font-size:.68rem;letter-spacing:2.5px;text-transform:uppercase;transition:background .3s ease,color .3s ease}
-.btn:hover{background:var(--gold);color:var(--ivory)}
+.mapbox{border:1px solid var(--gold-l);outline:1px dashed rgba(176,141,79,.55);outline-offset:4px;padding:8px;background:#FBF8F0}
+.mapbox iframe{display:block;width:100%;height:240px;border:0;filter:sepia(.18) saturate(.9)}
 .s-cd{background:var(--sand);background-image:${GRAIN};border-top:1px solid var(--gold-l);border-bottom:1px solid var(--gold-l);padding:42px 18px;text-align:center}
 .cd-label{font-size:.72rem;letter-spacing:4px;text-transform:uppercase;color:var(--anor);margin-bottom:20px}
 .cd{display:flex;justify-content:center;align-items:baseline}
@@ -114,7 +114,7 @@ ${envelopeHTML({ seal, hint: d.L.openHint })}
   </section>
   <section class="s-venue fx">
     ${d.address ? `<p class="addr">${d.address}</p>` : ''}
-    <a class="btn" href="${d.gmaps}" target="_blank" rel="noopener">${d.L.gmaps}</a><a class="btn" href="${d.ymaps}" target="_blank" rel="noopener">${d.L.ymaps}</a>
+    ${mapEmbed(d)}
   </section>
   <section class="s-cd">
     <div class="cd-label fx">${d.L.until}</div>

@@ -1,7 +1,12 @@
 node_modules/
-.env
 data/
 *.log
+
+# Secrets — never commit
+.env
+
+# Visual Studio (locks its own index files on Windows)
+.vs/
 
 
 

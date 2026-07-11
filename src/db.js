@@ -102,6 +102,13 @@ export function getApplication(id) {
   return db.prepare('SELECT * FROM applications WHERE id = ?').get(id) ?? null;
 }
 
+// Заявки пользователя для раздела «Мои приглашения» (новые сверху).
+export function listApplicationsByUser(tgUserId) {
+  return db
+    .prepare('SELECT * FROM applications WHERE tg_user_id = ? ORDER BY id DESC LIMIT 50')
+    .all(tgUserId);
+}
+
 export function getApplicationBySlug(slug) {
   return db.prepare("SELECT * FROM applications WHERE slug = ? AND status = 'paid'").get(slug) ?? null;
 }

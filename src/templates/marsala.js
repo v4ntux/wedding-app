@@ -1,4 +1,4 @@
-import { GRAIN, experienceCSS, envelopeHTML, experienceScript, audioWidget, countdownScript } from './shared.js';
+import { GRAIN, experienceCSS, envelopeHTML, experienceScript, audioWidget, countdownScript, mapEmbed } from './shared.js';
 
 // Marsala — глубокое бордо и сливочная бумага, полевые цветы.
 // По референсу Pinterest: винные панели, классическая дата-«решётка», отсчёт на бордо.
@@ -66,8 +66,8 @@ body{margin:0;background:#E5DBCE;background-image:${GRAIN};font-family:'Cormoran
 .when-time{margin-top:16px;font-size:1.4rem;color:var(--ink)}
 .s-venue{padding:14px 32px 40px;text-align:center}
 .s-venue .addr{font-size:1.16rem;max-width:340px;margin:0 auto 14px}
-.btn{display:inline-block;margin:4px 5px;padding:11px 22px;border:1px solid var(--wine);color:var(--wine);text-decoration:none;font-size:.7rem;letter-spacing:2.5px;text-transform:uppercase;transition:background .3s ease,color .3s ease}
-.btn:hover{background:var(--wine);color:var(--cream)}
+.mapbox{border:1px solid rgba(92,34,51,.28);padding:8px;background:#FBF8F0}
+.mapbox iframe{display:block;width:100%;height:240px;border:0;filter:sepia(.14) saturate(.92)}
 .s-photo2{padding:0 28px 40px}
 .s-photo2 img{width:100%;aspect-ratio:16/11;object-fit:cover;display:block;border:1px solid rgba(92,34,51,.28);padding:9px;background:#FBF8F0}
 .s-cd{background:var(--wine);background-image:${GRAIN};color:var(--cream);padding:46px 18px;text-align:center}
@@ -108,7 +108,7 @@ ${envelopeHTML({ seal, front, hint: d.L.openHint })}
   </section>
   <section class="s-venue fx">
     ${d.address ? `<p class="addr">${d.address}</p>` : ''}
-    <a class="btn" href="${d.gmaps}" target="_blank" rel="noopener">${d.L.gmaps}</a><a class="btn" href="${d.ymaps}" target="_blank" rel="noopener">${d.L.ymaps}</a>
+    ${mapEmbed(d)}
   </section>
   ${d.photos[1] ? `<section class="s-photo2 fx"><img src="${d.photos[1]}" alt=""></section>` : ''}
   <section class="s-cd">

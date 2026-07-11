@@ -16,6 +16,10 @@ export const DEV_NO_AUTH = process.env.DEV_NO_AUTH === '1';
 // на developer.tech.yandex.ru и пропишите в .env
 export const YANDEX_MAPS_API_KEY = (process.env.YANDEX_MAPS_API_KEY ?? '').trim();
 
+// Google Places (console.cloud.google.com, «Places API (New)»): даёт мгновенный и
+// точный поиск заведений, как у chungdoi. Без ключа поиск идёт по бесплатным источникам.
+export const GOOGLE_MAPS_API_KEY = (process.env.GOOGLE_MAPS_API_KEY ?? '').trim();
+
 // Извлечение аудио из видео (Instagram/TikTok/YouTube) — cobalt-совместимый API.
 // Например self-hosted cobalt (github.com/imputnet/cobalt) или платный инстанс.
 export const EXTRACT_API_URL = (process.env.EXTRACT_API_URL ?? '').trim();
@@ -25,8 +29,10 @@ export const EXTRACT_API_KEY = (process.env.EXTRACT_API_KEY ?? '').trim();
 // minPhotos — сколько фото требует дизайн; colors — палитра карточки в форме.
 export const TEMPLATES = [
   { id: 'marsala', name: 'Marsala', price: 129_000, minPhotos: 1, demoUrl: '/demo/marsala', colors: ['#5C2233', '#F4EFE4', '#C08A97'] },
+  { id: 'bahor', name: 'Bahor', price: 139_000, minPhotos: 1, demoUrl: '/demo/bahor', colors: ['#FBF7EF', '#C98A8E', '#8FA68E'] },
   { id: 'atlas', name: 'Atlas', price: 149_000, minPhotos: 1, demoUrl: '/demo/atlas', colors: ['#F7F2E8', '#B08D4F', '#A54B3F'] },
   { id: 'oqshom', name: 'Oqshom', price: 179_000, minPhotos: 1, demoUrl: '/demo/oqshom', colors: ['#212C24', '#C2A660', '#E7D8B7'] },
+  { id: 'royal', name: 'Royal', price: 199_000, minPhotos: 1, demoUrl: '/demo/royal', colors: ['#152742', '#C9A959', '#F4EFE3'] },
 ];
 
 export const PREMIUM_GUESTS_PRICE = 99_000;

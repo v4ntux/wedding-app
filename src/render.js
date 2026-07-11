@@ -3,8 +3,10 @@ import { mapsLinks, youtubeId } from './service.js';
 import marsala from './templates/marsala.js';
 import atlas from './templates/atlas.js';
 import oqshom from './templates/oqshom.js';
+import bahor from './templates/bahor.js';
+import royal from './templates/royal.js';
 
-const RENDERERS = { marsala, atlas, oqshom };
+const RENDERERS = { marsala, atlas, oqshom, bahor, royal };
 
 export function escapeHtml(s) {
   return String(s ?? '')
@@ -109,6 +111,8 @@ export function buildData(app, guestName = null) {
     weekday: loc.weekdays[new Date(y, m - 1, d).getDay()],
     targetIso: `${app.wedding_date}T${app.wedding_time}:00`,
     address: app.address ? escapeHtml(app.address) : '',
+    lat: Number(app.lat),
+    lng: Number(app.lng),
     gmaps: escapeHtml(links.google),
     ymaps: escapeHtml(links.yandex),
     guestName: guestName ? escapeHtml(guestName) : null,

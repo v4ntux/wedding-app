@@ -6,8 +6,8 @@ import { renderInvitation, renderDemo, renderNotFound, withWatermark } from './r
 import { saveUpload, UPLOADS_DIR } from './upload.js';
 import * as db from './db.js';
 import {
-  BOT_TOKEN, DEV_NO_AUTH, TEMPLATES, PREMIUM_GUESTS_PRICE, MAX_GUESTS, MAX_PHOTOS,
-  YANDEX_MAPS_API_KEY, EXTRACT_API_URL, EXTRACT_API_KEY,
+  BOT_TOKEN, BASE_URL, DEV_NO_AUTH, TEMPLATES, PREMIUM_GUESTS_PRICE, MAX_GUESTS, MAX_PHOTOS,
+  YANDEX_MAPS_API_KEY, GOOGLE_MAPS_API_KEY, EXTRACT_API_URL, EXTRACT_API_KEY,
 } from './config.js';
 import { RESERVED_SLUGS } from './slug.js';
 
@@ -52,8 +52,72 @@ export function createServer({ onNewApplication }) {
       populars: db.templatePopularity(),
       topTracks: db.topMusic(3),
       yandexMapsKey: YANDEX_MAPS_API_KEY,
+      googleGeoEnabled: Boolean(GOOGLE_MAPS_API_KEY),
       extractEnabled: Boolean(EXTRACT_API_URL),
     });
+  });
+
+  // Поиск мест через Google Places (New) — ключ остаётся на сервере.
+  // Возвращает до 6 мест по Узбекистану: заведения находит мгновенно и точно.
+  app.get('/api/geo', async (req, res) => {
+    if (!GOOGLE_MAPS_API_KEY) return res.json({ ok: true, results: [] });
+    const q = String(req.query.q ?? '').slice(0, 120).trim();
+    if (q.length < 2) return res.json({ ok: true, results: [] });
+    const lang = req.query.lang === 'ru' ? 'ru' : 'uz';
+    try {
+      const r = await fetch('https://places.googleapis.com/v1/places:searchText', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
+          'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location',
+        },
+        body: JSON.stringify({
+          textQuery: q,
+          regionCode: 'UZ',
+          languageCode: lang,
+          pageSize: 6,
+          // прямоугольник Узбекистана — чтобы не уезжать в соседние страны
+          locationRestriction: {
+            rectangle: {
+              low: { latitude: 37.0, longitude: 55.9 },
+              high: { latitude: 45.7, longitude: 73.2 },
+            },
+          },
+        }),
+        signal: AbortSignal.timeout(8000),
+      });
+      const j = await r.json();
+      const results = (j.places ?? []).map((p) => ({
+        lat: p.location?.latitude,
+        lng: p.location?.longitude,
+        name: p.displayName?.text ?? '',
+        desc: p.formattedAddress ?? '',
+      })).filter((p) => Number.isFinite(p.lat) && p.name);
+      res.json({ ok: true, results });
+    } catch (e) {
+      console.error('[server] google geo failed:', e.message);
+      res.json({ ok: true, results: [] });
+    }
+  });
+
+  // «Мои приглашения»: заявки текущего пользователя Telegram.
+  app.get('/api/my', (req, res) => {
+    const user = authUser(req.get('x-init-data') ?? '');
+    if (!user) return res.status(401).json({ ok: false, error: 'Откройте форму через Telegram-бота' });
+    const apps = db.listApplicationsByUser(user.id).map((a) => ({
+      id: a.id,
+      groom: a.groom_name,
+      bride: a.bride_name,
+      date: a.wedding_date,
+      time: a.wedding_time,
+      templateId: a.template_id,
+      status: a.status,
+      total: a.total_price,
+      url: a.status === 'paid' && a.slug ? `${BASE_URL}/${a.slug}` : null,
+      createdAt: a.created_at,
+    }));
+    res.json({ ok: true, apps });
   });
 
   // Каталог музыки: прокси к iTunes Search (30-сек превью, без ключей).

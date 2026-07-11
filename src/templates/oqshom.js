@@ -1,4 +1,4 @@
-import { GRAIN, experienceCSS, envelopeHTML, experienceScript, audioWidget, countdownScript } from './shared.js';
+import { GRAIN, experienceCSS, envelopeHTML, experienceScript, audioWidget, countdownScript, mapEmbed } from './shared.js';
 
 // Oqshom — вечерний сад: глубокая хвойная зелень и шампань-«фольга».
 // Подпись шаблона: золотые ботанические ветви, дорисовывающие себя при появлении.
@@ -67,8 +67,8 @@ body{margin:0;background:#121911;background-image:${GRAIN};font-family:'Manrope'
 .when-time{margin-top:12px;font-family:'Prata',serif;font-size:1.4rem;color:var(--gold)}
 .s-venue{padding:18px 34px 44px;text-align:center}
 .s-venue .addr{font-size:1rem;max-width:340px;margin:0 auto 18px;color:#D8D2C2}
-.btn{display:inline-block;margin:4px 5px;padding:11px 22px;border:1px solid var(--gold);color:var(--champ);text-decoration:none;font-size:.66rem;letter-spacing:2.5px;text-transform:uppercase;font-weight:500;transition:background .3s ease,color .3s ease}
-.btn:hover{background:var(--gold);color:var(--night-d)}
+.mapbox{border:1px solid rgba(194,166,96,.42);padding:8px;background:var(--night-d)}
+.mapbox iframe{display:block;width:100%;height:240px;border:0;filter:grayscale(.25) brightness(.94)}
 .s-cd{border-top:1px solid rgba(194,166,96,.3);border-bottom:1px solid rgba(194,166,96,.3);background:var(--night-d);padding:44px 18px;text-align:center}
 .cd-label{font-size:.7rem;letter-spacing:4px;text-transform:uppercase;color:var(--gold);margin-bottom:22px;font-weight:500}
 .cd{display:flex;justify-content:center;align-items:baseline;gap:4px}
@@ -107,7 +107,7 @@ ${envelopeHTML({ seal, front, hint: d.L.openHint })}
   </section>
   <section class="s-venue fx">
     ${d.address ? `<p class="addr">${d.address}</p>` : ''}
-    <a class="btn" href="${d.gmaps}" target="_blank" rel="noopener">${d.L.gmaps}</a><a class="btn" href="${d.ymaps}" target="_blank" rel="noopener">${d.L.ymaps}</a>
+    ${mapEmbed(d)}
   </section>
   <section class="s-cd">
     <div class="cd-label fx">${d.L.until}</div>

@@ -117,6 +117,18 @@ if(a.paused){play(600)}else{a.pause();b.classList.remove('on')}});
 })();</script>`;
 }
 
+// Встроенная карта локации: настоящая карта с меткой вместо кнопок-ссылок.
+// Виджет Яндекс.Карт создан для встраивания, работает без API-ключа и лучше
+// всего покрывает Узбекистан. Тап по метке открывает полную карту с маршрутом.
+export function mapEmbed(d) {
+  if (!Number.isFinite(d.lat) || !Number.isFinite(d.lng)) return '';
+  const lang = d.lang === 'ru' ? 'ru_RU' : 'uz_UZ';
+  const pt = `${d.lng},${d.lat}`;
+  const src = `https://yandex.ru/map-widget/v1/?ll=${pt}&z=16&pt=${pt},pm2rdm&lang=${lang}`;
+  return `<div class="mapbox"><iframe src="${src}" loading="lazy" allowfullscreen
+referrerpolicy="no-referrer-when-downgrade" title="Map" aria-label="${d.address || 'Map'}"></iframe></div>`;
+}
+
 // Живой отсчёт до свадьбы: пишет в элементы #cd #ch #cm #cs.
 export function countdownScript(targetIso) {
   return `<script>(function(){var t=new Date('${targetIso}').getTime();

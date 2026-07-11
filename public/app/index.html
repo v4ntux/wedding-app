@@ -5,213 +5,312 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Taklifnoma</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Jost:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;400;500&family=Golos+Text:wght@400;500;600&family=Caveat:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- Экран выбора языка (первый вход) -->
+<!-- Живой фон: медленное северное сияние + звёздная пыль -->
+<div id="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+<div id="stars" aria-hidden="true"></div>
+
+<!-- ═══ Выбор языка (первый вход) ═══ -->
 <div id="lang-screen">
   <div class="lang-card">
-    <div class="lang-orn">✦ · ✦ · ✦</div>
+    <div class="orn">✦ · ✦ · ✦</div>
     <h1>Taklifnoma</h1>
     <p>Tilni tanlang · Выберите язык</p>
-    <button id="lang-uz" type="button" class="lang-btn">🇺🇿 O‘zbekcha</button>
-    <button id="lang-ru" type="button" class="lang-btn ghost">Русский</button>
+    <button id="lang-uz" type="button" class="btn btn--gold btn--block">O‘zbekcha</button>
+    <button id="lang-ru" type="button" class="btn btn--ghost btn--block">Русский</button>
   </div>
 </div>
 
-<div id="form-screen" hidden>
+<div id="app" hidden>
 
-  <header class="hero">
+  <!-- ═══ Навигация ═══ -->
+  <nav class="topnav">
+    <button id="nav-brand" type="button" class="brand">Taklifnoma</button>
+    <div class="nav-tabs">
+      <button id="nav-tpl" type="button" data-i18n="navTpl"></button>
+      <button id="nav-mine" type="button" data-i18n="navMine"></button>
+    </div>
     <div class="lang-switch">
-      <button id="sw-uz" type="button">O‘z</button><button id="sw-ru" type="button">Ру</button>
+      <button id="hsw-uz" type="button">O‘z</button><button id="hsw-ru" type="button">Ру</button>
     </div>
-    <div class="hero-orn">✦ · ✦ · ✦</div>
-    <h1 data-i18n="heroTitle">Taklifnoma</h1>
-    <p data-i18n="heroSub"></p>
-  </header>
+  </nav>
 
-  <section data-step="names">
-    <div class="sec-head"><h2 data-i18n="sec1"></h2></div>
-    <div class="field">
-      <label for="groom" data-i18n="groom"></label>
-      <input id="groom" type="text" maxlength="100">
-    </div>
-    <div class="field">
-      <label for="bride" data-i18n="bride"></label>
-      <input id="bride" type="text" maxlength="100">
-    </div>
-  </section>
-
-  <section data-step="datetime" hidden>
-    <div class="sec-head"><h2 data-i18n="sec2"></h2></div>
-    <div class="calendar">
-      <div class="cal-nav">
-        <button id="cal-prev" type="button">‹</button>
-        <div id="cal-title"></div>
-        <button id="cal-next" type="button">›</button>
-      </div>
-      <div id="cal-grid"></div>
-    </div>
-    <p class="date-label" id="date-label"></p>
-    <div class="time-row">
-      <div id="time-chips"></div>
-      <div class="field time-field">
-        <label for="time" data-i18n="time"></label>
-        <input id="time" type="time" value="18:00">
-      </div>
-    </div>
-  </section>
-
-  <section data-step="location" hidden>
-    <div class="sec-head"><h2 data-i18n="sec3"></h2></div>
-    <p class="hint" data-i18n="locHint"></p>
-    <div class="search-row">
-      <input id="geo-search" type="text">
-      <button id="geo-search-btn" type="button" data-i18n="find"></button>
-    </div>
-    <div id="map"></div>
-    <div class="field">
-      <label for="address" data-i18n="address"></label>
-      <input id="address" type="text" maxlength="120">
-    </div>
-    <p class="hint" id="coords-hint"></p>
-  </section>
-
-  <section data-step="template" hidden>
-    <div class="sec-head"><h2 data-i18n="sec4"></h2></div>
-    <p class="hint" data-i18n="tplHint"></p>
-    <div class="tpl-carousel" id="tpl-carousel">
-      <div id="templates"></div>
-    </div>
-  </section>
-
-  <section data-step="photos" hidden>
-    <div class="sec-head"><h2 data-i18n="sec5"></h2></div>
-    <p class="hint" id="photo-req"></p>
-    <div id="photo-grid"></div>
-    <p class="hint" id="photo-hint"></p>
-    <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
-  </section>
-
-  <section data-step="music" hidden>
-    <div class="sec-head"><h2 data-i18n="sec6"></h2></div>
-    <div id="music-tabs">
-      <button type="button" data-mt="none" class="chip active" data-i18n="mtNone"></button>
-      <button type="button" data-mt="catalog" class="chip" data-i18n="mtCatalog"></button>
-      <button type="button" data-mt="own" class="chip" data-i18n="mtOwn"></button>
-    </div>
-
-    <div id="music-catalog" hidden>
-      <div class="search-row">
-        <input id="music-q" type="text">
-        <button id="music-q-btn" type="button">🔍</button>
-      </div>
-      <div id="music-scroll">
-        <div id="top-tracks"></div>
-        <div id="track-list"></div>
-      </div>
-    </div>
-
-    <div id="music-own" hidden>
-      <p class="hint" data-i18n="ownHint"></p>
-      <input id="music-link" type="url" maxlength="300" placeholder="https://...">
-      <div class="own-row">
-        <span class="hint" data-i18n="or"></span>
-        <button id="music-upload-btn" type="button" class="ghost-btn" data-i18n="upload"></button>
-        <input id="music-file" type="file" accept="audio/*,.mp3,.m4a,.ogg,.wav" hidden>
-      </div>
-    </div>
-
-    <div id="music-selected" hidden>
-      <div class="sel-track">
-        <span class="sel-icon">🎵</span>
-        <div class="sel-info"><span data-i18n="selected"></span> <b id="sel-name"></b></div>
-        <button id="sel-change" type="button" class="ghost-btn" data-i18n="change"></button>
-      </div>
-      <div id="trimmer" hidden>
-        <p class="hint" data-i18n="cutTitle"></p>
-        <div class="trim-box" id="trim-box">
-          <canvas id="trim-wave"></canvas>
-          <div id="trim-sel"></div>
-          <div id="trim-l" class="trim-handle"></div>
-          <div id="trim-r" class="trim-handle"></div>
-        </div>
-        <div class="trim-row">
-          <button id="cut-test" type="button" class="ghost-btn" data-i18n="listen"></button>
-          <span id="trim-lbl"></span>
+  <!-- ═══ Экран: главная (история продукта) ═══ -->
+  <main id="screen-home" class="screen">
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="orn rv">✦ · ✦ · ✦</div>
+        <h1 class="rv">Taklifnoma</h1>
+        <p class="hero-sub rv" data-i18n="landSub"></p>
+        <p class="hero-quote rv" data-i18n="landQuote"></p>
+        <div class="rv">
+          <button id="hero-cta" type="button" class="btn btn--gold btn--lg btn--shine"><span data-i18n="ctaCreate"></span></button>
         </div>
       </div>
-      <div id="cut-num-row" hidden>
-        <p class="hint" data-i18n="cutTitle"></p>
-        <div class="cut-row">
-          <div class="field"><label data-i18n="cutStart"></label><input id="cut-start" type="number" min="0" step="1" placeholder="0"></div>
-          <div class="field"><label data-i18n="cutEnd"></label><input id="cut-end" type="number" min="1" step="1" placeholder="—"></div>
+      <div class="hero-stage rv" id="hero-stage">
+        <div class="phone" id="hero-phone">
+          <div class="phone-notch"></div>
+          <iframe id="hero-demo" title="Demo" loading="lazy"></iframe>
         </div>
+        <div class="hero-halo"></div>
       </div>
-      <audio id="cut-audio" preload="metadata" hidden></audio>
-    </div>
-  </section>
+    </section>
 
-  <section data-step="premium" hidden>
-    <div class="sec-head"><h2 data-i18n="sec7"></h2></div>
-    <label class="switch-row">
-      <input id="premium" type="checkbox">
-      <span class="switch"></span>
-      <span><span data-i18n="premium"></span> <b id="premium-price"></b></span>
-    </label>
-    <div id="guests-block" hidden>
-      <p class="hint" id="guests-hint"></p>
-      <textarea id="guests" rows="6" placeholder="Aziz&#10;Shahzoda&#10;Alisher"></textarea>
-      <p class="hint" id="guest-count"></p>
-    </div>
-  </section>
+    <section class="stats rv" id="stats">
+      <div class="stat"><b id="stat-couples">0</b><span data-i18n="statCouples"></span></div>
+      <div class="stat"><b id="stat-templates">0</b><span data-i18n="statTemplates"></span></div>
+      <div class="stat"><b>2</b><span data-i18n="statLangs"></span></div>
+    </section>
 
-  <p class="error" id="form-error" hidden></p>
-  <div class="spacer"></div>
+    <h2 class="h-orn rv" data-i18n="howTitle"></h2>
+    <ol class="timeline">
+      <li class="rv"><i>1</i><div><h3 data-i18n="step1T"></h3><p data-i18n="step1D"></p></div></li>
+      <li class="rv"><i>2</i><div><h3 data-i18n="step2T"></h3><p data-i18n="step2D"></p></div></li>
+      <li class="rv"><i>3</i><div><h3 data-i18n="step3T"></h3><p data-i18n="step3D"></p></div></li>
+    </ol>
+
+    <h2 class="h-orn rv" data-i18n="bentoTitle"></h2>
+    <div class="bento">
+      <div class="bento-tile bento-wide rv"><span class="b-ic">🗺</span><h3 data-i18n="b1T"></h3><p data-i18n="b1D"></p></div>
+      <div class="bento-tile rv"><span class="b-ic">🎵</span><h3 data-i18n="b2T"></h3><p data-i18n="b2D"></p></div>
+      <div class="bento-tile rv"><span class="b-ic">⏳</span><h3 data-i18n="b3T"></h3><p data-i18n="b3D"></p></div>
+      <div class="bento-tile rv"><span class="b-ic">💌</span><h3 data-i18n="b4T"></h3><p data-i18n="b4D"></p></div>
+      <div class="bento-tile rv"><span class="b-ic">🌐</span><h3 data-i18n="b5T"></h3><p data-i18n="b5D"></p></div>
+      <div class="bento-tile bento-wide rv"><span class="b-ic">✨</span><h3 data-i18n="b6T"></h3><p data-i18n="b6D"></p></div>
+    </div>
+
+    <h2 class="h-orn rv" data-i18n="tplTitle"></h2>
+    <div class="strip rv" id="strip"></div>
+
+    <section class="cta-band rv">
+      <p class="hero-quote" data-i18n="bandText"></p>
+      <button id="home-cta2" type="button" class="btn btn--gold btn--lg btn--shine"><span data-i18n="ctaCreate"></span></button>
+    </section>
+  </main>
+
+  <!-- ═══ Экран: шаблоны ═══ -->
+  <main id="screen-templates" class="screen" hidden>
+    <header class="screen-head">
+      <h2 data-i18n="tplTitle"></h2>
+      <p data-i18n="tplSub"></p>
+    </header>
+    <div id="gallery" class="gallery"></div>
+  </main>
+
+  <!-- ═══ Экран: мои приглашения ═══ -->
+  <main id="screen-mine" class="screen" hidden>
+    <header class="screen-head"><h2 data-i18n="mineTitle"></h2></header>
+    <div id="mine-list"></div>
+    <div class="center-row">
+      <button id="mine-create" type="button" class="btn btn--gold"><span data-i18n="createNew"></span></button>
+    </div>
+  </main>
+
+  <!-- ═══ Экран: студия (мастер из 8 шагов) ═══ -->
+  <main id="screen-studio" class="screen" hidden>
+    <header class="studio-head">
+      <button id="studio-exit" type="button" class="iconbtn" aria-label="Back">‹</button>
+      <div class="studio-progress">
+        <div class="studio-titles">
+          <b id="step-title"></b>
+          <span id="step-count"></span>
+        </div>
+        <div class="progress"><div id="progress-fill"></div></div>
+      </div>
+      <button id="studio-eye" type="button" class="iconbtn" aria-label="Preview" hidden>👁</button>
+    </header>
+
+    <div id="studio-steps">
+
+      <section class="step card" data-step="names">
+        <p class="step-lead" data-i18n="leadNames"></p>
+        <div class="field">
+          <label for="groom" data-i18n="groom"></label>
+          <input id="groom" type="text" maxlength="100">
+        </div>
+        <div class="field">
+          <label for="bride" data-i18n="bride"></label>
+          <input id="bride" type="text" maxlength="100">
+        </div>
+        <p class="hint" data-i18n="hintNames"></p>
+      </section>
+
+      <section class="step card" data-step="datetime" hidden>
+        <p class="step-lead" data-i18n="leadDate"></p>
+        <div class="calendar">
+          <div class="cal-nav">
+            <button id="cal-prev" type="button">‹</button>
+            <div id="cal-title"></div>
+            <button id="cal-next" type="button">›</button>
+          </div>
+          <div id="cal-grid"></div>
+        </div>
+        <p class="date-label" id="date-label"></p>
+        <div class="time-row">
+          <div id="time-chips"></div>
+          <div class="field time-field">
+            <label for="time" data-i18n="time"></label>
+            <input id="time" type="time" value="18:00">
+          </div>
+        </div>
+      </section>
+
+      <section class="step card" data-step="location" hidden>
+        <p class="step-lead" data-i18n="leadVenue"></p>
+        <div class="search-row">
+          <input id="geo-search" type="text" autocomplete="off">
+          <button id="geo-search-btn" type="button" class="btn btn--gold" data-i18n="find"></button>
+        </div>
+        <div id="geo-results" class="geo-results" hidden></div>
+        <div id="map"></div>
+        <div class="field">
+          <label for="address" data-i18n="address"></label>
+          <input id="address" type="text" maxlength="120">
+        </div>
+        <p class="hint" id="coords-hint"></p>
+      </section>
+
+      <section class="step" data-step="template" hidden>
+        <p class="step-lead card-lead" data-i18n="leadTpl"></p>
+        <div id="tpl-grid" class="gallery gallery--pick"></div>
+      </section>
+
+      <section class="step card" data-step="photos" hidden>
+        <p class="step-lead" id="photo-req"></p>
+        <div id="photo-grid"></div>
+        <p class="hint" id="photo-hint"></p>
+        <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+      </section>
+
+      <section class="step card" data-step="music" hidden>
+        <p class="step-lead" data-i18n="leadMusic"></p>
+        <div id="music-tabs">
+          <button type="button" data-mt="none" class="chip active" data-i18n="mtNone"></button>
+          <button type="button" data-mt="catalog" class="chip" data-i18n="mtCatalog"></button>
+          <button type="button" data-mt="own" class="chip" data-i18n="mtOwn"></button>
+        </div>
+
+        <div id="music-catalog" hidden>
+          <div class="search-row">
+            <input id="music-q" type="text">
+            <button id="music-q-btn" type="button" class="btn btn--gold">🔍</button>
+          </div>
+          <div id="music-scroll">
+            <div id="top-tracks"></div>
+            <div id="track-list"></div>
+          </div>
+        </div>
+
+        <div id="music-own" hidden>
+          <p class="hint" data-i18n="ownHint"></p>
+          <input id="music-link" type="url" maxlength="300" placeholder="https://...">
+          <div class="own-row">
+            <span class="hint" data-i18n="or"></span>
+            <button id="music-upload-btn" type="button" class="btn btn--ghost-dark" data-i18n="upload"></button>
+            <input id="music-file" type="file" accept="audio/*,.mp3,.m4a,.ogg,.wav" hidden>
+          </div>
+        </div>
+
+        <div id="music-selected" hidden>
+          <div class="sel-track">
+            <span class="sel-icon">🎵</span>
+            <div class="sel-info"><span data-i18n="selected"></span> <b id="sel-name"></b></div>
+            <button id="sel-change" type="button" class="btn btn--ghost-dark btn--sm" data-i18n="change"></button>
+          </div>
+          <div id="trimmer" hidden>
+            <p class="hint" data-i18n="cutTitle"></p>
+            <div class="trim-box" id="trim-box">
+              <canvas id="trim-wave"></canvas>
+              <div id="trim-sel"></div>
+              <div id="trim-l" class="trim-handle"></div>
+              <div id="trim-r" class="trim-handle"></div>
+            </div>
+            <div class="trim-row">
+              <button id="cut-test" type="button" class="btn btn--ghost-dark btn--sm" data-i18n="listen"></button>
+              <span id="trim-lbl"></span>
+            </div>
+          </div>
+          <div id="cut-num-row" hidden>
+            <p class="hint" data-i18n="cutTitle"></p>
+            <div class="cut-row">
+              <div class="field"><label data-i18n="cutStart"></label><input id="cut-start" type="number" min="0" step="1" placeholder="0"></div>
+              <div class="field"><label data-i18n="cutEnd"></label><input id="cut-end" type="number" min="1" step="1" placeholder="—"></div>
+            </div>
+          </div>
+          <audio id="cut-audio" preload="metadata" hidden></audio>
+        </div>
+      </section>
+
+      <section class="step card" data-step="premium" hidden>
+        <p class="step-lead" data-i18n="leadExtra"></p>
+        <label class="switch-row">
+          <input id="premium" type="checkbox">
+          <span class="switch"></span>
+          <span><span data-i18n="premium"></span> <b id="premium-price"></b></span>
+        </label>
+        <div id="guests-block" hidden>
+          <p class="hint" id="guests-hint"></p>
+          <textarea id="guests" rows="6" placeholder="Aziz&#10;Shahzoda&#10;Alisher"></textarea>
+          <p class="hint" id="guest-count"></p>
+        </div>
+      </section>
+
+      <section class="step" data-step="review" hidden>
+        <p class="step-lead card-lead" data-i18n="leadReview"></p>
+        <div class="rv-stage">
+          <div class="rv-frame-wrap" id="rv-wrap">
+            <iframe id="rv-frame" title="Preview"></iframe>
+            <button id="rv-expand" type="button" class="btn btn--gold btn--sm" data-i18n="fullPreview"></button>
+          </div>
+        </div>
+        <div class="card receipt">
+          <div id="rv-lines"></div>
+          <div class="receipt-total"><span data-i18n="total"></span><b id="rv-total"></b></div>
+          <div class="field">
+            <label for="phone" data-i18n="phoneLabel"></label>
+            <input id="phone" type="tel" maxlength="20" placeholder="+998 90 123 45 67">
+          </div>
+          <p class="hint" data-i18n="confirmNote"></p>
+        </div>
+      </section>
+
+    </div>
+
+    <footer class="studio-bar">
+      <button id="studio-prev" type="button" class="btn btn--ghost" data-i18n="back"></button>
+      <button id="studio-next" type="button" class="btn btn--gold btn--shine"><span id="studio-next-label"></span></button>
+    </footer>
+  </main>
 </div>
 
-<div class="bottom-bar" id="bottom-bar" hidden>
-  <div class="total"><span data-i18n="total"></span> <b id="total">—</b></div>
-  <button id="submit" type="button" class="primary" data-i18n="submit"></button>
-</div>
-
-<!-- Окно подтверждения: полное демо + контакты -->
-<div id="confirm-modal" hidden>
-  <div class="confirm-head">
-    <h2 data-i18n="confirmTitle"></h2>
+<!-- ═══ Шторка предпросмотра ═══ -->
+<div id="sheet" hidden>
+  <div class="sheet-bar">
+    <button id="sheet-close" type="button" class="btn btn--ghost btn--sm" data-i18n="close"></button>
+    <button id="sheet-action" type="button" class="btn btn--gold btn--sm" hidden></button>
   </div>
-  <iframe id="confirm-frame" title="Preview"></iframe>
-  <div class="confirm-panel">
-    <div class="field">
-      <label for="phone" data-i18n="phoneLabel"></label>
-      <input id="phone" type="tel" maxlength="20" placeholder="+998 90 123 45 67">
-    </div>
-    <p class="hint confirm-note">📩 <span data-i18n="confirmNote"></span></p>
-    <div class="confirm-btns">
-      <button id="confirm-back" type="button" class="ghost-btn" data-i18n="back"></button>
-      <button id="confirm-ok" type="button" class="primary" data-i18n="confirmOk"></button>
-    </div>
-  </div>
+  <iframe id="sheet-frame" title="Preview"></iframe>
 </div>
 
+<!-- ═══ Финал: заявка отправлена ═══ -->
 <div id="success-screen" hidden>
+  <div id="petals"></div>
   <div class="success-card">
-    <div class="success-icon">💌</div>
+    <div class="success-seal">✉</div>
     <h1 data-i18n="okTitle"></h1>
     <p data-i18n="okText"></p>
+    <button id="succ-mine" type="button" class="btn btn--gold btn--block"><span data-i18n="navMine"></span></button>
   </div>
 </div>
 
-<div id="demo-modal" hidden>
-  <div class="demo-bar">
-    <button id="demo-close" type="button" data-i18n="close"></button>
-    <button id="demo-select" type="button" class="primary" data-i18n="choose"></button>
-  </div>
-  <iframe id="demo-frame" title="Demo"></iframe>
-</div>
+<div id="toasts"></div>
 
+<script src="ui.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
