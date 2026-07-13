@@ -1,23 +1,16 @@
+// Рендер приглашений: шаблоны живут в templates/ (см. templateStore.js),
+// здесь — подготовка данных (buildData), демо и водяная сетка.
+
 import { findMusicPreset } from './config.js';
 import { mapsLinks, youtubeId } from './service.js';
-import marsala from './templates/marsala.js';
-import atlas from './templates/atlas.js';
-import oqshom from './templates/oqshom.js';
-import bahor from './templates/bahor.js';
-import royal from './templates/royal.js';
+import { getTemplate, allTemplates } from './templateStore.js';
+import { renderTemplate, escapeHtml } from './templateEngine.js';
+import { GRAIN, experienceCSS, experienceScript, audioWidget, mapEmbed, countdownScript } from './blocks.js';
 
-const RENDERERS = { marsala, atlas, oqshom, bahor, royal };
-
-export function escapeHtml(s) {
-  return String(s ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-}
+export { escapeHtml };
 
 // Локализация страниц приглашений. Язык выбирает пара при заказе (uz по умолчанию).
+// Шаблон может переопределить любые строки через "strings" в manifest.json.
 const LOCALES = {
   uz: {
     months: ['yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun', 'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr'],
@@ -57,29 +50,35 @@ const LOCALES = {
   },
 };
 
-// Готовит безопасные (экранированные) данные для шаблонов.
-export function buildData(app, guestName = null) {
+function firstChar(s) {
+  return [...String(s ?? '')][0] ?? '';
+}
+
+// Данные для шаблона. Значения сырые: {{x}} экранирует движок,
+// готовые блоки ({{{audioWidget}}} и т.п.) экранируют внутри себя.
+export function buildData(app, guestName = null, tpl = null) {
   const lang = app.lang === 'ru' ? 'ru' : 'uz';
   const loc = LOCALES[lang];
+  const L = { ...loc.L, ...(tpl?.strings?.[lang] ?? {}) };
   const links = mapsLinks(app.lat, app.lng);
 
   let music = null;
   if (app.music_type === 'preset') {
     const preset = findMusicPreset(app.music_value);
-    if (preset) music = { url: escapeHtml(preset.url), name: escapeHtml(preset.name), playable: true };
+    if (preset) music = { url: preset.url, name: preset.name, playable: true };
   } else if (app.music_type === 'itunes') {
     try {
       const v = JSON.parse(app.music_value);
-      music = { url: escapeHtml(v.url), name: escapeHtml(`${v.name} — ${v.artist}`), playable: true };
+      music = { url: v.url, name: `${v.name} — ${v.artist}`, playable: true };
     } catch { music = null; }
   } else if (app.music_type === 'upload') {
-    music = { url: escapeHtml(`/uploads/${app.music_value}`), name: loc.L.music, playable: true };
+    music = { url: `/uploads/${app.music_value}`, name: L.music, playable: true };
   } else if (app.music_type === 'youtube') {
     const id = youtubeId(app.music_value);
-    if (id) music = { youtubeId: id, name: 'YouTube', url: escapeHtml(app.music_value), playable: false };
+    if (id) music = { youtubeId: id, name: 'YouTube', url: app.music_value, playable: false };
   } else if (app.music_type === 'custom') {
     const url = app.music_value ?? '';
-    music = { url: escapeHtml(url), name: loc.L.music, playable: /\.(mp3|ogg|m4a|wav)(\?|$)/i.test(url) };
+    music = { url, name: L.music, playable: /\.(mp3|ogg|m4a|wav)(\?|$)/i.test(url) };
   }
   if (music) {
     music.start = Number(app.music_start) || 0;
@@ -92,16 +91,20 @@ export function buildData(app, guestName = null) {
   } catch {
     photos = [];
   }
-  photos = photos
-    .map((p) => (String(p).startsWith('/') ? String(p) : `/uploads/${p}`))
-    .map(escapeHtml);
+  photos = photos.map((p) => (String(p).startsWith('/') ? String(p) : `/uploads/${p}`));
 
   const [y, m, d] = app.wedding_date.split('-').map(Number);
+  const lat = Number(app.lat);
+  const lng = Number(app.lng);
+  const targetIso = `${app.wedding_date}T${app.wedding_time}:00`;
+
   return {
     lang,
-    L: loc.L,
-    groom: escapeHtml(app.groom_name),
-    bride: escapeHtml(app.bride_name),
+    L,
+    groom: app.groom_name,
+    bride: app.bride_name,
+    groomInitial: firstChar(app.groom_name),
+    brideInitial: firstChar(app.bride_name),
     dateIso: app.wedding_date,
     time: app.wedding_time,
     dateText: loc.fmt(d, loc.months[m - 1], y),
@@ -109,21 +112,33 @@ export function buildData(app, guestName = null) {
     monthName: loc.months[m - 1],
     year: y,
     weekday: loc.weekdays[new Date(y, m - 1, d).getDay()],
-    targetIso: `${app.wedding_date}T${app.wedding_time}:00`,
-    address: app.address ? escapeHtml(app.address) : '',
-    lat: Number(app.lat),
-    lng: Number(app.lng),
-    gmaps: escapeHtml(links.google),
-    ymaps: escapeHtml(links.yandex),
-    guestName: guestName ? escapeHtml(guestName) : null,
-    music,
+    targetIso,
+    address: app.address ?? '',
+    lat,
+    lng,
+    gmaps: links.google,
+    ymaps: links.yandex,
+    guestName: guestName ?? null,
     photos,
+    // Блоки движка — в шаблоне вставлять как {{{...}}}.
+    grain: GRAIN,
+    experienceCSS: experienceCSS(),
+    experienceScript: experienceScript(),
+    audioWidget: audioWidget(music),
+    map: mapEmbed({ lat, lng, lang, address: app.address }),
+    countdown: countdownScript(targetIso),
   };
 }
 
 export function renderInvitation(app, guestName = null) {
-  const render = RENDERERS[app.template_id] ?? marsala;
-  return render(buildData(app, guestName));
+  let tpl = getTemplate(app.template_id);
+  if (!tpl) {
+    // Шаблон могли удалить из templates/ — оплаченные страницы не должны падать.
+    tpl = allTemplates()[0];
+    if (!tpl) throw new Error('в templates/ нет ни одного шаблона');
+    console.warn(`[render] шаблон "${app.template_id}" не найден — рендерю "${tpl.id}"`);
+  }
+  return renderTemplate(tpl.tree, buildData(app, guestName, tpl));
 }
 
 // Водяная сетка + запрет копирования: чтобы демо не украли скриншотом.
@@ -138,12 +153,13 @@ document.addEventListener('selectstart',function(e){e.preventDefault()});</scrip
 
 // Демо шаблона: те же рендеры, данные подставляются из формы (имена, язык).
 export function renderDemo(templateId, opts = {}) {
-  if (!RENDERERS[templateId]) return null;
+  const tpl = getTemplate(templateId);
+  if (!tpl) return null;
   const lang = opts.lang === 'ru' ? 'ru' : 'uz';
   const sample = {
     lang,
-    groom_name: String(opts.groom ?? '').slice(0, 100).trim() || 'Xurshid',
-    bride_name: String(opts.bride ?? '').slice(0, 100).trim() || 'Laylo',
+    groom_name: String(opts.groom ?? '').slice(0, 100).trim() || 'Ali',
+    bride_name: String(opts.bride ?? '').slice(0, 100).trim() || 'Zebo',
     wedding_date: '2026-09-19',
     wedding_time: '18:00',
     address: 'To‘yxona «Navro‘z», Toshkent',
@@ -166,7 +182,7 @@ export function renderNotFound() {
   return `<!DOCTYPE html>
 <html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>404</title>
-<style>body{font-family:Georgia,serif;background:#f7f0e1;color:#2b2b26;display:flex;justify-content:center;
+<style>body{font-family:Georgia,serif;background:#FDFBF7;color:#352E3C;display:flex;justify-content:center;
 align-items:center;min-height:100vh;margin:0}div{text-align:center}</style></head>
 <body><div><h1>404</h1><p>Topilmadi · Не найдено</p></div></body></html>`;
 }

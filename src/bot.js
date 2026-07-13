@@ -1,6 +1,7 @@
 import { Bot, InlineKeyboard } from 'grammy';
 import { payApplication, cancelApplication, ValidationError, mapsLinks } from './service.js';
-import { findTemplate, findMusicPreset } from './config.js';
+import { findMusicPreset } from './config.js';
+import { findTemplate } from './templateStore.js';
 import { escapeHtml as esc } from './render.js';
 
 function money(n) {
@@ -48,7 +49,9 @@ export function buildAdminText(app, { baseUrl, guests = [] } = {}) {
   }
   lines.push(`💰 Итого: <b>${money(app.total_price)}</b>`);
   lines.push(`👤 От: ${app.tg_username ? '@' + esc(app.tg_username) : ''} (id ${app.tg_user_id})`);
+  if (app.contact_tg) lines.push(`📨 Telegram: @${esc(app.contact_tg)}`);
   if (app.phone) lines.push(`📞 ${esc(app.phone)}`);
+  if (app.phone2) lines.push(`📞 Доп.: ${esc(app.phone2)}`);
 
   if (app.status === 'paid' && app.slug) {
     lines.push('', `🔗 ${baseUrl}/${app.slug}`);

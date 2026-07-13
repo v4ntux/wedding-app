@@ -8,9 +8,10 @@ const TRANSLIT = {
   ў: 'o', қ: 'q', ғ: 'g', ҳ: 'h',
 };
 
-// Slug-и, конфликтующие с маршрутами сервера.
+// Slug-и, конфликтующие с маршрутами сервера и страницами сайта.
 export const RESERVED_SLUGS = new Set([
   'app', 'api', 'demo', 'music', 'admin', 'static', 'assets', 'favicon.ico', 'robots.txt',
+  'uploads', 'site', 'templates', 'shablonlar', 'how', 'pricing', 'narxlar', 'faq', 'contact', 'aloqa',
 ]);
 
 export function slugify(text) {

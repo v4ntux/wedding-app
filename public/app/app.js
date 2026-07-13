@@ -1,10 +1,11 @@
 /* global ymaps, UI */
-/* Taklifnoma — приложение.
-   Разделы: состояние и черновик · i18n · роутер экранов · главная ·
-   галерея · мои приглашения · движок мастера · шаги · отправка · старт. */
+/* nvate WebApp — задачный флоу без повторов:
+   Язык → Шаблон (выбор один раз) → 7 шагов → Отправка.
+   Разделы: состояние и черновик · i18n · роутер · галерея · мои приглашения ·
+   мастер · шаги (календарь, карта, фото, музыка, гости, обзор) · отправка · старт. */
 'use strict';
 
-const { $, h, debounce, toast, sheet, skeletons, countUp, revealOnScroll, petals, haptic, tg } = UI;
+const { $, h, debounce, toast, sheet, skeletons, revealOnScroll, petals, haptic, tg } = UI;
 
 if (tg) { tg.ready(); tg.expand(); }
 
@@ -18,17 +19,19 @@ const state = {
   dateIso: null,
   photos: [],                  // { name, previewUrl, uploading }
   music: { type: 'none', value: null, name: '', previewUrl: null, start: null, end: null },
+  guests: [],                  // имена гостей, по 8 000 за каждого
   step: 0,
   draftRestored: false,
 };
 
-const DRAFT_KEY = 'tk_draft_v1';
+const DRAFT_KEY = 'tk_draft_v2';
+const SENT_KEY = 'tk_sent_v1';
 
 // Автосохранение: Telegram закрывает WebView без предупреждения — черновик обязателен.
 const saveDraft = debounce(() => {
   try {
     localStorage.setItem(DRAFT_KEY, JSON.stringify({
-      v: 1,
+      v: 2,
       groom: $('groom').value,
       bride: $('bride').value,
       dateIso: state.dateIso,
@@ -42,9 +45,10 @@ const saveDraft = debounce(() => {
         type: state.music.type, value: state.music.value, name: state.music.name,
         start: state.music.start, end: state.music.end,
       },
-      premium: $('premium').checked,
-      guests: $('guests').value,
+      guests: state.guests,
+      contactTg: $('contact-tg').value,
       phone: $('phone').value,
+      phone2: $('phone2').value,
       step: state.step,
     }));
   } catch (_) { /* переполненное хранилище не критично */ }
@@ -57,7 +61,7 @@ function clearDraft() {
 function restoreDraft() {
   let d = null;
   try { d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (_) { return false; }
-  if (!d || d.v !== 1) return false;
+  if (!d || d.v !== 2) return false;
   const hasContent = d.groom || d.bride || d.templateId || (d.photos || []).length;
   if (!hasContent) return false;
   $('groom').value = d.groom || '';
@@ -77,13 +81,24 @@ function restoreDraft() {
     else if (m.type === 'custom' && /\.(mp3|ogg|m4a|wav)(\?|$)/i.test(m.value || '')) previewUrl = m.value;
     state.music = { type: m.type, value: m.value, name: m.name || '', previewUrl, start: m.start ?? null, end: m.end ?? null };
   }
-  $('premium').checked = Boolean(d.premium);
-  $('guests-block').hidden = !d.premium;
-  $('guests').value = d.guests || '';
+  state.guests = Array.isArray(d.guests) ? d.guests.map((g) => String(g)).slice(0, 100) : [];
+  $('contact-tg').value = d.contactTg || '';
   $('phone').value = d.phone || '';
+  $('phone2').value = d.phone2 || '';
   state.step = Math.min(Number(d.step) || 0, WIZARD.length - 1);
   state.draftRestored = true;
   return true;
+}
+
+function sentMap() {
+  try { return JSON.parse(localStorage.getItem(SENT_KEY) || '{}'); } catch (_) { return {}; }
+}
+function markSent(url) {
+  try {
+    const m = sentMap();
+    m[url] = 1;
+    localStorage.setItem(SENT_KEY, JSON.stringify(m));
+  } catch (_) { /* — */ }
 }
 
 /* ════ Словари ════ */
@@ -91,76 +106,60 @@ function restoreDraft() {
 const I18N = {
   uz: {
     navTpl: 'Shablonlar', navMine: 'Taklifnomalarim',
-    landSub: 'Onlayn to‘y taklifnomasini yarating — jonli sayt, xarita, musiqa va to‘ygacha sanoq bilan. Bir necha daqiqada.',
-    landQuote: '«Hayot olg‘a shoshadi, ammo muhabbat doim o‘z yo‘lini topadi»',
-    ctaCreate: 'Hozir yaratish',
-    howTitle: 'Qanday ishlaydi?',
-    step1T: 'Shablonni tanlang', step1D: 'Har bir dizayn — ismlaringiz bilan jonli demo',
-    step2T: 'Ma’lumotlarni to‘ldiring', step2D: 'Sana, manzil, suratlar va musiqa — 8 qulay qadam',
-    step3T: 'Taklifnomani ulashing', step3D: 'To‘lovdan so‘ng havolani mehmonlarga yuboring',
-    statCouples: 'baxtli juftlik', statTemplates: 'noyob shablon', statLangs: 'til',
-    bandText: 'Eng baxtli kuningiz shu yerdan boshlanadi',
-    bentoTitle: 'Taklifnomada nimalar bor?',
-    b1T: 'Jonli xarita', b1D: 'To‘yxona taklifnomaning ichida — mehmonlar bir bosishda yo‘l topadi',
-    b2T: 'Musiqa', b2D: 'Katalogdan yoki o‘zingiznikini yuklang',
-    b3T: 'Jonli sanoq', b3D: 'To‘ygacha qolgan kunlar real vaqtda',
-    b4T: 'Ismli havolalar', b4D: 'Har bir mehmonga shaxsiy murojaat',
-    b5T: 'Ikki til', b5D: 'O‘zbek va rus tillarida',
-    b6T: 'Qoralama avtosaqlanadi', b6D: 'Istalgan payt qaytib davom ettiring — hech narsa yo‘qolmaydi',
-    tplTitle: 'Taklifnoma shablonlari',
-    tplSub: 'Kartochkada jonli demo. «Demo» — to‘liq ko‘rish, «Tanlash» — yaratishni boshlash.',
+    tplTitle: 'Shablonni tanlang',
+    tplSub: '«Demo» — jonli namuna, «Tanlash» — shu dizayn bilan boshlash.',
+    demo: 'Demo', pick: 'Tanlash', picked: '✓ Tanlangan', chooseThis: 'Shu shablonni tanlash',
+    photoBadge: (n) => `📷 ${n}+ surat`,
     mineTitle: 'Mening taklifnomalarim',
     mineEmpty: 'Hozircha taklifnomalar yo‘q — birinchisini yarating!',
     mineOpenTg: 'Ro‘yxatni ko‘rish uchun formani Telegram-bot orqali oching.',
     stNew: '⏳ Tasdiqlash kutilmoqda', stPaid: '✅ Tayyor', stCancelled: '✖ Bekor qilingan',
-    open: 'Ochish', copy: 'Nusxa olish', copied: 'Havola nusxalandi',
-    createNew: '+ Yangi taklifnoma yaratish',
-    /* студия */
-    stepTitles: ['Kelin-kuyov', 'Sana va vaqt', 'Manzil', 'Dizayn', 'Suratlar', 'Musiqa', 'Qo‘shimchalar', 'Yakuniy ko‘rik'],
+    open: 'Ochish', copy: 'Nusxa', copied: 'Havola nusxalandi', share: 'Yuborish', sent: '✓ Yuborildi',
+    createNew: '+ Yangi taklifnoma',
+    rcTplLine: 'Shablon', rcGuestsLine: 'Nomli havolalar',
+    stepTitles: ['Kelin-kuyov', 'Sana va vaqt', 'Manzil', 'Suratlar', 'Musiqa', 'Mehmonlar', 'Yakuniy ko‘rik'],
     stepOf: (a, b) => `${a} / ${b}-qadam`,
     next: 'Davom etish', back: 'Ortga', send: 'Ariza yuborish', sending: 'Yuborilmoqda...',
     leadNames: 'Ismlaringiz taklifnomaning yuragida turadi.',
     hintNames: 'Ismlar taklifnomada yozilganidek ko‘rinadi — xohlagancha yozing.',
-    leadDate: 'To‘y qachon? Mehmonlar sanani va to‘ygacha sanoqni ko‘radi.',
-    leadVenue: 'Joyni qidiring — xaritada darhol ko‘rsatamiz. Mehmonlar taklifnomada jonli xaritani oladi.',
-    leadTpl: 'Dizayn tanlang — har bir kartochkada ismlaringiz bilan jonli demo.',
-    leadMusic: 'Taklifnoma ochilganda yangraydigan musiqa (ixtiyoriy).',
-    leadExtra: 'Har bir mehmonga shaxsiy havola: «Hurmatli Aziz!» deb murojaat qiladi.',
-    leadReview: 'Hammasi tayyor — taklifnomangizni ko‘rib chiqing va yuboring.',
     groom: 'Kuyov ismi', bride: 'Kelin ismi', phGroom: 'Ali', phBride: 'Zebo',
+    leadDate: 'To‘y qachon? Mehmonlar sanani va to‘ygacha sanoqni ko‘radi.',
     pickDate: 'Taqvimda sanani tanlang', time: 'Vaqt',
+    leadVenue: 'Joyni qidiring yoki xaritaga bosing — mehmonlar jonli xaritani oladi.',
     searchPh: 'Masalan: Navro‘z to‘yxonasi', find: 'Qidirish',
     address: 'Joy nomi (qisqa)', phAddress: 'Masalan: Navro‘z to‘yxonasi',
     noPin: '📍 Belgi qo‘yilmagan',
-    demo: 'DEMO', pick: 'Tanlash', chooseThis: 'Shu shablonni tanlash',
-    photoBadge: (n) => `📷 ${n}+ surat`,
-    photoReq: (n) => `Tanlangan shablon uchun kamida ${n} ta surat kerak. JPG, PNG yoki WebP.`,
-    photoReqNoTpl: 'Avval dizayn qadamida shablonni tanlang.',
+    photoReq: (n) => `Kamida ${n} ta surat kerak. JPG, PNG yoki WebP.`,
     add: 'Qo‘shish', photoOf: (a, b) => `${a} ta yuklandi (kamida ${b} ta kerak)`,
+    leadMusic: 'Taklifnoma ochilganda yangraydigan musiqa (ixtiyoriy).',
     mtNone: 'Musiqasiz', mtCatalog: '🔥 Top musiqalar', mtOwn: 'O‘z musiqam',
     musicQPh: 'Qo‘shiq yoki ijrochi...', uses: 'marta tanlangan', empty: 'Hech narsa topilmadi',
     ownHint: 'Havola qo‘ying (YouTube / Instagram / TikTok) yoki fayl yuklang (MP3/M4A, 16 MB gacha)',
     upload: 'Fayl yuklash', or: 'yoki', uploading: 'Yuklanmoqda...', extracting: 'Audio ajratilmoqda...',
     extractUnavail: 'Bu havoladan audio olish hozircha ishlamaydi — fayl yuklang yoki YouTube havolasini qo‘ying',
     cutTitle: 'Musiqani kesish — oltin dastaklarni suring (ixtiyoriy)',
-    cutStart: 'Boshlanishi (soniya)', cutEnd: 'Tugashi (soniya)', listen: '▶ Tinglash', selected: 'Tanlandi:', change: 'O‘zgartirish',
-    premium: 'Har bir mehmon uchun shaxsiy havola va murojaat',
-    guestsHint: (m) => `Har qatorda bitta ism, ko‘pi bilan ${m} ta. Misol: project.uz/ali-and-zebo/aziz → «Hurmatli Aziz!»`,
-    guests: (n) => `${n} mehmon`,
+    cutStart: 'Boshlanishi (soniya)', cutEnd: 'Tugashi (soniya)', listen: '▶ Tinglash', change: 'O‘zgartirish',
+    leadGuests: 'Har bir mehmonga nomli havola: sahifada «Hurmatli Aziz aka…» deb yoziladi (ixtiyoriy).',
+    guestAdd: '+ Mehmon qo‘shish', guestPh: 'Masalan: Aziz aka',
+    guestsTotalLbl: 'Nomli havolalar:',
+    guestEach: (p) => `har biri ${p}`,
+    guestsHint: 'Istalgancha mehmon qo‘shing — har bir nomli havola 8 000 so‘m. Bo‘sh qatorlar hisobga olinmaydi.',
+    leadReview: 'Hammasi tayyor — taklifnomani ko‘rib chiqing va yuboring.',
     total: 'Jami:', fullPreview: 'To‘liq ko‘rish',
-    rcCouple: 'Kelin-kuyov', rcDate: 'Sana', rcVenue: 'Manzil', rcTpl: 'Shablon', rcPremium: 'Ismli taklifnomalar', rcMusic: 'Musiqa',
-    phoneLabel: 'Telefon raqamingiz',
-    confirmNote: '📩 Administrator tez orada siz bilan bog‘lanadi (Telegram yoki telefon orqali). To‘lovdan so‘ng havolani olasiz.',
+    rcCouple: 'Kelin-kuyov', rcDate: 'Sana', rcVenue: 'Manzil', rcMusic: 'Musiqa',
+    changeTpl: 'O‘zgartirish',
+    tgLabel: 'Telegram username *', phoneLabel: 'Telefon raqam *', phone2Label: 'Qo‘shimcha raqam (ixtiyoriy)',
+    confirmNote: '📩 Administrator tez orada bog‘lanadi (Telegram yoki telefon). To‘lovdan so‘ng havolani olasiz.',
     okTitle: 'Ariza yuborildi!',
-    okText: 'Administrator to‘lovni tasdiqlash uchun siz bilan bog‘lanadi. To‘lovdan so‘ng taklifnoma havolasini olasiz.',
+    okText: 'Administrator to‘lovni tasdiqlash uchun bog‘lanadi. So‘ng taklifnoma havolasini olasiz.',
     close: '✕ Yopish', sum: 'so‘m',
     draftRestored: 'Qoralamangiz tiklandi — davom eting ✨',
     draftSaved: 'Qoralama saqlandi',
     eGroom: 'Kuyov ismini kiriting', eBride: 'Kelin ismini kiriting',
     eDate: 'Taqvimda sanani tanlang', eTime: 'Vaqtni kiriting',
     eLoc: 'Xaritada joyni belgilang', eWait: 'Suratlar yuklanishini kuting',
-    ePhotos: (n) => `Kamida ${n} ta surat yuklang`, eTpl: 'Shablonni tanlang',
-    eGuests: 'Mehmonlar ismini kiriting yoki xizmatni o‘chiring',
+    ePhotos: (n) => `Kamida ${n} ta surat yuklang`, eTpl: 'Avval shablonni tanlang',
+    eTg: 'Telegram username kiriting (masalan: @aziz_uz)',
     ePhone: 'Telefon raqamingizni kiriting',
     eMusic: 'Musiqa havolasi noto‘g‘ri', eNet: 'Tarmoq xatosi, qayta urinib ko‘ring',
     eFile: 'Bu format qo‘llab-quvvatlanmaydi', eBig: 'Fayl juda katta',
@@ -173,75 +172,60 @@ const I18N = {
   },
   ru: {
     navTpl: 'Шаблоны', navMine: 'Мои приглашения',
-    landSub: 'Создавайте свадебные приглашения онлайн — живой сайт с картой, музыкой и отсчётом до свадьбы. За несколько минут.',
-    landQuote: '«Жизнь мчится вперёд, но любовь всегда находит свой путь»',
-    ctaCreate: 'Создать сейчас',
-    howTitle: 'Как это работает?',
-    step1T: 'Выберите шаблон', step1D: 'Каждый дизайн — живое демо с вашими именами',
-    step2T: 'Заполните данные', step2D: 'Дата, локация, фото и музыка — 8 удобных шагов',
-    step3T: 'Отправьте приглашение', step3D: 'После оплаты поделитесь ссылкой с гостями',
-    statCouples: 'счастливых пар', statTemplates: 'уникальных шаблонов', statLangs: 'языка',
-    bandText: 'Ваш самый счастливый день начинается здесь',
-    bentoTitle: 'Что внутри приглашения?',
-    b1T: 'Живая карта', b1D: 'Тойхона прямо в приглашении — гости найдут дорогу в один тап',
-    b2T: 'Музыка', b2D: 'Из каталога или загрузите свою',
-    b3T: 'Живой отсчёт', b3D: 'Дни до свадьбы в реальном времени',
-    b4T: 'Именные ссылки', b4D: 'Личное обращение к каждому гостю',
-    b5T: 'Два языка', b5D: 'На узбекском и русском',
-    b6T: 'Черновик сохраняется сам', b6D: 'Вернитесь в любой момент — ничего не потеряется',
-    tplTitle: 'Шаблоны приглашений',
-    tplSub: 'В карточке — живое демо. «Демо» — полный просмотр, «Выбрать» — начать создание.',
+    tplTitle: 'Выберите шаблон',
+    tplSub: '«Демо» — живой пример, «Выбрать» — начать с этим дизайном.',
+    demo: 'Демо', pick: 'Выбрать', picked: '✓ Выбран', chooseThis: 'Выбрать этот шаблон',
+    photoBadge: (n) => `📷 ${n}+ фото`,
     mineTitle: 'Мои приглашения',
     mineEmpty: 'Пока нет приглашений — создайте первое!',
     mineOpenTg: 'Чтобы увидеть список, откройте форму через Telegram-бота.',
     stNew: '⏳ Ожидает подтверждения', stPaid: '✅ Готово', stCancelled: '✖ Отклонено',
-    open: 'Открыть', copy: 'Скопировать', copied: 'Ссылка скопирована',
-    createNew: '+ Создать новое приглашение',
-    stepTitles: ['Пара', 'Дата и время', 'Локация', 'Дизайн', 'Фотографии', 'Музыка', 'Дополнения', 'Финальный обзор'],
+    open: 'Открыть', copy: 'Копия', copied: 'Ссылка скопирована', share: 'Отправить', sent: '✓ Отправлено',
+    createNew: '+ Новое приглашение',
+    rcTplLine: 'Шаблон', rcGuestsLine: 'Именные ссылки',
+    stepTitles: ['Пара', 'Дата и время', 'Локация', 'Фотографии', 'Музыка', 'Гости', 'Финальный обзор'],
     stepOf: (a, b) => `Шаг ${a} из ${b}`,
     next: 'Продолжить', back: 'Назад', send: 'Отправить заявку', sending: 'Отправляем...',
     leadNames: 'Ваши имена — сердце приглашения.',
     hintNames: 'Имена появятся в приглашении ровно так, как вы их напишете.',
-    leadDate: 'Когда свадьба? Гости увидят дату и живой отсчёт до торжества.',
-    leadVenue: 'Найдите место — мы сразу покажем его на карте. Гости получат живую карту в приглашении.',
-    leadTpl: 'Выберите дизайн — в каждой карточке живое демо с вашими именами.',
-    leadMusic: 'Музыка, которая заиграет при открытии приглашения (необязательно).',
-    leadExtra: 'Личная ссылка для каждого гостя: приглашение обратится «Hurmatli Aziz!»',
-    leadReview: 'Всё готово — посмотрите приглашение и отправьте заявку.',
     groom: 'Имя жениха', bride: 'Имя невесты', phGroom: 'Али', phBride: 'Зебо',
+    leadDate: 'Когда свадьба? Гости увидят дату и живой отсчёт.',
     pickDate: 'Выберите дату в календаре', time: 'Время',
+    leadVenue: 'Найдите место или коснитесь карты — гости получат живую карту.',
     searchPh: 'Например: тойхона Versal', find: 'Найти',
     address: 'Название места (коротко)', phAddress: 'Например: тойхона Versal',
     noPin: '📍 Метка не поставлена',
-    demo: 'DEMO', pick: 'Выбрать', chooseThis: 'Выбрать этот шаблон',
-    photoBadge: (n) => `📷 ${n}+ фото`,
-    photoReq: (n) => `Для выбранного шаблона нужно минимум ${n} фото. JPG, PNG или WebP.`,
-    photoReqNoTpl: 'Сначала выберите шаблон на шаге «Дизайн».',
+    photoReq: (n) => `Нужно минимум ${n} фото. JPG, PNG или WebP.`,
     add: 'Добавить', photoOf: (a, b) => `Загружено ${a} (нужно минимум ${b})`,
+    leadMusic: 'Музыка, которая заиграет при открытии приглашения (необязательно).',
     mtNone: 'Без музыки', mtCatalog: '🔥 Топ музыка', mtOwn: 'Своя музыка',
     musicQPh: 'Песня или исполнитель...', uses: 'раз выбрали', empty: 'Ничего не найдено',
     ownHint: 'Вставьте ссылку (YouTube / Instagram / TikTok) или загрузите файл (MP3/M4A, до 16 МБ)',
     upload: 'Загрузить файл', or: 'или', uploading: 'Загрузка...', extracting: 'Извлекаем аудио...',
     extractUnavail: 'Извлечь аудио из этой ссылки пока нельзя — загрузите файл или дайте ссылку YouTube',
     cutTitle: 'Обрезка музыки — двигайте золотые ручки (необязательно)',
-    cutStart: 'Начало (сек)', cutEnd: 'Конец (сек)', listen: '▶ Прослушать', selected: 'Выбрано:', change: 'Изменить',
-    premium: 'Личная ссылка и обращение для каждого гостя',
-    guestsHint: (m) => `По одному имени на строку, максимум ${m}. Пример: project.uz/ali-and-zebo/aziz → «Hurmatli Aziz!»`,
-    guests: (n) => `${n} гостей`,
+    cutStart: 'Начало (сек)', cutEnd: 'Конец (сек)', listen: '▶ Прослушать', change: 'Изменить',
+    leadGuests: 'Каждому гостю — именная ссылка: на странице будет «Hurmatli Aziz aka…» (необязательно).',
+    guestAdd: '+ Добавить гостя', guestPh: 'Например: Азиз ака',
+    guestsTotalLbl: 'Именные ссылки:',
+    guestEach: (p) => `по ${p} за каждого`,
+    guestsHint: 'Добавляйте сколько угодно гостей — каждая именная ссылка 8 000 сум. Пустые строки не считаются.',
+    leadReview: 'Всё готово — посмотрите приглашение и отправьте заявку.',
     total: 'Итого:', fullPreview: 'На весь экран',
-    rcCouple: 'Пара', rcDate: 'Дата', rcVenue: 'Локация', rcTpl: 'Шаблон', rcPremium: 'Именные приглашения', rcMusic: 'Музыка',
-    phoneLabel: 'Ваш номер телефона',
-    confirmNote: '📩 Администратор скоро свяжется с вами (в Telegram или по телефону). После оплаты вы получите ссылку.',
+    rcCouple: 'Пара', rcDate: 'Дата', rcVenue: 'Локация', rcMusic: 'Музыка',
+    changeTpl: 'Изменить',
+    tgLabel: 'Telegram username *', phoneLabel: 'Номер телефона *', phone2Label: 'Доп. номер (необязательно)',
+    confirmNote: '📩 Администратор скоро свяжется (Telegram или телефон). После оплаты вы получите ссылку.',
     okTitle: 'Заявка отправлена!',
-    okText: 'Администратор свяжется с вами для подтверждения и оплаты. После оплаты вы получите ссылку на приглашение.',
+    okText: 'Администратор свяжется для подтверждения оплаты. Затем вы получите ссылку.',
     close: '✕ Закрыть', sum: 'сум',
     draftRestored: 'Черновик восстановлен — продолжайте ✨',
     draftSaved: 'Черновик сохранён',
     eGroom: 'Укажите имя жениха', eBride: 'Укажите имя невесты',
     eDate: 'Выберите дату в календаре', eTime: 'Укажите время',
     eLoc: 'Отметьте локацию на карте', eWait: 'Дождитесь загрузки фотографий',
-    ePhotos: (n) => `Загрузите минимум ${n} фото`, eTpl: 'Выберите шаблон',
-    eGuests: 'Добавьте имена гостей или отключите услугу',
+    ePhotos: (n) => `Загрузите минимум ${n} фото`, eTpl: 'Сначала выберите шаблон',
+    eTg: 'Укажите Telegram username (например: @aziz_uz)',
     ePhone: 'Укажите номер телефона',
     eMusic: 'Некорректная ссылка на музыку', eNet: 'Ошибка сети, попробуйте ещё раз',
     eFile: 'Формат не поддерживается', eBig: 'Файл слишком большой',
@@ -281,14 +265,10 @@ function applyI18n() {
   renderTimeChips();
   updateStudioChrome();
   if (state.config) {
-    renderGallery($('gallery'), 'screen');
-    renderGallery($('tpl-grid'), 'step');
-    renderStrip();
+    renderGallery();
     updatePhotoTexts();
     renderPhotos();
-    $('guests-hint').textContent = t('guestsHint', state.config.maxGuests);
-    $('guest-count').textContent = t('guests', guestNames().length);
-    $('premium-price').textContent = '(+' + money(state.config.premiumGuestsPrice) + ')';
+    renderGuests();
     updateSelectedMusic();
     if (currentScreen === 'mine') loadMine();
     if (state.step === WIZARD.length - 1 && currentScreen === 'studio') renderReceipt();
@@ -303,17 +283,16 @@ function setLang(lang) {
 
 /* ════ Роутер экранов ════ */
 
-let currentScreen = 'home';
-const SCREENS = ['home', 'templates', 'mine', 'studio'];
+let currentScreen = 'templates';
+const SCREENS = ['templates', 'mine', 'studio'];
 
 function showScreen(name) {
   currentScreen = name;
   for (const s of SCREENS) $('screen-' + s).hidden = s !== name;
-  // студия — погружение: навигация уступает место прогрессу мастера
   document.querySelector('.topnav').hidden = name === 'studio';
   $('nav-tpl').classList.toggle('active', name === 'templates');
   $('nav-mine').classList.toggle('active', name === 'mine');
-  if (name === 'templates') renderGallery($('gallery'), 'screen');
+  if (name === 'templates') renderGallery();
   if (name === 'mine') loadMine();
   if (name === 'studio') enterStudio();
   else updateTgBack();
@@ -324,110 +303,19 @@ function showScreen(name) {
 function updateTgBack() {
   try {
     if (!tg?.BackButton) return;
-    if (currentScreen === 'studio') {
-      tg.BackButton.show();
-    } else {
-      tg.BackButton.hide();
-    }
+    if (currentScreen === 'studio') tg.BackButton.show();
+    else tg.BackButton.hide();
   } catch (_) { /* вне Telegram */ }
 }
 try {
   tg?.BackButton?.onClick(() => {
     if (currentScreen !== 'studio') return;
     if (state.step > 0) goStep(state.step - 1, -1);
-    else showScreen('home');
+    else showScreen('templates');
   });
 } catch (_) { /* — */ }
 
-/* ════ Главная: живое демо в телефоне, статистика, лента ════ */
-
-let heroIdx = 0;
-let heroTimer = null;
-
-function heroDemoSrc(tpl) {
-  return `${tpl.demoUrl}?lang=${LANG}&groom=${encodeURIComponent(t('phGroom'))}&bride=${encodeURIComponent(t('phBride'))}`;
-}
-
-function startHeroDemo() {
-  if (!state.config || heroTimer) return;
-  const tpls = state.config.templates;
-  $('hero-demo').src = heroDemoSrc(tpls[0]);
-  heroTimer = setInterval(() => {
-    if (currentScreen !== 'home' || document.hidden) return;
-    heroIdx = (heroIdx + 1) % tpls.length;
-    const f = $('hero-demo');
-    f.style.opacity = '0';
-    setTimeout(() => {
-      f.src = heroDemoSrc(tpls[heroIdx]);
-      f.style.opacity = '1';
-    }, 350);
-  }, 8000);
-  $('hero-demo').style.transition = 'opacity .35s ease';
-}
-
-// Аврора медленно тянется за указателем — живой фон
-function initAurora() {
-  const aur = $('aurora');
-  if (!aur) return;
-  document.addEventListener('pointermove', (e) => {
-    const x = (e.clientX / window.innerWidth - .5) * 46;
-    const y = (e.clientY / window.innerHeight - .5) * 34;
-    aur.style.setProperty('--mx', x.toFixed(1) + 'px');
-    aur.style.setProperty('--my', y.toFixed(1) + 'px');
-  }, { passive: true });
-}
-
-// 3D-наклон телефона за указателем
-function initTilt() {
-  const stage = $('hero-stage');
-  const phone = $('hero-phone');
-  stage.addEventListener('pointermove', (e) => {
-    const r = stage.getBoundingClientRect();
-    const x = (e.clientX - r.left) / r.width - .5;
-    const y = (e.clientY - r.top) / r.height - .5;
-    phone.style.setProperty('--ry', (x * 10).toFixed(2) + 'deg');
-    phone.style.setProperty('--rx', (-y * 8).toFixed(2) + 'deg');
-  });
-  stage.addEventListener('pointerleave', () => {
-    phone.style.setProperty('--rx', '0deg');
-    phone.style.setProperty('--ry', '0deg');
-  });
-}
-
-let statsShown = false;
-function initStats() {
-  if (!state.config) return;
-  const pops = state.config.populars || {};
-  const couples = Object.values(pops).reduce((a, b) => a + Number(b), 0);
-  const io = new IntersectionObserver((en) => {
-    if (!en[0].isIntersecting || statsShown) return;
-    statsShown = true;
-    countUp($('stat-couples'), Math.max(couples, 1));
-    countUp($('stat-templates'), state.config.templates.length, 900);
-    io.disconnect();
-  }, { threshold: .4 });
-  io.observe($('stats'));
-}
-
-function renderStrip() {
-  const box = $('strip');
-  box.innerHTML = '';
-  for (const tpl of state.config.templates) {
-    const [c0, c1, c2] = tpl.colors;
-    const card = h('div', { class: 'strip-card', onclick: () => { haptic.tap(); showScreen('templates'); } },
-      h('div', { class: 'strip-swatch', style: `background:linear-gradient(160deg,${c0},${c0} 60%,${c2})` },
-        h('span', { style: `color:${c1}` }, `${t('phGroom')} & ${t('phBride')}`)),
-      h('div', { class: 'strip-meta' }, h('b', {}, tpl.name), h('span', {}, money(tpl.price))));
-    box.appendChild(card);
-  }
-}
-
-/* ════ Галерея шаблонов (экран и шаг мастера — один рендер) ════ */
-
-function sortedTemplates() {
-  const pop = state.config.populars || {};
-  return [...state.config.templates].sort((a, b) => (pop[b.id] || 0) - (pop[a.id] || 0));
-}
+/* ════ Галерея шаблонов: материальные карточки, выбор один раз ════ */
 
 function liveQuery() {
   const g = encodeURIComponent($('groom').value.trim() || t('phGroom'));
@@ -435,32 +323,39 @@ function liveQuery() {
   return `?groom=${g}&bride=${b}&lang=${LANG}`;
 }
 
-// mode 'screen': выбор ведёт в студию; mode 'step': выбор отмечает шаблон в мастере.
-function renderGallery(box, mode) {
+function sortedTemplates() {
+  const pop = state.config.populars || {};
+  return [...state.config.templates].sort((a, b) => (pop[b.id] || 0) - (pop[a.id] || 0));
+}
+
+function renderGallery() {
+  const box = $('gallery');
   if (!state.config || !box) return;
   box.innerHTML = '';
   const pop = state.config.populars || {};
 
   sortedTemplates().forEach((tpl, i) => {
-    const selected = mode === 'step' && state.templateId === tpl.id;
-    const card = h('div', { class: 'g-card' + (selected ? ' selected' : ''), dataset: { id: tpl.id } });
+    const selected = state.templateId === tpl.id;
+    const [c0, c1, c2] = tpl.colors.length ? tpl.colors : ['#F4EFF7', '#755C97', '#C6AD7C'];
+    const card = h('div', { class: 'g-card' + (selected ? ' selected' : '') });
     if (i === 0 && (pop[tpl.id] || 0) > 0) card.appendChild(h('div', { class: 'tpl-ribbon' }, 'TOP'));
     if (selected) card.appendChild(h('div', { class: 'tpl-check' }, '✓'));
 
-    const frame = h('iframe', { loading: 'lazy', src: tpl.demoUrl + liveQuery() });
-    card.appendChild(h('div', { class: 'g-frame-wrap' }, frame));
+    // Материальная превью-карточка: цвет шаблона × фактура бумаги
+    card.appendChild(h('div', { class: 'tpl-prev', style: `background-color:${c0}` },
+      h('span', { class: 'tp-eyebrow', style: `color:${c2}` }, 'Taklifnoma'),
+      h('span', { class: 'tp-names', style: `color:${c1}` },
+        t('phGroom'), h('i', { style: `color:${c2}` }, ' & '), t('phBride')),
+      h('span', { class: 'tp-rule', style: `background:${c2}` }),
+      h('span', { class: 'tp-date', style: `color:${c2}` }, '19 · 09 · 2026')));
 
-    const pickLabel = mode === 'step' ? t('pick') : t('pick');
     const onPick = () => {
       haptic.tap();
       state.templateId = tpl.id;
       saveDraft();
-      if (mode === 'screen') {
-        showScreen('studio');
-      } else {
-        renderGallery(box, 'step');
-        updatePhotoTexts();
-      }
+      renderGallery();
+      updatePhotoTexts();
+      showScreen('studio');
     };
     card.appendChild(h('div', { class: 'tpl-body' },
       h('div', { class: 'tpl-name-row' },
@@ -468,9 +363,14 @@ function renderGallery(box, mode) {
         h('div', { class: 'tpl-price' }, money(tpl.price))),
       h('div', { class: 'tpl-meta' }, t('photoBadge', tpl.minPhotos)),
       h('div', { class: 'tpl-btns' },
-        h('button', { type: 'button', class: 'btn btn--ghost', onclick: (e) => { e.stopPropagation(); openDemo(tpl, onPick); } }, t('demo')),
-        h('button', { type: 'button', class: 'btn btn--gold', onclick: (e) => { e.stopPropagation(); onPick(); } }, pickLabel))));
-    if (mode === 'step') card.addEventListener('click', onPick);
+        h('button', {
+          type: 'button', class: 'btn btn--ghost',
+          onclick: (e) => { e.stopPropagation(); openDemo(tpl, onPick); },
+        }, t('demo')),
+        h('button', {
+          type: 'button', class: 'btn btn--gold',
+          onclick: (e) => { e.stopPropagation(); onPick(); },
+        }, selected ? t('picked') : t('pick')))));
     box.appendChild(card);
   });
 }
@@ -483,12 +383,52 @@ function openDemo(tpl, onPick) {
   });
 }
 
-/* ════ Мои приглашения ════ */
+function selectedTemplate() {
+  return state.config?.templates.find((x) => x.id === state.templateId) ?? null;
+}
+
+/* ════ Мои приглашения: дата, ссылка, цена, именные ссылки с отправкой ════ */
+
+function shareUrl(url, text) {
+  const link = 'https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(text || '');
+  try {
+    if (tg?.openTelegramLink) { tg.openTelegramLink(link); return; }
+  } catch (_) { /* вне Telegram */ }
+  window.open(link, '_blank', 'noopener');
+}
+
+function linkRow(url, label, appTitle) {
+  const sent = Boolean(sentMap()[url]);
+  const row = h('div', { class: 'link-row' + (sent ? ' sent' : '') });
+  row.appendChild(h('div', { class: 'link-info' },
+    h('b', {}, label),
+    h('a', { href: url, target: '_blank', rel: 'noopener', class: 'link-url' }, url.replace(/^https?:\/\//, ''))));
+  const copyBtn = h('button', { type: 'button', class: 'btn btn--ghost-dark btn--sm' }, t('copy'));
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast(t('copied'), 'ok', 1800);
+      markSent(url);
+      row.classList.add('sent');
+      shareBtn.textContent = t('sent');
+    } catch (_) { /* буфер недоступен */ }
+  });
+  const shareBtn = h('button', { type: 'button', class: 'btn btn--gold btn--sm' }, sent ? t('sent') : t('share'));
+  shareBtn.addEventListener('click', () => {
+    haptic.tap();
+    shareUrl(url, appTitle);
+    markSent(url);
+    row.classList.add('sent');
+    shareBtn.textContent = t('sent');
+  });
+  row.appendChild(h('div', { class: 'link-btns' }, copyBtn, shareBtn));
+  return row;
+}
 
 async function loadMine() {
   const box = $('mine-list');
   box.innerHTML = '';
-  box.appendChild(skeletons(3, 'skel--mine'));
+  box.appendChild(skeletons(2, 'skel--mine'));
   try {
     const res = await fetch('/api/my', { headers: { 'X-Init-Data': tg ? tg.initData : '' } });
     if (res.status === 401) {
@@ -514,36 +454,45 @@ function mineCard(a) {
   const tpl = state.config?.templates.find((x) => x.id === a.templateId);
   const badgeCls = a.status === 'paid' ? 'badge--paid' : a.status === 'cancelled' ? 'badge--cancelled' : 'badge--new';
   const badgeTxt = a.status === 'paid' ? t('stPaid') : a.status === 'cancelled' ? t('stCancelled') : t('stNew');
+  const title = `${a.groom} & ${a.bride}`;
+
   const card = h('div', { class: 'mine-card' },
     h('div', { class: 'mine-head' },
-      h('div', { class: 'mine-names' }, `${a.groom} & ${a.bride}`),
+      h('div', { class: 'mine-names' }, title),
       h('span', { class: `badge ${badgeCls}` }, badgeTxt)),
-    h('div', { class: 'mine-meta' }, `${a.date} · ${a.time}` + (tpl ? ` · ${tpl.name}` : '') + ` · ${money(a.total)}`));
+    h('div', { class: 'mine-meta' }, `${a.date} · ${a.time}` + (tpl ? ` · ${tpl.name}` : '')));
+
+  // Цена с разбивкой: шаблон + именные ссылки
+  const priceBox = h('div', { class: 'mine-price' });
+  priceBox.appendChild(h('div', { class: 'rc-line' }, h('span', {}, t('rcTplLine')), h('span', {}, money(a.templatePrice ?? a.total))));
+  if (a.guestsPrice > 0) {
+    priceBox.appendChild(h('div', { class: 'rc-line' },
+      h('span', {}, `${t('rcGuestsLine')} (${(a.guests || []).length || '—'})`),
+      h('span', {}, '+' + money(a.guestsPrice))));
+  }
+  priceBox.appendChild(h('div', { class: 'rc-line rc-line--total' }, h('span', {}, t('total')), h('b', {}, money(a.total))));
+  card.appendChild(priceBox);
+
   if (a.url) {
-    const copyBtn = h('button', { type: 'button', class: 'btn btn--ghost btn--sm' }, t('copy'));
-    copyBtn.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(a.url);
-        toast(t('copied'), 'ok', 2000);
-      } catch (_) { /* буфер недоступен */ }
-    });
-    card.appendChild(h('div', { class: 'mine-link-row' },
-      h('a', { class: 'mine-link', href: a.url, target: '_blank', rel: 'noopener' }, a.url.replace(/^https?:\/\//, '')),
-      copyBtn));
+    card.appendChild(linkRow(a.url, title, title));
+    if ((a.guests || []).length) {
+      const gbox = h('div', { class: 'mine-guests' });
+      for (const g of a.guests) gbox.appendChild(linkRow(g.url, g.name, title));
+      card.appendChild(gbox);
+    }
   }
   return card;
 }
 
-/* ════ Движок мастера ════ */
+/* ════ Мастер: 7 шагов, шаблон выбран заранее ════ */
 
 const WIZARD = [
   { id: 'names', validate: vNames },
   { id: 'datetime', validate: vDate },
   { id: 'location', validate: vVenue, onEnter: ensureMap },
-  { id: 'template', validate: vTemplate, onEnter: () => renderGallery($('tpl-grid'), 'step') },
   { id: 'photos', validate: vPhotos, onEnter: () => { updatePhotoTexts(); renderPhotos(); } },
   { id: 'music', validate: () => null },
-  { id: 'premium', validate: vPremium },
+  { id: 'guests', validate: () => null, onEnter: renderGuests },
   { id: 'review', validate: () => null, onEnter: enterReview },
 ];
 
@@ -552,6 +501,12 @@ function stepSection(i) {
 }
 
 function enterStudio() {
+  if (!state.templateId) {
+    // без шаблона в студии делать нечего
+    toast(t('eTpl'), 'err');
+    showScreen('templates');
+    return;
+  }
   goStep(state.step, 0, true);
   updateTgBack();
   if (state.draftRestored) {
@@ -614,18 +569,10 @@ function vVenue() {
   if (state.lat === null || state.lng === null) return t('eLoc');
   return null;
 }
-function vTemplate() {
-  if (!state.templateId) return t('eTpl');
-  return null;
-}
 function vPhotos() {
   if (state.photos.some((p) => p.uploading)) return t('eWait');
   const req = requiredPhotos() ?? 1;
   if (state.photos.filter((p) => p.name).length < req) return t('ePhotos', req);
-  return null;
-}
-function vPremium() {
-  if ($('premium').checked && (guestNames().length === 0 || guestNames().length > (state.config?.maxGuests ?? 20))) return t('eGuests');
   return null;
 }
 
@@ -635,17 +582,11 @@ async function loadConfig() {
   const res = await fetch('/api/config');
   if (!res.ok) throw new Error('config');
   state.config = await res.json();
-  renderGallery($('gallery'), 'screen');
-  renderGallery($('tpl-grid'), 'step');
-  renderStrip();
+  renderGallery();
   renderTopTracks();
   updatePhotoTexts();
   renderPhotos();
-  $('premium-price').textContent = '(+' + money(state.config.premiumGuestsPrice) + ')';
-  $('guests-hint').textContent = t('guestsHint', state.config.maxGuests);
-  $('guest-count').textContent = t('guests', guestNames().length);
-  startHeroDemo();
-  initStats();
+  renderGuests();
 }
 
 /* ════ Шаг: календарь и время ════ */
@@ -718,7 +659,7 @@ function renderTimeChips() {
   }
 }
 
-/* ════ Шаг: локация ════ */
+/* ════ Шаг: локация (карта без инструментов, края растворяются) ════ */
 
 const UZ_BOUNDS = [[37.0, 55.9], [45.7, 73.2]];
 let ymap = null;
@@ -741,11 +682,12 @@ function ensureMap() {
 }
 
 function initMap() {
+  // Без единого контрола: просто карта — ищи или коснись.
   ymap = new ymaps.Map('map', {
     center: state.lat !== null ? [state.lat, state.lng] : [41.311, 69.279],
     zoom: state.lat !== null ? 15 : 11,
-    controls: ['zoomControl', 'geolocationControl'],
-  });
+    controls: [],
+  }, { suppressMapOpenBlock: true });
   if (state.lat !== null) setPoint(state.lat, state.lng);
   ymap.events.add('click', (e) => {
     const c = e.get('coords');
@@ -923,17 +865,13 @@ async function searchPlace() {
 
 /* ════ Шаг: фотографии ════ */
 
-function selectedTemplate() {
-  return state.config?.templates.find((x) => x.id === state.templateId) ?? null;
-}
-
 function requiredPhotos() {
   return selectedTemplate()?.minPhotos ?? null;
 }
 
 function updatePhotoTexts() {
   const req = requiredPhotos();
-  $('photo-req').textContent = req === null ? t('photoReqNoTpl') : t('photoReq', req);
+  $('photo-req').textContent = req === null ? t('eTpl') : t('photoReq', req);
 }
 
 function renderPhotos() {
@@ -976,13 +914,54 @@ async function uploadFile(file) {
   return data;
 }
 
-/* ════ Шаг: музыка ════ */
+/* ════ Шаг: музыка — два чётких состояния: выбор ↔ выбрано ════ */
 
 const YT_RE = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/;
 const SOCIAL_RE = /(instagram\.com|tiktok\.com)/i;
 
 let previewAudio = new Audio();
 let musicLoaded = false;
+let lastMusicTab = 'catalog'; // куда вернуть кнопкой «Изменить»
+
+function setMusicTab(mt) {
+  document.querySelectorAll('#music-tabs .chip').forEach((b) => b.classList.toggle('active', b.dataset.mt === mt));
+  $('music-catalog').hidden = mt !== 'catalog';
+  $('music-own').hidden = mt !== 'own';
+  if (mt !== 'none') lastMusicTab = mt;
+  if (mt === 'catalog' && !musicLoaded) {
+    musicLoaded = true;
+    loadTracks('');
+  }
+}
+
+function setMusic(music) {
+  previewAudio.pause();
+  state.music = music;
+  updateSelectedMusic();
+  saveDraft();
+}
+
+// Единственная точка истины для UI шага: выбрано → карточка, нет → выбор.
+function updateSelectedMusic() {
+  const has = state.music.type !== 'none';
+  $('music-choice').hidden = has;
+  $('music-selected').hidden = !has;
+  if (!has) {
+    setMusicTab('none');
+    return;
+  }
+  $('sel-name').textContent = state.music.name;
+  if (state.music.previewUrl) {
+    $('trimmer').hidden = false;
+    $('cut-num-row').hidden = true;
+    setupTrimmer(state.music.previewUrl);
+  } else {
+    $('trimmer').hidden = true;
+    $('cut-num-row').hidden = state.music.type !== 'youtube';
+    $('cut-start').value = state.music.start ?? '';
+    $('cut-end').value = state.music.end ?? '';
+  }
+}
 
 function trackRow(track, extra) {
   const row = h('div', { class: 'track-row' });
@@ -1004,19 +983,15 @@ function trackRow(track, extra) {
   });
   const pick = h('button', { type: 'button', class: 'pick' }, '✓');
   pick.addEventListener('click', () => {
-    previewAudio.pause();
     haptic.tap();
-    state.music = {
+    setMusic({
       type: 'itunes',
       value: { name: track.name, artist: track.artist, url: track.url },
       name: track.name + (track.artist ? ' — ' + track.artist : ''),
       previewUrl: track.url,
       start: null,
       end: null,
-    };
-    $('music-catalog').hidden = true;
-    updateSelectedMusic();
-    saveDraft();
+    });
   });
   row.appendChild(info);
   row.appendChild(play);
@@ -1048,26 +1023,6 @@ async function loadTracks(q) {
   } catch (_) {
     box.innerHTML = '';
     box.appendChild(h('div', { class: 'empty' }, h('span', { class: 'empty-ic' }, '📡'), t('eNet')));
-  }
-}
-
-function updateSelectedMusic() {
-  const sel = $('music-selected');
-  if (state.music.type === 'none') {
-    sel.hidden = true;
-    return;
-  }
-  sel.hidden = false;
-  $('sel-name').textContent = state.music.name;
-  if (state.music.previewUrl) {
-    $('trimmer').hidden = false;
-    $('cut-num-row').hidden = true;
-    setupTrimmer(state.music.previewUrl);
-  } else {
-    $('trimmer').hidden = true;
-    $('cut-num-row').hidden = state.music.type !== 'youtube';
-    $('cut-start').value = state.music.start ?? '';
-    $('cut-end').value = state.music.end ?? '';
   }
 }
 
@@ -1144,7 +1099,7 @@ function drawTrim() {
     const frac = i / n;
     const inside = frac >= trim.startFrac && frac <= trim.endFrac;
     const hh = Math.max(3, peaks[i] * (H - 18));
-    ctx.fillStyle = inside ? '#8ea6ff' : 'rgba(142,166,255,.26)';
+    ctx.fillStyle = inside ? '#A88FC9' : 'rgba(168,143,201,.28)';
     ctx.beginPath();
     ctx.roundRect(i * bw + 1, (H - hh) / 2, Math.max(2, bw - 2), hh, 2);
     ctx.fill();
@@ -1182,10 +1137,40 @@ function onTrimUp() {
   saveDraft();
 }
 
-/* ════ Шаг: премиум ════ */
+/* ════ Шаг: гости — кнопка «добавить», 8 000 за каждого ════ */
 
 function guestNames() {
-  return $('guests').value.split('\n').map((s) => s.trim()).filter(Boolean);
+  return state.guests.map((s) => s.trim()).filter(Boolean);
+}
+
+function renderGuests() {
+  const box = $('guest-list');
+  if (!box) return;
+  box.innerHTML = '';
+  state.guests.forEach((name, i) => {
+    const input = h('input', { type: 'text', maxlength: 50, value: name, placeholder: t('guestPh'), autocomplete: 'off' });
+    input.addEventListener('input', () => {
+      state.guests[i] = input.value;
+      updateGuestsTotal();
+      saveDraft();
+    });
+    const rm = h('button', { type: 'button', class: 'iconbtn iconbtn--sm', 'aria-label': 'Remove' }, '✕');
+    rm.addEventListener('click', () => {
+      state.guests.splice(i, 1);
+      haptic.tap();
+      renderGuests();
+      saveDraft();
+    });
+    box.appendChild(h('div', { class: 'guest-row' }, h('span', { class: 'guest-n' }, String(i + 1)), input, rm));
+  });
+  updateGuestsTotal();
+}
+
+function updateGuestsTotal() {
+  const price = state.config?.guestPrice ?? 8000;
+  const n = guestNames().length;
+  $('guests-total-row').hidden = n === 0;
+  $('guests-total').textContent = `${n} × ${money(price)} = ${money(n * price)}`;
 }
 
 /* ════ Шаг: обзор и отправка ════ */
@@ -1208,9 +1193,10 @@ function collectForm() {
     musicStart: state.music.start,
     musicEnd: state.music.end,
     templateId: state.templateId,
-    premium: $('premium').checked,
-    guestNames: $('premium').checked ? guestNames() : [],
+    guestNames: guestNames(),
+    contactTg: $('contact-tg').value.trim(),
     phone: $('phone').value.trim(),
+    phone2: $('phone2').value.trim(),
   };
 }
 
@@ -1225,11 +1211,21 @@ function renderReceipt() {
   line(t('rcDate'), state.dateIso ? `${d} ${t('monthsGen')[m - 1]} ${y} · ${$('time').value}` : '—');
   if ($('address').value.trim()) line(t('rcVenue'), $('address').value.trim());
   if (state.music.type !== 'none') line(t('rcMusic'), state.music.name.slice(0, 34));
-  line(t('rcTpl'), `${tpl.name} · ${money(tpl.price)}`);
+
+  // Шаблон — с кнопкой «Изменить»: второй (и последний) шанс передумать.
+  const tplLine = h('div', { class: 'rc-line' },
+    h('span', {}, t('rcTplLine')),
+    h('span', {}, `${tpl.name} · ${money(tpl.price)} `,
+      h('button', { type: 'button', class: 'rc-change' }, t('changeTpl'))));
+  tplLine.querySelector('.rc-change').addEventListener('click', () => showScreen('templates'));
+  box.appendChild(tplLine);
+
   let total = tpl.price;
-  if ($('premium').checked) {
-    total += state.config.premiumGuestsPrice;
-    line(t('rcPremium'), `${t('guests', guestNames().length)} · +${money(state.config.premiumGuestsPrice)}`);
+  const n = guestNames().length;
+  if (n > 0) {
+    const price = state.config?.guestPrice ?? 8000;
+    total += n * price;
+    line(t('rcGuestsLine'), `${n} × ${money(price)} = +${money(n * price)}`);
   }
   $('rv-total').textContent = money(total);
 }
@@ -1258,18 +1254,34 @@ async function enterReview() {
 }
 
 function jumpToStepId(id, msg) {
+  if (id === 'template') {
+    showScreen('templates');
+    if (msg) toast(msg, 'err');
+    return;
+  }
   const idx = WIZARD.findIndex((s) => s.id === id);
   if (idx >= 0) goStep(idx, -1, true);
   if (msg) toast(msg, 'err');
 }
 
+function markField(id) {
+  const el = $(id);
+  el.classList.add('err');
+  setTimeout(() => el.classList.remove('err'), 1500);
+  el.focus();
+}
+
 async function submitApplication() {
-  const phone = $('phone').value.trim();
-  if (!/^\+?[\d\s()-]{7,20}$/.test(phone)) {
-    $('phone').classList.add('err');
-    setTimeout(() => $('phone').classList.remove('err'), 1500);
+  // Контакты: 2 обязательных (tg + телефон), второй номер — по желанию.
+  const tgU = $('contact-tg').value.trim().replace(/^@/, '');
+  if (!/^[A-Za-z0-9_]{4,32}$/.test(tgU)) {
+    markField('contact-tg');
+    toast(t('eTg'), 'err');
+    return;
+  }
+  if (!/^\+?[\d\s()-]{7,20}$/.test($('phone').value.trim())) {
+    markField('phone');
     toast(t('ePhone'), 'err');
-    $('phone').focus();
     return;
   }
   const btn = $('studio-next');
@@ -1283,7 +1295,7 @@ async function submitApplication() {
     });
     const data = await res.json();
     if (!res.ok || !data.ok) {
-      if (data.step && data.step !== 'confirm') jumpToStepId(data.step, data.error);
+      if (data.step && data.step !== 'review') jumpToStepId(data.step, data.error);
       else toast(data.error || t('eNet'), 'err');
       return;
     }
@@ -1304,17 +1316,15 @@ async function submitApplication() {
 
 function wireEvents() {
   /* навигация */
-  $('nav-brand').addEventListener('click', () => showScreen('home'));
+  $('nav-brand').addEventListener('click', () => showScreen('templates'));
   $('nav-tpl').addEventListener('click', () => showScreen('templates'));
   $('nav-mine').addEventListener('click', () => showScreen('mine'));
-  $('hero-cta').addEventListener('click', () => { haptic.impact('medium'); showScreen('templates'); });
-  $('home-cta2').addEventListener('click', () => { haptic.impact('medium'); showScreen('templates'); });
   $('mine-create').addEventListener('click', () => showScreen('templates'));
   $('hsw-uz').addEventListener('click', () => setLang('uz'));
   $('hsw-ru').addEventListener('click', () => setLang('ru'));
 
   /* студия */
-  $('studio-exit').addEventListener('click', () => { toast(t('draftSaved'), 'info', 1600); showScreen('home'); });
+  $('studio-exit').addEventListener('click', () => { toast(t('draftSaved'), 'info', 1600); showScreen('templates'); });
   $('studio-prev').addEventListener('click', () => goStep(state.step - 1, -1));
   $('studio-next').addEventListener('click', () => {
     if (state.step === WIZARD.length - 1) submitApplication();
@@ -1334,18 +1344,9 @@ function wireEvents() {
     showScreen('mine');
   });
 
-  /* имена: живое демо в карточках */
-  const refreshFrames = debounce(() => {
-    document.querySelectorAll('.g-frame-wrap iframe').forEach((f) => {
-      const base = f.src.split('?')[0];
-      f.src = base + liveQuery();
-    });
-  }, 900);
-  ['groom', 'bride'].forEach((id) => {
-    $(id).addEventListener('input', () => { saveDraft(); refreshFrames(); });
-  });
-  $('address').addEventListener('input', saveDraft);
-  $('phone').addEventListener('input', saveDraft);
+  /* поля с автосохранением */
+  ['groom', 'bride'].forEach((id) => $(id).addEventListener('input', saveDraft));
+  ['address', 'contact-tg', 'phone', 'phone2'].forEach((id) => $(id).addEventListener('input', saveDraft));
 
   /* календарь и время */
   $('cal-prev').addEventListener('click', () => {
@@ -1412,28 +1413,14 @@ function wireEvents() {
     }
   });
 
-  /* музыка: табы */
+  /* музыка: выбор режима */
   document.querySelectorAll('#music-tabs .chip').forEach((btn) => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('#music-tabs .chip').forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
       haptic.tap();
-      const mt = btn.dataset.mt;
-      $('music-catalog').hidden = mt !== 'catalog';
-      $('music-own').hidden = mt !== 'own';
       previewAudio.pause();
-      if (mt === 'none') {
-        state.music = { type: 'none', value: null, name: '', previewUrl: null, start: null, end: null };
-        updateSelectedMusic();
-        saveDraft();
-      }
-      if (mt === 'catalog' && !musicLoaded) {
-        musicLoaded = true;
-        loadTracks('');
-      }
+      setMusicTab(btn.dataset.mt);
     });
   });
-
   $('music-q-btn').addEventListener('click', () => loadTracks($('music-q').value.trim()));
   $('music-q').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
@@ -1442,16 +1429,17 @@ function wireEvents() {
     }
   });
 
+  /* музыка: выбранное состояние */
   $('sel-change').addEventListener('click', () => {
-    const wasItunes = state.music.type === 'itunes';
-    state.music = { type: 'none', value: null, name: '', previewUrl: null, start: null, end: null };
-    updateSelectedMusic();
-    saveDraft();
-    if (wasItunes) $('music-catalog').hidden = false;
-    else $('music-own').hidden = false;
+    setMusic({ type: 'none', value: null, name: '', previewUrl: null, start: null, end: null });
+    setMusicTab(lastMusicTab);
+  });
+  $('sel-remove').addEventListener('click', () => {
+    haptic.tap();
+    setMusic({ type: 'none', value: null, name: '', previewUrl: null, start: null, end: null });
   });
 
-  /* своя музыка */
+  /* своя музыка: ссылка */
   $('music-link').addEventListener('change', async () => {
     const url = $('music-link').value.trim();
     if (!url) return;
@@ -1475,10 +1463,7 @@ function wireEvents() {
         });
         const data = await res.json();
         if (!res.ok || !data.ok) throw new Error('extract');
-        state.music = { type: 'upload', value: data.file, name: '🎬 ' + url.slice(0, 50), previewUrl: '/uploads/' + data.file, start: null, end: null };
-        $('music-own').hidden = true;
-        updateSelectedMusic();
-        saveDraft();
+        setMusic({ type: 'upload', value: data.file, name: '🎬 ' + url.slice(0, 50), previewUrl: '/uploads/' + data.file, start: null, end: null });
         return;
       } catch (_) {
         if (!yt) {
@@ -1492,10 +1477,7 @@ function wireEvents() {
     }
 
     if (yt) {
-      state.music = { type: 'youtube', value: url, name: 'YouTube · ' + yt[1], previewUrl: null, start: null, end: null };
-      $('music-own').hidden = true;
-      updateSelectedMusic();
-      saveDraft();
+      setMusic({ type: 'youtube', value: url, name: 'YouTube · ' + yt[1], previewUrl: null, start: null, end: null });
       return;
     }
     if (social) {
@@ -1503,12 +1485,10 @@ function wireEvents() {
       return;
     }
     const playable = /\.(mp3|ogg|m4a|wav)(\?|$)/i.test(url);
-    state.music = { type: 'custom', value: url, name: url.slice(0, 60), previewUrl: playable ? url : null, start: null, end: null };
-    $('music-own').hidden = true;
-    updateSelectedMusic();
-    saveDraft();
+    setMusic({ type: 'custom', value: url, name: url.slice(0, 60), previewUrl: playable ? url : null, start: null, end: null });
   });
 
+  /* своя музыка: файл */
   $('music-upload-btn').addEventListener('click', () => $('music-file').click());
   $('music-file').addEventListener('change', async (e) => {
     const file = e.target.files && e.target.files[0];
@@ -1521,10 +1501,7 @@ function wireEvents() {
     try {
       const data = await uploadFile(file);
       if (data.kind !== 'audio') throw new Error(t('eFile'));
-      state.music = { type: 'upload', value: data.file, name: file.name, previewUrl: '/uploads/' + data.file, start: null, end: null };
-      $('music-own').hidden = true;
-      updateSelectedMusic();
-      saveDraft();
+      setMusic({ type: 'upload', value: data.file, name: file.name, previewUrl: '/uploads/' + data.file, start: null, end: null });
     } catch (err) {
       toast(err.message, 'err');
     } finally {
@@ -1567,14 +1544,13 @@ function wireEvents() {
     saveDraft();
   });
 
-  /* премиум */
-  $('premium').addEventListener('change', () => {
-    $('guests-block').hidden = !$('premium').checked;
+  /* гости */
+  $('guest-add').addEventListener('click', () => {
     haptic.tap();
-    saveDraft();
-  });
-  $('guests').addEventListener('input', () => {
-    $('guest-count').textContent = t('guests', guestNames().length);
+    state.guests.push('');
+    renderGuests();
+    const inputs = $('guest-list').querySelectorAll('input');
+    if (inputs.length) inputs[inputs.length - 1].focus();
     saveDraft();
   });
 }
@@ -1588,13 +1564,13 @@ function resetWizard() {
   state.templateId = null;
   state.photos = [];
   state.music = { type: 'none', value: null, name: '', previewUrl: null, start: null, end: null };
-  for (const id of ['groom', 'bride', 'address', 'geo-search', 'guests', 'phone', 'music-link']) $(id).value = '';
+  state.guests = [];
+  for (const id of ['groom', 'bride', 'address', 'geo-search', 'contact-tg', 'phone', 'phone2', 'music-link']) $(id).value = '';
   $('time').value = '18:00';
-  $('premium').checked = false;
-  $('guests-block').hidden = true;
   if (placemark && ymap) { ymap.geoObjects.remove(placemark); placemark = null; }
   updateSelectedMusic();
   renderPhotos();
+  renderGuests();
   renderCalendar();
   updateDateLabel();
   updateStudioChrome();
@@ -1607,7 +1583,8 @@ function initLangScreen() {
     $('app').hidden = false;
     applyI18n();
     revealOnScroll('.rv');
-    showScreen('home');
+    // Черновик с выбранным шаблоном — сразу в студию, к работе.
+    showScreen(state.draftRestored && state.templateId ? 'studio' : 'templates');
   };
   if (LANG) {
     $('lang-screen').remove();
@@ -1628,8 +1605,8 @@ function initLangScreen() {
 
 wireEvents();
 restoreDraft();
-initAurora();
-initTilt();
-initLangScreen();
-$('gallery').appendChild(skeletons(3, 'skel--card'));
-loadConfig().catch(() => toast(t('eNet'), 'err'));
+$('gallery').appendChild(skeletons(4, 'skel--card'));
+loadConfig().then(initLangScreen).catch(() => {
+  initLangScreen();
+  toast(t('eNet'), 'err');
+});

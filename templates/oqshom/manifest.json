@@ -1,0 +1,8 @@
+{
+  "name": "Oqshom",
+  "event": "wedding",
+  "price": 179000,
+  "minPhotos": 1,
+  "colors": ["#212C24", "#C2A660", "#E7D8B7"],
+  "order": 4
+}

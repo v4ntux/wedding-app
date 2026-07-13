@@ -1,11 +1,14 @@
-// Общий движок «переживания» приглашения: конверт → открытие → бумага выезжает →
-// музыка с плавным нарастанием → кинематографичные появления блоков при скролле.
-// Скин конверта (цвета, печать) задаёт каждый шаблон через CSS-переменные --env-*.
+// Блоки движка приглашений: конверт-переживание, музыка, карта, отсчёт.
+// Шаблоны из templates/ вставляют их как {{{experienceCSS}}}, {{{audioWidget}}} и т.д.
+// Все пользовательские значения экранируются здесь (в buildData данные сырые).
 
-// Бумажное зерно: едва заметная текстура, накладывается поверх фона секций.
+import { escapeHtml } from './templateEngine.js';
+
+// Бумажное зерно: едва заметная текстура, накладывается поверх фона секций ({{{grain}}}).
 export const GRAIN = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E")`;
 
 // Геометрия конверта + reveal-переходы. Подключается до CSS шаблона.
+// Скин конверта задаёт каждый шаблон через CSS-переменные --env-*.
 export function experienceCSS() {
   return `<style>
 body.locked{overflow:hidden;height:100dvh}
@@ -39,22 +42,8 @@ body.locked{overflow:hidden;height:100dvh}
 </style>`;
 }
 
-// Разметка конверта. seal — содержимое сургучной печати, front — надпись на кармане.
-export function envelopeHTML({ seal = '', front = '', hint }) {
-  return `<div class="envx" id="envx">
-  <div class="env" id="env" role="button" tabindex="0" aria-label="${hint}">
-    <div class="env-back"></div>
-    <div class="env-paper"></div>
-    <div class="env-front">${front}</div>
-    <div class="env-flap"></div>
-    <div class="env-seal">${seal}</div>
-  </div>
-  <div class="env-hint">${hint}</div>
-</div>`;
-}
-
-// Оркестровка: клик → створка (1.25s) → бумага (1.5s) → шелест (WebAudio, без файлов) →
-// музыка с фейдом → оверлей исчезает → включаются reveal-наблюдатели.
+// Оркестровка: клик → створка → бумага → шелест (WebAudio) → музыка с фейдом →
+// оверлей исчезает → включаются reveal-наблюдатели. Требует разметку .envx/#env из шаблона.
 export function experienceScript() {
   return `<script>(function(){
 var x=document.getElementById('envx'),env=document.getElementById('env');
@@ -88,11 +77,11 @@ env.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.pr
 }
 
 // Музыка: скрытый <audio> + плавающая кнопка ♪. Старт — из experienceScript
-// через window.__music.start() с нарастанием громкости ~2.5s (по мастер-инструкции).
+// через window.__music.start() с нарастанием громкости ~2.5s.
 export function audioWidget(music) {
   if (!music) return '';
-  const start = music.start ?? 0;
-  const end = music.end ?? 0;
+  const start = Number(music.start) || 0;
+  const end = Number(music.end) || 0;
   if (music.youtubeId) {
     const src = `https://www.youtube.com/embed/${music.youtubeId}?autoplay=1&start=${start}${end > start ? '&end=' + end : ''}&loop=1&playlist=${music.youtubeId}`;
     return `<button id="mbtn" aria-label="Music">♪</button><div id="ytbox" style="position:fixed;width:1px;height:1px;overflow:hidden;opacity:0;bottom:0;right:0"></div>
@@ -104,7 +93,7 @@ window.__music={start:function(){if(!on)play()}};
 })();</script>`;
   }
   if (!music.playable) return '';
-  return `<audio id="bgm" preload="auto" src="${music.url}"></audio><button id="mbtn" aria-label="Music">♪</button>
+  return `<audio id="bgm" preload="auto" src="${escapeHtml(music.url)}"></audio><button id="mbtn" aria-label="Music">♪</button>
 <script>(function(){var a=document.getElementById('bgm'),b=document.getElementById('mbtn'),s=${start},e=${end},tm=null;
 if(e>s){a.addEventListener('timeupdate',function(){if(a.currentTime>=e){a.currentTime=s;a.play()}})}else{a.loop=true}
 function fade(to,ms){if(tm)clearInterval(tm);var f0=a.volume,t0=Date.now();
@@ -117,19 +106,18 @@ if(a.paused){play(600)}else{a.pause();b.classList.remove('on')}});
 })();</script>`;
 }
 
-// Встроенная карта локации: настоящая карта с меткой вместо кнопок-ссылок.
-// Виджет Яндекс.Карт создан для встраивания, работает без API-ключа и лучше
-// всего покрывает Узбекистан. Тап по метке открывает полную карту с маршрутом.
-export function mapEmbed(d) {
-  if (!Number.isFinite(d.lat) || !Number.isFinite(d.lng)) return '';
-  const lang = d.lang === 'ru' ? 'ru_RU' : 'uz_UZ';
-  const pt = `${d.lng},${d.lat}`;
-  const src = `https://yandex.ru/map-widget/v1/?ll=${pt}&z=16&pt=${pt},pm2rdm&lang=${lang}`;
+// Встроенная карта локации: виджет Яндекс.Карт (работает без API-ключа,
+// лучше всего покрывает Узбекистан). Тап по метке открывает полную карту.
+export function mapEmbed({ lat, lng, lang, address }) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return '';
+  const mapLang = lang === 'ru' ? 'ru_RU' : 'uz_UZ';
+  const pt = `${lng},${lat}`;
+  const src = `https://yandex.ru/map-widget/v1/?ll=${pt}&z=16&pt=${pt},pm2rdm&lang=${mapLang}`;
   return `<div class="mapbox"><iframe src="${src}" loading="lazy" allowfullscreen
-referrerpolicy="no-referrer-when-downgrade" title="Map" aria-label="${d.address || 'Map'}"></iframe></div>`;
+referrerpolicy="no-referrer-when-downgrade" title="Map" aria-label="${escapeHtml(address || 'Map')}"></iframe></div>`;
 }
 
-// Живой отсчёт до свадьбы: пишет в элементы #cd #ch #cm #cs.
+// Живой отсчёт до события: пишет в элементы #cd #ch #cm #cs.
 export function countdownScript(targetIso) {
   return `<script>(function(){var t=new Date('${targetIso}').getTime();
 function p(n){return n<10?'0'+n:''+n}function g(i){return document.getElementById(i)}

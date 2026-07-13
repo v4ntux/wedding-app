@@ -6,9 +6,10 @@ import { renderInvitation, renderDemo, renderNotFound, withWatermark } from './r
 import { saveUpload, UPLOADS_DIR } from './upload.js';
 import * as db from './db.js';
 import {
-  BOT_TOKEN, BASE_URL, DEV_NO_AUTH, TEMPLATES, PREMIUM_GUESTS_PRICE, MAX_GUESTS, MAX_PHOTOS,
+  BOT_TOKEN, BOT_USERNAME, BASE_URL, DEV_NO_AUTH, GUEST_LINK_PRICE, MAX_GUESTS, MAX_PHOTOS,
   YANDEX_MAPS_API_KEY, GOOGLE_MAPS_API_KEY, EXTRACT_API_URL, EXTRACT_API_KEY,
 } from './config.js';
+import { publicTemplates, publicEvents } from './templateStore.js';
 import { RESERVED_SLUGS } from './slug.js';
 
 const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
@@ -25,7 +26,12 @@ export function createServer({ onNewApplication }) {
   const app = express();
   app.disable('x-powered-by');
 
-  app.get('/', (_req, res) => res.redirect('/app/'));
+  // Маркетинговый сайт nvate: / (главная), /templates (каталог), /faq.
+  app.use('/site', express.static(path.join(PUBLIC_DIR, 'site')));
+  app.get('/', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'site', 'index.html')));
+  app.get('/templates', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'site', 'templates.html')));
+  app.get('/faq', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'site', 'faq.html')));
+
   app.use('/app', express.static(path.join(PUBLIC_DIR, 'app')));
   app.use('/demo', express.static(path.join(PUBLIC_DIR, 'demo')));
   app.use('/music', express.static(path.join(PUBLIC_DIR, 'music')));
@@ -45,8 +51,10 @@ export function createServer({ onNewApplication }) {
   // Единый источник правды для формы.
   app.get('/api/config', (_req, res) => {
     res.json({
-      templates: TEMPLATES,
-      premiumGuestsPrice: PREMIUM_GUESTS_PRICE,
+      templates: publicTemplates(),
+      events: publicEvents(),
+      botUrl: BOT_USERNAME ? `https://t.me/${BOT_USERNAME}` : null,
+      guestPrice: GUEST_LINK_PRICE,
       maxGuests: MAX_GUESTS,
       maxPhotos: MAX_PHOTOS,
       populars: db.templatePopularity(),
@@ -105,18 +113,28 @@ export function createServer({ onNewApplication }) {
   app.get('/api/my', (req, res) => {
     const user = authUser(req.get('x-init-data') ?? '');
     if (!user) return res.status(401).json({ ok: false, error: 'Откройте форму через Telegram-бота' });
-    const apps = db.listApplicationsByUser(user.id).map((a) => ({
-      id: a.id,
-      groom: a.groom_name,
-      bride: a.bride_name,
-      date: a.wedding_date,
-      time: a.wedding_time,
-      templateId: a.template_id,
-      status: a.status,
-      total: a.total_price,
-      url: a.status === 'paid' && a.slug ? `${BASE_URL}/${a.slug}` : null,
-      createdAt: a.created_at,
-    }));
+    const apps = db.listApplicationsByUser(user.id).map((a) => {
+      const paid = a.status === 'paid' && a.slug;
+      // Именные ссылки гостей — только у оплаченных (создаются при оплате).
+      const guests = paid && a.premium
+        ? db.listGuests(a.id).map((g) => ({ name: g.name, url: `${BASE_URL}/${a.slug}/${g.slug}` }))
+        : [];
+      return {
+        id: a.id,
+        groom: a.groom_name,
+        bride: a.bride_name,
+        date: a.wedding_date,
+        time: a.wedding_time,
+        templateId: a.template_id,
+        status: a.status,
+        total: a.total_price,
+        templatePrice: a.template_price,
+        guestsPrice: a.premium_price,
+        url: paid ? `${BASE_URL}/${a.slug}` : null,
+        guests,
+        createdAt: a.created_at,
+      };
+    });
     res.json({ ok: true, apps });
   });
 

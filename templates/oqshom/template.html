@@ -1,38 +1,17 @@
-import { GRAIN, experienceCSS, envelopeHTML, experienceScript, audioWidget, countdownScript, mapEmbed } from './shared.js';
-
-// Oqshom — вечерний сад: глубокая хвойная зелень и шампань-«фольга».
-// Подпись шаблона: золотые ботанические ветви, дорисовывающие себя при появлении.
-
-// Ветвь с листьями: штрих дорисовывается через stroke-dashoffset (класс .draw).
-function branch(flip = false) {
-  return `<svg class="branch${flip ? ' flip' : ''}" viewBox="0 0 220 44" fill="none" aria-hidden="true">
-<path class="draw" pathLength="100" d="M6 32 C48 12 96 34 130 24 C160 15 190 22 214 12" stroke="#C2A660" stroke-width="1.1"/>
-<path class="draw" pathLength="100" d="M52 24 C56 16 62 13 70 13 C68 21 62 26 52 24Z" stroke="#C2A660" stroke-width=".9"/>
-<path class="draw" pathLength="100" d="M96 30 C100 22 106 19 114 19 C112 27 106 32 96 30Z" stroke="#C2A660" stroke-width=".9"/>
-<path class="draw" pathLength="100" d="M150 20 C154 12 160 9 168 9 C166 17 160 22 150 20Z" stroke="#C2A660" stroke-width=".9"/>
-<circle cx="36" cy="26" r="1.6" fill="#C2A660" opacity=".8"/>
-<circle cx="132" cy="24" r="1.5" fill="#C2A660" opacity=".7"/>
-<circle cx="196" cy="17" r="1.4" fill="#C2A660" opacity=".6"/>
-</svg>`;
-}
-
-export default function oqshom(d) {
-  const seal = `<span class="sealtxt">${d.groom.charAt(0)}<i>·</i>${d.bride.charAt(0)}</span>`;
-  const front = `<div class="env-sprig">${branch()}</div>`;
-  return `<!DOCTYPE html>
-<html lang="${d.lang}">
+<!DOCTYPE html>
+<html lang="{{lang}}">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${d.groom} &amp; ${d.bride} — ${d.L.sub}</title>
+<title>{{groom}} &amp; {{bride}} — {{L.sub}}</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prata&family=Manrope:wght@300;500&display=swap" rel="stylesheet">
-${experienceCSS()}
+{{{experienceCSS}}}
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--night:#212C24;--night-d:#18211A;--champ:#E7D8B7;--gold:#C2A660;--ivory:#F1ECE0;--sage:#8FA084;
 --envx-bg:linear-gradient(170deg,#10160F,#1C261E 60%,#141C15);--env-face:#1D2820;--env-flap:#161F18;--env-paper:#F1ECE0;--env-hint:#C2A660}
 html{scroll-behavior:smooth}
-body{margin:0;background:#121911;background-image:${GRAIN};font-family:'Manrope',sans-serif;font-weight:300;color:var(--ivory);line-height:1.7}
+body{margin:0;background:#121911;background-image:{{{grain}}};font-family:'Manrope',sans-serif;font-weight:300;color:var(--ivory);line-height:1.7}
 .paper{max-width:520px;margin:0 auto;background:linear-gradient(180deg,#222E25,#1B241D 30%,#1B241D 70%,#19221B);box-shadow:0 24px 90px rgba(0,0,0,.6);position:relative}
 @media(min-width:560px){.paper{margin:30px auto 56px}}
 .frame{margin:12px;border:1px solid rgba(194,166,96,.38);padding:2px;overflow:hidden}
@@ -86,48 +65,80 @@ body{margin:0;background:#121911;background-image:${GRAIN};font-family:'Manrope'
 </style>
 </head>
 <body>
-${envelopeHTML({ seal, front, hint: d.L.openHint })}
+<div class="envx" id="envx">
+  <div class="env" id="env" role="button" tabindex="0" aria-label="{{L.openHint}}">
+    <div class="env-back"></div>
+    <div class="env-paper"></div>
+    <div class="env-front"><div class="env-sprig"><svg class="branch" viewBox="0 0 220 44" fill="none" aria-hidden="true">
+      <path class="draw" pathLength="100" d="M6 32 C48 12 96 34 130 24 C160 15 190 22 214 12" stroke="#C2A660" stroke-width="1.1"/>
+      <path class="draw" pathLength="100" d="M52 24 C56 16 62 13 70 13 C68 21 62 26 52 24Z" stroke="#C2A660" stroke-width=".9"/>
+      <path class="draw" pathLength="100" d="M96 30 C100 22 106 19 114 19 C112 27 106 32 96 30Z" stroke="#C2A660" stroke-width=".9"/>
+      <path class="draw" pathLength="100" d="M150 20 C154 12 160 9 168 9 C166 17 160 22 150 20Z" stroke="#C2A660" stroke-width=".9"/>
+      <circle cx="36" cy="26" r="1.6" fill="#C2A660" opacity=".8"/>
+      <circle cx="132" cy="24" r="1.5" fill="#C2A660" opacity=".7"/>
+      <circle cx="196" cy="17" r="1.4" fill="#C2A660" opacity=".6"/>
+    </svg></div></div>
+    <div class="env-flap"></div>
+    <div class="env-seal"><span class="sealtxt">{{groomInitial}}<i>·</i>{{brideInitial}}</span></div>
+  </div>
+  <div class="env-hint">{{L.openHint}}</div>
+</div>
 <main class="paper"><div class="frame"><div class="frame-in">
   <section class="s-hero">
     <div class="ring fx" style="--d:.3s"></div>
-    <div class="eyebrow fx">${d.L.sub}</div>
-    <h1 class="names fx" style="--d:.15s">${d.groom}<span class="amp">&amp;</span>${d.bride}</h1>
-    <div class="hero-date fx" style="--d:.3s">${d.dateText}</div>
+    <div class="eyebrow fx">{{L.sub}}</div>
+    <h1 class="names fx" style="--d:.15s">{{groom}}<span class="amp">&amp;</span>{{bride}}</h1>
+    <div class="hero-date fx" style="--d:.3s">{{dateText}}</div>
   </section>
-  <section class="s-title fx">${branch()}</section>
+  <section class="s-title fx"><svg class="branch" viewBox="0 0 220 44" fill="none" aria-hidden="true">
+    <path class="draw" pathLength="100" d="M6 32 C48 12 96 34 130 24 C160 15 190 22 214 12" stroke="#C2A660" stroke-width="1.1"/>
+    <path class="draw" pathLength="100" d="M52 24 C56 16 62 13 70 13 C68 21 62 26 52 24Z" stroke="#C2A660" stroke-width=".9"/>
+    <path class="draw" pathLength="100" d="M96 30 C100 22 106 19 114 19 C112 27 106 32 96 30Z" stroke="#C2A660" stroke-width=".9"/>
+    <path class="draw" pathLength="100" d="M150 20 C154 12 160 9 168 9 C166 17 160 22 150 20Z" stroke="#C2A660" stroke-width=".9"/>
+    <circle cx="36" cy="26" r="1.6" fill="#C2A660" opacity=".8"/>
+    <circle cx="132" cy="24" r="1.5" fill="#C2A660" opacity=".7"/>
+    <circle cx="196" cy="17" r="1.4" fill="#C2A660" opacity=".6"/>
+  </svg></section>
   <section class="s-msg fx" style="--d:.1s">
-    ${d.guestName ? `<div class="greet">${d.L.greet} ${d.guestName}!</div><p>${d.L.greetTail}</p>` : `<p>${d.L.invite}</p>`}
+    {{#if guestName}}<div class="greet">{{L.greet}} {{guestName}}!</div><p>{{L.greetTail}}</p>{{else}}<p>{{L.invite}}</p>{{/if}}
   </section>
-  ${d.photos[0] ? `<section class="s-photo fx"><div class="ph"><img src="${d.photos[0]}" alt="${d.groom} &amp; ${d.bride}"></div></section>` : ''}
-  <section class="s-emo fx">${branch(true)}<p>${d.L.emo}</p></section>
+  {{#if photos.0}}<section class="s-photo fx"><div class="ph"><img src="{{photos.0}}" alt="{{groom}} &amp; {{bride}}"></div></section>{{/if}}
+  <section class="s-emo fx"><svg class="branch flip" viewBox="0 0 220 44" fill="none" aria-hidden="true">
+    <path class="draw" pathLength="100" d="M6 32 C48 12 96 34 130 24 C160 15 190 22 214 12" stroke="#C2A660" stroke-width="1.1"/>
+    <path class="draw" pathLength="100" d="M52 24 C56 16 62 13 70 13 C68 21 62 26 52 24Z" stroke="#C2A660" stroke-width=".9"/>
+    <path class="draw" pathLength="100" d="M96 30 C100 22 106 19 114 19 C112 27 106 32 96 30Z" stroke="#C2A660" stroke-width=".9"/>
+    <path class="draw" pathLength="100" d="M150 20 C154 12 160 9 168 9 C166 17 160 22 150 20Z" stroke="#C2A660" stroke-width=".9"/>
+    <circle cx="36" cy="26" r="1.6" fill="#C2A660" opacity=".8"/>
+    <circle cx="132" cy="24" r="1.5" fill="#C2A660" opacity=".7"/>
+    <circle cx="196" cy="17" r="1.4" fill="#C2A660" opacity=".6"/>
+  </svg><p>{{L.emo}}</p></section>
   <section class="s-when fx">
-    <div class="when-week">${d.weekday}</div>
-    <div class="when-date">${d.dateText}</div>
-    <div class="when-time">${d.time}</div>
+    <div class="when-week">{{weekday}}</div>
+    <div class="when-date">{{dateText}}</div>
+    <div class="when-time">{{time}}</div>
   </section>
   <section class="s-venue fx">
-    ${d.address ? `<p class="addr">${d.address}</p>` : ''}
-    ${mapEmbed(d)}
+    {{#if address}}<p class="addr">{{address}}</p>{{/if}}
+    {{{map}}}
   </section>
   <section class="s-cd">
-    <div class="cd-label fx">${d.L.until}</div>
+    <div class="cd-label fx">{{L.until}}</div>
     <div class="cd fx" style="--d:.15s">
-      <div><b id="cd">0</b><span>${d.L.days}</span></div>
-      <div><b id="ch">00</b><span>${d.L.hours}</span></div>
-      <div><b id="cm">00</b><span>${d.L.min}</span></div>
-      <div><b id="cs">00</b><span>${d.L.sec}</span></div>
+      <div><b id="cd">0</b><span>{{L.days}}</span></div>
+      <div><b id="ch">00</b><span>{{L.hours}}</span></div>
+      <div><b id="cm">00</b><span>{{L.min}}</span></div>
+      <div><b id="cs">00</b><span>{{L.sec}}</span></div>
     </div>
   </section>
   <section class="s-final fx">
-    <p class="final-msg">${d.L.final}</p>
-    <div class="sign-label">${d.L.sign}</div>
-    <div class="sign">${d.groom} ${d.L.and} ${d.bride}</div>
+    <p class="final-msg">{{L.final}}</p>
+    <div class="sign-label">{{L.sign}}</div>
+    <div class="sign">{{groom}} {{L.and}} {{bride}}</div>
   </section>
   <footer class="s-made">Made with ♥</footer>
 </div></div></main>
-${audioWidget(d.music)}
-${experienceScript()}
-${countdownScript(d.targetIso)}
+{{{audioWidget}}}
+{{{experienceScript}}}
+{{{countdown}}}
 </body>
-</html>`;
-}
+</html>

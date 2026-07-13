@@ -1,0 +1,8 @@
+{
+  "name": "Royal",
+  "event": "wedding",
+  "price": 199000,
+  "minPhotos": 1,
+  "colors": ["#152742", "#C9A959", "#F4EFE3"],
+  "order": 5
+}

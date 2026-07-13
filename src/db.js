@@ -16,6 +16,9 @@ db.exec(`
     tg_user_id INTEGER NOT NULL,
     tg_username TEXT,
     phone TEXT,
+    phone2 TEXT,
+    contact_tg TEXT,
+    event_type TEXT NOT NULL DEFAULT 'wedding',
     lang TEXT NOT NULL DEFAULT 'uz',
     groom_name TEXT NOT NULL,
     bride_name TEXT NOT NULL,
@@ -58,6 +61,9 @@ for (const [col, ddl] of [
   ['music_start', 'ALTER TABLE applications ADD COLUMN music_start REAL'],
   ['music_end', 'ALTER TABLE applications ADD COLUMN music_end REAL'],
   ['phone', 'ALTER TABLE applications ADD COLUMN phone TEXT'],
+  ['event_type', "ALTER TABLE applications ADD COLUMN event_type TEXT NOT NULL DEFAULT 'wedding'"],
+  ['phone2', 'ALTER TABLE applications ADD COLUMN phone2 TEXT'],
+  ['contact_tg', 'ALTER TABLE applications ADD COLUMN contact_tg TEXT'],
 ]) {
   if (!appCols.includes(col)) db.exec(ddl);
 }
@@ -66,15 +72,18 @@ export function insertApplication(a) {
   const res = db
     .prepare(
       `INSERT INTO applications
-        (tg_user_id, tg_username, phone, lang, groom_name, bride_name, wedding_date, wedding_time,
+        (tg_user_id, tg_username, phone, phone2, contact_tg, event_type, lang, groom_name, bride_name, wedding_date, wedding_time,
          address, lat, lng, music_type, music_value, music_start, music_end,
          template_id, template_price, premium, premium_price, guest_names, photos, total_price, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')`
     )
     .run(
       a.tgUserId,
       a.tgUsername ?? null,
       a.phone ?? null,
+      a.phone2 ?? null,
+      a.contactTg ?? null,
+      a.eventType ?? 'wedding',
       a.lang,
       a.groomName,
       a.brideName,

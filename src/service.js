@@ -2,7 +2,8 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import * as db from './db.js';
 import { slugify, coupleSlugBase, uniqueSlug } from './slug.js';
-import { findTemplate, findMusicPreset, PREMIUM_GUESTS_PRICE, MAX_GUESTS, MAX_PHOTOS } from './config.js';
+import { findMusicPreset, GUEST_LINK_PRICE, MAX_GUESTS, MAX_PHOTOS } from './config.js';
+import { findTemplate } from './templateStore.js';
 import { UPLOADS_DIR } from './upload.js';
 
 export class ValidationError extends Error {
@@ -114,34 +115,38 @@ export function validateForm(form, { requirePhone = false } = {}) {
   const { musicType, musicValue } = validateMusic(form);
   const { musicStart, musicEnd } = validateCut(form);
 
-  const premium = Boolean(form.premium);
-  let guestNames = null;
-  let premiumPrice = 0;
-  if (premium) {
-    const raw = Array.isArray(form.guestNames) ? form.guestNames : [];
-    guestNames = raw.map((n) => cleanStr(n, 50)).filter(Boolean);
-    if (guestNames.length === 0) {
-      throw new ValidationError(uz ? 'Mehmonlar ismini kiriting' : 'Добавьте имена гостей', 'premium');
-    }
-    if (guestNames.length > MAX_GUESTS) throw new ValidationError(`Максимум ${MAX_GUESTS}`, 'premium');
-    premiumPrice = PREMIUM_GUESTS_PRICE;
+  // Именные ссылки: каждая — GUEST_LINK_PRICE; список пуст → услуги нет.
+  const rawGuests = Array.isArray(form.guestNames) ? form.guestNames : [];
+  let guestNames = [...new Set(rawGuests.map((n) => cleanStr(n, 50)).filter(Boolean))];
+  if (guestNames.length > MAX_GUESTS) {
+    throw new ValidationError(uz ? `Ko‘pi bilan ${MAX_GUESTS} ta mehmon` : `Максимум ${MAX_GUESTS} гостей`, 'guests');
   }
+  const premium = guestNames.length > 0;
+  const premiumPrice = guestNames.length * GUEST_LINK_PRICE;
+  if (!premium) guestNames = null;
 
+  // Контакты: Telegram username и телефон обязательны, второй телефон — по желанию.
   let phone = cleanStr(form.phone, 20);
+  let phone2 = cleanStr(form.phone2, 20) || null;
+  let contactTg = cleanStr(form.contactTg, 40).replace(/^@/, '') || null;
   if (requirePhone) {
+    if (!contactTg || !/^[A-Za-z0-9_]{4,32}$/.test(contactTg)) {
+      throw new ValidationError(uz ? 'Telegram username kiriting (masalan: @aziz_uz)' : 'Укажите Telegram username (например: @aziz_uz)', 'review');
+    }
     if (!/^\+?[\d\s()-]{7,20}$/.test(phone)) {
-      throw new ValidationError(uz ? 'Telefon raqamingizni kiriting' : 'Укажите номер телефона', 'confirm');
+      throw new ValidationError(uz ? 'Telefon raqamingizni kiriting' : 'Укажите номер телефона', 'review');
     }
   } else {
     phone = phone || null;
   }
+  if (phone2 && !/^\+?[\d\s()-]{7,20}$/.test(phone2)) phone2 = null;
 
   return {
     lang, groomName, brideName, weddingDate, weddingTime, address, lat, lng,
     photos, musicType, musicValue, musicStart, musicEnd,
     template, premium, guestNames, premiumPrice,
     totalPrice: template.price + premiumPrice,
-    phone,
+    phone, phone2, contactTg,
   };
 }
 
@@ -153,6 +158,9 @@ export function submitApplication(form, tgUser) {
     tgUserId: tgUser.id,
     tgUsername: tgUser.username ?? null,
     phone: v.phone,
+    phone2: v.phone2,
+    contactTg: v.contactTg,
+    eventType: v.template.event ?? 'wedding',
     lang: v.lang,
     groomName: v.groomName,
     brideName: v.brideName,

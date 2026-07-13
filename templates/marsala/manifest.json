@@ -1,0 +1,8 @@
+{
+  "name": "Marsala",
+  "event": "wedding",
+  "price": 129000,
+  "minPhotos": 1,
+  "colors": ["#5C2233", "#F4EFE4", "#C08A97"],
+  "order": 1
+}

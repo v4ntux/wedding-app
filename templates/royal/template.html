@@ -1,48 +1,17 @@
-import { GRAIN, experienceCSS, envelopeHTML, experienceScript, audioWidget, countdownScript, mapEmbed } from './shared.js';
-
-// Royal — глубокий сапфир и золото (по мотивам «Royal Blue»): дворцовая
-// орнаментальная рамка, золотые вензеля по углам, торжественная типографика.
-
-// Угловой золотой вензель: волюта с листьями, зеркалится через CSS transform.
-function flourish(cls = '') {
-  return `<svg class="flr ${cls}" viewBox="0 0 120 120" fill="none" aria-hidden="true">
-<path d="M6 6 C64 10 96 40 108 108" stroke="#C9A959" stroke-width="1.2"/>
-<path d="M6 6 C36 8 58 20 70 44" stroke="#C9A959" stroke-width=".8" opacity=".7"/>
-<path d="M24 14 C34 6 46 8 50 18 C42 24 30 22 24 14Z" fill="#C9A959" opacity=".85"/>
-<path d="M58 30 C68 24 78 27 80 36 C72 42 62 39 58 30Z" fill="#C9A959" opacity=".7"/>
-<path d="M88 62 C98 58 106 62 106 71 C98 75 90 71 88 62Z" fill="#C9A959" opacity=".55"/>
-<circle cx="12" cy="24" r="2" fill="#E3CD96"/><circle cx="40" cy="34" r="1.6" fill="#E3CD96"/>
-<circle cx="76" cy="56" r="1.5" fill="#E3CD96" opacity=".8"/>
-</svg>`;
-}
-
-// Золотой разделитель: ромб с расходящимися линиями.
-function divider() {
-  return `<svg class="dvd" viewBox="0 0 160 24" fill="none" aria-hidden="true">
-<path d="M4 12 H62" stroke="#C9A959" stroke-width=".9"/>
-<path d="M98 12 H156" stroke="#C9A959" stroke-width=".9"/>
-<rect x="73" y="5" width="14" height="14" transform="rotate(45 80 12)" stroke="#C9A959" stroke-width="1.1"/>
-<rect x="77" y="9" width="6" height="6" transform="rotate(45 80 12)" fill="#C9A959"/>
-</svg>`;
-}
-
-export default function royal(d) {
-  const seal = `<span class="sealtxt">${d.groom.charAt(0)}<i>·</i>${d.bride.charAt(0)}</span>`;
-  const front = `<div class="env-crest">${divider()}</div>`;
-  return `<!DOCTYPE html>
-<html lang="${d.lang}">
+<!DOCTYPE html>
+<html lang="{{lang}}">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${d.groom} &amp; ${d.bride} — ${d.L.sub}</title>
+<title>{{groom}} &amp; {{bride}} — {{L.sub}}</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
-${experienceCSS()}
+{{{experienceCSS}}}
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--navy:#152742;--navy-d:#0E1B30;--gold:#C9A959;--gold-l:#E3CD96;--ivory:#F4EFE3;--mist:#B9C3D4;
 --envx-bg:linear-gradient(170deg,#0A1425,#152742 60%,#0E1B30);--env-face:#12223B;--env-flap:#0D1930;--env-paper:#F4EFE3;--env-hint:#C9A959}
 html{scroll-behavior:smooth}
-body{margin:0;background:#0C1626;background-image:${GRAIN};font-family:'Jost',sans-serif;font-weight:300;color:var(--ivory);line-height:1.7}
+body{margin:0;background:#0C1626;background-image:{{{grain}}};font-family:'Jost',sans-serif;font-weight:300;color:var(--ivory);line-height:1.7}
 .paper{max-width:520px;margin:0 auto;background:linear-gradient(180deg,#182B49,#152742 30%,#132340 70%,#111F3A);box-shadow:0 24px 90px rgba(0,0,0,.65);position:relative}
 @media(min-width:560px){.paper{margin:30px auto 56px}}
 .frame{margin:12px;border:1px solid rgba(201,169,89,.5);padding:3px}
@@ -95,48 +64,88 @@ h1,h2{font-family:'Playfair Display',serif;font-weight:500}
 </style>
 </head>
 <body>
-${envelopeHTML({ seal, front, hint: d.L.openHint })}
+<div class="envx" id="envx">
+  <div class="env" id="env" role="button" tabindex="0" aria-label="{{L.openHint}}">
+    <div class="env-back"></div>
+    <div class="env-paper"></div>
+    <div class="env-front"><div class="env-crest"><svg class="dvd" viewBox="0 0 160 24" fill="none" aria-hidden="true">
+      <path d="M4 12 H62" stroke="#C9A959" stroke-width=".9"/>
+      <path d="M98 12 H156" stroke="#C9A959" stroke-width=".9"/>
+      <rect x="73" y="5" width="14" height="14" transform="rotate(45 80 12)" stroke="#C9A959" stroke-width="1.1"/>
+      <rect x="77" y="9" width="6" height="6" transform="rotate(45 80 12)" fill="#C9A959"/>
+    </svg></div></div>
+    <div class="env-flap"></div>
+    <div class="env-seal"><span class="sealtxt">{{groomInitial}}<i>·</i>{{brideInitial}}</span></div>
+  </div>
+  <div class="env-hint">{{L.openHint}}</div>
+</div>
 <main class="paper"><div class="frame"><div class="frame-in">
-  ${flourish('tl')}${flourish('tr')}
+  <svg class="flr tl" viewBox="0 0 120 120" fill="none" aria-hidden="true">
+  <path d="M6 6 C64 10 96 40 108 108" stroke="#C9A959" stroke-width="1.2"/>
+  <path d="M6 6 C36 8 58 20 70 44" stroke="#C9A959" stroke-width=".8" opacity=".7"/>
+  <path d="M24 14 C34 6 46 8 50 18 C42 24 30 22 24 14Z" fill="#C9A959" opacity=".85"/>
+  <path d="M58 30 C68 24 78 27 80 36 C72 42 62 39 58 30Z" fill="#C9A959" opacity=".7"/>
+  <path d="M88 62 C98 58 106 62 106 71 C98 75 90 71 88 62Z" fill="#C9A959" opacity=".55"/>
+  <circle cx="12" cy="24" r="2" fill="#E3CD96"/><circle cx="40" cy="34" r="1.6" fill="#E3CD96"/>
+  <circle cx="76" cy="56" r="1.5" fill="#E3CD96" opacity=".8"/>
+  </svg>
+  <svg class="flr tr" viewBox="0 0 120 120" fill="none" aria-hidden="true">
+  <path d="M6 6 C64 10 96 40 108 108" stroke="#C9A959" stroke-width="1.2"/>
+  <path d="M6 6 C36 8 58 20 70 44" stroke="#C9A959" stroke-width=".8" opacity=".7"/>
+  <path d="M24 14 C34 6 46 8 50 18 C42 24 30 22 24 14Z" fill="#C9A959" opacity=".85"/>
+  <path d="M58 30 C68 24 78 27 80 36 C72 42 62 39 58 30Z" fill="#C9A959" opacity=".7"/>
+  <path d="M88 62 C98 58 106 62 106 71 C98 75 90 71 88 62Z" fill="#C9A959" opacity=".55"/>
+  <circle cx="12" cy="24" r="2" fill="#E3CD96"/><circle cx="40" cy="34" r="1.6" fill="#E3CD96"/>
+  <circle cx="76" cy="56" r="1.5" fill="#E3CD96" opacity=".8"/>
+  </svg>
   <section class="s-hero">
-    <div class="eyebrow fx">${d.L.sub}</div>
-    <h1 class="names fx" style="--d:.15s">${d.groom}<span class="amp">&amp;</span>${d.bride}</h1>
-    <div class="hero-date fx" style="--d:.3s">${d.dateText}</div>
+    <div class="eyebrow fx">{{L.sub}}</div>
+    <h1 class="names fx" style="--d:.15s">{{groom}}<span class="amp">&amp;</span>{{bride}}</h1>
+    <div class="hero-date fx" style="--d:.3s">{{dateText}}</div>
   </section>
-  <section class="s-title fx">${divider()}</section>
+  <section class="s-title fx"><svg class="dvd" viewBox="0 0 160 24" fill="none" aria-hidden="true">
+    <path d="M4 12 H62" stroke="#C9A959" stroke-width=".9"/>
+    <path d="M98 12 H156" stroke="#C9A959" stroke-width=".9"/>
+    <rect x="73" y="5" width="14" height="14" transform="rotate(45 80 12)" stroke="#C9A959" stroke-width="1.1"/>
+    <rect x="77" y="9" width="6" height="6" transform="rotate(45 80 12)" fill="#C9A959"/>
+  </svg></section>
   <section class="s-msg fx" style="--d:.1s">
-    ${d.guestName ? `<div class="greet">${d.L.greet} ${d.guestName}!</div><p>${d.L.greetTail}</p>` : `<p>${d.L.invite}</p>`}
+    {{#if guestName}}<div class="greet">{{L.greet}} {{guestName}}!</div><p>{{L.greetTail}}</p>{{else}}<p>{{L.invite}}</p>{{/if}}
   </section>
-  ${d.photos[0] ? `<section class="s-photo fx"><div class="ph"><img src="${d.photos[0]}" alt="${d.groom} &amp; ${d.bride}"></div></section>` : ''}
-  <section class="s-emo fx">${divider()}<p>${d.L.emo}</p></section>
+  {{#if photos.0}}<section class="s-photo fx"><div class="ph"><img src="{{photos.0}}" alt="{{groom}} &amp; {{bride}}"></div></section>{{/if}}
+  <section class="s-emo fx"><svg class="dvd" viewBox="0 0 160 24" fill="none" aria-hidden="true">
+    <path d="M4 12 H62" stroke="#C9A959" stroke-width=".9"/>
+    <path d="M98 12 H156" stroke="#C9A959" stroke-width=".9"/>
+    <rect x="73" y="5" width="14" height="14" transform="rotate(45 80 12)" stroke="#C9A959" stroke-width="1.1"/>
+    <rect x="77" y="9" width="6" height="6" transform="rotate(45 80 12)" fill="#C9A959"/>
+  </svg><p>{{L.emo}}</p></section>
   <section class="s-when fx">
-    <div class="when-week">${d.weekday}</div>
-    <div class="when-date">${d.dateText}</div>
-    <div class="when-time">${d.time}</div>
+    <div class="when-week">{{weekday}}</div>
+    <div class="when-date">{{dateText}}</div>
+    <div class="when-time">{{time}}</div>
   </section>
   <section class="s-venue fx">
-    ${d.address ? `<p class="addr">${d.address}</p>` : ''}
-    ${mapEmbed(d)}
+    {{#if address}}<p class="addr">{{address}}</p>{{/if}}
+    {{{map}}}
   </section>
   <section class="s-cd">
-    <div class="cd-label fx">${d.L.until}</div>
+    <div class="cd-label fx">{{L.until}}</div>
     <div class="cd fx" style="--d:.15s">
-      <div><b id="cd">0</b><span>${d.L.days}</span></div>
-      <div><b id="ch">00</b><span>${d.L.hours}</span></div>
-      <div><b id="cm">00</b><span>${d.L.min}</span></div>
-      <div><b id="cs">00</b><span>${d.L.sec}</span></div>
+      <div><b id="cd">0</b><span>{{L.days}}</span></div>
+      <div><b id="ch">00</b><span>{{L.hours}}</span></div>
+      <div><b id="cm">00</b><span>{{L.min}}</span></div>
+      <div><b id="cs">00</b><span>{{L.sec}}</span></div>
     </div>
   </section>
   <section class="s-final fx">
-    <p class="final-msg">${d.L.final}</p>
-    <div class="sign-label">${d.L.sign}</div>
-    <div class="sign">${d.groom} ${d.L.and} ${d.bride}</div>
+    <p class="final-msg">{{L.final}}</p>
+    <div class="sign-label">{{L.sign}}</div>
+    <div class="sign">{{groom}} {{L.and}} {{bride}}</div>
   </section>
   <footer class="s-made">Made with ♥</footer>
 </div></div></main>
-${audioWidget(d.music)}
-${experienceScript()}
-${countdownScript(d.targetIso)}
+{{{audioWidget}}}
+{{{experienceScript}}}
+{{{countdown}}}
 </body>
-</html>`;
-}
+</html>

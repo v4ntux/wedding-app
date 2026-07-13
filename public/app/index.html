@@ -3,23 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>Taklifnoma</title>
+<title>nvate</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;400;500&family=Golos+Text:wght@400;500;600&family=Caveat:wght@500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Prata&family=Manrope:wght@400;500;600&family=Cormorant+Garamond:ital@1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- Живой фон: медленное северное сияние + звёздная пыль -->
-<div id="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
-<div id="stars" aria-hidden="true"></div>
+<!-- Материя + тёплый свет (как на сайте nvate) -->
+<div id="glow" aria-hidden="true"></div>
 
 <!-- ═══ Выбор языка (первый вход) ═══ -->
 <div id="lang-screen">
   <div class="lang-card">
-    <div class="orn">✦ · ✦ · ✦</div>
-    <h1>Taklifnoma</h1>
+    <div class="seal-mini">n</div>
+    <h1>nvate<i>.</i></h1>
     <p>Tilni tanlang · Выберите язык</p>
     <button id="lang-uz" type="button" class="btn btn--gold btn--block">O‘zbekcha</button>
     <button id="lang-ru" type="button" class="btn btn--ghost btn--block">Русский</button>
@@ -30,7 +29,7 @@
 
   <!-- ═══ Навигация ═══ -->
   <nav class="topnav">
-    <button id="nav-brand" type="button" class="brand">Taklifnoma</button>
+    <button id="nav-brand" type="button" class="brand">nvate<i>.</i></button>
     <div class="nav-tabs">
       <button id="nav-tpl" type="button" data-i18n="navTpl"></button>
       <button id="nav-mine" type="button" data-i18n="navMine"></button>
@@ -40,61 +39,8 @@
     </div>
   </nav>
 
-  <!-- ═══ Экран: главная (история продукта) ═══ -->
-  <main id="screen-home" class="screen">
-    <section class="hero">
-      <div class="hero-copy">
-        <div class="orn rv">✦ · ✦ · ✦</div>
-        <h1 class="rv">Taklifnoma</h1>
-        <p class="hero-sub rv" data-i18n="landSub"></p>
-        <p class="hero-quote rv" data-i18n="landQuote"></p>
-        <div class="rv">
-          <button id="hero-cta" type="button" class="btn btn--gold btn--lg btn--shine"><span data-i18n="ctaCreate"></span></button>
-        </div>
-      </div>
-      <div class="hero-stage rv" id="hero-stage">
-        <div class="phone" id="hero-phone">
-          <div class="phone-notch"></div>
-          <iframe id="hero-demo" title="Demo" loading="lazy"></iframe>
-        </div>
-        <div class="hero-halo"></div>
-      </div>
-    </section>
-
-    <section class="stats rv" id="stats">
-      <div class="stat"><b id="stat-couples">0</b><span data-i18n="statCouples"></span></div>
-      <div class="stat"><b id="stat-templates">0</b><span data-i18n="statTemplates"></span></div>
-      <div class="stat"><b>2</b><span data-i18n="statLangs"></span></div>
-    </section>
-
-    <h2 class="h-orn rv" data-i18n="howTitle"></h2>
-    <ol class="timeline">
-      <li class="rv"><i>1</i><div><h3 data-i18n="step1T"></h3><p data-i18n="step1D"></p></div></li>
-      <li class="rv"><i>2</i><div><h3 data-i18n="step2T"></h3><p data-i18n="step2D"></p></div></li>
-      <li class="rv"><i>3</i><div><h3 data-i18n="step3T"></h3><p data-i18n="step3D"></p></div></li>
-    </ol>
-
-    <h2 class="h-orn rv" data-i18n="bentoTitle"></h2>
-    <div class="bento">
-      <div class="bento-tile bento-wide rv"><span class="b-ic">🗺</span><h3 data-i18n="b1T"></h3><p data-i18n="b1D"></p></div>
-      <div class="bento-tile rv"><span class="b-ic">🎵</span><h3 data-i18n="b2T"></h3><p data-i18n="b2D"></p></div>
-      <div class="bento-tile rv"><span class="b-ic">⏳</span><h3 data-i18n="b3T"></h3><p data-i18n="b3D"></p></div>
-      <div class="bento-tile rv"><span class="b-ic">💌</span><h3 data-i18n="b4T"></h3><p data-i18n="b4D"></p></div>
-      <div class="bento-tile rv"><span class="b-ic">🌐</span><h3 data-i18n="b5T"></h3><p data-i18n="b5D"></p></div>
-      <div class="bento-tile bento-wide rv"><span class="b-ic">✨</span><h3 data-i18n="b6T"></h3><p data-i18n="b6D"></p></div>
-    </div>
-
-    <h2 class="h-orn rv" data-i18n="tplTitle"></h2>
-    <div class="strip rv" id="strip"></div>
-
-    <section class="cta-band rv">
-      <p class="hero-quote" data-i18n="bandText"></p>
-      <button id="home-cta2" type="button" class="btn btn--gold btn--lg btn--shine"><span data-i18n="ctaCreate"></span></button>
-    </section>
-  </main>
-
-  <!-- ═══ Экран: шаблоны ═══ -->
-  <main id="screen-templates" class="screen" hidden>
+  <!-- ═══ Экран: выбор шаблона (стартовый — задача №1) ═══ -->
+  <main id="screen-templates" class="screen">
     <header class="screen-head">
       <h2 data-i18n="tplTitle"></h2>
       <p data-i18n="tplSub"></p>
@@ -111,7 +57,7 @@
     </div>
   </main>
 
-  <!-- ═══ Экран: студия (мастер из 8 шагов) ═══ -->
+  <!-- ═══ Экран: студия (7 шагов, шаблон уже выбран) ═══ -->
   <main id="screen-studio" class="screen" hidden>
     <header class="studio-head">
       <button id="studio-exit" type="button" class="iconbtn" aria-label="Back">‹</button>
@@ -122,7 +68,7 @@
         </div>
         <div class="progress"><div id="progress-fill"></div></div>
       </div>
-      <button id="studio-eye" type="button" class="iconbtn" aria-label="Preview" hidden>👁</button>
+      <button id="studio-eye" type="button" class="iconbtn" aria-label="Preview">👁</button>
     </header>
 
     <div id="studio-steps">
@@ -131,11 +77,11 @@
         <p class="step-lead" data-i18n="leadNames"></p>
         <div class="field">
           <label for="groom" data-i18n="groom"></label>
-          <input id="groom" type="text" maxlength="100">
+          <input id="groom" type="text" maxlength="100" autocomplete="off">
         </div>
         <div class="field">
           <label for="bride" data-i18n="bride"></label>
-          <input id="bride" type="text" maxlength="100">
+          <input id="bride" type="text" maxlength="100" autocomplete="off">
         </div>
         <p class="hint" data-i18n="hintNames"></p>
       </section>
@@ -167,17 +113,12 @@
           <button id="geo-search-btn" type="button" class="btn btn--gold" data-i18n="find"></button>
         </div>
         <div id="geo-results" class="geo-results" hidden></div>
-        <div id="map"></div>
+        <div id="map-wrap"><div id="map"></div></div>
         <div class="field">
           <label for="address" data-i18n="address"></label>
-          <input id="address" type="text" maxlength="120">
+          <input id="address" type="text" maxlength="120" autocomplete="off">
         </div>
         <p class="hint" id="coords-hint"></p>
-      </section>
-
-      <section class="step" data-step="template" hidden>
-        <p class="step-lead card-lead" data-i18n="leadTpl"></p>
-        <div id="tpl-grid" class="gallery gallery--pick"></div>
       </section>
 
       <section class="step card" data-step="photos" hidden>
@@ -189,38 +130,42 @@
 
       <section class="step card" data-step="music" hidden>
         <p class="step-lead" data-i18n="leadMusic"></p>
-        <div id="music-tabs">
-          <button type="button" data-mt="none" class="chip active" data-i18n="mtNone"></button>
-          <button type="button" data-mt="catalog" class="chip" data-i18n="mtCatalog"></button>
-          <button type="button" data-mt="own" class="chip" data-i18n="mtOwn"></button>
+
+        <!-- Режим выбора: виден, пока музыка не выбрана -->
+        <div id="music-choice">
+          <div id="music-tabs">
+            <button type="button" data-mt="none" class="chip active" data-i18n="mtNone"></button>
+            <button type="button" data-mt="catalog" class="chip" data-i18n="mtCatalog"></button>
+            <button type="button" data-mt="own" class="chip" data-i18n="mtOwn"></button>
+          </div>
+          <div id="music-catalog" hidden>
+            <div class="search-row">
+              <input id="music-q" type="text" autocomplete="off">
+              <button id="music-q-btn" type="button" class="btn btn--gold">🔍</button>
+            </div>
+            <div id="music-scroll">
+              <div id="top-tracks"></div>
+              <div id="track-list"></div>
+            </div>
+          </div>
+          <div id="music-own" hidden>
+            <p class="hint" data-i18n="ownHint"></p>
+            <input id="music-link" type="url" maxlength="300" placeholder="https://..." autocomplete="off">
+            <div class="own-row">
+              <span class="hint" data-i18n="or"></span>
+              <button id="music-upload-btn" type="button" class="btn btn--ghost-dark" data-i18n="upload"></button>
+              <input id="music-file" type="file" accept="audio/*,.mp3,.m4a,.ogg,.wav" hidden>
+            </div>
+          </div>
         </div>
 
-        <div id="music-catalog" hidden>
-          <div class="search-row">
-            <input id="music-q" type="text">
-            <button id="music-q-btn" type="button" class="btn btn--gold">🔍</button>
-          </div>
-          <div id="music-scroll">
-            <div id="top-tracks"></div>
-            <div id="track-list"></div>
-          </div>
-        </div>
-
-        <div id="music-own" hidden>
-          <p class="hint" data-i18n="ownHint"></p>
-          <input id="music-link" type="url" maxlength="300" placeholder="https://...">
-          <div class="own-row">
-            <span class="hint" data-i18n="or"></span>
-            <button id="music-upload-btn" type="button" class="btn btn--ghost-dark" data-i18n="upload"></button>
-            <input id="music-file" type="file" accept="audio/*,.mp3,.m4a,.ogg,.wav" hidden>
-          </div>
-        </div>
-
+        <!-- Выбранная музыка: заменяет всё, тримминг здесь же -->
         <div id="music-selected" hidden>
           <div class="sel-track">
             <span class="sel-icon">🎵</span>
-            <div class="sel-info"><span data-i18n="selected"></span> <b id="sel-name"></b></div>
+            <div class="sel-info"><b id="sel-name"></b></div>
             <button id="sel-change" type="button" class="btn btn--ghost-dark btn--sm" data-i18n="change"></button>
+            <button id="sel-remove" type="button" class="iconbtn iconbtn--sm" aria-label="Remove">✕</button>
           </div>
           <div id="trimmer" hidden>
             <p class="hint" data-i18n="cutTitle"></p>
@@ -246,18 +191,14 @@
         </div>
       </section>
 
-      <section class="step card" data-step="premium" hidden>
-        <p class="step-lead" data-i18n="leadExtra"></p>
-        <label class="switch-row">
-          <input id="premium" type="checkbox">
-          <span class="switch"></span>
-          <span><span data-i18n="premium"></span> <b id="premium-price"></b></span>
-        </label>
-        <div id="guests-block" hidden>
-          <p class="hint" id="guests-hint"></p>
-          <textarea id="guests" rows="6" placeholder="Aziz&#10;Shahzoda&#10;Alisher"></textarea>
-          <p class="hint" id="guest-count"></p>
+      <section class="step card" data-step="guests" hidden>
+        <p class="step-lead" data-i18n="leadGuests"></p>
+        <div id="guest-list"></div>
+        <button id="guest-add" type="button" class="btn btn--ghost-dark btn--block"><span data-i18n="guestAdd"></span></button>
+        <div class="guests-total" id="guests-total-row" hidden>
+          <span data-i18n="guestsTotalLbl"></span><b id="guests-total"></b>
         </div>
+        <p class="hint" data-i18n="guestsHint"></p>
       </section>
 
       <section class="step" data-step="review" hidden>
@@ -272,8 +213,16 @@
           <div id="rv-lines"></div>
           <div class="receipt-total"><span data-i18n="total"></span><b id="rv-total"></b></div>
           <div class="field">
+            <label for="contact-tg" data-i18n="tgLabel"></label>
+            <input id="contact-tg" type="text" maxlength="40" placeholder="@username" autocomplete="off">
+          </div>
+          <div class="field">
             <label for="phone" data-i18n="phoneLabel"></label>
             <input id="phone" type="tel" maxlength="20" placeholder="+998 90 123 45 67">
+          </div>
+          <div class="field">
+            <label for="phone2" data-i18n="phone2Label"></label>
+            <input id="phone2" type="tel" maxlength="20" placeholder="+998 ...">
           </div>
           <p class="hint" data-i18n="confirmNote"></p>
         </div>

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nvate — raqamli taklifnoma</title>
+<meta name="description" content="Raqamli taklifnomalar: konvert ochiladi, musiqa yangraydi. To‘y va tug‘ilgan kunlar uchun — bitta havolada.">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prata&family=Manrope:wght@400;500;600&family=Cormorant+Garamond:ital@1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/site/site.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%23C6AD7C'/%3E%3Ctext x='50' y='68' font-family='Georgia' font-size='52' fill='white' text-anchor='middle'%3En%3C/text%3E%3C/svg%3E">
+</head>
+<body data-page="index">
+<div class="fabric" aria-hidden="true"></div>
+<div class="light" aria-hidden="true"></div>
+
+<header class="nav">
+  <div class="nav-in">
+    <a class="logo" href="/">nvate<i>.</i></a>
+    <button class="burger" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button>
+    <nav class="nav-links">
+      <a href="/" class="active" data-i18n="nav.home">Bosh sahifa</a>
+      <a href="/templates" data-i18n="nav.templates">Shablonlar</a>
+      <a href="/#how" data-i18n="nav.how">Qanday ishlaydi</a>
+      <a href="/faq" data-i18n="nav.faq">FAQ</a>
+      <div class="lang-switch" role="group" aria-label="Til / Язык">
+        <button data-lang="uz" class="on">UZ</button>
+        <button data-lang="ru">RU</button>
+      </div>
+      <a class="btn btn-primary btn-small nav-cta" href="/app/" data-i18n="nav.cta">Boshlash</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- Hero: конверт — подпись бренда -->
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <span class="eyebrow rv" data-i18n="hero.eyebrow">Raqamli taklifnoma</span>
+        <hr class="gold-rule rv" style="--d:.1s">
+        <h1 class="rv" style="--d:.15s" data-i18n="hero.title">Eng muhim kuningizga — eng go‘zal taklifnoma</h1>
+        <p class="lead rv" style="--d:.3s" data-i18n="hero.lead">Konvert ochiladi, musiqa yangraydi — mehmonlaringiz sana, manzil va xaritani bitta havolada ko‘radi.</p>
+        <div class="hero-ctas rv" style="--d:.45s">
+          <a class="btn btn-primary" href="/app/" data-i18n="hero.cta1">Taklifnoma yaratish</a>
+          <a class="btn btn-ghost" href="/templates" data-i18n="hero.cta2">Namunalarni ko‘rish</a>
+        </div>
+        <div class="hero-note rv" style="--d:.6s" data-i18n="hero.note">To‘y · Tug‘ilgan kun</div>
+      </div>
+      <div class="hero-env-scene rv" style="--d:.2s">
+        <!-- Живой конверт: настоящие материалы (фото), карточка прячется в карман -->
+        <div class="menv" id="menv" tabindex="0" role="img" aria-label="nvate taklifnoma">
+          <div class="menv-shadow"></div>
+          <img class="menv-back" src="/site/assets/envelope-cream.png" alt="" draggable="false">
+          <div class="menv-card">
+            <div class="mc-eyebrow" data-i18n="env.eyebrow">Taklifnoma</div>
+            <div class="mc-names">Ali <span class="mc-amp">&amp;</span> Zebo</div>
+            <div class="mc-rule"></div>
+            <div class="mc-date" data-i18n="env.date">19 · 09 · 2026</div>
+          </div>
+          <img class="menv-pocket" src="/site/assets/envelope-cream.png" alt="" aria-hidden="true" draggable="false">
+          <img class="menv-seal" src="/site/assets/seal-gold.png" alt="" draggable="false">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Почему nvate: большие чередующиеся ряды -->
+  <section class="section section-tint" id="why">
+    <div class="wrap">
+      <div class="section-head rv">
+        <span class="eyebrow" data-i18n="why.eyebrow">Nega nvate</span>
+        <h2 data-i18n="why.title">Taklifnoma emas — taassurot</h2>
+      </div>
+
+      <div class="why-row rv">
+        <div class="why-copy">
+          <h3 data-i18n="why1.h">Konvert jonli ochiladi</h3>
+          <hr class="gold-rule">
+          <p data-i18n="why1.p">Mehmon havolani ochganda muhrlangan konvertni ko‘radi. Bir tegish — qopqoq ko‘tariladi, taklifnoma chiqadi va musiqa asta yangraydi.</p>
+        </div>
+        <div class="why-visual" aria-hidden="true">
+          <!-- Бархатный конверт (фото): карточка выезжает из кармана при наведении -->
+          <div class="matenv">
+            <div class="matenv-card">
+              <span class="mec-greet">Hurmatli</span>
+              <span class="mec-name">Aziz aka</span>
+            </div>
+            <img class="matenv-pocket" src="/site/assets/envelope-velvet.png" alt="" draggable="false">
+            <img class="matenv-seal" src="/site/assets/seal-flower.png" alt="" draggable="false">
+          </div>
+        </div>
+      </div>
+
+      <div class="why-row rv">
+        <div class="why-copy">
+          <h3 data-i18n="why2.h">Hammasi bitta sahifada</h3>
+          <hr class="gold-rule">
+          <p data-i18n="why2.p">Sana va vaqt, jonli xarita, to‘ygacha soniyalab hisob, suratlaringiz va tanlagan musiqangiz. Mehmonga faqat havola kerak.</p>
+        </div>
+        <div class="why-visual" aria-hidden="true">
+          <svg viewBox="0 0 340 240" width="300" style="max-width:80%">
+            <rect x="95" y="16" width="150" height="208" rx="14" fill="#FFFFFF" stroke="#EEE6F4"/>
+            <text x="170" y="48" text-anchor="middle" font-family="Georgia" font-size="13" fill="#352E3C">Ali &amp; Zebo</text>
+            <line x1="150" y1="58" x2="190" y2="58" stroke="#C6AD7C" stroke-width="1"/>
+            <g font-family="Verdana" font-size="9" fill="#755C97" text-anchor="middle">
+              <rect x="110" y="70" width="26" height="24" rx="5" fill="#F4EFF7"/><text x="123" y="86">42</text>
+              <rect x="141" y="70" width="26" height="24" rx="5" fill="#F4EFF7"/><text x="154" y="86">08</text>
+              <rect x="172" y="70" width="26" height="24" rx="5" fill="#F4EFF7"/><text x="185" y="86">15</text>
+              <rect x="203" y="70" width="26" height="24" rx="5" fill="#F4EFF7"/><text x="216" y="86">33</text>
+            </g>
+            <rect x="110" y="106" width="119" height="58" rx="8" fill="#EFF3EC"/>
+            <path d="M170 122 a9 9 0 0 1 9 9 c0 7 -9 16 -9 16 s-9 -9 -9 -16 a9 9 0 0 1 9 -9 Z" fill="#A88FC9"/>
+            <circle cx="170" cy="131" r="3.4" fill="#FFF"/>
+            <rect x="110" y="176" width="119" height="34" rx="8" fill="#F7F1EE"/>
+            <circle cx="128" cy="193" r="9" fill="#DCBFC6"/>
+            <path d="M126 189 l6 4 -6 4 Z" fill="#FFF"/>
+            <rect x="144" y="190" width="70" height="2.5" rx="1.2" fill="#DCBFC6"/>
+            <rect x="144" y="197" width="46" height="2.5" rx="1.2" fill="#EEDFE3"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class="why-row rv">
+        <div class="why-copy">
+          <h3 data-i18n="why3.h">Har bir mehmonga — o‘z nomi bilan</h3>
+          <hr class="gold-rule">
+          <p data-i18n="why3.p">Har bir mehmonga alohida nomli havola — sahifada uning ismi yozib qo‘yiladi. Istalgancha mehmon, har biri 8 000 so‘m.</p>
+        </div>
+        <div class="why-visual" aria-hidden="true">
+          <!-- Лист ручного литья (фото) со списком именных гостей -->
+          <div class="deckle">
+            <div class="deckle-row"><i style="background:#A88FC9">A</i>Hurmatli Aziz aka</div>
+            <div class="deckle-row"><i style="background:#DCBFC6">D</i>Hurmatli Dilnoza opa</div>
+            <div class="deckle-row"><i style="background:#C6AD7C">K</i>Karimovlar oilasi</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Шаблоны: горизонтальный слайдер, живые карточки из /api/config -->
+  <section class="section" id="templates">
+    <div class="section-head rv">
+      <span class="eyebrow" data-i18n="tpl.eyebrow">Katalog</span>
+      <h2 data-i18n="tpl.title">Shablonlar — jonli namuna bilan</h2>
+    </div>
+    <div class="tpl-strip" id="tplStrip"></div>
+    <p class="tpl-hint rv" data-i18n="tpl.hint">Kartani bosing — jonli demo yangi oynada ochiladi</p>
+    <div style="text-align:center;margin-top:34px" class="rv">
+      <a class="btn btn-ghost" href="/templates" data-i18n="tpl.all">Barcha shablonlar</a>
+    </div>
+  </section>
+
+  <!-- Как это работает: настоящая последовательность, нумерация оправдана -->
+  <section class="section section-tint" id="how">
+    <div class="wrap">
+      <div class="section-head rv">
+        <span class="eyebrow" data-i18n="how.eyebrow">Qanday ishlaydi</span>
+        <h2 data-i18n="how.title">Uch qadam — va tayyor</h2>
+      </div>
+      <div class="steps">
+        <div class="step rv">
+          <div class="step-n">1</div>
+          <div><h3 data-i18n="how1.h">Shablonni tanlang</h3><p data-i18n="how1.p">Jonli demolarni ko‘ring, yuragingizga yaqinini tanlang.</p></div>
+        </div>
+        <div class="step rv" style="--d:.1s">
+          <div class="step-n">2</div>
+          <div><h3 data-i18n="how2.h">Ma’lumotlarni kiriting</h3><p data-i18n="how2.p">Telegram-botda ismlar, sana, manzil, suratlar va musiqa — 15 daqiqa kifoya.</p></div>
+        </div>
+        <div class="step rv" style="--d:.2s">
+          <div class="step-n">3</div>
+          <div><h3 data-i18n="how3.h">Havolani ulashing</h3><p data-i18n="how3.p">To‘lov tasdiqlangach shaxsiy havolangiz tayyor: nvate.uz/ali-va-zebo.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Отзывы -->
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head rv">
+        <span class="eyebrow" data-i18n="rev.eyebrow">Fikrlar</span>
+        <h2 data-i18n="rev.title">Juftliklar nima deydi</h2>
+      </div>
+      <div class="quotes">
+        <figure class="quote rv">
+          <p data-i18n="rev1.p">Mehmonlar konvertni ochib: «Bu qanday go‘zal!» deb yozishdi. Butun to‘y shu havoladan boshlandi.</p>
+          <figcaption class="quote-who">
+            <span class="quote-ava">M</span>
+            <span><b data-i18n="rev1.who">Madina &amp; Jasur</b><span data-i18n="rev1.where">Toshkent</span></span>
+          </figcaption>
+        </figure>
+        <figure class="quote rv" style="--d:.12s">
+          <p data-i18n="rev2.p">Kechqurun buyurtma berdik — ertalab havola tayyor edi. Suratlar bilan juda chiroyli chiqdi.</p>
+          <figcaption class="quote-who">
+            <span class="quote-ava">N</span>
+            <span><b data-i18n="rev2.who">Nilufar &amp; Sardor</b><span data-i18n="rev2.where">Samarqand</span></span>
+          </figcaption>
+        </figure>
+        <figure class="quote rv" style="--d:.24s">
+          <p data-i18n="rev3.p">Nomli taklifnomalar hammani hayratda qoldirdi. Katta xarajatsiz — shuncha e’tibor.</p>
+          <figcaption class="quote-who">
+            <span class="quote-ava">Z</span>
+            <span><b data-i18n="rev3.who">Zuhra &amp; Bekzod</b><span data-i18n="rev3.where">Farg‘ona</span></span>
+          </figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ тизер -->
+  <section class="section section-tint">
+    <div class="wrap">
+      <div class="section-head rv">
+        <span class="eyebrow" data-i18n="faq.eyebrow">Savol-javob</span>
+        <h2 data-i18n="faq.title">Ko‘p so‘raladigan savollar</h2>
+      </div>
+      <div class="faq-list rv">
+        <div class="faq-item">
+          <button class="faq-q" data-i18n="faq1.q">Narxi qancha?</button>
+          <div class="faq-a"><p data-i18n="faq1.a"></p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" data-i18n="faq2.q">Qanday buyurtma beraman?</button>
+          <div class="faq-a"><p data-i18n="faq2.a"></p></div>
+        </div>
+        <div class="faq-item">
+          <button class="faq-q" data-i18n="faq3.q">Havola qancha vaqt ishlaydi?</button>
+          <div class="faq-a"><p data-i18n="faq3.a"></p></div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:36px" class="rv">
+        <a class="btn btn-ghost" href="/faq" data-i18n="faq.more">Barcha savollar</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Финальный CTA -->
+  <section class="final-cta">
+    <h2 class="h2 rv" data-i18n="final.title">Eng baxtli kuningiz bitta havoladan boshlansin</h2>
+    <p class="lead rv" style="--d:.12s" data-i18n="final.lead">15 daqiqa — va taklifnomangiz tayyor.</p>
+    <div class="rv" style="--d:.24s">
+      <a class="btn btn-primary" href="/app/" data-i18n="hero.cta1">Taklifnoma yaratish</a>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-in">
+    <a class="logo" href="/">nvate<i>.</i></a>
+    <nav class="footer-links">
+      <a href="/templates" data-i18n="nav.templates">Shablonlar</a>
+      <a href="/#how" data-i18n="nav.how">Qanday ishlaydi</a>
+      <a href="/faq" data-i18n="nav.faq">FAQ</a>
+    </nav>
+    <div class="footer-note" data-i18n="footer.note">© 2026 nvate — raqamli taklifnomalar · Toshkent</div>
+  </div>
+</footer>
+
+<script src="/site/site.js"></script>
+</body>
+</html>
