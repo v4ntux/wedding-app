@@ -26,12 +26,8 @@ export function createServer({ onNewApplication }) {
   const app = express();
   app.disable('x-powered-by');
 
-  // Маркетинговый сайт nvate: / (главная), /templates (каталог), /faq.
-  app.use('/site', express.static(path.join(PUBLIC_DIR, 'site')));
-  app.get('/', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'site', 'index.html')));
-  app.get('/templates', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'site', 'templates.html')));
-  app.get('/faq', (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'site', 'faq.html')));
-
+  // Продукт — только Telegram WebApp: корень ведёт прямо в форму.
+  app.get('/', (_req, res) => res.redirect('/app/'));
   app.use('/app', express.static(path.join(PUBLIC_DIR, 'app')));
   app.use('/demo', express.static(path.join(PUBLIC_DIR, 'demo')));
   app.use('/music', express.static(path.join(PUBLIC_DIR, 'music')));

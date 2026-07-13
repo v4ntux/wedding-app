@@ -1610,3 +1610,34 @@ loadConfig().then(initLangScreen).catch(() => {
   initLangScreen();
   toast(t('eNet'), 'err');
 });
+
+/* ════ Тихая атмосфера: пыль и редкие лепестки за контентом ════ */
+(function ambientLayer() {
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var box = document.createElement('div');
+  box.className = 'app-amb';
+  box.setAttribute('aria-hidden', 'true');
+  var rnd = function (a, b) { return a + Math.random() * (b - a); };
+  for (var i = 0; i < 16; i++) {
+    var d = document.createElement('i');
+    d.className = 'amb-dust';
+    d.style.setProperty('--x', rnd(2, 98).toFixed(1) + '%');
+    d.style.setProperty('--y', rnd(15, 95).toFixed(1) + '%');
+    d.style.setProperty('--s', rnd(0.6, 1.8).toFixed(2));
+    d.style.setProperty('--sw', rnd(-40, 40).toFixed(0) + 'px');
+    d.style.setProperty('--t', rnd(9, 16).toFixed(1) + 's');
+    d.style.setProperty('--d', rnd(0, 10).toFixed(1) + 's');
+    box.appendChild(d);
+  }
+  for (var j = 0; j < 5; j++) {
+    var p = document.createElement('i');
+    p.className = 'amb-petal';
+    p.style.setProperty('--x', rnd(2, 96).toFixed(1) + '%');
+    p.style.setProperty('--s', rnd(0.7, 1.3).toFixed(2));
+    p.style.setProperty('--sw', rnd(-60, 60).toFixed(0) + 'px');
+    p.style.setProperty('--t', rnd(20, 34).toFixed(1) + 's');
+    p.style.setProperty('--d', rnd(0, 26).toFixed(1) + 's');
+    box.appendChild(p);
+  }
+  document.body.appendChild(box);
+})();

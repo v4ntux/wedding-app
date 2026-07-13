@@ -44,7 +44,7 @@ h1, h2, h3 { font-family: 'Prata', Georgia, serif; font-weight: 400; }
     radial-gradient(70vw 46vh at 90% -6%, rgba(198, 176, 227, .30), transparent 62%),
     radial-gradient(56vw 40vh at -10% 20%, rgba(242, 220, 205, .36), transparent 60%),
     radial-gradient(80vw 50vh at 50% 112%, rgba(220, 191, 198, .18), transparent 62%),
-    url('/site/assets/paper-texture.png');
+    url('assets/paper-texture.png');
   background-size: auto, auto, auto, 640px;
   background-blend-mode: normal, normal, normal, multiply;
 }
@@ -548,7 +548,7 @@ textarea { resize: vertical; min-height: 110px; }
   aspect-ratio: 3 / 2.3;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px;
   text-align: center;
-  background-image: url('/site/assets/paper-texture.png');
+  background-image: url('assets/paper-texture.png');
   background-size: 420px;
   background-blend-mode: multiply;
 }
@@ -607,4 +607,88 @@ textarea { resize: vertical; min-height: 110px; }
   .btn--shine:after, .petal, .skel { animation: none; }
   .step.enter, .step.enter-back, .sec-error { animation: none; }
   #sheet, .toast, .event-card, .g-card { transition: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Fine details — polish layer (appended: overrides base where equal)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Живая пыль и редкие лепестки за контентом — тихие «дорогие» детали */
+.app-amb { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.app-amb i { position: absolute; display: block; }
+#app > .topnav, #app > .screen { position: relative; z-index: 1; }
+.amb-dust {
+  left: var(--x); top: var(--y);
+  width: calc(3px * var(--s)); height: calc(3px * var(--s));
+  border-radius: 50%; background: rgba(198, 173, 124, .8);
+  filter: blur(.6px); opacity: 0;
+  animation: amb-dust var(--t) ease-in-out var(--d) infinite;
+}
+@keyframes amb-dust {
+  0% { transform: translate(0, 0); opacity: 0; }
+  25% { opacity: .5; }
+  60% { opacity: .2; }
+  100% { transform: translate(var(--sw), -16vh); opacity: 0; }
+}
+.amb-petal {
+  top: -4vh; left: var(--x);
+  width: calc(9px * var(--s)); height: calc(12px * var(--s));
+  background: radial-gradient(circle at 32% 26%, #F3E7EE, var(--rose) 66%, #C7A0AC);
+  border-radius: 62% 38% 58% 42% / 48% 62% 38% 52%;
+  opacity: 0;
+  animation: amb-petal var(--t) linear var(--d) infinite;
+}
+@keyframes amb-petal {
+  0% { transform: translate(0, 0) rotate(0); opacity: 0; }
+  8% { opacity: .5; }
+  50% { transform: translate(var(--sw), 52vh) rotate(200deg); }
+  92% { opacity: .35; }
+  100% { transform: translate(0, 108vh) rotate(400deg); opacity: 0; }
+}
+
+/* Прогресс-бар шага — бегущий блик, ощущение премиальности */
+#progress-fill { position: relative; overflow: hidden; }
+#progress-fill::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent);
+  transform: translateX(-100%);
+  animation: prog-sheen 2.8s ease-in-out infinite;
+}
+@keyframes prog-sheen { 0%, 55% { transform: translateX(-100%); } 100% { transform: translateX(240%); } }
+
+/* Мягкое появление экрана при переключении */
+.screen:not([hidden]) { animation: screen-in .5s var(--ease); }
+@keyframes screen-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Тактильная отдача у всех кнопок */
+.btn:not(:disabled):active { transform: scale(.975); }
+
+/* Золотая кайма вокруг печати на языковом экране */
+.seal-mini { position: relative; }
+.seal-mini::after {
+  content: ''; position: absolute; inset: -6px; border-radius: 50%;
+  border: 1px solid rgba(198, 173, 124, .5);
+}
+
+/* Карточка шаблона — золотая линия снизу при наведении */
+.g-card { position: relative; }
+.g-card::after {
+  content: ''; position: absolute; left: 16px; right: 16px; bottom: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  transform: scaleX(0); transition: transform .55s var(--ease);
+}
+.g-card:hover::after { transform: scaleX(1); }
+
+/* Успех — пульсирующее золотое кольцо вокруг печати */
+.success-seal { position: relative; }
+.success-seal::after {
+  content: ''; position: absolute; inset: -8px; border-radius: 50%;
+  border: 1px solid rgba(198, 173, 124, .45);
+  animation: seal-pulse 2.4s ease-in-out infinite;
+}
+@keyframes seal-pulse { 0%, 100% { transform: scale(1); opacity: .6; } 50% { transform: scale(1.06); opacity: .3; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .app-amb, #progress-fill::after, .success-seal::after { display: none; animation: none; }
+  .screen:not([hidden]) { animation: none; }
 }
