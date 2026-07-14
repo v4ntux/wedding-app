@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>nvate · admin</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prata&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --milk:#FDFBF7;--paper:#FFF;--mist:#F4EFF7;--wisteria:#A88FC9;--lilac:#755C97;--lilac-d:#5D4879;
+  --ink:#352E3C;--soft:#6E6377;--gold:#C6AD7C;--line:rgba(117,92,151,.14);
+  --ok:#6E8F6B;--new:#8A6D2F;--err:#B4515E;--shadow:0 18px 44px -22px rgba(93,72,121,.22);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--milk);color:var(--ink);font-family:'Manrope','Segoe UI',sans-serif;min-height:100dvh;-webkit-font-smoothing:antialiased}
+#glow{position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(60vw 40vh at 90% -8%,rgba(198,176,227,.28),transparent 60%),
+  radial-gradient(50vw 40vh at -10% 20%,rgba(244,222,200,.34),transparent 60%)}
+.wrap{max-width:820px;margin:0 auto;padding:20px 16px 60px}
+.head{display:flex;align-items:center;gap:10px;margin:12px 0 22px;flex-wrap:wrap}
+.head h1{font-family:'Prata',serif;font-weight:400;font-size:1.7rem}
+.head h1 i{font-style:normal;color:var(--gold)}
+.head h1 span{font-family:'Manrope';font-size:.9rem;color:var(--soft)}
+.head .spacer{flex:1}
+.lang-switch{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.lang-switch button{border:0;background:transparent;padding:6px 12px;cursor:pointer;font:inherit;font-size:.76rem;font-weight:600;color:var(--soft)}
+.lang-switch button.on{background:var(--lilac);color:#fff}
+.refresh{border:1px solid var(--line);background:var(--paper);color:var(--lilac);border-radius:999px;padding:7px 14px;font:inherit;font-size:.8rem;font-weight:600;cursor:pointer}
+h2{font-family:'Prata',serif;font-weight:400;font-size:1.1rem;margin:26px 0 12px}
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+@media(min-width:560px){.kpis{grid-template-columns:repeat(4,1fr)}}
+.kpi{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:16px 16px 14px;box-shadow:var(--shadow)}
+.kpi .v{font-family:'Prata',serif;font-size:1.5rem;line-height:1.1;color:var(--lilac)}
+.kpi .l{font-size:.7rem;letter-spacing:.05em;text-transform:uppercase;color:var(--soft);margin-top:6px}
+.kpi.k-rev .v{color:var(--gold)} .kpi.wide{grid-column:span 2}
+.kpi .badge{display:inline-block;font-size:.66rem;font-weight:600;border-radius:999px;padding:2px 9px;margin-top:8px}
+.b-paid{background:#E4EFE2;color:var(--ok)} .b-new{background:#F6EFD9;color:var(--new)} .b-cnl{background:#F4E0E3;color:var(--err)}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow)}
+.row{display:flex;align-items:center;gap:12px;margin:10px 0}
+.row .nm{flex:0 0 92px;font-size:.86rem;font-weight:600}
+.row .track{flex:1;height:22px;background:var(--mist);border-radius:8px;overflow:hidden}
+.row .fill{height:100%;border-radius:8px;background:linear-gradient(90deg,var(--wisteria),var(--lilac));min-width:2px;transition:width .8s cubic-bezier(.22,.61,.36,1)}
+.row .val{flex:0 0 auto;font-size:.78rem;color:var(--soft);white-space:nowrap;min-width:92px;text-align:right}
+.days{display:flex;align-items:flex-end;gap:6px;height:130px;padding-top:8px}
+.day{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;height:100%}
+.day .bar{width:100%;max-width:26px;border-radius:6px 6px 0 0;background:var(--mist);position:relative;min-height:3px;transition:height .8s cubic-bezier(.22,.61,.36,1)}
+.day .bar .paid{position:absolute;left:0;right:0;bottom:0;border-radius:6px 6px 0 0;background:linear-gradient(180deg,var(--lilac),var(--lilac-d))}
+.day .d{font-size:.6rem;color:var(--soft);transform:rotate(-45deg);white-space:nowrap}
+.legend{display:flex;gap:16px;font-size:.74rem;color:var(--soft);margin-top:10px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:middle}
+.mline{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.mline:last-child{border-bottom:0}
+.mline .n{flex:0 0 22px;font-family:'Prata',serif;color:var(--gold)}
+.mline .t{flex:1;min-width:0}.mline .t b{display:block;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mline .t span{font-size:.74rem;color:var(--soft)}.mline .c{font-size:.8rem;color:var(--soft)}
+/* Orders */
+.order{border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px;background:var(--paper);box-shadow:var(--shadow)}
+.order-h{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.order-h .nm{font-family:'Prata',serif;font-size:1.02rem}
+.order-meta{font-size:.8rem;color:var(--soft);margin-top:4px}
+.order-conf{font-size:.8rem;margin-top:8px;padding:8px 10px;border-radius:10px;background:#EEF5EC;color:#4C6F49}
+.order-conf b{color:#3B5A38}
+.order-proof{display:inline-block;margin-top:8px}
+.order-proof img{max-width:120px;border-radius:8px;border:1px solid var(--line)}
+.order-guests{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px}
+.gtag{display:inline-flex;align-items:center;gap:5px;font-size:.76rem;padding:4px 10px;border-radius:999px;background:var(--mist);color:var(--ink)}
+.gtag.sent{background:#E4EFE2;color:var(--ok)}
+.badge{font-size:.68rem;font-weight:600;border-radius:999px;padding:3px 11px;white-space:nowrap}
+.empty{color:var(--soft);font-size:.9rem;text-align:center;padding:20px}
+.err-screen{text-align:center;padding:60px 20px;color:var(--soft)}.err-screen .big{font-size:2.4rem;margin-bottom:10px}
+</style>
+</head>
+<body>
+<div id="glow" aria-hidden="true"></div>
+<div class="wrap">
+  <div class="head">
+    <h1>nvate<i>.</i> <span>admin</span></h1>
+    <div class="spacer"></div>
+    <div class="lang-switch"><button data-lang="uz">UZ</button><button data-lang="ru">RU</button></div>
+    <button class="refresh" id="refresh"></button>
+  </div>
+  <div id="content"><div class="empty">…</div></div>
+</div>
+
+<script>
+'use strict';
+const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+if (tg) { tg.ready(); tg.expand(); }
+const $ = (id) => document.getElementById(id);
+const money = (n) => Number(n || 0).toLocaleString('ru-RU') + ' ' + t('sum');
+
+const I18N = {
+  uz: {
+    refresh:'↻ Yangilash', sum:'so‘m',
+    kAll:'Jami arizalar', kPaid:'To‘langan', kNew:'Kutilmoqda', kCancel:'Rad etilgan',
+    kRev:'Tushum', kConv:'Konversiya', kAvg:'O‘rtacha chek', kGuests:'Nomli havolalar', kGuestRev:'Ulardan tushum',
+    hTpl:'Shablonlar', hDays:'So‘nggi kunlar', hMusic:'Top musiqa', hOrders:'Buyurtmalar',
+    legReq:'Arizalar', legPaid:'To‘langan',
+    stNew:'⏳ Kutilmoqda', stPaid:'✅ Tayyor', stCancel:'✖ Rad etilgan',
+    confBy:'Tasdiqladi', at:'sana', proof:'Chek', noMusic:'Katalogdan musiqa hali tanlanmagan',
+    noData:'Hozircha ma’lumot yo‘q', noOrders:'Hozircha buyurtmalar yo‘q',
+    sent:'yuborildi', notSent:'yuborilmagan',
+    forbidden:'Faqat administrator uchun. Botdagi tugma orqali oching.',
+    loadErr:'Yuklashda xato. Qayta urinib ko‘ring.',
+  },
+  ru: {
+    refresh:'↻ Обновить', sum:'сум',
+    kAll:'Всего заявок', kPaid:'Оплачено', kNew:'Ожидают', kCancel:'Отклонено',
+    kRev:'Выручка', kConv:'Конверсия', kAvg:'Средний чек', kGuests:'Именных ссылок', kGuestRev:'Из них выручка',
+    hTpl:'Шаблоны', hDays:'Последние дни', hMusic:'Топ музыки', hOrders:'Заказы',
+    legReq:'Заявки', legPaid:'Оплачено',
+    stNew:'⏳ Ожидает', stPaid:'✅ Готово', stCancel:'✖ Отклонено',
+    confBy:'Подтвердил', at:'когда', proof:'Чек', noMusic:'Музыку из каталога пока не выбирали',
+    noData:'Пока нет данных', noOrders:'Пока нет заказов',
+    sent:'отправлено', notSent:'не отправлено',
+    forbidden:'Только для администратора. Откройте через кнопку в боте.',
+    loadErr:'Ошибка загрузки. Попробуйте ещё раз.',
+  },
+};
+let LANG = localStorage.getItem('nv_admin_lang') || 'uz';
+const t = (k) => (I18N[LANG][k] ?? k);
+let DATA = null;
+
+function kpi(v, l, cls, badge){ return `<div class="kpi ${cls||''}"><div class="v">${v}</div><div class="l">${l}</div>${badge||''}</div>`; }
+
+function statusBadge(s){
+  if (s==='paid') return `<span class="badge b-paid">${t('stPaid')}</span>`;
+  if (s==='cancelled') return `<span class="badge b-cnl">${t('stCancel')}</span>`;
+  return `<span class="badge b-new">${t('stNew')}</span>`;
+}
+
+function render(){
+  if (!DATA) return;
+  const s = DATA.stats, T = s.totals;
+  const names = {}; for (const x of (DATA.templates||[])) names[x.id]=x.name;
+
+  let h = '<div class="kpis">';
+  h += kpi(T.all, t('kAll'));
+  h += kpi(T.paid, t('kPaid'), '', '<span class="badge b-paid">✓</span>');
+  h += kpi(T.new, t('kNew'), '', '<span class="badge b-new">⏳</span>');
+  h += kpi(T.cancelled, t('kCancel'), '', '<span class="badge b-cnl">✕</span>');
+  h += '</div><div class="kpis" style="margin-top:12px">';
+  h += kpi(money(T.revenue), t('kRev'), 'k-rev wide');
+  h += kpi(T.conversion+'%', t('kConv'));
+  h += kpi(money(T.avgCheck), t('kAvg'));
+  h += '</div><div class="kpis" style="margin-top:12px">';
+  h += kpi(s.guestLinks, t('kGuests'));
+  h += kpi(money(s.premiumRevenue), t('kGuestRev'), 'k-rev');
+  h += '</div>';
+
+  // templates
+  const maxT = Math.max(1, ...s.templates.map(x=>x.count));
+  h += `<h2>${t('hTpl')}</h2><div class="card">`;
+  if (!s.templates.length) h += `<div class="empty">${t('noData')}</div>`;
+  for (const x of s.templates) h += `<div class="row"><div class="nm">${names[x.id]||x.id}</div>
+    <div class="track"><div class="fill" style="width:${(x.count/maxT*100).toFixed(1)}%"></div></div>
+    <div class="val">${x.count} · ${money(x.revenue)}</div></div>`;
+  h += '</div>';
+
+  // days
+  h += `<h2>${t('hDays')}</h2><div class="card">`;
+  if (!s.byDay.length) h += `<div class="empty">${t('noData')}</div>`;
+  else {
+    const maxD = Math.max(1, ...s.byDay.map(d=>d.count));
+    h += '<div class="days">';
+    for (const d of s.byDay){ const hh=(d.count/maxD*100).toFixed(0); const ph=d.count?(d.paid/d.count*100).toFixed(0):0;
+      h += `<div class="day" title="${d.day}: ${d.count} / ${d.paid}"><div class="bar" style="height:${hh}%"><div class="paid" style="height:${ph}%"></div></div><div class="d">${d.day.slice(5)}</div></div>`; }
+    h += `</div><div class="legend"><span><i class="dot" style="background:var(--mist)"></i>${t('legReq')}</span><span><i class="dot" style="background:var(--lilac)"></i>${t('legPaid')}</span></div>`;
+  }
+  h += '</div>';
+
+  // music
+  h += `<h2>${t('hMusic')}</h2><div class="card">`;
+  if (!s.topMusic.length) h += `<div class="empty">${t('noMusic')}</div>`;
+  s.topMusic.forEach((m,i)=>{ h += `<div class="mline"><span class="n">${i+1}</span><div class="t"><b>${m.name||''}</b><span>${m.artist||''}</span></div><span class="c">${m.count}×</span></div>`; });
+  h += '</div>';
+
+  // orders
+  h += `<h2>${t('hOrders')}</h2>`;
+  const orders = DATA.orders||[];
+  if (!orders.length) h += `<div class="card"><div class="empty">${t('noOrders')}</div>`;
+  else for (const o of orders){
+    h += `<div class="order"><div class="order-h"><div><div class="nm">#${o.id} · ${o.groom} & ${o.bride}</div>
+      <div class="order-meta">${o.date} · ${names[o.templateId]||o.templateId} · ${money(o.total)}</div></div>${statusBadge(o.status)}</div>`;
+    if (o.status==='paid' && (o.confirmedByName || o.paidAt)) {
+      h += `<div class="order-conf">✅ ${t('confBy')}: <b>${o.confirmedByName||'—'}</b>${o.paidAt?` · ${o.paidAt}`:''}</div>`;
+    }
+    if (o.paymentProof) h += `<a class="order-proof" href="${o.paymentProof}" target="_blank" rel="noopener"><img src="${o.paymentProof}" alt="${t('proof')}"></a>`;
+    if (o.guests && o.guests.length){
+      h += '<div class="order-guests">';
+      for (const g of o.guests) h += `<span class="gtag ${g.sent?'sent':''}">${g.sent?'✅':'⚪'} ${g.name}</span>`;
+      h += '</div>';
+    }
+    h += '</div>';
+  }
+  if (!orders.length) h += '</div>';
+
+  $('content').innerHTML = h;
+}
+
+async function load(){
+  $('content').innerHTML = '<div class="empty">…</div>';
+  try {
+    const res = await fetch('/api/admin/stats', { headers:{ 'X-Init-Data': tg ? tg.initData : '' } });
+    if (res.status===403){ $('content').innerHTML = `<div class="err-screen"><div class="big">🔒</div>${t('forbidden')}</div>`; return; }
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error();
+    DATA = data; render();
+  } catch(e){ $('content').innerHTML = `<div class="err-screen"><div class="big">📡</div>${t('loadErr')}</div>`; }
+}
+
+function applyLang(){
+  document.documentElement.lang = LANG;
+  $('refresh').textContent = t('refresh');
+  document.querySelectorAll('.lang-switch button').forEach(b=>b.classList.toggle('on', b.dataset.lang===LANG));
+  render();
+}
+document.querySelectorAll('.lang-switch button').forEach(b=>b.addEventListener('click',()=>{ LANG=b.dataset.lang; localStorage.setItem('nv_admin_lang',LANG); applyLang(); }));
+$('refresh').addEventListener('click', load);
+applyLang();
+load();
+</script>
+</body>
+</html>

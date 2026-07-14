@@ -13,6 +13,8 @@ export const ADMIN_CHAT_ID = Number(process.env.ADMIN_CHAT_ID ?? 0);
 export const BASE_URL = (process.env.BASE_URL ?? 'http://localhost:3000').replace(/\/+$/, '');
 export const PORT = Number(process.env.PORT ?? 3000);
 export const DEV_NO_AUTH = process.env.DEV_NO_AUTH === '1';
+// Ссылка поддержки для кнопки Support в боте (напр. https://t.me/username). Необязательно.
+export const SUPPORT_URL = (process.env.SUPPORT_URL ?? '').trim();
 
 // Яндекс-карты: без ключа работают в режиме разработки, для продакшена получите ключ
 // на developer.tech.yandex.ru и пропишите в .env

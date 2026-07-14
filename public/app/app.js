@@ -20,7 +20,7 @@ const state = {
   photos: [],                  // { name, previewUrl, uploading }
   music: { type: 'none', value: null, name: '', previewUrl: null, start: null, end: null },
   guests: [],                  // имена гостей, по 8 000 за каждого
-  step: 0,
+  revealed: 0,                 // индекс последнего раскрытого блока
   draftRestored: false,
 };
 
@@ -49,7 +49,7 @@ const saveDraft = debounce(() => {
       contactTg: $('contact-tg').value,
       phone: $('phone').value,
       phone2: $('phone2').value,
-      step: state.step,
+      revealed: state.revealed,
     }));
   } catch (_) { /* переполненное хранилище не критично */ }
 }, 400);
@@ -85,7 +85,7 @@ function restoreDraft() {
   $('contact-tg').value = d.contactTg || '';
   $('phone').value = d.phone || '';
   $('phone2').value = d.phone2 || '';
-  state.step = Math.min(Number(d.step) || 0, WIZARD.length - 1);
+  state.revealed = Math.min(Number(d.revealed ?? d.step) || 0, WIZARD.length - 1);
   state.draftRestored = true;
   return true;
 }
@@ -118,6 +118,7 @@ const I18N = {
     createNew: '+ Yangi taklifnoma',
     rcTplLine: 'Shablon', rcGuestsLine: 'Nomli havolalar',
     stepTitles: ['Kelin-kuyov', 'Sana va vaqt', 'Manzil', 'Suratlar', 'Musiqa', 'Mehmonlar', 'Yakuniy ko‘rik'],
+    tNames: 'Kelin-kuyov', tDate: 'Sana va vaqt', tVenue: 'Manzil', tPhotos: 'Suratlar', tMusic: 'Musiqa', tGuests: 'Mehmonlar', tReview: 'Yakuniy ko‘rik',
     stepOf: (a, b) => `${a} / ${b}-qadam`,
     next: 'Davom etish', back: 'Ortga', send: 'Ariza yuborish', sending: 'Yuborilmoqda...',
     leadNames: 'Ismlaringiz taklifnomaning yuragida turadi.',
@@ -184,6 +185,7 @@ const I18N = {
     createNew: '+ Новое приглашение',
     rcTplLine: 'Шаблон', rcGuestsLine: 'Именные ссылки',
     stepTitles: ['Пара', 'Дата и время', 'Локация', 'Фотографии', 'Музыка', 'Гости', 'Финальный обзор'],
+    tNames: 'Пара', tDate: 'Дата и время', tVenue: 'Локация', tPhotos: 'Фотографии', tMusic: 'Музыка', tGuests: 'Гости', tReview: 'Финальный обзор',
     stepOf: (a, b) => `Шаг ${a} из ${b}`,
     next: 'Продолжить', back: 'Назад', send: 'Отправить заявку', sending: 'Отправляем...',
     leadNames: 'Ваши имена — сердце приглашения.',
@@ -263,7 +265,7 @@ function applyI18n() {
   updateDateLabel();
   renderCalendar();
   renderTimeChips();
-  updateStudioChrome();
+  updateProgress();
   if (state.config) {
     renderGallery();
     updatePhotoTexts();
@@ -271,7 +273,7 @@ function applyI18n() {
     renderGuests();
     updateSelectedMusic();
     if (currentScreen === 'mine') loadMine();
-    if (state.step === WIZARD.length - 1 && currentScreen === 'studio') renderReceipt();
+    if (state.revealed === WIZARD.length - 1 && currentScreen === 'studio') renderReceipt();
   }
 }
 
@@ -310,8 +312,7 @@ function updateTgBack() {
 try {
   tg?.BackButton?.onClick(() => {
     if (currentScreen !== 'studio') return;
-    if (state.step > 0) goStep(state.step - 1, -1);
-    else showScreen('templates');
+    showScreen('templates');
   });
 } catch (_) { /* — */ }
 
@@ -496,62 +497,90 @@ const WIZARD = [
   { id: 'review', validate: () => null, onEnter: enterReview },
 ];
 
-function stepSection(i) {
-  return document.querySelector(`section.step[data-step="${WIZARD[i].id}"]`);
+function blockEl(i) {
+  return document.querySelector(`.block[data-step="${WIZARD[i].id}"]`);
+}
+
+function scrollToBlock(el) {
+  if (!el) return;
+  const y = el.getBoundingClientRect().top + window.scrollY - 74;
+  window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+}
+
+function updateProgress() {
+  const pct = ((state.revealed + 1) / WIZARD.length) * 100;
+  $('progress-fill').style.width = pct + '%';
+  const tpl = selectedTemplate();
+  if (tpl) {
+    $('studio-tpl-name').textContent = tpl.name;
+    $('studio-tpl-price').textContent = money(tpl.price);
+  }
+  $('studio-eye').hidden = !state.templateId;
+}
+
+// Показывает блоки 0..revealed; кнопку «Продолжить» — только на фронтире.
+function renderBlocks() {
+  WIZARD.forEach((w, i) => {
+    const sec = blockEl(i);
+    if (!sec) return;
+    sec.hidden = i > state.revealed;
+    const go = sec.querySelector('.block-go');
+    if (go && w.id !== 'review') go.hidden = i !== state.revealed;
+  });
+}
+
+function showBlockErr(i, msg) {
+  const sec = blockEl(i);
+  if (!sec) return;
+  const box = sec.querySelector('.block-err');
+  if (box) { box.textContent = msg; box.hidden = false; }
+  sec.classList.remove('sec-error');
+  void sec.offsetWidth;
+  sec.classList.add('sec-error');
+  setTimeout(() => sec.classList.remove('sec-error'), 900);
+  haptic.err();
+}
+
+function clearBlockErr(i) {
+  const box = blockEl(i)?.querySelector('.block-err');
+  if (box) box.hidden = true;
+}
+
+// Заполнил блок → следующий плавно выезжает; ошибка показывается прямо в блоке.
+function continueBlock(i) {
+  const err = WIZARD[i].validate();
+  if (err) { showBlockErr(i, err); return; }
+  clearBlockErr(i);
+  if (i === state.revealed && state.revealed < WIZARD.length - 1) {
+    state.revealed++;
+    renderBlocks();
+    const next = blockEl(state.revealed);
+    next.classList.remove('block-in'); void next.offsetWidth; next.classList.add('block-in');
+    WIZARD[state.revealed].onEnter?.();
+    updateProgress();
+    haptic.impact('light');
+    saveDraft();
+    setTimeout(() => scrollToBlock(next), 60);
+  } else {
+    scrollToBlock(blockEl(Math.min(i + 1, WIZARD.length - 1)));
+  }
 }
 
 function enterStudio() {
   if (!state.templateId) {
-    // без шаблона в студии делать нечего
     toast(t('eTpl'), 'err');
     showScreen('templates');
     return;
   }
-  goStep(state.step, 0, true);
+  renderBlocks();
+  for (let i = 0; i <= state.revealed; i++) WIZARD[i].onEnter?.();
+  updateProgress();
   updateTgBack();
+  window.scrollTo({ top: 0 });
   if (state.draftRestored) {
     state.draftRestored = false;
     toast(t('draftRestored'), 'info', 2600);
   }
-}
-
-function updateStudioChrome() {
-  const total = WIZARD.length;
-  const i = state.step;
-  $('step-title').textContent = t('stepTitles')[i];
-  $('step-count').textContent = t('stepOf', i + 1, total);
-  $('progress-fill').style.width = ((i + 1) / total * 100) + '%';
-  $('studio-prev').hidden = i === 0;
-  $('studio-next-label').textContent = i === total - 1 ? t('send') : t('next');
-  $('studio-eye').hidden = !state.templateId || i === total - 1;
-}
-
-function goStep(next, dir, force = false) {
-  if (!force && dir > 0) {
-    const err = WIZARD[state.step].validate();
-    if (err) {
-      const sec = stepSection(state.step);
-      sec.classList.remove('sec-error');
-      void sec.offsetWidth;
-      sec.classList.add('sec-error');
-      setTimeout(() => sec.classList.remove('sec-error'), 900);
-      toast(err, 'err');
-      return;
-    }
-  }
-  state.step = Math.max(0, Math.min(next, WIZARD.length - 1));
-  WIZARD.forEach((s, i) => {
-    const sec = stepSection(i);
-    sec.hidden = i !== state.step;
-    sec.classList.remove('enter', 'enter-back');
-  });
-  const sec = stepSection(state.step);
-  sec.classList.add(dir < 0 ? 'enter-back' : 'enter');
-  updateStudioChrome();
-  WIZARD[state.step].onEnter?.();
-  saveDraft();
-  if (dir !== 0) haptic.impact('light');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 /* ── Валидация шагов ── */
@@ -1260,8 +1289,10 @@ function jumpToStepId(id, msg) {
     return;
   }
   const idx = WIZARD.findIndex((s) => s.id === id);
-  if (idx >= 0) goStep(idx, -1, true);
-  if (msg) toast(msg, 'err');
+  if (idx < 0) { if (msg) toast(msg, 'err'); return; }
+  if (state.revealed < idx) { state.revealed = idx; renderBlocks(); updateProgress(); }
+  if (msg) showBlockErr(idx, msg);
+  scrollToBlock(blockEl(idx));
 }
 
 function markField(id) {
@@ -1284,9 +1315,9 @@ async function submitApplication() {
     toast(t('ePhone'), 'err');
     return;
   }
-  const btn = $('studio-next');
+  const btn = $('submit-btn');
   btn.disabled = true;
-  $('studio-next-label').textContent = t('sending');
+  $('submit-label').textContent = t('sending');
   try {
     const res = await fetch('/api/applications', {
       method: 'POST',
@@ -1308,7 +1339,7 @@ async function submitApplication() {
     toast(t('eNet'), 'err');
   } finally {
     btn.disabled = false;
-    $('studio-next-label').textContent = state.step === WIZARD.length - 1 ? t('send') : t('next');
+    $('submit-label').textContent = t('send');
   }
 }
 
@@ -1325,10 +1356,11 @@ function wireEvents() {
 
   /* студия */
   $('studio-exit').addEventListener('click', () => { toast(t('draftSaved'), 'info', 1600); showScreen('templates'); });
-  $('studio-prev').addEventListener('click', () => goStep(state.step - 1, -1));
-  $('studio-next').addEventListener('click', () => {
-    if (state.step === WIZARD.length - 1) submitApplication();
-    else goStep(state.step + 1, 1);
+  WIZARD.forEach((w, i) => {
+    const go = blockEl(i)?.querySelector('.block-go');
+    if (!go) return;
+    if (w.id === 'review') go.addEventListener('click', submitApplication);
+    else go.addEventListener('click', () => continueBlock(i));
   });
   $('studio-eye').addEventListener('click', () => {
     const tpl = selectedTemplate();
@@ -1557,7 +1589,7 @@ function wireEvents() {
 
 /* Чистый лист после отправленной заявки */
 function resetWizard() {
-  state.step = 0;
+  state.revealed = 0;
   state.dateIso = null;
   state.lat = null;
   state.lng = null;
@@ -1573,7 +1605,8 @@ function resetWizard() {
   renderGuests();
   renderCalendar();
   updateDateLabel();
-  updateStudioChrome();
+  renderBlocks();
+  updateProgress();
 }
 
 /* ════ Старт ════ */
@@ -1611,33 +1644,53 @@ loadConfig().then(initLangScreen).catch(() => {
   toast(t('eNet'), 'err');
 });
 
-/* ════ Тихая атмосфера: пыль и редкие лепестки за контентом ════ */
+/* ════ Живая атмосфера: пыль, лепестки, золотые листья, искры за контентом ════ */
 (function ambientLayer() {
   if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   var box = document.createElement('div');
   box.className = 'app-amb';
   box.setAttribute('aria-hidden', 'true');
   var rnd = function (a, b) { return a + Math.random() * (b - a); };
-  for (var i = 0; i < 16; i++) {
-    var d = document.createElement('i');
-    d.className = 'amb-dust';
-    d.style.setProperty('--x', rnd(2, 98).toFixed(1) + '%');
-    d.style.setProperty('--y', rnd(15, 95).toFixed(1) + '%');
-    d.style.setProperty('--s', rnd(0.6, 1.8).toFixed(2));
-    d.style.setProperty('--sw', rnd(-40, 40).toFixed(0) + 'px');
-    d.style.setProperty('--t', rnd(9, 16).toFixed(1) + 's');
-    d.style.setProperty('--d', rnd(0, 10).toFixed(1) + 's');
-    box.appendChild(d);
+  function spawn(cls, n, make) {
+    for (var i = 0; i < n; i++) {
+      var el = document.createElement('i');
+      el.className = cls;
+      make(el);
+      box.appendChild(el);
+    }
   }
-  for (var j = 0; j < 5; j++) {
-    var p = document.createElement('i');
-    p.className = 'amb-petal';
-    p.style.setProperty('--x', rnd(2, 96).toFixed(1) + '%');
-    p.style.setProperty('--s', rnd(0.7, 1.3).toFixed(2));
-    p.style.setProperty('--sw', rnd(-60, 60).toFixed(0) + 'px');
-    p.style.setProperty('--t', rnd(20, 34).toFixed(1) + 's');
-    p.style.setProperty('--d', rnd(0, 26).toFixed(1) + 's');
-    box.appendChild(p);
-  }
+  // золотая пыль — поднимается
+  spawn('amb-dust', 16, function (el) {
+    el.style.setProperty('--x', rnd(2, 98).toFixed(1) + '%');
+    el.style.setProperty('--y', rnd(15, 95).toFixed(1) + '%');
+    el.style.setProperty('--s', rnd(0.6, 1.8).toFixed(2));
+    el.style.setProperty('--sw', rnd(-40, 40).toFixed(0) + 'px');
+    el.style.setProperty('--t', rnd(9, 16).toFixed(1) + 's');
+    el.style.setProperty('--d', rnd(0, 10).toFixed(1) + 's');
+  });
+  // лепестки — падают, покачиваясь
+  spawn('amb-petal', 9, function (el) {
+    el.style.setProperty('--x', rnd(2, 96).toFixed(1) + '%');
+    el.style.setProperty('--s', rnd(0.7, 1.4).toFixed(2));
+    el.style.setProperty('--sw', rnd(-70, 70).toFixed(0) + 'px');
+    el.style.setProperty('--t', rnd(16, 30).toFixed(1) + 's');
+    el.style.setProperty('--d', rnd(0, 24).toFixed(1) + 's');
+  });
+  // золотые листья
+  spawn('amb-leaf', 6, function (el) {
+    el.style.setProperty('--x', rnd(2, 96).toFixed(1) + '%');
+    el.style.setProperty('--s', rnd(0.7, 1.4).toFixed(2));
+    el.style.setProperty('--sw', rnd(-90, 90).toFixed(0) + 'px');
+    el.style.setProperty('--t', rnd(18, 32).toFixed(1) + 's');
+    el.style.setProperty('--d', rnd(0, 26).toFixed(1) + 's');
+  });
+  // мерцающие искры
+  spawn('amb-spark', 12, function (el) {
+    el.style.setProperty('--x', rnd(2, 98).toFixed(1) + '%');
+    el.style.setProperty('--y', rnd(6, 92).toFixed(1) + '%');
+    el.style.setProperty('--s', rnd(0.5, 1.4).toFixed(2));
+    el.style.setProperty('--t', rnd(4, 9).toFixed(1) + 's');
+    el.style.setProperty('--d', rnd(0, 8).toFixed(1) + 's');
+  });
   document.body.appendChild(box);
 })();

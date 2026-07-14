@@ -692,3 +692,83 @@ textarea { resize: vertical; min-height: 110px; }
   .app-amb, #progress-fill::after, .success-seal::after { display: none; animation: none; }
   .screen:not([hidden]) { animation: none; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   v3 — одностраничная форма + богатая световая сцена (переопределяет базу)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Новый свет: тёплые дышащие пятна + медленный луч + бумага + виньетка */
+#glow {
+  background-color: #F9F4EC;
+  background-image:
+    radial-gradient(60vw 42vh at 88% -8%, rgba(198, 176, 227, .34), transparent 60%),
+    radial-gradient(52vw 40vh at -10% 22%, rgba(244, 222, 200, .42), transparent 60%),
+    radial-gradient(70vw 50vh at 50% 112%, rgba(220, 191, 198, .22), transparent 62%),
+    url('assets/paper-texture.png');
+  background-size: auto, auto, auto, 640px;
+  background-blend-mode: normal, normal, normal, multiply;
+  overflow: hidden;
+}
+#glow::before {
+  content: ''; position: absolute; top: -30%; bottom: -30%; left: -40%; width: 60%;
+  background: linear-gradient(100deg, transparent 24%, rgba(255, 244, 220, .4) 50%, transparent 76%);
+  filter: blur(30px); transform: rotate(8deg);
+  animation: glow-beam 30s ease-in-out infinite alternate;
+}
+@keyframes glow-beam { from { transform: translateX(0) rotate(8deg); } to { transform: translateX(150vw) rotate(8deg); } }
+#glow::after {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(120% 90% at 50% 34%, transparent 58%, rgba(93, 72, 121, .08) 100%);
+}
+
+/* Больше падающих деталей: золотые листья + мерцающие искры (пыль/лепестки — база) */
+.amb-leaf {
+  top: -5vh; left: var(--x);
+  width: calc(14px * var(--s)); height: calc(7px * var(--s));
+  background: linear-gradient(105deg, #DCC492, #C6AD7C 55%, #AE945F);
+  border-radius: 100% 4% 100% 4%; opacity: 0;
+  animation: amb-petal var(--t) linear var(--d) infinite;
+}
+.amb-leaf::after { content: ''; position: absolute; left: 8%; right: 8%; top: 46%; height: 1px; background: rgba(120, 95, 50, .5); }
+.amb-spark {
+  left: var(--x); top: var(--y);
+  width: calc(8px * var(--s)); height: calc(8px * var(--s));
+  background: radial-gradient(circle, #F4E3B2 18%, rgba(226, 199, 150, .5) 42%, transparent 70%);
+  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+  opacity: 0; animation: amb-spark var(--t) ease-in-out var(--d) infinite;
+}
+@keyframes amb-spark { 0%, 100% { opacity: 0; transform: scale(.4) rotate(0); } 50% { opacity: .85; transform: scale(1.1) rotate(22deg); } }
+
+/* Студия — одна страница: шапка с шаблоном, тонкий прогресс, блоки друг под другом */
+.studio-tpl { flex: 1; text-align: center; line-height: 1.15; }
+.studio-tpl b { display: block; font-family: 'Prata', serif; font-size: 1rem; color: var(--ink); }
+.studio-tpl span { font-size: .76rem; color: var(--soft); }
+.studio-progress-wrap { padding: 0 2px 14px; }
+#studio-steps { display: flex; flex-direction: column; gap: 16px; }
+
+.block {
+  background: var(--paper); border: 1px solid var(--line); border-radius: 18px;
+  padding: 20px 18px; box-shadow: var(--shadow); position: relative;
+}
+.block[hidden] { display: none; }
+.block.block-in { animation: block-in .6s var(--ease); }
+@keyframes block-in { from { opacity: 0; transform: translateY(24px) scale(.985); } to { opacity: 1; transform: none; } }
+.block.sec-error { border-color: rgba(180, 81, 94, .6); animation: block-shake .5s ease; }
+@keyframes block-shake { 20% { transform: translateX(-7px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(3px); } }
+.block-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.block-n {
+  width: 30px; height: 30px; flex: 0 0 30px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--wisteria), var(--lilac)); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Prata', serif; font-size: .85rem;
+  box-shadow: 0 4px 10px rgba(93, 72, 121, .3);
+}
+.block-title { font-family: 'Prata', serif; font-weight: 400; font-size: 1.12rem; margin: 0; }
+.block-err {
+  margin-top: 12px; padding: 10px 14px; border-radius: 12px;
+  background: rgba(180, 81, 94, .09); border: 1px solid rgba(180, 81, 94, .3);
+  color: var(--err); font-size: .85rem; font-weight: 500;
+  animation: block-in .3s var(--ease);
+}
+.block-err::before { content: '⚠ '; }
+.block-go { margin-top: 16px; width: 100%; }

@@ -1,7 +1,11 @@
 import { Bot, InlineKeyboard } from 'grammy';
+import { writeFileSync } from 'node:fs';
+import path from 'node:path';
 import { payApplication, cancelApplication, ValidationError, mapsLinks } from './service.js';
-import { findMusicPreset } from './config.js';
+import { findMusicPreset, SUPPORT_URL } from './config.js';
 import { findTemplate } from './templateStore.js';
+import { markMainSent, markGuestSent } from './db.js';
+import { UPLOADS_DIR } from './upload.js';
 import { escapeHtml as esc } from './render.js';
 
 function money(n) {
@@ -85,79 +89,204 @@ export function createBot({ token, adminChatId, baseUrl }) {
     console.error('[bot] error:', err.error ?? err);
   });
 
-  bot.command('start', async (ctx) => {
-    const text =
-      '💍 Ассалому алайкум!\n\n' +
-      'Здесь вы можете создать красивое свадебное приглашение (taklifnoma) со своей персональной ссылкой.\n\n' +
-      'Нажмите кнопку ниже, заполните данные — и мы свяжемся с вами.';
-    if (baseUrl.startsWith('https://')) {
-      await ctx.reply(text, {
-        reply_markup: new InlineKeyboard().webApp('💌 Создать приглашение', `${baseUrl}/app/`),
+  const https = baseUrl.startsWith('https://');
+  const orderUrl = `${baseUrl}/app/`;
+  const pendingProof = new Map(); // adminId -> appId (ждём скриншот чека)
+
+  const WELCOME = {
+    uz:
+      '✨ <b>nvate</b> — raqamli taklifnomalar\n\n' +
+      'Bu bot orqali siz:\n' +
+      '• To‘y, tug‘ilgan kun va boshqa tantanalar uchun chiroyli taklifnoma yaratasiz\n' +
+      '• Sana, manzil (jonli xarita), musiqa va suratlar qo‘shasiz\n' +
+      '• Har bir mehmonga alohida nomli havola olasiz\n\n' +
+      'Boshlash uchun pastdagi katta tugmani bosing 👇',
+    ru:
+      '✨ <b>nvate</b> — цифровые приглашения\n\n' +
+      'С помощью этого бота вы:\n' +
+      '• Создадите красивое приглашение на свадьбу, день рождения и другие торжества\n' +
+      '• Добавите дату, локацию (живая карта), музыку и фото\n' +
+      '• Получите личную ссылку для каждого гостя\n\n' +
+      'Нажмите большую кнопку ниже, чтобы начать 👇',
+  };
+
+  // Меню после выбора языка: одна большая кнопка «Заказать» (Web App) + Support/FAQ.
+  function welcomeMenu(lang, fromId) {
+    const uz = lang === 'uz';
+    const kb = new InlineKeyboard();
+    if (https) kb.webApp(uz ? '💌 Buyurtma berish' : '💌 Заказать', orderUrl).row();
+    if (SUPPORT_URL) kb.url(uz ? '💬 Yordam' : '💬 Поддержка', SUPPORT_URL);
+    else kb.text(uz ? '💬 Yordam' : '💬 Поддержка', `support:${lang}`);
+    kb.text('❔ FAQ', `faq:${lang}`).row();
+    if (adminChatId && fromId === adminChatId && https) kb.webApp('📊 Admin', `${baseUrl}/admin/`);
+    return kb;
+  }
+
+  // /start → выбор языка.
+  bot.command(['start', 'menu'], async (ctx) => {
+    await ctx.reply('🇺🇿 Tilni tanlang · 🇷🇺 Выберите язык', {
+      reply_markup: new InlineKeyboard().text('O‘zbekcha 🇺🇿', 'lang:uz').text('Русский 🇷🇺', 'lang:ru'),
+    });
+  });
+
+  bot.callbackQuery(/^lang:(uz|ru)$/, async (ctx) => {
+    const lang = ctx.match[1];
+    await ctx.answerCallbackQuery();
+    const extra = https ? '' : `\n\n⚠️ BASE_URL не HTTPS — форма: ${orderUrl}`;
+    const opts = { parse_mode: 'HTML', link_preview_options: { is_disabled: true }, reply_markup: welcomeMenu(lang, ctx.from?.id) };
+    try { await ctx.editMessageText(WELCOME[lang] + extra, opts); }
+    catch { await ctx.reply(WELCOME[lang] + extra, opts); }
+  });
+
+  bot.callbackQuery(/^faq:(uz|ru)$/, async (ctx) => {
+    const uz = ctx.match[1] === 'uz';
+    await ctx.answerCallbackQuery();
+    const text = uz
+      ? '<b>❔ Ko‘p so‘raladigan savollar</b>\n\n' +
+        '💰 <b>Narx:</b> shablonga qarab 129 000–199 000 so‘m. Nomli havola — har bir mehmon uchun 8 000 so‘m.\n' +
+        '🔗 <b>Havola:</b> to‘lovdan so‘ng shaxsiy havola beriladi va o‘chirilmaydi.\n' +
+        '🎵 <b>Musiqa:</b> katalog, YouTube yoki o‘z faylingiz.\n' +
+        '📷 <b>Suratlar:</b> 1–6 ta.\n' +
+        '⏱ <b>Vaqt:</b> to‘ldirish ~5 daqiqa.'
+      : '<b>❔ Частые вопросы</b>\n\n' +
+        '💰 <b>Цена:</b> 129 000–199 000 сум в зависимости от шаблона. Именная ссылка — 8 000 сум за гостя.\n' +
+        '🔗 <b>Ссылка:</b> выдаётся после оплаты и не удаляется.\n' +
+        '🎵 <b>Музыка:</b> каталог, YouTube или свой файл.\n' +
+        '📷 <b>Фото:</b> 1–6 шт.\n' +
+        '⏱ <b>Время:</b> заполнение ~5 минут.';
+    await ctx.reply(text, { parse_mode: 'HTML', reply_markup: welcomeMenu(uz ? 'uz' : 'ru', ctx.from?.id) });
+  });
+
+  bot.callbackQuery(/^support:(uz|ru)$/, async (ctx) => {
+    const uz = ctx.match[1] === 'uz';
+    await ctx.answerCallbackQuery();
+    await ctx.reply(
+      uz
+        ? '💬 <b>Yordam</b>\n\nSavolingizni shu yerga yozing — tez orada javob beramiz.'
+        : '💬 <b>Поддержка</b>\n\nНапишите ваш вопрос сюда — ответим в ближайшее время.',
+      { parse_mode: 'HTML' }
+    );
+  });
+
+  // ── Оплата: подтверждаем ТОЛЬКО после скриншота чека ──
+  bot.callbackQuery(/^paid:(\d+)$/, async (ctx) => {
+    if (!adminChatId || ctx.from.id !== adminChatId) {
+      return ctx.answerCallbackQuery({ text: 'Только для администратора', show_alert: true });
+    }
+    const id = Number(ctx.match[1]);
+    pendingProof.set(ctx.from.id, id);
+    await ctx.answerCallbackQuery({ text: '📸 Пришлите скриншот чека' });
+    await ctx.reply(`📸 Заявка #${id}: пришлите скриншот оплаты одним фото.\nОтмена — /cancel`);
+  });
+
+  bot.callbackQuery(/^cancel:(\d+)$/, async (ctx) => {
+    if (!adminChatId || ctx.from.id !== adminChatId) {
+      return ctx.answerCallbackQuery({ text: 'Только для администратора', show_alert: true });
+    }
+    const id = Number(ctx.match[1]);
+    try {
+      const app = cancelApplication(id);
+      await ctx.editMessageText(buildAdminText(app, { baseUrl }), {
+        parse_mode: 'HTML', link_preview_options: { is_disabled: true },
       });
-    } else {
-      // Web App кнопки требуют HTTPS — в dev-режиме даём обычную ссылку текстом.
-      await ctx.reply(`${text}\n\n⚠️ BASE_URL не HTTPS, Web App кнопка недоступна.\nФорма: ${baseUrl}/app/`);
+      await ctx.answerCallbackQuery({ text: 'Заявка отклонена' });
+      try {
+        await ctx.api.sendMessage(app.tg_user_id, app.lang === 'ru'
+          ? 'К сожалению, ваша заявка отклонена. Свяжитесь с поддержкой для уточнения.'
+          : 'Afsuski, arizangiz rad etildi. Aniqlik uchun yordam xizmatiga yozing.');
+      } catch { /* пара могла заблокировать бота */ }
+    } catch (e) {
+      const text = e instanceof ValidationError ? e.message : 'Ошибка, попробуйте ещё раз';
+      if (!(e instanceof ValidationError)) console.error('[bot] cancel error:', e);
+      await ctx.answerCallbackQuery({ text, show_alert: true });
     }
   });
 
-  // Пока ADMIN_CHAT_ID не настроен — подсказываем id любому написавшему.
+  bot.command('cancel', async (ctx) => {
+    if (pendingProof.delete(ctx.from?.id)) await ctx.reply('Отменено. Заявка осталась в статусе «новая».');
+  });
+
+  // Скриншот от админа → сохраняем чек, подтверждаем заявку, уведомляем пару.
+  bot.on('message:photo', async (ctx) => {
+    const adminId = ctx.from?.id;
+    if (!adminChatId || adminId !== adminChatId) return;
+    const id = pendingProof.get(adminId);
+    if (!id) { await ctx.reply('Нет заявки, ожидающей скриншот. Нажмите «✅ Оплачено» под нужной заявкой.'); return; }
+    pendingProof.delete(adminId);
+    try {
+      const photo = ctx.message.photo[ctx.message.photo.length - 1];
+      const f = await ctx.api.getFile(photo.file_id);
+      const buf = Buffer.from(await (await fetch(`https://api.telegram.org/file/bot${token}/${f.file_path}`)).arrayBuffer());
+      const name = `proof-${id}-${Date.now()}.jpg`;
+      writeFileSync(path.join(UPLOADS_DIR, name), buf);
+      const adminName = ctx.from.username ? '@' + ctx.from.username : (ctx.from.first_name || String(adminId));
+      const { app, guests } = payApplication(id, { adminId, adminName, proof: name });
+      await ctx.reply(`✅ Заявка #${id} подтверждена (${adminName}). Чек сохранён.\n${baseUrl}/${app.slug}`, {
+        link_preview_options: { is_disabled: true },
+      });
+      try {
+        await notifyCouplePaid(ctx.api, app, guests);
+      } catch (e) {
+        console.error('[bot] notify couple failed:', e);
+        await ctx.reply(`⚠️ Не удалось уведомить пару (id ${app.tg_user_id}). Ссылка: ${baseUrl}/${app.slug}`);
+      }
+    } catch (e) {
+      const msg = e instanceof ValidationError ? e.message : 'Ошибка подтверждения, попробуйте ещё раз';
+      if (!(e instanceof ValidationError)) console.error('[bot] proof confirm:', e);
+      await ctx.reply('⚠️ ' + msg);
+    }
+  });
+
+  // Пара делится ссылкой → отмечаем отправленной, кнопка становится зелёной.
+  bot.callbackQuery(/^sent:(\d+):(.+)$/, async (ctx) => {
+    const id = Number(ctx.match[1]);
+    const slug = ctx.match[2];
+    if (slug === '_main') markMainSent(id); else markGuestSent(id, slug);
+    await ctx.answerCallbackQuery({ text: '✅ Yuborildi · Отправлено' });
+    try {
+      await ctx.editMessageReplyMarkup({
+        reply_markup: new InlineKeyboard().text('✅ Yuborildi · Отправлено', 'noop'),
+      });
+    } catch { /* уже отредактировано */ }
+  });
+  bot.callbackQuery('noop', (ctx) => ctx.answerCallbackQuery());
+
+  // Прочие сообщения: подсказка chat id, пока ADMIN_CHAT_ID не настроен.
   bot.on('message', async (ctx) => {
     if (!adminChatId) {
       await ctx.reply(
-        `Ваш chat id: <code>${ctx.chat.id}</code>\n` +
-          'Если вы администратор — пропишите его в .env как ADMIN_CHAT_ID и перезапустите сервер.',
+        `Ваш chat id: <code>${ctx.chat.id}</code>\nПропишите его в .env как ADMIN_CHAT_ID и перезапустите сервер.`,
         { parse_mode: 'HTML' }
       );
     }
   });
 
-  bot.callbackQuery(/^(paid|cancel):(\d+)$/, async (ctx) => {
-    if (!adminChatId || ctx.from.id !== adminChatId) {
-      return ctx.answerCallbackQuery({ text: 'Только для администратора', show_alert: true });
-    }
-    const action = ctx.match[1];
-    const id = Number(ctx.match[2]);
-    try {
-      if (action === 'paid') {
-        const { app, guests } = payApplication(id);
-        await ctx.editMessageText(buildAdminText(app, { baseUrl, guests }), {
-          parse_mode: 'HTML',
-          link_preview_options: { is_disabled: true },
+  // Уведомление пары после подтверждения: общая ссылка + именные ссылки с кнопкой «Отправить».
+  async function notifyCouplePaid(api, app, guests) {
+    const uz = app.lang !== 'ru';
+    const link = `${baseUrl}/${app.slug}`;
+    await api.sendMessage(app.tg_user_id,
+      uz
+        ? `🎉 Tabriklaymiz! Taklifnomangiz tayyor.\n\n🔗 <b>Umumiy havola:</b>\n${link}`
+        : `🎉 Поздравляем! Ваше приглашение готово.\n\n🔗 <b>Общая ссылка:</b>\n${link}`,
+      {
+        parse_mode: 'HTML', link_preview_options: { is_disabled: true },
+        reply_markup: app.main_sent
+          ? new InlineKeyboard().text('✅ Yuborildi · Отправлено', 'noop')
+          : new InlineKeyboard().text(uz ? '📤 Ulashish' : '📤 Поделиться', `sent:${app.id}:_main`),
+      });
+    if (guests.length) {
+      await api.sendMessage(app.tg_user_id, uz
+        ? '👥 Har bir mehmon uchun shaxsiy havola. «Yuborish»ni bosib, xabarni gostga ulashing:'
+        : '👥 Личная ссылка для каждого гостя. Нажмите «Отправить» и перешлите сообщение гостю:');
+      for (const g of guests) {
+        await api.sendMessage(app.tg_user_id, `<b>${esc(g.name)}</b>\n${baseUrl}/${app.slug}/${g.slug}`, {
+          parse_mode: 'HTML', link_preview_options: { is_disabled: true },
+          reply_markup: new InlineKeyboard().text(uz ? '📤 Yuborish' : '📤 Отправить', `sent:${app.id}:${g.slug}`),
         });
-        await ctx.answerCallbackQuery({ text: '✅ Приглашение создано' });
-        try {
-          await ctx.api.sendMessage(app.tg_user_id, buildCoupleText(app, guests, baseUrl), {
-            link_preview_options: { is_disabled: true },
-          });
-        } catch (e) {
-          console.error('[bot] failed to notify couple:', e);
-          await ctx.api.sendMessage(
-            adminChatId,
-            `⚠️ Не удалось отправить ссылку паре (id ${app.tg_user_id}). Отправьте вручную:\n${baseUrl}/${app.slug}`
-          );
-        }
-      } else {
-        const app = cancelApplication(id);
-        await ctx.editMessageText(buildAdminText(app, { baseUrl }), {
-          parse_mode: 'HTML',
-          link_preview_options: { is_disabled: true },
-        });
-        await ctx.answerCallbackQuery({ text: 'Заявка отклонена' });
-        try {
-          await ctx.api.sendMessage(
-            app.tg_user_id,
-            'К сожалению, ваша заявка отклонена. Свяжитесь с администратором для уточнения.'
-          );
-        } catch {
-          /* пара могла заблокировать бота — не критично */
-        }
       }
-    } catch (e) {
-      const text = e instanceof ValidationError ? e.message : 'Ошибка, попробуйте ещё раз';
-      if (!(e instanceof ValidationError)) console.error('[bot] callback error:', e);
-      await ctx.answerCallbackQuery({ text, show_alert: true });
     }
-  });
+  }
 
   return bot;
 }

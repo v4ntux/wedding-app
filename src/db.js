@@ -49,6 +49,7 @@ db.exec(`
     application_id INTEGER NOT NULL REFERENCES applications(id),
     name TEXT NOT NULL,
     slug TEXT NOT NULL,
+    sent INTEGER NOT NULL DEFAULT 0,
     UNIQUE(application_id, slug)
   );
 `);
@@ -64,9 +65,16 @@ for (const [col, ddl] of [
   ['event_type', "ALTER TABLE applications ADD COLUMN event_type TEXT NOT NULL DEFAULT 'wedding'"],
   ['phone2', 'ALTER TABLE applications ADD COLUMN phone2 TEXT'],
   ['contact_tg', 'ALTER TABLE applications ADD COLUMN contact_tg TEXT'],
+  ['confirmed_by', 'ALTER TABLE applications ADD COLUMN confirmed_by INTEGER'],
+  ['confirmed_by_name', 'ALTER TABLE applications ADD COLUMN confirmed_by_name TEXT'],
+  ['payment_proof', 'ALTER TABLE applications ADD COLUMN payment_proof TEXT'],
+  ['main_sent', 'ALTER TABLE applications ADD COLUMN main_sent INTEGER NOT NULL DEFAULT 0'],
 ]) {
   if (!appCols.includes(col)) db.exec(ddl);
 }
+
+const guestCols = db.prepare('PRAGMA table_info(guests)').all().map((c) => c.name);
+if (!guestCols.includes('sent')) db.exec('ALTER TABLE guests ADD COLUMN sent INTEGER NOT NULL DEFAULT 0');
 
 export function insertApplication(a) {
   const res = db
@@ -173,4 +181,88 @@ export function getGuest(applicationId, slug) {
 
 export function listGuests(applicationId) {
   return db.prepare('SELECT * FROM guests WHERE application_id = ? ORDER BY id').all(applicationId);
+}
+
+// Сводная статистика для админ-панели (агрегаты по всем заявкам).
+export function adminStats() {
+  const totals = { all: 0, new: 0, paid: 0, cancelled: 0, revenue: 0 };
+  for (const r of db.prepare(
+    "SELECT status, COUNT(*) c, COALESCE(SUM(total_price),0) s FROM applications GROUP BY status"
+  ).all()) {
+    totals.all += Number(r.c);
+    if (r.status in totals) totals[r.status] = Number(r.c);
+    if (r.status === 'paid') totals.revenue = Number(r.s);
+  }
+  totals.conversion = totals.all ? Math.round((totals.paid / totals.all) * 100) : 0;
+  totals.avgCheck = totals.paid ? Math.round(totals.revenue / totals.paid) : 0;
+
+  const templates = db.prepare(
+    `SELECT template_id AS id, COUNT(*) c,
+            COALESCE(SUM(CASE WHEN status='paid' THEN total_price END),0) revenue
+     FROM applications GROUP BY template_id ORDER BY c DESC`
+  ).all().map((r) => ({ id: r.id, count: Number(r.c), revenue: Number(r.revenue) }));
+
+  const topMusic = [];
+  for (const r of db.prepare(
+    "SELECT music_value, COUNT(*) c FROM applications WHERE music_type='itunes' GROUP BY music_value ORDER BY c DESC LIMIT 5"
+  ).all()) {
+    try {
+      const v = JSON.parse(r.music_value);
+      topMusic.push({ name: v.name, artist: v.artist, count: Number(r.c) });
+    } catch { /* пропускаем битые */ }
+  }
+
+  const byDay = db.prepare(
+    `SELECT substr(created_at,1,10) d, COUNT(*) c,
+            SUM(CASE WHEN status='paid' THEN 1 ELSE 0 END) paid
+     FROM applications GROUP BY d ORDER BY d DESC LIMIT 14`
+  ).all().map((r) => ({ day: r.d, count: Number(r.c), paid: Number(r.paid) })).reverse();
+
+  const guestLinks = Number(db.prepare('SELECT COUNT(*) c FROM guests').get().c);
+  const premiumRevenue = Number(
+    db.prepare("SELECT COALESCE(SUM(premium_price),0) s FROM applications WHERE status='paid' AND premium=1").get().s
+  );
+
+  return { totals, templates, topMusic, byDay, guestLinks, premiumRevenue };
+}
+
+// Записать, какой админ подтвердил оплату, когда и скриншот чека.
+export function recordConfirmation(id, adminId, adminName, proof) {
+  db.prepare(
+    'UPDATE applications SET confirmed_by = ?, confirmed_by_name = ?, payment_proof = ? WHERE id = ?'
+  ).run(adminId ?? null, adminName ?? null, proof ?? null, id);
+}
+
+export function markMainSent(id) {
+  db.prepare('UPDATE applications SET main_sent = 1 WHERE id = ?').run(id);
+}
+
+export function markGuestSent(applicationId, slug) {
+  db.prepare('UPDATE guests SET sent = 1 WHERE application_id = ? AND slug = ?').run(applicationId, slug);
+}
+
+// Последние заявки для админ-панели: кто подтвердил, когда, скриншот, гости.
+export function listRecentOrders(limit = 30) {
+  const rows = db.prepare('SELECT * FROM applications ORDER BY id DESC LIMIT ?').all(limit);
+  return rows.map((a) => ({
+    id: a.id,
+    groom: a.groom_name,
+    bride: a.bride_name,
+    date: a.wedding_date,
+    templateId: a.template_id,
+    status: a.status,
+    total: a.total_price,
+    premium: Boolean(a.premium),
+    slug: a.slug,
+    contactTg: a.contact_tg,
+    phone: a.phone,
+    phone2: a.phone2,
+    createdAt: a.created_at,
+    paidAt: a.paid_at,
+    confirmedBy: a.confirmed_by,
+    confirmedByName: a.confirmed_by_name,
+    paymentProof: a.payment_proof ? `/uploads/${a.payment_proof}` : null,
+    guests: db.prepare('SELECT name, slug, sent FROM guests WHERE application_id = ? ORDER BY id').all(a.id)
+      .map((g) => ({ name: g.name, slug: g.slug, sent: Boolean(g.sent) })),
+  }));
 }

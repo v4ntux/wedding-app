@@ -6,7 +6,7 @@ import { renderInvitation, renderDemo, renderNotFound, withWatermark } from './r
 import { saveUpload, UPLOADS_DIR } from './upload.js';
 import * as db from './db.js';
 import {
-  BOT_TOKEN, BOT_USERNAME, BASE_URL, DEV_NO_AUTH, GUEST_LINK_PRICE, MAX_GUESTS, MAX_PHOTOS,
+  BOT_TOKEN, BOT_USERNAME, BASE_URL, DEV_NO_AUTH, ADMIN_CHAT_ID, GUEST_LINK_PRICE, MAX_GUESTS, MAX_PHOTOS,
   YANDEX_MAPS_API_KEY, GOOGLE_MAPS_API_KEY, EXTRACT_API_URL, EXTRACT_API_KEY,
 } from './config.js';
 import { publicTemplates, publicEvents } from './templateStore.js';
@@ -21,6 +21,15 @@ function authUser(initData) {
   return null;
 }
 
+// Доступ к админ-панели: только ADMIN_CHAT_ID (или любой в DEV_NO_AUTH — локально).
+function adminUser(initData) {
+  const u = authUser(initData);
+  if (!u) return null;
+  if (DEV_NO_AUTH) return u;
+  if (ADMIN_CHAT_ID && u.id === ADMIN_CHAT_ID) return u;
+  return null;
+}
+
 // onNewApplication(app) — уведомление админа; подставляется из index.js.
 export function createServer({ onNewApplication }) {
   const app = express();
@@ -29,6 +38,7 @@ export function createServer({ onNewApplication }) {
   // Продукт — только Telegram WebApp: корень ведёт прямо в форму.
   app.get('/', (_req, res) => res.redirect('/app/'));
   app.use('/app', express.static(path.join(PUBLIC_DIR, 'app')));
+  app.use('/admin', express.static(path.join(PUBLIC_DIR, 'admin')));
   app.use('/demo', express.static(path.join(PUBLIC_DIR, 'demo')));
   app.use('/music', express.static(path.join(PUBLIC_DIR, 'music')));
   app.use('/uploads', express.static(UPLOADS_DIR));
@@ -59,6 +69,13 @@ export function createServer({ onNewApplication }) {
       googleGeoEnabled: Boolean(GOOGLE_MAPS_API_KEY),
       extractEnabled: Boolean(EXTRACT_API_URL),
     });
+  });
+
+  // Статистика для админ-панели (только администратор).
+  app.get('/api/admin/stats', (req, res) => {
+    const u = adminUser(req.get('x-init-data') ?? '');
+    if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
+    res.json({ ok: true, stats: db.adminStats(), templates: publicTemplates(), orders: db.listRecentOrders(30) });
   });
 
   // Поиск мест через Google Places (New) — ключ остаётся на сервере.

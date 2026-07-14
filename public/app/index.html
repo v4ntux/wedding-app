@@ -11,7 +11,7 @@
 </head>
 <body>
 
-<!-- Материя + тёплый свет (как на сайте nvate) -->
+<!-- Световая сцена: тёплые пятна + падающие детали (наполняет app.js) -->
 <div id="glow" aria-hidden="true"></div>
 
 <!-- ═══ Выбор языка (первый вход) ═══ -->
@@ -39,7 +39,7 @@
     </div>
   </nav>
 
-  <!-- ═══ Экран: выбор шаблона (стартовый — задача №1) ═══ -->
+  <!-- ═══ Экран: выбор шаблона ═══ -->
   <main id="screen-templates" class="screen">
     <header class="screen-head">
       <h2 data-i18n="tplTitle"></h2>
@@ -57,23 +57,22 @@
     </div>
   </main>
 
-  <!-- ═══ Экран: студия (7 шагов, шаблон уже выбран) ═══ -->
+  <!-- ═══ Экран: студия — одна страница, блоки раскрываются по мере заполнения ═══ -->
   <main id="screen-studio" class="screen" hidden>
     <header class="studio-head">
       <button id="studio-exit" type="button" class="iconbtn" aria-label="Back">‹</button>
-      <div class="studio-progress">
-        <div class="studio-titles">
-          <b id="step-title"></b>
-          <span id="step-count"></span>
-        </div>
-        <div class="progress"><div id="progress-fill"></div></div>
+      <div class="studio-tpl">
+        <b id="studio-tpl-name"></b>
+        <span id="studio-tpl-price"></span>
       </div>
       <button id="studio-eye" type="button" class="iconbtn" aria-label="Preview">👁</button>
     </header>
+    <div class="studio-progress-wrap"><div class="progress"><div id="progress-fill"></div></div></div>
 
     <div id="studio-steps">
 
-      <section class="step card" data-step="names">
+      <section class="block" data-step="names">
+        <div class="block-head"><span class="block-n">1</span><h3 class="block-title" data-i18n="tNames"></h3></div>
         <p class="step-lead" data-i18n="leadNames"></p>
         <div class="field">
           <label for="groom" data-i18n="groom"></label>
@@ -83,10 +82,12 @@
           <label for="bride" data-i18n="bride"></label>
           <input id="bride" type="text" maxlength="100" autocomplete="off">
         </div>
-        <p class="hint" data-i18n="hintNames"></p>
+        <div class="block-err" hidden></div>
+        <button type="button" class="block-go btn btn--gold" data-i18n="next"></button>
       </section>
 
-      <section class="step card" data-step="datetime" hidden>
+      <section class="block" data-step="datetime" hidden>
+        <div class="block-head"><span class="block-n">2</span><h3 class="block-title" data-i18n="tDate"></h3></div>
         <p class="step-lead" data-i18n="leadDate"></p>
         <div class="calendar">
           <div class="cal-nav">
@@ -104,9 +105,12 @@
             <input id="time" type="time" value="18:00">
           </div>
         </div>
+        <div class="block-err" hidden></div>
+        <button type="button" class="block-go btn btn--gold" data-i18n="next"></button>
       </section>
 
-      <section class="step card" data-step="location" hidden>
+      <section class="block" data-step="location" hidden>
+        <div class="block-head"><span class="block-n">3</span><h3 class="block-title" data-i18n="tVenue"></h3></div>
         <p class="step-lead" data-i18n="leadVenue"></p>
         <div class="search-row">
           <input id="geo-search" type="text" autocomplete="off">
@@ -119,19 +123,24 @@
           <input id="address" type="text" maxlength="120" autocomplete="off">
         </div>
         <p class="hint" id="coords-hint"></p>
+        <div class="block-err" hidden></div>
+        <button type="button" class="block-go btn btn--gold" data-i18n="next"></button>
       </section>
 
-      <section class="step card" data-step="photos" hidden>
+      <section class="block" data-step="photos" hidden>
+        <div class="block-head"><span class="block-n">4</span><h3 class="block-title" data-i18n="tPhotos"></h3></div>
         <p class="step-lead" id="photo-req"></p>
         <div id="photo-grid"></div>
         <p class="hint" id="photo-hint"></p>
         <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+        <div class="block-err" hidden></div>
+        <button type="button" class="block-go btn btn--gold" data-i18n="next"></button>
       </section>
 
-      <section class="step card" data-step="music" hidden>
+      <section class="block" data-step="music" hidden>
+        <div class="block-head"><span class="block-n">5</span><h3 class="block-title" data-i18n="tMusic"></h3></div>
         <p class="step-lead" data-i18n="leadMusic"></p>
 
-        <!-- Режим выбора: виден, пока музыка не выбрана -->
         <div id="music-choice">
           <div id="music-tabs">
             <button type="button" data-mt="none" class="chip active" data-i18n="mtNone"></button>
@@ -159,7 +168,6 @@
           </div>
         </div>
 
-        <!-- Выбранная музыка: заменяет всё, тримминг здесь же -->
         <div id="music-selected" hidden>
           <div class="sel-track">
             <span class="sel-icon">🎵</span>
@@ -189,9 +197,12 @@
           </div>
           <audio id="cut-audio" preload="metadata" hidden></audio>
         </div>
+        <div class="block-err" hidden></div>
+        <button type="button" class="block-go btn btn--gold" data-i18n="next"></button>
       </section>
 
-      <section class="step card" data-step="guests" hidden>
+      <section class="block" data-step="guests" hidden>
+        <div class="block-head"><span class="block-n">6</span><h3 class="block-title" data-i18n="tGuests"></h3></div>
         <p class="step-lead" data-i18n="leadGuests"></p>
         <div id="guest-list"></div>
         <button id="guest-add" type="button" class="btn btn--ghost-dark btn--block"><span data-i18n="guestAdd"></span></button>
@@ -199,10 +210,13 @@
           <span data-i18n="guestsTotalLbl"></span><b id="guests-total"></b>
         </div>
         <p class="hint" data-i18n="guestsHint"></p>
+        <div class="block-err" hidden></div>
+        <button type="button" class="block-go btn btn--gold" data-i18n="next"></button>
       </section>
 
-      <section class="step" data-step="review" hidden>
-        <p class="step-lead card-lead" data-i18n="leadReview"></p>
+      <section class="block" data-step="review" hidden>
+        <div class="block-head"><span class="block-n">7</span><h3 class="block-title" data-i18n="tReview"></h3></div>
+        <p class="step-lead" data-i18n="leadReview"></p>
         <div class="rv-stage">
           <div class="rv-frame-wrap" id="rv-wrap">
             <iframe id="rv-frame" title="Preview"></iframe>
@@ -226,14 +240,11 @@
           </div>
           <p class="hint" data-i18n="confirmNote"></p>
         </div>
+        <div class="block-err" hidden></div>
+        <button id="submit-btn" type="button" class="block-go btn btn--gold btn--shine"><span id="submit-label"></span></button>
       </section>
 
     </div>
-
-    <footer class="studio-bar">
-      <button id="studio-prev" type="button" class="btn btn--ghost" data-i18n="back"></button>
-      <button id="studio-next" type="button" class="btn btn--gold btn--shine"><span id="studio-next-label"></span></button>
-    </footer>
   </main>
 </div>
 

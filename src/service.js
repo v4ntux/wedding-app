@@ -207,7 +207,7 @@ export function buildPreviewApp(form) {
 }
 
 // Админ подтвердил оплату: выдаём slug, создаём именные ссылки.
-export function payApplication(id) {
+export function payApplication(id, meta = {}) {
   const app = db.getApplication(id);
   if (!app) throw new ValidationError(`Заявка #${id} не найдена`);
   if (app.status === 'paid') throw new ValidationError('Заявка уже оплачена');
@@ -215,6 +215,8 @@ export function payApplication(id) {
 
   const slug = uniqueSlug(coupleSlugBase(app.groom_name, app.bride_name), db.slugTaken);
   if (!db.markPaid(id, slug)) throw new ValidationError('Заявка уже обработана');
+  // Кто подтвердил, когда (paid_at ставит markPaid) и скриншот чека.
+  db.recordConfirmation(id, meta.adminId ?? null, meta.adminName ?? null, meta.proof ?? null);
 
   const guests = [];
   if (app.premium) {
