@@ -83,7 +83,6 @@
           <input id="bride" type="text" maxlength="100" autocomplete="off">
         </div>
         <div class="block-err" hidden></div>
-        <button type="button" class="block-go btn btn--gold" data-i18n="next"></button>
       </section>
 
       <section class="block" data-step="datetime" hidden>
@@ -106,7 +105,6 @@
           </div>
         </div>
         <div class="block-err" hidden></div>
-        <button type="button" class="block-go btn btn--gold" data-i18n="next"></button>
       </section>
 
       <section class="block" data-step="location" hidden>
@@ -124,7 +122,6 @@
         </div>
         <p class="hint" id="coords-hint"></p>
         <div class="block-err" hidden></div>
-        <button type="button" class="block-go btn btn--gold" data-i18n="next"></button>
       </section>
 
       <section class="block" data-step="photos" hidden>
@@ -134,7 +131,6 @@
         <p class="hint" id="photo-hint"></p>
         <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
         <div class="block-err" hidden></div>
-        <button type="button" class="block-go btn btn--gold" data-i18n="next"></button>
       </section>
 
       <section class="block" data-step="music" hidden>
@@ -198,7 +194,6 @@
           <audio id="cut-audio" preload="metadata" hidden></audio>
         </div>
         <div class="block-err" hidden></div>
-        <button type="button" class="block-go btn btn--gold" data-i18n="next"></button>
       </section>
 
       <section class="block" data-step="guests" hidden>
@@ -211,7 +206,6 @@
         </div>
         <p class="hint" data-i18n="guestsHint"></p>
         <div class="block-err" hidden></div>
-        <button type="button" class="block-go btn btn--gold" data-i18n="next"></button>
       </section>
 
       <section class="block" data-step="review" hidden>
@@ -236,8 +230,9 @@
           </div>
           <div class="field">
             <label for="phone2" data-i18n="phone2Label"></label>
-            <input id="phone2" type="tel" maxlength="20" placeholder="+998 ...">
+            <input id="phone2" type="text" maxlength="40" placeholder="@username / +998 ..." autocomplete="off">
           </div>
+          <p class="hint" id="contact-rule"></p>
           <p class="hint" data-i18n="confirmNote"></p>
         </div>
         <div class="block-err" hidden></div>

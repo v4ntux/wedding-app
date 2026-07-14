@@ -9,12 +9,21 @@ if (existsSync(envPath)) {
 export const BOT_TOKEN = (process.env.BOT_TOKEN ?? '').trim();
 // Username бота (без @) — для кнопок «Создать приглашение» на сайте.
 export const BOT_USERNAME = (process.env.BOT_USERNAME ?? '').trim().replace(/^@/, '');
-export const ADMIN_CHAT_ID = Number(process.env.ADMIN_CHAT_ID ?? 0);
+// Админы: несколько id через запятую — ADMIN_CHAT_IDS=111,222,333
+// (старый ADMIN_CHAT_ID тоже поддерживается).
+export const ADMIN_CHAT_IDS = String(process.env.ADMIN_CHAT_IDS ?? process.env.ADMIN_CHAT_ID ?? '')
+  .split(',')
+  .map((s) => Number(s.trim()))
+  .filter((n) => Number.isInteger(n) && n > 0);
+
+export function isAdmin(id) {
+  return ADMIN_CHAT_IDS.includes(Number(id));
+}
 export const BASE_URL = (process.env.BASE_URL ?? 'http://localhost:3000').replace(/\/+$/, '');
 export const PORT = Number(process.env.PORT ?? 3000);
 export const DEV_NO_AUTH = process.env.DEV_NO_AUTH === '1';
 // Ссылка поддержки для кнопки Support в боте (напр. https://t.me/username). Необязательно.
-export const SUPPORT_URL = (process.env.SUPPORT_URL ?? '').trim();
+export const SUPPORT_URL = (process.env.SUPPORT_URL ?? 'https://t.me/nvate_admin').trim();
 
 // Яндекс-карты: без ключа работают в режиме разработки, для продакшена получите ключ
 // на developer.tech.yandex.ru и пропишите в .env
@@ -33,7 +42,7 @@ export const EXTRACT_API_KEY = (process.env.EXTRACT_API_KEY ?? '').trim();
 // новый дизайн добавляется папкой, без правок кода.
 
 // Именные ссылки: цена за каждого гостя — добавляй сколько хочешь.
-export const GUEST_LINK_PRICE = 8_000;
+export const GUEST_LINK_PRICE = 9_900;
 export const MAX_GUESTS = 100;
 export const MAX_PHOTOS = 6;
 

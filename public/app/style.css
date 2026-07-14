@@ -772,3 +772,28 @@ textarea { resize: vertical; min-height: 110px; }
 }
 .block-err::before { content: '⚠ '; }
 .block-go { margin-top: 16px; width: 100%; }
+
+/* ═══ v4: полное демо в обзоре + финальная кнопка ═══ */
+
+/* Демо показываем ЦЕЛИКОМ: без scale-обрезки, приглашение скроллится внутри рамки */
+.rv-frame-wrap {
+  position: relative; aspect-ratio: auto; height: 62vh; min-height: 420px;
+  border-radius: 18px; overflow: hidden;
+  border: 1px solid var(--line); box-shadow: var(--shadow); background: var(--mist);
+}
+#rv-frame { width: 100%; height: 100%; border: 0; display: block; transform: none; }
+#rv-expand { right: 12px; bottom: 12px; }
+
+/* Финальная кнопка — крупная, с градиентом и подписью */
+#submit-btn {
+  width: 100%; margin-top: 18px;
+  padding: 17px 26px; font-size: 1rem; font-weight: 700; letter-spacing: .01em;
+  background: linear-gradient(135deg, var(--wisteria), var(--lilac) 45%, var(--lilac-deep));
+  color: #fff; border: 0; border-radius: 999px;
+  box-shadow: 0 16px 36px -14px rgba(93, 72, 121, .6);
+}
+#submit-btn:not(:disabled):hover { filter: brightness(1.07); }
+#submit-btn:not(:disabled):active { transform: scale(.985); }
+
+/* Правило про контакты — заметная подсказка */
+#contact-rule { color: var(--lilac); font-weight: 600; }

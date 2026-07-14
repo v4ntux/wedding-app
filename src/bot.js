@@ -82,8 +82,10 @@ function buildCoupleText(app, guests, baseUrl) {
   return lines.join('\n');
 }
 
-export function createBot({ token, adminChatId, baseUrl }) {
+export function createBot({ token, adminIds = [], baseUrl }) {
   const bot = new Bot(token);
+  // Админов может быть несколько: ADMIN_CHAT_IDS=111,222,333
+  const isAdminId = (id) => adminIds.includes(Number(id));
 
   bot.catch((err) => {
     console.error('[bot] error:', err.error ?? err);
@@ -118,9 +120,21 @@ export function createBot({ token, adminChatId, baseUrl }) {
     if (SUPPORT_URL) kb.url(uz ? '💬 Yordam' : '💬 Поддержка', SUPPORT_URL);
     else kb.text(uz ? '💬 Yordam' : '💬 Поддержка', `support:${lang}`);
     kb.text('❔ FAQ', `faq:${lang}`).row();
-    if (adminChatId && fromId === adminChatId && https) kb.webApp('📊 Admin', `${baseUrl}/admin/`);
+    if (isAdminId(fromId) && https) kb.webApp('📊 Admin', `${baseUrl}/admin/`);
     return kb;
   }
+
+  // /admin — панель только для админов. Не админ → бот молчит.
+  bot.command('admin', async (ctx) => {
+    if (!isAdminId(ctx.from?.id)) return;
+    if (!https) {
+      await ctx.reply(`⚠️ BASE_URL не HTTPS. Панель: ${baseUrl}/admin/`);
+      return;
+    }
+    await ctx.reply('📊 Admin panel', {
+      reply_markup: new InlineKeyboard().webApp('📊 Ochish · Открыть', `${baseUrl}/admin/`),
+    });
+  });
 
   // /start → выбор языка.
   bot.command(['start', 'menu'], async (ctx) => {
@@ -143,13 +157,13 @@ export function createBot({ token, adminChatId, baseUrl }) {
     await ctx.answerCallbackQuery();
     const text = uz
       ? '<b>❔ Ko‘p so‘raladigan savollar</b>\n\n' +
-        '💰 <b>Narx:</b> shablonga qarab 129 000–199 000 so‘m. Nomli havola — har bir mehmon uchun 8 000 so‘m.\n' +
+        '💰 <b>Narx:</b> shablonga qarab 129 000–199 000 so‘m. Nomli havola — har bir mehmon uchun 9 900 so‘m.\n' +
         '🔗 <b>Havola:</b> to‘lovdan so‘ng shaxsiy havola beriladi va o‘chirilmaydi.\n' +
         '🎵 <b>Musiqa:</b> katalog, YouTube yoki o‘z faylingiz.\n' +
         '📷 <b>Suratlar:</b> 1–6 ta.\n' +
         '⏱ <b>Vaqt:</b> to‘ldirish ~5 daqiqa.'
       : '<b>❔ Частые вопросы</b>\n\n' +
-        '💰 <b>Цена:</b> 129 000–199 000 сум в зависимости от шаблона. Именная ссылка — 8 000 сум за гостя.\n' +
+        '💰 <b>Цена:</b> 129 000–199 000 сум в зависимости от шаблона. Именная ссылка — 9 900 сум за гостя.\n' +
         '🔗 <b>Ссылка:</b> выдаётся после оплаты и не удаляется.\n' +
         '🎵 <b>Музыка:</b> каталог, YouTube или свой файл.\n' +
         '📷 <b>Фото:</b> 1–6 шт.\n' +
@@ -170,7 +184,7 @@ export function createBot({ token, adminChatId, baseUrl }) {
 
   // ── Оплата: подтверждаем ТОЛЬКО после скриншота чека ──
   bot.callbackQuery(/^paid:(\d+)$/, async (ctx) => {
-    if (!adminChatId || ctx.from.id !== adminChatId) {
+    if (!isAdminId(ctx.from?.id)) {
       return ctx.answerCallbackQuery({ text: 'Только для администратора', show_alert: true });
     }
     const id = Number(ctx.match[1]);
@@ -180,7 +194,7 @@ export function createBot({ token, adminChatId, baseUrl }) {
   });
 
   bot.callbackQuery(/^cancel:(\d+)$/, async (ctx) => {
-    if (!adminChatId || ctx.from.id !== adminChatId) {
+    if (!isAdminId(ctx.from?.id)) {
       return ctx.answerCallbackQuery({ text: 'Только для администратора', show_alert: true });
     }
     const id = Number(ctx.match[1]);
@@ -209,7 +223,7 @@ export function createBot({ token, adminChatId, baseUrl }) {
   // Скриншот от админа → сохраняем чек, подтверждаем заявку, уведомляем пару.
   bot.on('message:photo', async (ctx) => {
     const adminId = ctx.from?.id;
-    if (!adminChatId || adminId !== adminChatId) return;
+    if (!isAdminId(adminId)) return;
     const id = pendingProof.get(adminId);
     if (!id) { await ctx.reply('Нет заявки, ожидающей скриншот. Нажмите «✅ Оплачено» под нужной заявкой.'); return; }
     pendingProof.delete(adminId);
@@ -251,11 +265,11 @@ export function createBot({ token, adminChatId, baseUrl }) {
   });
   bot.callbackQuery('noop', (ctx) => ctx.answerCallbackQuery());
 
-  // Прочие сообщения: подсказка chat id, пока ADMIN_CHAT_ID не настроен.
+  // Прочие сообщения: подсказка chat id, пока ADMIN_CHAT_IDS не настроен.
   bot.on('message', async (ctx) => {
-    if (!adminChatId) {
+    if (!adminIds.length) {
       await ctx.reply(
-        `Ваш chat id: <code>${ctx.chat.id}</code>\nПропишите его в .env как ADMIN_CHAT_ID и перезапустите сервер.`,
+        `Ваш chat id: <code>${ctx.chat.id}</code>\nДобавьте его в .env: ADMIN_CHAT_IDS=id1,id2 — и перезапустите сервер.`,
         { parse_mode: 'HTML' }
       );
     }
@@ -265,6 +279,15 @@ export function createBot({ token, adminChatId, baseUrl }) {
   async function notifyCouplePaid(api, app, guests) {
     const uz = app.lang !== 'ru';
     const link = `${baseUrl}/${app.slug}`;
+
+    // «Поделиться» = настоящий шэринг Telegram (откроется выбор чата),
+    // «✅» — отметить, что ссылка уже отправлена (станет зелёной галкой).
+    const shareBtn = (url, caption, cbData) =>
+      new InlineKeyboard()
+        .url(uz ? '📤 Ulashish' : '📤 Поделиться',
+          `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(caption)}`)
+        .text(uz ? '✅ Belgilash' : '✅ Отметить', cbData);
+
     await api.sendMessage(app.tg_user_id,
       uz
         ? `🎉 Tabriklaymiz! Taklifnomangiz tayyor.\n\n🔗 <b>Umumiy havola:</b>\n${link}`
@@ -273,17 +296,20 @@ export function createBot({ token, adminChatId, baseUrl }) {
         parse_mode: 'HTML', link_preview_options: { is_disabled: true },
         reply_markup: app.main_sent
           ? new InlineKeyboard().text('✅ Yuborildi · Отправлено', 'noop')
-          : new InlineKeyboard().text(uz ? '📤 Ulashish' : '📤 Поделиться', `sent:${app.id}:_main`),
+          : shareBtn(link, `${app.groom_name} & ${app.bride_name}`, `sent:${app.id}:_main`),
       });
+
     if (guests.length) {
       await api.sendMessage(app.tg_user_id, uz
-        ? '👥 Har bir mehmon uchun shaxsiy havola. «Yuborish»ni bosib, xabarni gostga ulashing:'
-        : '👥 Личная ссылка для каждого гостя. Нажмите «Отправить» и перешлите сообщение гостю:');
+        ? '👥 Har bir mehmon uchun shaxsiy havola:'
+        : '👥 Личная ссылка для каждого гостя:');
       for (const g of guests) {
-        await api.sendMessage(app.tg_user_id, `<b>${esc(g.name)}</b>\n${baseUrl}/${app.slug}/${g.slug}`, {
-          parse_mode: 'HTML', link_preview_options: { is_disabled: true },
-          reply_markup: new InlineKeyboard().text(uz ? '📤 Yuborish' : '📤 Отправить', `sent:${app.id}:${g.slug}`),
-        });
+        const glink = `${baseUrl}/${app.slug}/${g.slug}`;
+        await api.sendMessage(app.tg_user_id,
+          `<b>${esc(g.name)}</b>\n${glink}`, {
+            parse_mode: 'HTML', link_preview_options: { is_disabled: true },
+            reply_markup: shareBtn(glink, g.name, `sent:${app.id}:${g.slug}`),
+          });
       }
     }
   }
@@ -292,16 +318,26 @@ export function createBot({ token, adminChatId, baseUrl }) {
 }
 
 // Вызывается сервером после создания заявки.
-export async function notifyNewApplication(api, adminChatId, app, baseUrl) {
-  if (!adminChatId) {
-    console.warn('[bot] ADMIN_CHAT_ID не настроен — уведомление о заявке не отправлено');
+export async function notifyNewApplication(api, adminIds, app, baseUrl) {
+  const ids = Array.isArray(adminIds) ? adminIds : [adminIds].filter(Boolean);
+  if (!ids.length) {
+    console.warn('[bot] ADMIN_CHAT_IDS не настроен — уведомление о заявке не отправлено');
     return;
   }
-  await api.sendMessage(adminChatId, buildAdminText(app, { baseUrl }), {
+  const text = buildAdminText(app, { baseUrl });
+  const opts = {
     parse_mode: 'HTML',
     link_preview_options: { is_disabled: true },
     reply_markup: new InlineKeyboard()
       .text('✅ Оплачено', `paid:${app.id}`)
       .text('❌ Отклонить', `cancel:${app.id}`),
-  });
+  };
+  // Заявка уходит всем админам — подтвердить может любой.
+  for (const id of ids) {
+    try {
+      await api.sendMessage(id, text, opts);
+    } catch (e) {
+      console.error(`[bot] не удалось уведомить админа ${id}:`, e.message ?? e);
+    }
+  }
 }

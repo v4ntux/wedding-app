@@ -149,7 +149,9 @@ const I18N = {
     total: 'Jami:', fullPreview: 'To‘liq ko‘rish',
     rcCouple: 'Kelin-kuyov', rcDate: 'Sana', rcVenue: 'Manzil', rcMusic: 'Musiqa',
     changeTpl: 'O‘zgartirish',
-    tgLabel: 'Telegram username *', phoneLabel: 'Telefon raqam *', phone2Label: 'Qo‘shimcha raqam (ixtiyoriy)',
+    tgLabel: 'Telegram username', phoneLabel: 'Telefon raqam', phone2Label: 'Qo‘shimcha: username yoki raqam',
+    contactRule: 'Yuborish uchun shulardan kamida 2 tasini to‘ldiring.',
+    eContacts: 'Kamida 2 ta aloqa maydonini to‘ldiring',
     confirmNote: '📩 Administrator tez orada bog‘lanadi (Telegram yoki telefon). To‘lovdan so‘ng havolani olasiz.',
     okTitle: 'Ariza yuborildi!',
     okText: 'Administrator to‘lovni tasdiqlash uchun bog‘lanadi. So‘ng taklifnoma havolasini olasiz.',
@@ -216,7 +218,9 @@ const I18N = {
     total: 'Итого:', fullPreview: 'На весь экран',
     rcCouple: 'Пара', rcDate: 'Дата', rcVenue: 'Локация', rcMusic: 'Музыка',
     changeTpl: 'Изменить',
-    tgLabel: 'Telegram username *', phoneLabel: 'Номер телефона *', phone2Label: 'Доп. номер (необязательно)',
+    tgLabel: 'Telegram username', phoneLabel: 'Номер телефона', phone2Label: 'Доп.: username или номер',
+    contactRule: 'Для отправки заполните минимум 2 из них.',
+    eContacts: 'Заполните минимум 2 поля контактов',
     confirmNote: '📩 Администратор скоро свяжется (Telegram или телефон). После оплаты вы получите ссылку.',
     okTitle: 'Заявка отправлена!',
     okText: 'Администратор свяжется для подтверждения оплаты. Затем вы получите ссылку.',
@@ -261,6 +265,7 @@ function applyI18n() {
   $('address').placeholder = t('phAddress');
   $('music-q').placeholder = t('musicQPh');
   $('coords-hint').textContent = state.lat === null ? t('noPin') : `📍 ${state.lat.toFixed(5)}, ${state.lng.toFixed(5)}`;
+  $('contact-rule').textContent = t('contactRule');
   for (const [id, on] of [['hsw-uz', LANG === 'uz'], ['hsw-ru', LANG === 'ru']]) $(id).classList.toggle('active', on);
   updateDateLabel();
   renderCalendar();
@@ -516,6 +521,7 @@ function updateProgress() {
     $('studio-tpl-price').textContent = money(tpl.price);
   }
   $('studio-eye').hidden = !state.templateId;
+  $('submit-label').textContent = t('send');
 }
 
 // Показывает блоки 0..revealed; кнопку «Продолжить» — только на фронтире.
@@ -546,24 +552,29 @@ function clearBlockErr(i) {
   if (box) box.hidden = true;
 }
 
-// Заполнил блок → следующий плавно выезжает; ошибка показывается прямо в блоке.
-function continueBlock(i) {
-  const err = WIZARD[i].validate();
-  if (err) { showBlockErr(i, err); return; }
-  clearBlockErr(i);
-  if (i === state.revealed && state.revealed < WIZARD.length - 1) {
-    state.revealed++;
-    renderBlocks();
-    const next = blockEl(state.revealed);
-    next.classList.remove('block-in'); void next.offsetWidth; next.classList.add('block-in');
-    WIZARD[state.revealed].onEnter?.();
-    updateProgress();
-    haptic.impact('light');
-    saveDraft();
-    setTimeout(() => scrollToBlock(next), 60);
-  } else {
-    scrollToBlock(blockEl(Math.min(i + 1, WIZARD.length - 1)));
+// Блок заполнен верно → следующий выезжает САМ, без кнопки «Продолжить».
+// Необязательные блоки (музыка, гости) валидны сразу, поэтому цепочка
+// раскрывается с паузой 420 мс — блоки «вытекают» один за другим, а не вываливаются разом.
+let cascading = false;
+function maybeAdvance() {
+  if (state.revealed >= WIZARD.length - 1) { cascading = false; return; }
+  if (WIZARD[state.revealed].validate()) { cascading = false; return; }
+  clearBlockErr(state.revealed);
+  state.revealed++;
+  renderBlocks();
+  const next = blockEl(state.revealed);
+  next.classList.remove('block-in');
+  void next.offsetWidth;
+  next.classList.add('block-in');
+  WIZARD[state.revealed].onEnter?.();
+  updateProgress();
+  haptic.impact('light');
+  saveDraft();
+  if (!cascading) {
+    cascading = true;
+    setTimeout(() => scrollToBlock(next), 80);
   }
+  setTimeout(maybeAdvance, 420);
 }
 
 function enterStudio() {
@@ -1303,18 +1314,18 @@ function markField(id) {
 }
 
 async function submitApplication() {
-  // Контакты: 2 обязательных (tg + телефон), второй номер — по желанию.
-  const tgU = $('contact-tg').value.trim().replace(/^@/, '');
-  if (!/^[A-Za-z0-9_]{4,32}$/.test(tgU)) {
+  // Контакты: три поля, достаточно любых ДВУХ заполненных.
+  const filled = [
+    $('contact-tg').value.trim().replace(/^@/, ''),
+    $('phone').value.trim(),
+    $('phone2').value.trim(),
+  ].filter(Boolean).length;
+  if (filled < 2) {
+    showBlockErr(WIZARD.length - 1, t('eContacts'));
     markField('contact-tg');
-    toast(t('eTg'), 'err');
     return;
   }
-  if (!/^\+?[\d\s()-]{7,20}$/.test($('phone').value.trim())) {
-    markField('phone');
-    toast(t('ePhone'), 'err');
-    return;
-  }
+  clearBlockErr(WIZARD.length - 1);
   const btn = $('submit-btn');
   btn.disabled = true;
   $('submit-label').textContent = t('sending');
@@ -1356,12 +1367,13 @@ function wireEvents() {
 
   /* студия */
   $('studio-exit').addEventListener('click', () => { toast(t('draftSaved'), 'info', 1600); showScreen('templates'); });
-  WIZARD.forEach((w, i) => {
-    const go = blockEl(i)?.querySelector('.block-go');
-    if (!go) return;
-    if (w.id === 'review') go.addEventListener('click', submitApplication);
-    else go.addEventListener('click', () => continueBlock(i));
-  });
+  $('submit-btn').addEventListener('click', submitApplication);
+  // Любое действие внутри формы → проверяем, не пора ли раскрыть следующий блок.
+  const autoAdvance = debounce(maybeAdvance, 250);
+  const steps = $('studio-steps');
+  steps.addEventListener('input', autoAdvance);
+  steps.addEventListener('change', autoAdvance);
+  steps.addEventListener('click', autoAdvance);
   $('studio-eye').addEventListener('click', () => {
     const tpl = selectedTemplate();
     if (tpl) sheet.open({ src: tpl.demoUrl + liveQuery() });

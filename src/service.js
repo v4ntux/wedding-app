@@ -125,21 +125,35 @@ export function validateForm(form, { requirePhone = false } = {}) {
   const premiumPrice = guestNames.length * GUEST_LINK_PRICE;
   if (!premium) guestNames = null;
 
-  // Контакты: Telegram username и телефон обязательны, второй телефон — по желанию.
-  let phone = cleanStr(form.phone, 20);
-  let phone2 = cleanStr(form.phone2, 20) || null;
+  // Контакты: три поля (Telegram username, телефон, запасной — username ИЛИ номер).
+  // Для отправки заявки достаточно любых ДВУХ заполненных.
+  let phone = cleanStr(form.phone, 20) || null;
+  let phone2 = cleanStr(form.phone2, 40) || null; // запасной контакт: @username или номер
   let contactTg = cleanStr(form.contactTg, 40).replace(/^@/, '') || null;
-  if (requirePhone) {
-    if (!contactTg || !/^[A-Za-z0-9_]{4,32}$/.test(contactTg)) {
-      throw new ValidationError(uz ? 'Telegram username kiriting (masalan: @aziz_uz)' : 'Укажите Telegram username (например: @aziz_uz)', 'review');
-    }
-    if (!/^\+?[\d\s()-]{7,20}$/.test(phone)) {
-      throw new ValidationError(uz ? 'Telefon raqamingizni kiriting' : 'Укажите номер телефона', 'review');
-    }
-  } else {
-    phone = phone || null;
+
+  const PHONE_RE = /^\+?[\d\s()-]{7,20}$/;
+  const USER_RE = /^[A-Za-z0-9_]{4,32}$/;
+
+  if (contactTg && !USER_RE.test(contactTg)) {
+    throw new ValidationError(uz ? 'Telegram username noto‘g‘ri (masalan: @aziz_uz)' : 'Некорректный Telegram username (например: @aziz_uz)', 'review');
   }
-  if (phone2 && !/^\+?[\d\s()-]{7,20}$/.test(phone2)) phone2 = null;
+  if (phone && !PHONE_RE.test(phone)) {
+    throw new ValidationError(uz ? 'Telefon raqami noto‘g‘ri' : 'Некорректный номер телефона', 'review');
+  }
+  // Запасное поле принимает и username, и номер.
+  if (phone2 && !PHONE_RE.test(phone2) && !USER_RE.test(phone2.replace(/^@/, ''))) {
+    throw new ValidationError(uz ? 'Qo‘shimcha kontakt noto‘g‘ri (username yoki raqam)' : 'Некорректный доп. контакт (username или номер)', 'review');
+  }
+
+  if (requirePhone) {
+    const filled = [contactTg, phone, phone2].filter(Boolean).length;
+    if (filled < 2) {
+      throw new ValidationError(
+        uz ? 'Kamida 2 ta aloqa maydonini to‘ldiring' : 'Заполните минимум 2 поля контактов',
+        'review'
+      );
+    }
+  }
 
   return {
     lang, groomName, brideName, weddingDate, weddingTime, address, lat, lng,

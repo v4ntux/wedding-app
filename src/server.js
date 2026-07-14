@@ -6,7 +6,7 @@ import { renderInvitation, renderDemo, renderNotFound, withWatermark } from './r
 import { saveUpload, UPLOADS_DIR } from './upload.js';
 import * as db from './db.js';
 import {
-  BOT_TOKEN, BOT_USERNAME, BASE_URL, DEV_NO_AUTH, ADMIN_CHAT_ID, GUEST_LINK_PRICE, MAX_GUESTS, MAX_PHOTOS,
+  BOT_TOKEN, BOT_USERNAME, BASE_URL, DEV_NO_AUTH, isAdmin, GUEST_LINK_PRICE, MAX_GUESTS, MAX_PHOTOS,
   YANDEX_MAPS_API_KEY, GOOGLE_MAPS_API_KEY, EXTRACT_API_URL, EXTRACT_API_KEY,
 } from './config.js';
 import { publicTemplates, publicEvents } from './templateStore.js';
@@ -21,12 +21,12 @@ function authUser(initData) {
   return null;
 }
 
-// Доступ к админ-панели: только ADMIN_CHAT_ID (или любой в DEV_NO_AUTH — локально).
+// Доступ к админ-панели: только id из ADMIN_CHAT_IDS (или любой в DEV_NO_AUTH — локально).
 function adminUser(initData) {
   const u = authUser(initData);
   if (!u) return null;
   if (DEV_NO_AUTH) return u;
-  if (ADMIN_CHAT_ID && u.id === ADMIN_CHAT_ID) return u;
+  if (isAdmin(u.id)) return u;
   return null;
 }
 

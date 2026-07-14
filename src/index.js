@@ -1,4 +1,4 @@
-import { BOT_TOKEN, ADMIN_CHAT_ID, BASE_URL, PORT, DEV_NO_AUTH } from './config.js';
+import { BOT_TOKEN, ADMIN_CHAT_IDS, BASE_URL, PORT, DEV_NO_AUTH } from './config.js';
 import { createBot, notifyNewApplication } from './bot.js';
 import { createServer } from './server.js';
 
@@ -14,7 +14,7 @@ if (!BOT_TOKEN && !DEV_NO_AUTH) {
 
 let bot = null;
 if (BOT_TOKEN) {
-  bot = createBot({ token: BOT_TOKEN, adminChatId: ADMIN_CHAT_ID, baseUrl: BASE_URL });
+  bot = createBot({ token: BOT_TOKEN, adminIds: ADMIN_CHAT_IDS, baseUrl: BASE_URL });
 }
 
 const server = createServer({
@@ -23,14 +23,15 @@ const server = createServer({
       console.warn('[index] бот не запущен — заявка сохранена без уведомления админа');
       return;
     }
-    await notifyNewApplication(bot.api, ADMIN_CHAT_ID, application, BASE_URL);
+    await notifyNewApplication(bot.api, ADMIN_CHAT_IDS, application, BASE_URL);
   },
 });
 
 server.listen(PORT, () => {
   console.log(`[server] http://localhost:${PORT}  (BASE_URL: ${BASE_URL})`);
   if (DEV_NO_AUTH) console.log('[server] DEV_NO_AUTH=1 — форма доступна без Telegram (только для разработки!)');
-  if (!ADMIN_CHAT_ID) console.warn('[server] ADMIN_CHAT_ID не задан — напишите боту, он подскажет ваш id');
+  if (!ADMIN_CHAT_IDS.length) console.warn('[server] ADMIN_CHAT_IDS не задан — напишите боту, он подскажет ваш id');
+  else console.log(`[server] админов: ${ADMIN_CHAT_IDS.length}`);
 });
 
 if (bot) {
