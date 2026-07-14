@@ -9,7 +9,10 @@ if (existsSync(envPath)) {
 export const BOT_TOKEN = (process.env.BOT_TOKEN ?? '').trim();
 // Username бота (без @) — для кнопок «Создать приглашение» на сайте.
 export const BOT_USERNAME = (process.env.BOT_USERNAME ?? '').trim().replace(/^@/, '');
-export const ADMIN_CHAT_ID = Number(process.env.ADMIN_CHAT_ID ?? 0);
+export const ADMIN_CHAT_IDS = (process.env.ADMIN_CHAT_ID ?? "")
+  .split(",")
+  .map(id => Number(id.trim()))
+  .filter(id => !isNaN(id));
 export const BASE_URL = (process.env.BASE_URL ?? 'http://localhost:3000').replace(/\/+$/, '');
 export const PORT = Number(process.env.PORT ?? 3000);
 export const DEV_NO_AUTH = process.env.DEV_NO_AUTH === '1';
