@@ -19,7 +19,10 @@ export const ADMIN_CHAT_IDS = String(process.env.ADMIN_CHAT_IDS ?? process.env.A
 export function isAdmin(id) {
   return ADMIN_CHAT_IDS.includes(Number(id));
 }
-export const BASE_URL = (process.env.BASE_URL ?? 'http://localhost:3000').replace(/\/+$/, '');
+// BASE_URL можно задавать без протокола (nvate.up.railway.app) — допишем https://
+// сами. Без этого Telegram не покажет Web App кнопки: они требуют HTTPS.
+const RAW_BASE = (process.env.BASE_URL ?? 'http://localhost:3000').trim().replace(/\/+$/, '');
+export const BASE_URL = /^https?:\/\//i.test(RAW_BASE) ? RAW_BASE : `https://${RAW_BASE}`;
 export const PORT = Number(process.env.PORT ?? 3000);
 export const DEV_NO_AUTH = process.env.DEV_NO_AUTH === '1';
 // Ссылка поддержки для кнопки Support в боте (напр. https://t.me/username). Необязательно.

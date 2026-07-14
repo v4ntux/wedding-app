@@ -4,7 +4,7 @@ import path from 'node:path';
 import { payApplication, cancelApplication, ValidationError, mapsLinks } from './service.js';
 import { findMusicPreset, SUPPORT_URL } from './config.js';
 import { findTemplate } from './templateStore.js';
-import { markMainSent, markGuestSent } from './db.js';
+import { markMainSent, markGuestSent, getApplication, listGuests } from './db.js';
 import { UPLOADS_DIR } from './upload.js';
 import { escapeHtml as esc } from './render.js';
 
@@ -97,19 +97,19 @@ export function createBot({ token, adminIds = [], baseUrl }) {
 
   const WELCOME = {
     uz:
-      '✨ <b>nvate</b> — raqamli taklifnomalar\n\n' +
+      '✨ <b>nvate</b> — onlayn taklifnomalar\n\n' +
       'Bu bot orqali siz:\n' +
-      '• To‘y, tug‘ilgan kun va boshqa tantanalar uchun chiroyli taklifnoma yaratasiz\n' +
+      '• To‘y uchun chiroyli onlayn taklifnoma yaratasiz\n' +
       '• Sana, manzil (jonli xarita), musiqa va suratlar qo‘shasiz\n' +
       '• Har bir mehmonga alohida nomli havola olasiz\n\n' +
-      'Boshlash uchun pastdagi katta tugmani bosing 👇',
+      'Boshlash uchun quyidagi tugmani bosing 👇',
     ru:
-      '✨ <b>nvate</b> — цифровые приглашения\n\n' +
+      '✨ <b>nvate</b> — онлайн приглашения\n\n' +
       'С помощью этого бота вы:\n' +
-      '• Создадите красивое приглашение на свадьбу, день рождения и другие торжества\n' +
+      '• Создадите красивое онлайн-приглашение на свадьбу\n' +
       '• Добавите дату, локацию (живая карта), музыку и фото\n' +
       '• Получите личную ссылку для каждого гостя\n\n' +
-      'Нажмите большую кнопку ниже, чтобы начать 👇',
+      'Нажмите кнопку ниже, чтобы начать 👇',
   };
 
   // Меню после выбора языка: одна большая кнопка «Заказать» (Web App) + Support/FAQ.
@@ -251,17 +251,38 @@ export function createBot({ token, adminIds = [], baseUrl }) {
     }
   });
 
-  // Пара делится ссылкой → отмечаем отправленной, кнопка становится зелёной.
+  // Пара нажала «Поделиться» → помечаем отправленной, а через 2 секунды
+  // переписываем сообщение: прямым текстом, что эта ссылка уже отправлена.
   bot.callbackQuery(/^sent:(\d+):(.+)$/, async (ctx) => {
     const id = Number(ctx.match[1]);
     const slug = ctx.match[2];
-    if (slug === '_main') markMainSent(id); else markGuestSent(id, slug);
-    await ctx.answerCallbackQuery({ text: '✅ Yuborildi · Отправлено' });
-    try {
-      await ctx.editMessageReplyMarkup({
-        reply_markup: new InlineKeyboard().text('✅ Yuborildi · Отправлено', 'noop'),
-      });
-    } catch { /* уже отредактировано */ }
+    const isMain = slug === '_main';
+    if (isMain) markMainSent(id); else markGuestSent(id, slug);
+    await ctx.answerCallbackQuery({ text: '✅' });
+
+    const app = getApplication(id);
+    if (!app) return;
+    const uz = app.lang !== 'ru';
+    const link = isMain ? `${baseUrl}/${app.slug}` : `${baseUrl}/${app.slug}/${slug}`;
+    const guestName = isMain ? null : (listGuests(id).find((g) => g.slug === slug)?.name ?? '');
+
+    const text = isMain
+      ? (uz
+        ? `🔗 <b>Umumiy havola:</b>\n${link}\n\n✅ <b>Yuborildi</b> — bu havola allaqachon yuborilgan.`
+        : `🔗 <b>Общая ссылка:</b>\n${link}\n\n✅ <b>Отправлено</b> — эта ссылка уже отправлена.`)
+      : (uz
+        ? `<b>${esc(guestName)}</b>\n${link}\n\n✅ <b>Yuborildi</b> — bu havola allaqachon yuborilgan.`
+        : `<b>${esc(guestName)}</b>\n${link}\n\n✅ <b>Отправлено</b> — эта ссылка уже отправлена.`);
+
+    setTimeout(async () => {
+      try {
+        await ctx.editMessageText(text, {
+          parse_mode: 'HTML',
+          link_preview_options: { is_disabled: true },
+          reply_markup: { inline_keyboard: [] },
+        });
+      } catch { /* сообщение уже изменено или слишком старое */ }
+    }, 2000);
   });
   bot.callbackQuery('noop', (ctx) => ctx.answerCallbackQuery());
 
@@ -280,13 +301,10 @@ export function createBot({ token, adminIds = [], baseUrl }) {
     const uz = app.lang !== 'ru';
     const link = `${baseUrl}/${app.slug}`;
 
-    // «Поделиться» = настоящий шэринг Telegram (откроется выбор чата),
-    // «✅» — отметить, что ссылка уже отправлена (станет зелёной галкой).
-    const shareBtn = (url, caption, cbData) =>
-      new InlineKeyboard()
-        .url(uz ? '📤 Ulashish' : '📤 Поделиться',
-          `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(caption)}`)
-        .text(uz ? '✅ Belgilash' : '✅ Отметить', cbData);
+    // Одна кнопка: нажал → ссылка помечается отправленной, а через 2 секунды
+    // сообщение переписывается и прямо говорит, что она уже отправлена.
+    const shareBtn = (cbData) =>
+      new InlineKeyboard().text(uz ? '📤 Ulashish' : '📤 Поделиться', cbData);
 
     await api.sendMessage(app.tg_user_id,
       uz
@@ -296,7 +314,7 @@ export function createBot({ token, adminIds = [], baseUrl }) {
         parse_mode: 'HTML', link_preview_options: { is_disabled: true },
         reply_markup: app.main_sent
           ? new InlineKeyboard().text('✅ Yuborildi · Отправлено', 'noop')
-          : shareBtn(link, `${app.groom_name} & ${app.bride_name}`, `sent:${app.id}:_main`),
+          : shareBtn(`sent:${app.id}:_main`),
       });
 
     if (guests.length) {
@@ -308,7 +326,7 @@ export function createBot({ token, adminIds = [], baseUrl }) {
         await api.sendMessage(app.tg_user_id,
           `<b>${esc(g.name)}</b>\n${glink}`, {
             parse_mode: 'HTML', link_preview_options: { is_disabled: true },
-            reply_markup: shareBtn(glink, g.name, `sent:${app.id}:${g.slug}`),
+            reply_markup: shareBtn(`sent:${app.id}:${g.slug}`),
           });
       }
     }
