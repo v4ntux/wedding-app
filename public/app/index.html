@@ -2,264 +2,342 @@
 <html lang="uz">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>nvate</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<title>nvate — studio</title>
+<meta name="theme-color" content="#100B18">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Prata&family=Manrope:wght@400;500;600&family=Cormorant+Garamond:ital@1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Prata&family=Golos+Text:wght@400;500;600;700&family=Martian+Mono:wght@300;400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- Световая сцена: тёплые пятна + падающие детали (наполняет app.js) -->
-<div id="glow" aria-hidden="true"></div>
+<!-- Световая сцена: тёплое пятно, атласная дымка, зерно -->
+<div id="stage" aria-hidden="true">
+  <div id="bloom"></div>
+  <div id="ikat"></div>
+  <div id="grain"></div>
+</div>
 
-<!-- ═══ Выбор языка (первый вход) ═══ -->
+<!-- ═══ Первый вход: язык ═══ -->
 <div id="lang-screen">
-  <div class="lang-card">
-    <div class="seal-mini">n</div>
-    <h1>nvate<i>.</i></h1>
-    <p>Tilni tanlang · Выберите язык</p>
-    <button id="lang-uz" type="button" class="btn btn--gold btn--block">O‘zbekcha</button>
-    <button id="lang-ru" type="button" class="btn btn--ghost btn--block">Русский</button>
+  <div class="lang-inner">
+    <svg class="ring-mark" viewBox="0 0 120 120" aria-hidden="true">
+      <circle class="ring-mark__b" cx="60" cy="60" r="46"/>
+      <circle class="ring-mark__a" cx="60" cy="60" r="46"/>
+    </svg>
+    <h1 class="wordmark">nvate</h1>
+    <p class="lang-lead">Taklifnoma studiyasi<br><span>Студия приглашений</span></p>
+    <div class="lang-picks">
+      <button id="lang-uz" type="button" class="btn btn--gold">O‘zbekcha</button>
+      <button id="lang-ru" type="button" class="btn btn--ghost">Русский</button>
+    </div>
   </div>
 </div>
 
 <div id="app" hidden>
 
-  <!-- ═══ Навигация ═══ -->
-  <nav class="topnav">
-    <button id="nav-brand" type="button" class="brand">nvate<i>.</i></button>
-    <div class="nav-tabs">
-      <button id="nav-tpl" type="button" data-i18n="navTpl"></button>
-      <button id="nav-mine" type="button" data-i18n="navMine"></button>
+  <header id="topbar">
+    <button id="brand" type="button" class="brand">nvate</button>
+    <div class="top-right">
+      <button id="btn-mine" type="button" class="ghost-ic" aria-label="My invitations">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5.5h14v9H3z"/><path d="M3 6l7 5 7-5"/></svg>
+      </button>
+      <div class="langsw">
+        <button id="sw-uz" type="button">UZ</button><button id="sw-ru" type="button">RU</button>
+      </div>
     </div>
-    <div class="lang-switch">
-      <button id="hsw-uz" type="button">O‘z</button><button id="hsw-ru" type="button">Ру</button>
+  </header>
+
+  <!-- ═══ Мои приглашения ═══ -->
+  <section id="mine" class="overlay" hidden>
+    <div class="mine-head">
+      <h2 data-i18n="mineTitle"></h2>
+      <button id="mine-close" type="button" class="ghost-ic" aria-label="Close">✕</button>
+    </div>
+    <div id="mine-list"></div>
+  </section>
+
+  <!-- ═══ СТУДИЯ ═══ -->
+  <main id="studio">
+
+    <!-- 1 · Имена -->
+    <section class="blk" data-step="names">
+      <span class="knot"></span>
+      <p class="eyebrow"><b>01</b><span data-i18n="eNames"></span></p>
+      <h2 class="blk-title" data-i18n="tNames"></h2>
+
+      <div class="plate">
+        <span id="cp-groom" class="plate-name plate-name--empty" data-i18n="phGroom"></span>
+        <span class="plate-amp">&amp;</span>
+        <span id="cp-bride" class="plate-name plate-name--empty" data-i18n="phBride"></span>
+      </div>
+
+      <div class="field">
+        <label for="groom" data-i18n="groom"></label>
+        <input id="groom" type="text" maxlength="100" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="field">
+        <label for="bride" data-i18n="bride"></label>
+        <input id="bride" type="text" maxlength="100" autocomplete="off" spellcheck="false">
+      </div>
+      <p class="blk-err" hidden></p>
+    </section>
+
+    <!-- 2 · Дата и время -->
+    <section class="blk" data-step="datetime" hidden>
+      <span class="knot"></span>
+      <p class="eyebrow"><b>02</b><span data-i18n="eDate"></span></p>
+      <h2 class="blk-title" data-i18n="tDate"></h2>
+
+      <div class="cal">
+        <div class="cal-bar">
+          <button id="cal-prev" type="button" class="cal-arrow" aria-label="Prev">‹</button>
+          <b id="cal-title"></b>
+          <button id="cal-next" type="button" class="cal-arrow" aria-label="Next">›</button>
+        </div>
+        <div id="cal-dow" class="cal-dow"></div>
+        <div id="cal-grid" class="cal-grid"></div>
+      </div>
+
+      <p class="sub-label" data-i18n="timeLbl"></p>
+      <div class="clock"><b id="clock-h">17</b><i>:</i><b id="clock-m">00</b></div>
+
+      <div class="hdrum">
+        <span class="hdrum-band" aria-hidden="true"></span>
+        <div id="hour-drum" class="hdrum-track" aria-label="Hours"></div>
+      </div>
+      <div class="hdrum hdrum--min">
+        <span class="hdrum-band" aria-hidden="true"></span>
+        <div id="min-drum" class="hdrum-track" aria-label="Minutes"></div>
+      </div>
+
+      <p id="date-read" class="read-out"></p>
+      <p class="blk-err" hidden></p>
+    </section>
+
+    <!-- 3 · Локация -->
+    <section class="blk" data-step="location" hidden>
+      <span class="knot"></span>
+      <p class="eyebrow"><b>03</b><span data-i18n="eVenue"></span></p>
+      <h2 class="blk-title" data-i18n="tVenue"></h2>
+
+      <div class="field">
+        <label for="geo-q" data-i18n="seekLbl"></label>
+        <div class="field-row">
+          <input id="geo-q" type="text" autocomplete="off" spellcheck="false">
+          <button id="geo-go" type="button" class="btn btn--gold btn--row" data-i18n="find"></button>
+        </div>
+        <span id="geo-spin" class="field-spin" hidden></span>
+      </div>
+      <div id="geo-list" class="geo-list" hidden></div>
+
+      <p class="map-hint" data-i18n="mapHint"></p>
+      <div class="mapframe">
+        <div id="map"></div>
+        <div class="map-zoom">
+          <button id="map-in" type="button" class="map-btn" aria-label="Zoom in">+</button>
+          <button id="map-out" type="button" class="map-btn" aria-label="Zoom out">−</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="address" data-i18n="address"></label>
+        <input id="address" type="text" maxlength="140" autocomplete="off">
+      </div>
+      <p class="blk-err" hidden></p>
+    </section>
+
+    <!-- 4 · Музыка -->
+    <section class="blk" data-step="music" hidden>
+      <span class="knot"></span>
+      <p class="eyebrow"><b>04</b><span data-i18n="eMusic"></span></p>
+      <h2 class="blk-title" data-i18n="tMusic"></h2>
+
+      <div id="music-pick">
+        <div class="segs">
+          <button type="button" class="seg is-on" data-ms="top" data-i18n="msTop"></button>
+          <button type="button" class="seg" data-ms="mine" data-i18n="msMine"></button>
+          <i class="segs-glide"></i>
+        </div>
+
+        <div id="ms-top">
+          <div class="field field--tight">
+            <input id="music-q" type="text" autocomplete="off" spellcheck="false">
+          </div>
+          <div id="track-scroll" class="track-scroll"></div>
+        </div>
+
+        <div id="ms-mine" hidden>
+          <div class="field field--tight">
+            <label for="music-link" data-i18n="linkLbl"></label>
+            <div class="field-row">
+              <input id="music-link" type="url" maxlength="300" autocomplete="off" spellcheck="false">
+              <button id="music-link-go" type="button" class="btn btn--gold btn--row" data-i18n="add"></button>
+            </div>
+          </div>
+          <p class="hint" data-i18n="linkHint"></p>
+          <button id="music-upload" type="button" class="btn btn--ghost btn--block"><span data-i18n="uploadMusic"></span></button>
+          <input id="music-file" type="file" accept="audio/*,.mp3,.m4a,.ogg,.wav" hidden>
+        </div>
+
+        <button id="music-skip" type="button" class="linkbtn" data-i18n="musicSkip"></button>
+      </div>
+
+      <div id="music-picked" class="picked" hidden>
+        <span class="picked-note">♪</span>
+        <div class="picked-info"><b id="picked-name"></b><span id="picked-artist"></span></div>
+        <button id="music-change" type="button" class="btn btn--ghost btn--tiny" data-i18n="change"></button>
+      </div>
+      <p class="blk-err" hidden></p>
+    </section>
+
+    <!-- 5 · Шаблон -->
+    <section class="blk blk--bleed" data-step="template" hidden>
+      <span class="knot"></span>
+      <p class="eyebrow"><b>05</b><span data-i18n="eTpl"></span></p>
+      <h2 class="blk-title" data-i18n="tTpl"></h2>
+      <p class="blk-lead" data-i18n="leadTpl"></p>
+
+      <div id="tpl-rail" class="tpl-rail"></div>
+      <div id="tpl-dots" class="tpl-dots"></div>
+      <p class="blk-err" hidden></p>
+    </section>
+
+    <!-- 6 · Фото -->
+    <section class="blk" data-step="photos" hidden>
+      <span class="knot"></span>
+      <p class="eyebrow"><b>06</b><span data-i18n="ePhotos"></span></p>
+      <h2 class="blk-title" data-i18n="tPhotos"></h2>
+      <p id="photo-lead" class="blk-lead"></p>
+
+      <div id="photo-grid" class="photo-grid"></div>
+      <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+      <p class="blk-err" hidden></p>
+    </section>
+
+    <!-- 7 · Всё готово → полное демо -->
+    <section class="blk" data-step="ready" hidden>
+      <span class="knot"></span>
+      <p class="eyebrow"><b>07</b><span data-i18n="eReady"></span></p>
+      <h2 class="blk-title" data-i18n="tReady"></h2>
+      <p class="blk-lead" data-i18n="leadReady"></p>
+
+      <div class="readycard">
+        <svg class="ring-mark ring-mark--sm" viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="ring-mark__b" cx="60" cy="60" r="46"/>
+          <circle class="ring-mark__a" cx="60" cy="60" r="46"/>
+        </svg>
+        <b id="ready-couple"></b>
+        <span id="ready-meta"></span>
+        <button id="ready-open" type="button" class="btn btn--gold btn--block">
+          <span data-i18n="seeInvite"></span>
+        </button>
+        <p class="readycard-hint" data-i18n="readyHint"></p>
+      </div>
+
+      <div class="notice">
+        <b data-i18n="wmTitle"></b>
+        <p data-i18n="wmText"></p>
+      </div>
+      <p class="blk-err" hidden></p>
+    </section>
+
+    <!-- 8 · Именные приглашения -->
+    <section class="blk" data-step="guests" hidden>
+      <span class="knot"></span>
+      <p class="eyebrow"><b>08</b><span data-i18n="eGuests"></span></p>
+      <h2 class="blk-title" data-i18n="tGuests"></h2>
+
+      <button id="guests-toggle" type="button" class="switch" role="switch" aria-checked="false">
+        <span class="switch-txt"><b data-i18n="guestsSwTitle"></b><i id="guests-sw-sub" data-i18n="guestsSwOff"></i></span>
+        <span class="switch-track"><span class="switch-knob"></span></span>
+      </button>
+
+      <div class="explain">
+        <p data-i18n="guestsHow1"></p>
+        <p data-i18n="guestsHow2"></p>
+        <p data-i18n="guestsHow3"></p>
+      </div>
+
+      <div id="guests-body" hidden>
+        <p class="tip"><span class="tip-ic">✦</span><span data-i18n="guestsTip"></span></p>
+        <div id="guest-list" class="guest-list"></div>
+        <div class="tally">
+          <span><b id="guest-n">0</b> <span data-i18n="guestsUnit"></span></span>
+          <b id="guest-sum">0</b>
+        </div>
+      </div>
+      <p class="blk-err" hidden></p>
+    </section>
+
+    <!-- 9 · Контакты и оплата -->
+    <section class="blk" data-step="contact" hidden>
+      <span class="knot knot--last"></span>
+      <p class="eyebrow"><b>09</b><span data-i18n="eContact"></span></p>
+      <h2 class="blk-title" data-i18n="tContact"></h2>
+      <p class="blk-lead" data-i18n="leadContact"></p>
+
+      <div class="field">
+        <label for="contact-tg" data-i18n="tgLbl"></label>
+        <input id="contact-tg" type="text" maxlength="40" autocomplete="off" placeholder="@username">
+      </div>
+      <div class="field">
+        <label for="phone" data-i18n="phoneLbl"></label>
+        <input id="phone" type="tel" maxlength="20" autocomplete="off" placeholder="+998 90 123 45 67">
+      </div>
+      <div class="field">
+        <label for="phone2" data-i18n="phone2Lbl"></label>
+        <input id="phone2" type="text" maxlength="40" autocomplete="off" placeholder="@username / +998 …">
+      </div>
+      <p class="hint" data-i18n="contactRule"></p>
+
+      <div class="bill">
+        <div id="bill-lines"></div>
+        <div class="bill-total"><span data-i18n="total"></span><b id="bill-total">0</b></div>
+      </div>
+      <p class="blk-err" hidden></p>
+      <button id="submit" type="button" class="btn btn--gold btn--block">
+        <span id="submit-label"></span>
+      </button>
+    </section>
+
+    <div class="studio-tail"></div>
+  </main>
+
+  <!-- ═══ Нижний док: нить с бусинами ═══ -->
+  <nav id="dock" aria-label="Steps">
+    <div class="dock-rail">
+      <div id="beads" class="beads"></div>
     </div>
   </nav>
-
-  <!-- ═══ Экран: выбор шаблона ═══ -->
-  <main id="screen-templates" class="screen">
-    <header class="screen-head">
-      <h2 data-i18n="tplTitle"></h2>
-      <p data-i18n="tplSub"></p>
-    </header>
-    <div id="gallery" class="gallery"></div>
-  </main>
-
-  <!-- ═══ Экран: мои приглашения ═══ -->
-  <main id="screen-mine" class="screen" hidden>
-    <header class="screen-head"><h2 data-i18n="mineTitle"></h2></header>
-    <div id="mine-list"></div>
-    <div class="center-row">
-      <button id="mine-create" type="button" class="btn btn--gold"><span data-i18n="createNew"></span></button>
-    </div>
-  </main>
-
-  <!-- ═══ Экран: студия — одна страница, блоки раскрываются по мере заполнения ═══ -->
-  <main id="screen-studio" class="screen" hidden>
-    <header class="studio-head">
-      <button id="studio-exit" type="button" class="iconbtn" aria-label="Back">‹</button>
-      <div class="studio-tpl">
-        <b id="studio-tpl-name"></b>
-        <span id="studio-tpl-price"></span>
-      </div>
-      <button id="studio-eye" type="button" class="iconbtn" aria-label="Preview">👁</button>
-    </header>
-    <div class="studio-progress-wrap"><div class="progress"><div id="progress-fill"></div></div></div>
-
-    <div id="studio-steps">
-
-      <section class="block" data-step="names">
-        <div class="block-head"><span class="block-n">1</span><h3 class="block-title" data-i18n="tNames"></h3></div>
-        <p class="step-lead" data-i18n="leadNames"></p>
-        <div class="field">
-          <label for="groom" data-i18n="groom"></label>
-          <input id="groom" type="text" maxlength="100" autocomplete="off">
-        </div>
-        <div class="field">
-          <label for="bride" data-i18n="bride"></label>
-          <input id="bride" type="text" maxlength="100" autocomplete="off">
-        </div>
-        <div class="block-err" hidden></div>
-      </section>
-
-      <section class="block" data-step="datetime" hidden>
-        <div class="block-head"><span class="block-n">2</span><h3 class="block-title" data-i18n="tDate"></h3></div>
-        <p class="step-lead" data-i18n="leadDate"></p>
-        <div class="calendar">
-          <div class="cal-nav">
-            <button id="cal-prev" type="button">‹</button>
-            <div id="cal-title"></div>
-            <button id="cal-next" type="button">›</button>
-          </div>
-          <div id="cal-grid"></div>
-        </div>
-        <p class="date-label" id="date-label"></p>
-        <div class="time-row">
-          <div id="time-chips"></div>
-          <div class="field time-field">
-            <label for="time" data-i18n="time"></label>
-            <input id="time" type="time" value="18:00">
-          </div>
-        </div>
-        <div class="block-err" hidden></div>
-      </section>
-
-      <section class="block" data-step="location" hidden>
-        <div class="block-head"><span class="block-n">3</span><h3 class="block-title" data-i18n="tVenue"></h3></div>
-        <p class="step-lead" data-i18n="leadVenue"></p>
-        <div class="search-row">
-          <input id="geo-search" type="text" autocomplete="off">
-          <button id="geo-search-btn" type="button" class="btn btn--gold" data-i18n="find"></button>
-        </div>
-        <div id="geo-results" class="geo-results" hidden></div>
-        <div id="map-wrap"><div id="map"></div></div>
-        <div class="field">
-          <label for="address" data-i18n="address"></label>
-          <input id="address" type="text" maxlength="120" autocomplete="off">
-        </div>
-        <p class="hint" id="coords-hint"></p>
-        <div class="block-err" hidden></div>
-      </section>
-
-      <section class="block" data-step="photos" hidden>
-        <div class="block-head"><span class="block-n">4</span><h3 class="block-title" data-i18n="tPhotos"></h3></div>
-        <p class="step-lead" id="photo-req"></p>
-        <div id="photo-grid"></div>
-        <p class="hint" id="photo-hint"></p>
-        <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
-        <div class="block-err" hidden></div>
-      </section>
-
-      <section class="block" data-step="music" hidden>
-        <div class="block-head"><span class="block-n">5</span><h3 class="block-title" data-i18n="tMusic"></h3></div>
-        <p class="step-lead" data-i18n="leadMusic"></p>
-
-        <div id="music-choice">
-          <div id="music-tabs">
-            <button type="button" data-mt="none" class="chip active" data-i18n="mtNone"></button>
-            <button type="button" data-mt="catalog" class="chip" data-i18n="mtCatalog"></button>
-            <button type="button" data-mt="own" class="chip" data-i18n="mtOwn"></button>
-          </div>
-          <div id="music-catalog" hidden>
-            <div class="search-row">
-              <input id="music-q" type="text" autocomplete="off">
-              <button id="music-q-btn" type="button" class="btn btn--gold">🔍</button>
-            </div>
-            <div id="music-scroll">
-              <div id="top-tracks"></div>
-              <div id="track-list"></div>
-            </div>
-          </div>
-          <div id="music-own" hidden>
-            <p class="hint" data-i18n="ownHint"></p>
-            <input id="music-link" type="url" maxlength="300" placeholder="https://..." autocomplete="off">
-            <div class="own-row">
-              <span class="hint" data-i18n="or"></span>
-              <button id="music-upload-btn" type="button" class="btn btn--ghost-dark" data-i18n="upload"></button>
-              <input id="music-file" type="file" accept="audio/*,.mp3,.m4a,.ogg,.wav" hidden>
-            </div>
-          </div>
-        </div>
-
-        <div id="music-selected" hidden>
-          <div class="sel-track">
-            <span class="sel-icon">🎵</span>
-            <div class="sel-info"><b id="sel-name"></b></div>
-            <button id="sel-change" type="button" class="btn btn--ghost-dark btn--sm" data-i18n="change"></button>
-            <button id="sel-remove" type="button" class="iconbtn iconbtn--sm" aria-label="Remove">✕</button>
-          </div>
-          <div id="trimmer" hidden>
-            <p class="hint" data-i18n="cutTitle"></p>
-            <div class="trim-box" id="trim-box">
-              <canvas id="trim-wave"></canvas>
-              <div id="trim-sel"></div>
-              <div id="trim-l" class="trim-handle"></div>
-              <div id="trim-r" class="trim-handle"></div>
-            </div>
-            <div class="trim-row">
-              <button id="cut-test" type="button" class="btn btn--ghost-dark btn--sm" data-i18n="listen"></button>
-              <span id="trim-lbl"></span>
-            </div>
-          </div>
-          <div id="cut-num-row" hidden>
-            <p class="hint" data-i18n="cutTitle"></p>
-            <div class="cut-row">
-              <div class="field"><label data-i18n="cutStart"></label><input id="cut-start" type="number" min="0" step="1" placeholder="0"></div>
-              <div class="field"><label data-i18n="cutEnd"></label><input id="cut-end" type="number" min="1" step="1" placeholder="—"></div>
-            </div>
-          </div>
-          <audio id="cut-audio" preload="metadata" hidden></audio>
-        </div>
-        <div class="block-err" hidden></div>
-      </section>
-
-      <section class="block" data-step="guests" hidden>
-        <div class="block-head"><span class="block-n">6</span><h3 class="block-title" data-i18n="tGuests"></h3></div>
-        <p class="step-lead" data-i18n="leadGuests"></p>
-        <div id="guest-list"></div>
-        <button id="guest-add" type="button" class="btn btn--ghost-dark btn--block"><span data-i18n="guestAdd"></span></button>
-        <div class="guests-total" id="guests-total-row" hidden>
-          <span data-i18n="guestsTotalLbl"></span><b id="guests-total"></b>
-        </div>
-        <p class="hint" data-i18n="guestsHint"></p>
-        <div class="block-err" hidden></div>
-      </section>
-
-      <section class="block" data-step="review" hidden>
-        <div class="block-head"><span class="block-n">7</span><h3 class="block-title" data-i18n="tReview"></h3></div>
-        <p class="step-lead" data-i18n="leadReview"></p>
-        <div class="rv-stage">
-          <div class="rv-frame-wrap" id="rv-wrap">
-            <iframe id="rv-frame" title="Preview"></iframe>
-            <button id="rv-expand" type="button" class="btn btn--gold btn--sm" data-i18n="fullPreview"></button>
-          </div>
-        </div>
-        <div class="card receipt">
-          <div id="rv-lines"></div>
-          <div class="receipt-total"><span data-i18n="total"></span><b id="rv-total"></b></div>
-          <div class="field">
-            <label for="contact-tg" data-i18n="tgLabel"></label>
-            <input id="contact-tg" type="text" maxlength="40" placeholder="@username" autocomplete="off">
-          </div>
-          <div class="field">
-            <label for="phone" data-i18n="phoneLabel"></label>
-            <input id="phone" type="tel" maxlength="20" placeholder="+998 90 123 45 67">
-          </div>
-          <div class="field">
-            <label for="phone2" data-i18n="phone2Label"></label>
-            <input id="phone2" type="text" maxlength="40" placeholder="@username / +998 ..." autocomplete="off">
-          </div>
-          <p class="hint" id="contact-rule"></p>
-          <p class="hint" data-i18n="confirmNote"></p>
-        </div>
-        <div class="block-err" hidden></div>
-        <button id="submit-btn" type="button" class="block-go btn btn--gold btn--shine"><span id="submit-label"></span></button>
-      </section>
-
-    </div>
-  </main>
 </div>
 
-<!-- ═══ Шторка предпросмотра ═══ -->
+<!-- ═══ Полноэкранная шторка ═══ -->
 <div id="sheet" hidden>
   <div class="sheet-bar">
-    <button id="sheet-close" type="button" class="btn btn--ghost btn--sm" data-i18n="close"></button>
-    <button id="sheet-action" type="button" class="btn btn--gold btn--sm" hidden></button>
+    <button id="sheet-close" type="button" class="ghost-ic" aria-label="Close">✕</button>
+    <b id="sheet-title"></b>
+    <span class="sheet-pad"></span>
   </div>
   <iframe id="sheet-frame" title="Preview"></iframe>
+  <div class="sheet-foot">
+    <button id="sheet-act" type="button" class="btn btn--gold btn--pill" hidden></button>
+  </div>
 </div>
 
-<!-- ═══ Финал: заявка отправлена ═══ -->
-<div id="success-screen" hidden>
-  <div id="petals"></div>
-  <div class="success-card">
-    <div class="success-seal">✉</div>
-    <h1 data-i18n="okTitle"></h1>
-    <p data-i18n="okText"></p>
-    <button id="succ-mine" type="button" class="btn btn--gold btn--block"><span data-i18n="navMine"></span></button>
+<!-- ═══ Финал ═══ -->
+<div id="done" hidden>
+  <div id="sparks" aria-hidden="true"></div>
+  <div class="done-card">
+    <svg class="ring-mark ring-mark--sm" viewBox="0 0 120 120" aria-hidden="true">
+      <circle class="ring-mark__b" cx="60" cy="60" r="46"/>
+      <circle class="ring-mark__a" cx="60" cy="60" r="46"/>
+    </svg>
+    <h2 data-i18n="doneTitle"></h2>
+    <p data-i18n="doneText"></p>
+    <button id="done-mine" type="button" class="btn btn--gold btn--block"><span data-i18n="mineTitle"></span></button>
+    <button id="done-new" type="button" class="linkbtn" data-i18n="doneNew"></button>
   </div>
 </div>
 

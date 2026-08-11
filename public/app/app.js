@@ -1,1221 +1,1093 @@
 /* global ymaps, UI */
-/* nvate WebApp — задачный флоу без повторов:
-   Язык → Шаблон (выбор один раз) → 7 шагов → Отправка.
-   Разделы: состояние и черновик · i18n · роутер · галерея · мои приглашения ·
-   мастер · шаги (календарь, карта, фото, музыка, гости, обзор) · отправка · старт. */
+/* nvate studio — одна вертикальная нить. Кнопки «продолжить» нет: как только блок
+   заполнен верно, следующий сам медленно проявляется и подъезжает к экрану.
+   Секции: состояние · словарь · нить и док · блоки · демо · отправка · старт. */
 'use strict';
 
-const { $, h, debounce, toast, sheet, skeletons, revealOnScroll, petals, haptic, tg } = UI;
+const { $, h, debounce, toast, sheet, haptic, tg } = UI;
 
-if (tg) { tg.ready(); tg.expand(); }
+if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#100B18'); } catch (_) { /* старый клиент */ } }
 
-/* ════ Состояние и черновик ════ */
+/* ════ Состояние ════ */
 
 const state = {
   config: null,
+  open: 0,              // последний раскрытый блок — он же активный шаг
+  dateIso: null,
+  time: '17:00',
   lat: null,
   lng: null,
   templateId: null,
-  dateIso: null,
-  photos: [],                  // { name, previewUrl, uploading }
-  music: { type: 'none', value: null, name: '', previewUrl: null, start: null, end: null },
-  guests: [],                  // имена гостей, по 8 000 за каждого
-  revealed: 0,                 // индекс последнего раскрытого блока
-  draftRestored: false,
+  photos: [],           // { name, url, uploading }
+  music: null,          // { type, value, name, artist, playUrl }
+  guestsOn: false,
+  guests: [],
+  previewHtml: '',
+  seenInvite: false,
+  sending: false,
 };
 
-const DRAFT_KEY = 'tk_draft_v2';
-const SENT_KEY = 'tk_sent_v1';
+const DRAFT = 'nv_draft_v4';
 
-// Автосохранение: Telegram закрывает WebView без предупреждения — черновик обязателен.
 const saveDraft = debounce(() => {
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({
-      v: 2,
-      groom: $('groom').value,
-      bride: $('bride').value,
-      dateIso: state.dateIso,
-      time: $('time').value,
-      lat: state.lat,
-      lng: state.lng,
-      address: $('address').value,
+    localStorage.setItem(DRAFT, JSON.stringify({
+      v: 4,
+      groom: $('groom').value, bride: $('bride').value,
+      dateIso: state.dateIso, time: state.time,
+      lat: state.lat, lng: state.lng, address: $('address').value,
       templateId: state.templateId,
       photos: state.photos.filter((p) => p.name).map((p) => p.name),
-      music: {
-        type: state.music.type, value: state.music.value, name: state.music.name,
-        start: state.music.start, end: state.music.end,
-      },
-      guests: state.guests,
-      contactTg: $('contact-tg').value,
-      phone: $('phone').value,
-      phone2: $('phone2').value,
-      revealed: state.revealed,
+      music: state.music, guestsOn: state.guestsOn, guests: state.guests,
+      contactTg: $('contact-tg').value, phone: $('phone').value, phone2: $('phone2').value,
+      open: state.open, seenInvite: state.seenInvite,
     }));
   } catch (_) { /* переполненное хранилище не критично */ }
 }, 400);
 
-function clearDraft() {
-  try { localStorage.removeItem(DRAFT_KEY); } catch (_) { /* — */ }
-}
+function clearDraft() { try { localStorage.removeItem(DRAFT); } catch (_) { /* — */ } }
 
 function restoreDraft() {
   let d = null;
-  try { d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (_) { return false; }
-  if (!d || d.v !== 2) return false;
-  const hasContent = d.groom || d.bride || d.templateId || (d.photos || []).length;
-  if (!hasContent) return false;
+  try { d = JSON.parse(localStorage.getItem(DRAFT) || 'null'); } catch (_) { return false; }
+  if (!d || d.v !== 4) return false;
+  if (!d.groom && !d.bride && !d.templateId) return false;
   $('groom').value = d.groom || '';
   $('bride').value = d.bride || '';
-  state.dateIso = d.dateIso || null;
-  if (d.time) $('time').value = d.time;
-  state.lat = Number.isFinite(d.lat) ? d.lat : null;
-  state.lng = Number.isFinite(d.lng) ? d.lng : null;
   $('address').value = d.address || '';
-  state.templateId = d.templateId || null;
-  state.photos = (d.photos || []).map((name) => ({ name, previewUrl: '/uploads/' + name, uploading: false }));
-  if (d.music && d.music.type && d.music.type !== 'none') {
-    const m = d.music;
-    let previewUrl = null;
-    if (m.type === 'upload') previewUrl = '/uploads/' + m.value;
-    else if (m.type === 'itunes' && m.value?.url) previewUrl = m.value.url;
-    else if (m.type === 'custom' && /\.(mp3|ogg|m4a|wav)(\?|$)/i.test(m.value || '')) previewUrl = m.value;
-    state.music = { type: m.type, value: m.value, name: m.name || '', previewUrl, start: m.start ?? null, end: m.end ?? null };
-  }
-  state.guests = Array.isArray(d.guests) ? d.guests.map((g) => String(g)).slice(0, 100) : [];
   $('contact-tg').value = d.contactTg || '';
   $('phone').value = d.phone || '';
   $('phone2').value = d.phone2 || '';
-  state.revealed = Math.min(Number(d.revealed ?? d.step) || 0, WIZARD.length - 1);
-  state.draftRestored = true;
+  state.dateIso = d.dateIso || null;
+  state.time = d.time || '17:00';
+  state.lat = Number.isFinite(d.lat) ? d.lat : null;
+  state.lng = Number.isFinite(d.lng) ? d.lng : null;
+  state.templateId = d.templateId || null;
+  state.photos = (d.photos || []).map((name) => ({ name, url: '/uploads/' + name, uploading: false }));
+  state.music = d.music || null;
+  state.guestsOn = Boolean(d.guestsOn);
+  state.guests = Array.isArray(d.guests) ? d.guests.slice(0, 100) : [];
+  state.seenInvite = Boolean(d.seenInvite);
+  state.open = Math.min(Number(d.open) || 0, STEPS.length - 1);
   return true;
 }
 
-function sentMap() {
-  try { return JSON.parse(localStorage.getItem(SENT_KEY) || '{}'); } catch (_) { return {}; }
-}
-function markSent(url) {
-  try {
-    const m = sentMap();
-    m[url] = 1;
-    localStorage.setItem(SENT_KEY, JSON.stringify(m));
-  } catch (_) { /* — */ }
-}
-
-/* ════ Словари ════ */
+/* ════ Словарь ════ */
 
 const I18N = {
   uz: {
-    navTpl: 'Shablonlar', navMine: 'Taklifnomalarim',
-    tplTitle: 'Shablonni tanlang',
-    tplSub: '«Demo» — jonli namuna, «Tanlash» — shu dizayn bilan boshlash.',
-    demo: 'Demo', pick: 'Tanlash', picked: '✓ Tanlangan', chooseThis: 'Shu shablonni tanlash',
-    photoBadge: (n) => `📷 ${n}+ surat`,
+    eNames: 'Kim uylanmoqda', tNames: 'Ismlaringiz',
+    phGroom: 'Kuyov', phBride: 'Kelin', groom: 'Kuyov ismi', bride: 'Kelin ismi',
+    eDate: 'Qachon', tDate: 'To‘y sanasi', timeLbl: 'Boshlanish vaqti',
+    eVenue: 'Qayerda', tVenue: 'To‘yxona', address: 'Manzil nomi', find: 'Qidirish',
+    seekLbl: 'Joyni qidirish', seekPlace: 'Masalan: Hilton Tashkent',
+    mapHint: 'To‘yxona turgan joyni xaritada bosing', linkLbl: 'Musiqa havolasi',
+    change: 'O‘zgartirish',
+    guestPh: 'Ism yozing…',
+    guestsTip: 'Maslahat: jonli murojaat qilgandek yozing — <b>Aziz aka</b>, <b>Malika opa</b>, <b>Dilnoza singlim</b>. Taklifnomada bu juda iliq chiqadi.',
+    eMusic: 'Ovoz', tMusic: 'Musiqa', msTop: 'Mashhur', msMine: 'Mening musiqam',
+    seekMusic: 'Qo‘shiq yoki ijrochi', musicSkip: 'Musiqasiz davom etish',
+    add: 'Qo‘shish', uploadMusic: 'Fayl yuklash', lookDone: 'Ko‘rib chiqdim',
+    linkHint: 'YouTube havolasi yoki to‘g‘ridan-to‘g‘ri mp3 havolasi.',
+    linkPh: 'https://…',
+    eTpl: 'Dizayn', tTpl: 'Taklifnoma uslubi',
+    leadTpl: 'Yon tomonga suring. «Demo» — ko‘rish, «Tanlash» — shu uslubda davom etamiz.',
+    ePhotos: 'Suratlar', tPhotos: 'Sizning suratlaringiz',
+    eReady: 'Tayyor', tReady: 'Hammasi tayyor',
+    leadReady: 'Taklifnomangiz yig‘ildi. Uni to‘liq ko‘rib chiqing.',
+    seeInvite: 'Taklifnomani ko‘rish',
+    readyHint: 'Oxirigacha suring — o‘zi yopiladi va keyingi bosqichga qaytaradi.',
+    eGuests: 'Qo‘shimcha', tGuests: 'Ismli taklifnomalar',
+    guestsSwTitle: 'Har bir mehmonga alohida havola',
+    guestsSwOff: 'O‘chirilgan', guestsSwOn: 'Yoqilgan',
+    guestsHow1: 'Taklifnoma ochilganda mehmon <b>o‘z ismini</b> ko‘radi: «Hurmatli Aziz, sizni to‘yimizga taklif qilamiz».',
+    guestsHow2: 'Har bir mehmon uchun alohida havola tayyorlanadi: <code>nvate.uz/ali-zebo/aziz</code> — uni to‘g‘ridan-to‘g‘ri yuborasiz.',
+    guestsHow3: 'Narxi: har bir ism uchun <b>10 000 so‘m</b>. Nechta bo‘lsa ham qo‘shaverasiz — umumiy summa pastda ko‘rinadi.',
+    guestAdd: 'Ism qo‘shish', guestsUnit: 'ta ism',
+    wmTitle: 'Namuna himoyalangan',
+    wmText: 'Ustidagi «nVate» to‘ri va nusxa olish cheklovi faqat namunada. To‘lovdan so‘ng to‘r olib tashlanadi va sizga toza havola beriladi.',
+    total: 'Jami',
+    eContact: 'Aloqa', tContact: 'Siz bilan qanday bog‘lanamiz',
+    leadContact: 'To‘lovni tasdiqlash uchun kamida 2 ta maydonni to‘ldiring.',
+    tgLbl: 'Telegram username', phoneLbl: 'Telefon raqam', phone2Lbl: 'Qo‘shimcha aloqa',
+    contactRule: 'Username yoki raqam — ikkitasi yetarli.',
     mineTitle: 'Mening taklifnomalarim',
-    mineEmpty: 'Hozircha taklifnomalar yo‘q — birinchisini yarating!',
-    mineOpenTg: 'Ro‘yxatni ko‘rish uchun formani Telegram-bot orqali oching.',
-    stNew: '⏳ Tasdiqlash kutilmoqda', stPaid: '✅ Tayyor', stCancelled: '✖ Bekor qilingan',
-    open: 'Ochish', copy: 'Nusxa', copied: 'Havola nusxalandi', share: 'Yuborish', sent: '✓ Yuborildi',
-    createNew: '+ Yangi taklifnoma',
-    rcTplLine: 'Shablon', rcGuestsLine: 'Nomli havolalar',
-    stepTitles: ['Kelin-kuyov', 'Sana va vaqt', 'Manzil', 'Suratlar', 'Musiqa', 'Mehmonlar', 'Yakuniy ko‘rik'],
-    tNames: 'Kelin-kuyov', tDate: 'Sana va vaqt', tVenue: 'Manzil', tPhotos: 'Suratlar', tMusic: 'Musiqa', tGuests: 'Mehmonlar', tReview: 'Yakuniy ko‘rik',
-    stepOf: (a, b) => `${a} / ${b}-qadam`,
-    next: 'Davom etish', back: 'Ortga', send: 'Ariza yuborish', sending: 'Yuborilmoqda...',
-    leadNames: 'Ismlaringiz taklifnomaning yuragida turadi.',
-    hintNames: 'Ismlar taklifnomada yozilganidek ko‘rinadi — xohlagancha yozing.',
-    groom: 'Kuyov ismi', bride: 'Kelin ismi', phGroom: 'Ali', phBride: 'Zebo',
-    leadDate: 'To‘y qachon? Mehmonlar sanani va to‘ygacha sanoqni ko‘radi.',
-    pickDate: 'Taqvimda sanani tanlang', time: 'Vaqt',
-    leadVenue: 'Joyni qidiring yoki xaritaga bosing — mehmonlar jonli xaritani oladi.',
-    searchPh: 'Masalan: Navro‘z to‘yxonasi', find: 'Qidirish',
-    address: 'Joy nomi (qisqa)', phAddress: 'Masalan: Navro‘z to‘yxonasi',
-    noPin: '📍 Belgi qo‘yilmagan',
-    photoReq: (n) => `Kamida ${n} ta surat kerak. JPG, PNG yoki WebP.`,
-    add: 'Qo‘shish', photoOf: (a, b) => `${a} ta yuklandi (kamida ${b} ta kerak)`,
-    leadMusic: 'Taklifnoma ochilganda yangraydigan musiqa (ixtiyoriy).',
-    mtNone: 'Musiqasiz', mtCatalog: '🔥 Top musiqalar', mtOwn: 'O‘z musiqam',
-    musicQPh: 'Qo‘shiq yoki ijrochi...', uses: 'marta tanlangan', empty: 'Hech narsa topilmadi',
-    ownHint: 'Havola qo‘ying (YouTube / Instagram / TikTok) yoki fayl yuklang (MP3/M4A, 16 MB gacha)',
-    upload: 'Fayl yuklash', or: 'yoki', uploading: 'Yuklanmoqda...', extracting: 'Audio ajratilmoqda...',
-    extractUnavail: 'Bu havoladan audio olish hozircha ishlamaydi — fayl yuklang yoki YouTube havolasini qo‘ying',
-    cutTitle: 'Musiqani kesish — oltin dastaklarni suring (ixtiyoriy)',
-    cutStart: 'Boshlanishi (soniya)', cutEnd: 'Tugashi (soniya)', listen: '▶ Tinglash', change: 'O‘zgartirish',
-    leadGuests: 'Har bir mehmonga nomli havola: sahifada «Hurmatli Aziz aka…» deb yoziladi (ixtiyoriy).',
-    guestAdd: '+ Mehmon qo‘shish', guestPh: 'Masalan: Aziz aka',
-    guestsTotalLbl: 'Nomli havolalar:',
-    guestEach: (p) => `har biri ${p}`,
-    guestsHint: 'Istalgancha mehmon qo‘shing — har bir nomli havola 8 000 so‘m. Bo‘sh qatorlar hisobga olinmaydi.',
-    leadReview: 'Hammasi tayyor — taklifnomani ko‘rib chiqing va yuboring.',
-    total: 'Jami:', fullPreview: 'To‘liq ko‘rish',
-    rcCouple: 'Kelin-kuyov', rcDate: 'Sana', rcVenue: 'Manzil', rcMusic: 'Musiqa',
-    changeTpl: 'O‘zgartirish',
-    tgLabel: 'Telegram username', phoneLabel: 'Telefon raqam', phone2Label: 'Qo‘shimcha: username yoki raqam',
-    contactRule: 'Yuborish uchun shulardan kamida 2 tasini to‘ldiring.',
-    eContacts: 'Kamida 2 ta aloqa maydonini to‘ldiring',
-    confirmNote: '📩 Administrator tez orada bog‘lanadi (Telegram yoki telefon). To‘lovdan so‘ng havolani olasiz.',
-    okTitle: 'Ariza yuborildi!',
-    okText: 'Administrator to‘lovni tasdiqlash uchun bog‘lanadi. So‘ng taklifnoma havolasini olasiz.',
-    close: '✕ Yopish', sum: 'so‘m',
-    draftRestored: 'Qoralamangiz tiklandi — davom eting ✨',
-    draftSaved: 'Qoralama saqlandi',
-    eGroom: 'Kuyov ismini kiriting', eBride: 'Kelin ismini kiriting',
-    eDate: 'Taqvimda sanani tanlang', eTime: 'Vaqtni kiriting',
-    eLoc: 'Xaritada joyni belgilang', eWait: 'Suratlar yuklanishini kuting',
-    ePhotos: (n) => `Kamida ${n} ta surat yuklang`, eTpl: 'Avval shablonni tanlang',
-    eTg: 'Telegram username kiriting (masalan: @aziz_uz)',
-    ePhone: 'Telefon raqamingizni kiriting',
-    eMusic: 'Musiqa havolasi noto‘g‘ri', eNet: 'Tarmoq xatosi, qayta urinib ko‘ring',
-    eFile: 'Bu format qo‘llab-quvvatlanmaydi', eBig: 'Fayl juda katta',
-    eGeo: 'O‘zbekistonda topilmadi — boshqa nom yozing yoki xaritada belgilang',
+    doneTitle: 'Qabul qilindi', doneNew: 'Yangi taklifnoma',
+    doneText: 'To‘lov tasdiqlangach, botga toza havolangiz keladi. Odatda bu 10 daqiqagacha vaqt oladi.',
+    beads: ['Ismlar', 'Sana', 'Joy', 'Musiqa', 'Dizayn', 'Suratlar', 'Tayyor', 'Mehmonlar', 'Aloqa'],
+    pay: 'To‘lash va havola olish', sending: 'Yuborilmoqda',
     months: ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun', 'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr'],
-    monthsGen: ['yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun', 'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr'],
-    wdShort: ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'],
-    wdFull: ['yakshanba', 'dushanba', 'seshanba', 'chorshanba', 'payshanba', 'juma', 'shanba'],
-    dateLabel: (wd, d, m, y) => `${wd}, ${d}-${m}, ${y}`,
+    dow: ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'],
+    demo: 'Demo', take: 'Tanlash', taken: 'Tanlandi',
+    photoNeed: (n) => `Bu uslub uchun <b>${n} ta</b> surat kerak`,
+    photoOf: (i, n) => `${i} / ${n}`,
+    photoExtra: 'Ixtiyoriy',
+    sum: 'so‘m',
+    eNames_: 'Ikkala ismni ham yozing', eDate_: 'Taqvimdan sanani tanlang',
+    eVenue_: 'Xaritada joyni belgilang', eTpl_: 'Uslubni tanlang',
+    ePhoto_: (n) => `Yana surat kerak: ${n} ta`,
+    eGuest_: 'Bo‘sh ismlarni to‘ldiring yoki o‘chiring',
+    eContact_: 'Kamida 2 ta aloqa maydonini to‘ldiring',
+    eNet: 'Aloqa yo‘q. Qayta urinib ko‘ring', eNoFound: 'Hech narsa topilmadi',
+    eUpload: 'Fayl yuklanmadi', eBig: 'Fayl juda katta (16 МБ gacha)',
+    eLink: 'Havola tanilmadi',
+    noGeo: 'Joylashuv aniqlanmadi', copied: 'Nusxa olindi',
+    nextUp: 'Keyingi bosqich ochildi',
+    tplPlate: 'Taklifnoma', myTrack: 'Mening trekim',
   },
   ru: {
-    navTpl: 'Шаблоны', navMine: 'Мои приглашения',
-    tplTitle: 'Выберите шаблон',
-    tplSub: '«Демо» — живой пример, «Выбрать» — начать с этим дизайном.',
-    demo: 'Демо', pick: 'Выбрать', picked: '✓ Выбран', chooseThis: 'Выбрать этот шаблон',
-    photoBadge: (n) => `📷 ${n}+ фото`,
+    eNames: 'Кто женится', tNames: 'Ваши имена',
+    phGroom: 'Жених', phBride: 'Невеста', groom: 'Имя жениха', bride: 'Имя невесты',
+    eDate: 'Когда', tDate: 'Дата свадьбы', timeLbl: 'Время начала',
+    eVenue: 'Где', tVenue: 'Место', address: 'Название места', find: 'Найти',
+    seekLbl: 'Поиск места', seekPlace: 'Например: Hilton Tashkent',
+    mapHint: 'Нажмите на карту там, где будет торжество', linkLbl: 'Ссылка на музыку',
+    change: 'Изменить',
+    guestPh: 'Впишите имя…',
+    guestsTip: 'Совет: пишите так, как обратитесь вживую — <b>Азиз ака</b>, <b>Малика опа</b>, <b>Дилноза синглим</b>. В приглашении это читается очень тепло.',
+    eMusic: 'Звук', tMusic: 'Музыка', msTop: 'Популярное', msMine: 'Моя музыка',
+    seekMusic: 'Песня или исполнитель', musicSkip: 'Продолжить без музыки',
+    add: 'Добавить', uploadMusic: 'Загрузить файл', lookDone: 'Посмотрел',
+    linkHint: 'Ссылка на YouTube или прямая ссылка на mp3.',
+    linkPh: 'https://…',
+    eTpl: 'Дизайн', tTpl: 'Стиль приглашения',
+    leadTpl: 'Листайте вбок. «Демо» — посмотреть, «Выбрать» — продолжаем в этом стиле.',
+    ePhotos: 'Фото', tPhotos: 'Ваши фотографии',
+    eReady: 'Готово', tReady: 'Всё готово',
+    leadReady: 'Приглашение собрано. Посмотрите его целиком.',
+    seeInvite: 'Смотреть приглашение',
+    readyHint: 'Долистайте до конца — оно закроется само и вернёт вас к следующему шагу.',
+    eGuests: 'Дополнительно', tGuests: 'Именные приглашения',
+    guestsSwTitle: 'Персональная ссылка каждому гостю',
+    guestsSwOff: 'Выключено', guestsSwOn: 'Включено',
+    guestsHow1: 'Открывая приглашение, гость видит <b>своё имя</b>: «Дорогой Азиз, приглашаем вас на нашу свадьбу».',
+    guestsHow2: 'Для каждого гостя готовится отдельная ссылка: <code>nvate.uz/ali-zebo/aziz</code> — её вы отправляете лично.',
+    guestsHow3: 'Цена: <b>10 000 сум</b> за каждое имя. Добавляйте сколько нужно — сумма пересчитывается ниже.',
+    guestAdd: 'Добавить имя', guestsUnit: 'имён',
+    wmTitle: 'Образец защищён',
+    wmText: 'Сетка «nVate» поверх и запрет копирования — только в образце. После оплаты сетка снимается, и вы получаете чистую ссылку.',
+    total: 'Итого',
+    eContact: 'Контакты', tContact: 'Как с вами связаться',
+    leadContact: 'Для подтверждения оплаты заполните минимум 2 поля.',
+    tgLbl: 'Telegram username', phoneLbl: 'Номер телефона', phone2Lbl: 'Запасной контакт',
+    contactRule: 'Username или номер — достаточно двух.',
     mineTitle: 'Мои приглашения',
-    mineEmpty: 'Пока нет приглашений — создайте первое!',
-    mineOpenTg: 'Чтобы увидеть список, откройте форму через Telegram-бота.',
-    stNew: '⏳ Ожидает подтверждения', stPaid: '✅ Готово', stCancelled: '✖ Отклонено',
-    open: 'Открыть', copy: 'Копия', copied: 'Ссылка скопирована', share: 'Отправить', sent: '✓ Отправлено',
-    createNew: '+ Новое приглашение',
-    rcTplLine: 'Шаблон', rcGuestsLine: 'Именные ссылки',
-    stepTitles: ['Пара', 'Дата и время', 'Локация', 'Фотографии', 'Музыка', 'Гости', 'Финальный обзор'],
-    tNames: 'Пара', tDate: 'Дата и время', tVenue: 'Локация', tPhotos: 'Фотографии', tMusic: 'Музыка', tGuests: 'Гости', tReview: 'Финальный обзор',
-    stepOf: (a, b) => `Шаг ${a} из ${b}`,
-    next: 'Продолжить', back: 'Назад', send: 'Отправить заявку', sending: 'Отправляем...',
-    leadNames: 'Ваши имена — сердце приглашения.',
-    hintNames: 'Имена появятся в приглашении ровно так, как вы их напишете.',
-    groom: 'Имя жениха', bride: 'Имя невесты', phGroom: 'Али', phBride: 'Зебо',
-    leadDate: 'Когда свадьба? Гости увидят дату и живой отсчёт.',
-    pickDate: 'Выберите дату в календаре', time: 'Время',
-    leadVenue: 'Найдите место или коснитесь карты — гости получат живую карту.',
-    searchPh: 'Например: тойхона Versal', find: 'Найти',
-    address: 'Название места (коротко)', phAddress: 'Например: тойхона Versal',
-    noPin: '📍 Метка не поставлена',
-    photoReq: (n) => `Нужно минимум ${n} фото. JPG, PNG или WebP.`,
-    add: 'Добавить', photoOf: (a, b) => `Загружено ${a} (нужно минимум ${b})`,
-    leadMusic: 'Музыка, которая заиграет при открытии приглашения (необязательно).',
-    mtNone: 'Без музыки', mtCatalog: '🔥 Топ музыка', mtOwn: 'Своя музыка',
-    musicQPh: 'Песня или исполнитель...', uses: 'раз выбрали', empty: 'Ничего не найдено',
-    ownHint: 'Вставьте ссылку (YouTube / Instagram / TikTok) или загрузите файл (MP3/M4A, до 16 МБ)',
-    upload: 'Загрузить файл', or: 'или', uploading: 'Загрузка...', extracting: 'Извлекаем аудио...',
-    extractUnavail: 'Извлечь аудио из этой ссылки пока нельзя — загрузите файл или дайте ссылку YouTube',
-    cutTitle: 'Обрезка музыки — двигайте золотые ручки (необязательно)',
-    cutStart: 'Начало (сек)', cutEnd: 'Конец (сек)', listen: '▶ Прослушать', change: 'Изменить',
-    leadGuests: 'Каждому гостю — именная ссылка: на странице будет «Hurmatli Aziz aka…» (необязательно).',
-    guestAdd: '+ Добавить гостя', guestPh: 'Например: Азиз ака',
-    guestsTotalLbl: 'Именные ссылки:',
-    guestEach: (p) => `по ${p} за каждого`,
-    guestsHint: 'Добавляйте сколько угодно гостей — каждая именная ссылка 8 000 сум. Пустые строки не считаются.',
-    leadReview: 'Всё готово — посмотрите приглашение и отправьте заявку.',
-    total: 'Итого:', fullPreview: 'На весь экран',
-    rcCouple: 'Пара', rcDate: 'Дата', rcVenue: 'Локация', rcMusic: 'Музыка',
-    changeTpl: 'Изменить',
-    tgLabel: 'Telegram username', phoneLabel: 'Номер телефона', phone2Label: 'Доп.: username или номер',
-    contactRule: 'Для отправки заполните минимум 2 из них.',
-    eContacts: 'Заполните минимум 2 поля контактов',
-    confirmNote: '📩 Администратор скоро свяжется (Telegram или телефон). После оплаты вы получите ссылку.',
-    okTitle: 'Заявка отправлена!',
-    okText: 'Администратор свяжется для подтверждения оплаты. Затем вы получите ссылку.',
-    close: '✕ Закрыть', sum: 'сум',
-    draftRestored: 'Черновик восстановлен — продолжайте ✨',
-    draftSaved: 'Черновик сохранён',
-    eGroom: 'Укажите имя жениха', eBride: 'Укажите имя невесты',
-    eDate: 'Выберите дату в календаре', eTime: 'Укажите время',
-    eLoc: 'Отметьте локацию на карте', eWait: 'Дождитесь загрузки фотографий',
-    ePhotos: (n) => `Загрузите минимум ${n} фото`, eTpl: 'Сначала выберите шаблон',
-    eTg: 'Укажите Telegram username (например: @aziz_uz)',
-    ePhone: 'Укажите номер телефона',
-    eMusic: 'Некорректная ссылка на музыку', eNet: 'Ошибка сети, попробуйте ещё раз',
-    eFile: 'Формат не поддерживается', eBig: 'Файл слишком большой',
-    eGeo: 'В Узбекистане не найдено — попробуйте иначе или отметьте на карте сами',
+    doneTitle: 'Заявка принята', doneNew: 'Новое приглашение',
+    doneText: 'После подтверждения оплаты чистая ссылка придёт в бот. Обычно это занимает до 10 минут.',
+    beads: ['Имена', 'Дата', 'Место', 'Музыка', 'Дизайн', 'Фото', 'Готово', 'Гости', 'Контакты'],
+    pay: 'Оплатить и получить ссылку', sending: 'Отправляем',
     months: ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'],
-    monthsGen: ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'],
-    wdShort: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
-    wdFull: ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота'],
-    dateLabel: (wd, d, m, y) => `${wd}, ${d} ${m} ${y}`,
+    dow: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
+    demo: 'Демо', take: 'Выбрать', taken: 'Выбрано',
+    photoNeed: (n) => `Для этого стиля нужно <b>${n} фото</b>`,
+    photoOf: (i, n) => `${i} / ${n}`,
+    photoExtra: 'Необязательно',
+    sum: 'сум',
+    eNames_: 'Впишите оба имени', eDate_: 'Выберите дату в календаре',
+    eVenue_: 'Отметьте место на карте', eTpl_: 'Выберите стиль',
+    ePhoto_: (n) => `Добавьте ещё ${n} фото`,
+    eGuest_: 'Заполните или удалите пустые имена',
+    eContact_: 'Заполните минимум 2 поля контактов',
+    eNet: 'Нет связи. Попробуйте ещё раз', eNoFound: 'Ничего не найдено',
+    eUpload: 'Файл не загрузился', eBig: 'Файл слишком большой (до 16 МБ)',
+    eLink: 'Ссылка не распознана',
+    noGeo: 'Не удалось определить геопозицию', copied: 'Скопировано',
+    nextUp: 'Следующий шаг открыт',
+    tplPlate: 'Приглашение', myTrack: 'Мой трек',
   },
 };
 
-let LANG = localStorage.getItem('tk_lang') || null;
-const t = (key, ...args) => {
-  const v = I18N[LANG || 'uz'][key];
-  return typeof v === 'function' ? v(...args) : v;
+let LANG = localStorage.getItem('nv_lang') || null;
+const t = (k, ...a) => {
+  const v = I18N[LANG || 'uz'][k];
+  return typeof v === 'function' ? v(...a) : v;
 };
-
-function money(n) {
-  return n.toLocaleString('ru-RU') + ' ' + t('sum');
-}
+const money = (n) => `${Number(n || 0).toLocaleString('ru-RU')} ${t('sum')}`;
 
 function applyI18n() {
   document.documentElement.lang = LANG;
-  document.querySelectorAll('[data-i18n]').forEach((el) => {
-    el.textContent = t(el.dataset.i18n);
-  });
-  $('groom').placeholder = t('phGroom');
-  $('bride').placeholder = t('phBride');
-  $('geo-search').placeholder = t('searchPh');
-  $('address').placeholder = t('phAddress');
-  $('music-q').placeholder = t('musicQPh');
-  $('coords-hint').textContent = state.lat === null ? t('noPin') : `📍 ${state.lat.toFixed(5)}, ${state.lng.toFixed(5)}`;
-  $('contact-rule').textContent = t('contactRule');
-  for (const [id, on] of [['hsw-uz', LANG === 'uz'], ['hsw-ru', LANG === 'ru']]) $(id).classList.toggle('active', on);
-  updateDateLabel();
-  renderCalendar();
-  renderTimeChips();
-  updateProgress();
-  if (state.config) {
-    renderGallery();
-    updatePhotoTexts();
-    renderPhotos();
-    renderGuests();
-    updateSelectedMusic();
-    if (currentScreen === 'mine') loadMine();
-    if (state.revealed === WIZARD.length - 1 && currentScreen === 'studio') renderReceipt();
+  for (const el of document.querySelectorAll('[data-i18n]')) {
+    const v = t(el.dataset.i18n);
+    if (typeof v !== 'string') continue;
+    if (v.includes('<')) el.innerHTML = v; else el.textContent = v;
   }
+  $('geo-q').placeholder = t('seekPlace');
+  $('music-q').placeholder = t('seekMusic');
+  $('music-link').placeholder = t('linkPh');
+  $('submit-label').textContent = t('pay');
+  $('sw-uz').classList.toggle('on', LANG === 'uz');
+  $('sw-ru').classList.toggle('on', LANG === 'ru');
+  renderBeads();
+  renderCalendar();
+  buildClock();
+  renderTemplates();
+  renderPhotos();
+  renderGuests();
+  renderReady();
 }
 
 function setLang(lang) {
   LANG = lang;
-  localStorage.setItem('tk_lang', lang);
+  localStorage.setItem('nv_lang', lang);
   applyI18n();
 }
 
-/* ════ Роутер экранов ════ */
+/* ════ Шаги ════
+   auto: блок сам открывает следующий, как только заполнен верно. */
 
-let currentScreen = 'templates';
-const SCREENS = ['templates', 'mine', 'studio'];
-
-function showScreen(name) {
-  currentScreen = name;
-  for (const s of SCREENS) $('screen-' + s).hidden = s !== name;
-  document.querySelector('.topnav').hidden = name === 'studio';
-  $('nav-tpl').classList.toggle('active', name === 'templates');
-  $('nav-mine').classList.toggle('active', name === 'mine');
-  if (name === 'templates') renderGallery();
-  if (name === 'mine') loadMine();
-  if (name === 'studio') enterStudio();
-  else updateTgBack();
-  window.scrollTo({ top: 0 });
-}
-
-/* Кнопка «назад» Telegram: внутри мастера листает шаги */
-function updateTgBack() {
-  try {
-    if (!tg?.BackButton) return;
-    if (currentScreen === 'studio') tg.BackButton.show();
-    else tg.BackButton.hide();
-  } catch (_) { /* вне Telegram */ }
-}
-try {
-  tg?.BackButton?.onClick(() => {
-    if (currentScreen !== 'studio') return;
-    showScreen('templates');
-  });
-} catch (_) { /* — */ }
-
-/* ════ Галерея шаблонов: материальные карточки, выбор один раз ════ */
-
-function liveQuery() {
-  const g = encodeURIComponent($('groom').value.trim() || t('phGroom'));
-  const b = encodeURIComponent($('bride').value.trim() || t('phBride'));
-  return `?groom=${g}&bride=${b}&lang=${LANG}`;
-}
-
-function sortedTemplates() {
-  const pop = state.config.populars || {};
-  return [...state.config.templates].sort((a, b) => (pop[b.id] || 0) - (pop[a.id] || 0));
-}
-
-function renderGallery() {
-  const box = $('gallery');
-  if (!state.config || !box) return;
-  box.innerHTML = '';
-  const pop = state.config.populars || {};
-
-  sortedTemplates().forEach((tpl, i) => {
-    const selected = state.templateId === tpl.id;
-    const [c0, c1, c2] = tpl.colors.length ? tpl.colors : ['#F4EFF7', '#755C97', '#C6AD7C'];
-    const card = h('div', { class: 'g-card' + (selected ? ' selected' : '') });
-    if (i === 0 && (pop[tpl.id] || 0) > 0) card.appendChild(h('div', { class: 'tpl-ribbon' }, 'TOP'));
-    if (selected) card.appendChild(h('div', { class: 'tpl-check' }, '✓'));
-
-    // Материальная превью-карточка: цвет шаблона × фактура бумаги
-    card.appendChild(h('div', { class: 'tpl-prev', style: `background-color:${c0}` },
-      h('span', { class: 'tp-eyebrow', style: `color:${c2}` }, 'Taklifnoma'),
-      h('span', { class: 'tp-names', style: `color:${c1}` },
-        t('phGroom'), h('i', { style: `color:${c2}` }, ' & '), t('phBride')),
-      h('span', { class: 'tp-rule', style: `background:${c2}` }),
-      h('span', { class: 'tp-date', style: `color:${c2}` }, '19 · 09 · 2026')));
-
-    const onPick = () => {
-      haptic.tap();
-      state.templateId = tpl.id;
-      saveDraft();
-      renderGallery();
-      updatePhotoTexts();
-      showScreen('studio');
-    };
-    card.appendChild(h('div', { class: 'tpl-body' },
-      h('div', { class: 'tpl-name-row' },
-        h('div', { class: 'tpl-name' }, tpl.name),
-        h('div', { class: 'tpl-price' }, money(tpl.price))),
-      h('div', { class: 'tpl-meta' }, t('photoBadge', tpl.minPhotos)),
-      h('div', { class: 'tpl-btns' },
-        h('button', {
-          type: 'button', class: 'btn btn--ghost',
-          onclick: (e) => { e.stopPropagation(); openDemo(tpl, onPick); },
-        }, t('demo')),
-        h('button', {
-          type: 'button', class: 'btn btn--gold',
-          onclick: (e) => { e.stopPropagation(); onPick(); },
-        }, selected ? t('picked') : t('pick')))));
-    box.appendChild(card);
-  });
-}
-
-function openDemo(tpl, onPick) {
-  sheet.open({
-    src: tpl.demoUrl + liveQuery(),
-    actionLabel: t('chooseThis'),
-    onAction: onPick,
-  });
-}
-
-function selectedTemplate() {
-  return state.config?.templates.find((x) => x.id === state.templateId) ?? null;
-}
-
-/* ════ Мои приглашения: дата, ссылка, цена, именные ссылки с отправкой ════ */
-
-function shareUrl(url, text) {
-  const link = 'https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(text || '');
-  try {
-    if (tg?.openTelegramLink) { tg.openTelegramLink(link); return; }
-  } catch (_) { /* вне Telegram */ }
-  window.open(link, '_blank', 'noopener');
-}
-
-function linkRow(url, label, appTitle) {
-  const sent = Boolean(sentMap()[url]);
-  const row = h('div', { class: 'link-row' + (sent ? ' sent' : '') });
-  row.appendChild(h('div', { class: 'link-info' },
-    h('b', {}, label),
-    h('a', { href: url, target: '_blank', rel: 'noopener', class: 'link-url' }, url.replace(/^https?:\/\//, ''))));
-  const copyBtn = h('button', { type: 'button', class: 'btn btn--ghost-dark btn--sm' }, t('copy'));
-  copyBtn.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(url);
-      toast(t('copied'), 'ok', 1800);
-      markSent(url);
-      row.classList.add('sent');
-      shareBtn.textContent = t('sent');
-    } catch (_) { /* буфер недоступен */ }
-  });
-  const shareBtn = h('button', { type: 'button', class: 'btn btn--gold btn--sm' }, sent ? t('sent') : t('share'));
-  shareBtn.addEventListener('click', () => {
-    haptic.tap();
-    shareUrl(url, appTitle);
-    markSent(url);
-    row.classList.add('sent');
-    shareBtn.textContent = t('sent');
-  });
-  row.appendChild(h('div', { class: 'link-btns' }, copyBtn, shareBtn));
-  return row;
-}
-
-async function loadMine() {
-  const box = $('mine-list');
-  box.innerHTML = '';
-  box.appendChild(skeletons(2, 'skel--mine'));
-  try {
-    const res = await fetch('/api/my', { headers: { 'X-Init-Data': tg ? tg.initData : '' } });
-    if (res.status === 401) {
-      box.innerHTML = '';
-      box.appendChild(h('div', { class: 'empty' }, h('span', { class: 'empty-ic' }, '🔒'), t('mineOpenTg')));
-      return;
-    }
-    const data = await res.json();
-    if (!res.ok || !data.ok) throw new Error();
-    box.innerHTML = '';
-    if (!data.apps.length) {
-      box.appendChild(h('div', { class: 'empty' }, h('span', { class: 'empty-ic' }, '💌'), t('mineEmpty')));
-      return;
-    }
-    for (const a of data.apps) box.appendChild(mineCard(a));
-  } catch (_) {
-    box.innerHTML = '';
-    box.appendChild(h('div', { class: 'empty' }, h('span', { class: 'empty-ic' }, '📡'), t('eNet')));
-  }
-}
-
-function mineCard(a) {
-  const tpl = state.config?.templates.find((x) => x.id === a.templateId);
-  const badgeCls = a.status === 'paid' ? 'badge--paid' : a.status === 'cancelled' ? 'badge--cancelled' : 'badge--new';
-  const badgeTxt = a.status === 'paid' ? t('stPaid') : a.status === 'cancelled' ? t('stCancelled') : t('stNew');
-  const title = `${a.groom} & ${a.bride}`;
-
-  const card = h('div', { class: 'mine-card' },
-    h('div', { class: 'mine-head' },
-      h('div', { class: 'mine-names' }, title),
-      h('span', { class: `badge ${badgeCls}` }, badgeTxt)),
-    h('div', { class: 'mine-meta' }, `${a.date} · ${a.time}` + (tpl ? ` · ${tpl.name}` : '')));
-
-  // Цена с разбивкой: шаблон + именные ссылки
-  const priceBox = h('div', { class: 'mine-price' });
-  priceBox.appendChild(h('div', { class: 'rc-line' }, h('span', {}, t('rcTplLine')), h('span', {}, money(a.templatePrice ?? a.total))));
-  if (a.guestsPrice > 0) {
-    priceBox.appendChild(h('div', { class: 'rc-line' },
-      h('span', {}, `${t('rcGuestsLine')} (${(a.guests || []).length || '—'})`),
-      h('span', {}, '+' + money(a.guestsPrice))));
-  }
-  priceBox.appendChild(h('div', { class: 'rc-line rc-line--total' }, h('span', {}, t('total')), h('b', {}, money(a.total))));
-  card.appendChild(priceBox);
-
-  if (a.url) {
-    card.appendChild(linkRow(a.url, title, title));
-    if ((a.guests || []).length) {
-      const gbox = h('div', { class: 'mine-guests' });
-      for (const g of a.guests) gbox.appendChild(linkRow(g.url, g.name, title));
-      card.appendChild(gbox);
-    }
-  }
-  return card;
-}
-
-/* ════ Мастер: 7 шагов, шаблон выбран заранее ════ */
-
-const WIZARD = [
-  { id: 'names', validate: vNames },
-  { id: 'datetime', validate: vDate },
-  { id: 'location', validate: vVenue, onEnter: ensureMap },
-  { id: 'photos', validate: vPhotos, onEnter: () => { updatePhotoTexts(); renderPhotos(); } },
-  { id: 'music', validate: () => null },
-  { id: 'guests', validate: () => null, onEnter: renderGuests },
-  { id: 'review', validate: () => null, onEnter: enterReview },
+const STEPS = [
+  { id: 'names', auto: true, check: () => $('groom').value.trim() && $('bride').value.trim() },
+  { id: 'datetime', auto: true, check: () => Boolean(state.dateIso) },
+  { id: 'location', auto: true, check: () => Number.isFinite(state.lat) && Number.isFinite(state.lng) },
+  { id: 'music', auto: true, check: () => true },
+  { id: 'template', auto: true, check: () => Boolean(state.templateId) },
+  { id: 'photos', auto: true, check: () => filledPhotos() >= requiredPhotos() },
+  { id: 'ready', auto: false, check: () => state.seenInvite },
+  { id: 'guests', auto: false, check: () => true },       // пустые поля просто не считаются
+  { id: 'contact', auto: false, check: () => contactsFilled() >= 2 },
 ];
 
-function blockEl(i) {
-  return document.querySelector(`.block[data-step="${WIZARD[i].id}"]`);
-}
+const blk = (i) => document.querySelector(`.blk[data-step="${STEPS[i].id}"]`);
+const stepIdx = (id) => STEPS.findIndex((s) => s.id === id);
 
-function scrollToBlock(el) {
+function showErr(i, msg) {
+  const el = blk(i)?.querySelector('.blk-err');
   if (!el) return;
-  const y = el.getBoundingClientRect().top + window.scrollY - 74;
+  el.textContent = msg;
+  el.hidden = false;
+  haptic.err();
+}
+function clearErr(i) { const el = blk(i)?.querySelector('.blk-err'); if (el) el.hidden = true; }
+
+function scrollToBlock(i) {
+  const el = blk(i);
+  if (!el) return;
+  const y = el.getBoundingClientRect().top + window.scrollY - 72;
   window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
 }
 
-function updateProgress() {
-  const pct = ((state.revealed + 1) / WIZARD.length) * 100;
-  $('progress-fill').style.width = pct + '%';
-  const tpl = selectedTemplate();
-  if (tpl) {
-    $('studio-tpl-name').textContent = tpl.name;
-    $('studio-tpl-price').textContent = money(tpl.price);
-  }
-  $('studio-eye').hidden = !state.templateId;
-  $('submit-label').textContent = t('send');
+function renderBlocks(armIdx = -1) {
+  STEPS.forEach((s, i) => {
+    const el = blk(i);
+    el.hidden = i > state.open;
+    el.classList.toggle('is-done', i < state.open);
+    el.classList.toggle('is-live', i === state.open);
+    if (i !== armIdx) el.classList.remove('is-armed', 'is-new');
+    else el.classList.add('is-armed');       // держим блок в «до»-состоянии
+  });
+  renderBeads();
 }
 
-// Показывает блоки 0..revealed; кнопку «Продолжить» — только на фронтире.
-function renderBlocks() {
-  WIZARD.forEach((w, i) => {
-    const sec = blockEl(i);
-    if (!sec) return;
-    sec.hidden = i > state.revealed;
-    const go = sec.querySelector('.block-go');
-    if (go && w.id !== 'review') go.hidden = i !== state.revealed;
+/* Раскрытие: блок медленно всплывает на своём месте. Страницу не двигаем —
+   пользователь сам решает, когда прокрутить. */
+function unlock(i) {
+  if (i >= STEPS.length || i <= state.open) return;
+  state.open = i;
+  renderBlocks(i);
+  onEnterStep(i);
+  saveDraft();
+  haptic.ok();
+  // Сначала мягко подводим блок в кадр, и только потом играем появление —
+  // иначе анимация проходила ниже экрана и пользователь её не видел.
+  setTimeout(() => nudgeTo(i), 90);
+  armReveal(i);
+}
+
+/* Мягкий доскролл: верх нового блока выходит в нижнюю треть экрана, не по центру. */
+function nudgeTo(i) {
+  const el = blk(i);
+  if (!el) return;
+  const target = window.scrollY + el.getBoundingClientRect().top - window.innerHeight * 0.62;
+  if (target > window.scrollY + 8) window.scrollTo({ top: target, behavior: 'smooth' });
+}
+
+/* Появление запускаем ровно в тот момент, когда блок оказался в кадре. */
+function armReveal(i) {
+  const el = blk(i);
+  if (!el) return;
+  const play = () => {
+    if (!el.classList.contains('is-armed')) return;
+    el.classList.remove('is-armed');
+    void el.offsetWidth;
+    el.classList.add('is-new');
+  };
+  if (!('IntersectionObserver' in window)) { setTimeout(play, 400); return; }
+  const io = new IntersectionObserver((entries) => {
+    if (entries.some((e) => e.isIntersecting)) { io.disconnect(); play(); }
+  }, { rootMargin: '0px 0px -12% 0px', threshold: 0 });
+  io.observe(el);
+  setTimeout(() => { io.disconnect(); play(); }, 2200);   // страховка
+}
+
+let advTimer = null;
+
+/* Автопереход: следим за активным блоком, кнопки «продолжить» нет. */
+function autoAdvance(delay = 650) {
+  clearTimeout(advTimer);
+  const i = state.open;
+  const step = STEPS[i];
+  if (!step || !step.auto || i >= STEPS.length - 1) return;
+  if (!step.check()) return;
+  advTimer = setTimeout(() => {
+    if (i !== state.open || !step.check()) return;
+    clearErr(i);
+    unlock(i + 1);
+  }, delay);
+}
+
+function onEnterStep(i) {
+  const id = STEPS[i].id;
+  if (id === 'location') ensureMap();
+  if (id === 'music') loadTracks();
+  if (id === 'photos') renderPhotos();
+  if (id === 'ready') { renderReady(); loadPreview(); }
+  if (id === 'contact') updateBill();
+}
+
+/* ════ Док: бусины на нити ════ */
+
+function renderBeads() {
+  const box = $('beads');
+  box.innerHTML = '';
+  const labels = I18N[LANG || 'uz'].beads;
+  STEPS.forEach((s, i) => {
+    const cls = i < state.open ? 'done' : i === state.open ? 'live' : 'lock';
+    const b = h('button', { type: 'button', class: `bead ${cls}`, 'aria-label': labels[i] },
+      h('i', {}), h('span', {}, labels[i]));
+    if (i <= state.open) b.addEventListener('click', () => { haptic.tap(); scrollToBlock(i); });
+    box.appendChild(b);
+  });
+  const live = box.querySelector('.bead.live');
+  if (live) {
+    box.style.setProperty('--fill', `${live.offsetLeft + live.offsetWidth / 2 - 10}px`);
+    live.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+  }
+}
+
+/* ════ 01 · Имена ════ */
+
+function paintPlate() {
+  const g = $('groom').value.trim();
+  const b = $('bride').value.trim();
+  $('cp-groom').textContent = g || t('phGroom');
+  $('cp-bride').textContent = b || t('phBride');
+  $('cp-groom').classList.toggle('plate-name--empty', !g);
+  $('cp-bride').classList.toggle('plate-name--empty', !b);
+  const plate = document.querySelector('.plate');
+  if (g && b && !plate.dataset.lit) {
+    plate.dataset.lit = '1';
+    plate.classList.add('lit');
+    setTimeout(() => plate.classList.remove('lit'), 1600);
+  }
+  if (!g || !b) delete plate.dataset.lit;
+}
+
+function markFilled(input) {
+  input.closest('.field')?.classList.toggle('filled', Boolean(input.value.trim()));
+}
+
+/* ════ 02 · Дата и барабан времени ════ */
+
+const today = new Date();
+let calView = new Date(today.getFullYear(), today.getMonth(), 1);
+
+const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+function renderCalendar() {
+  const dow = $('cal-dow');
+  dow.innerHTML = '';
+  for (const d of t('dow')) dow.appendChild(h('span', {}, d));
+
+  $('cal-title').textContent = `${t('months')[calView.getMonth()]} ${calView.getFullYear()}`;
+  const grid = $('cal-grid');
+  grid.innerHTML = '';
+
+  const first = new Date(calView.getFullYear(), calView.getMonth(), 1);
+  const lead = (first.getDay() + 6) % 7;               // неделя с понедельника
+  const days = new Date(calView.getFullYear(), calView.getMonth() + 1, 0).getDate();
+  const floor = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+  for (let i = 0; i < lead; i++) grid.appendChild(h('div', { class: 'cal-cell pad' }));
+
+  for (let d = 1; d <= days; d++) {
+    const date = new Date(calView.getFullYear(), calView.getMonth(), d);
+    const key = iso(date);
+    const past = date < floor;
+    const wknd = date.getDay() === 0 || date.getDay() === 6;
+    const cell = h('button', {
+      type: 'button',
+      class: `cal-cell${past ? ' off' : ''}${wknd && !past ? ' wknd' : ''}${key === iso(today) ? ' today' : ''}${key === state.dateIso ? ' sel' : ''}`,
+    }, String(d));
+    if (key === state.dateIso) {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('class', 'cal-ring');
+      svg.setAttribute('viewBox', '0 0 44 44');
+      svg.innerHTML = '<circle cx="22" cy="22" r="20"/>';
+      cell.appendChild(svg);
+    }
+    if (!past) {
+      cell.addEventListener('click', () => {
+        state.dateIso = key;
+        haptic.tap();
+        renderCalendar();
+        readDate();
+        clearErr(1);
+        saveDraft();
+        autoAdvance(900);
+      });
+    }
+    grid.appendChild(cell);
+  }
+  readDate();
+}
+
+function readDate() {
+  if (!state.dateIso) { $('date-read').textContent = ''; return; }
+  const [y, m, d] = state.dateIso.split('-').map(Number);
+  $('date-read').textContent = `${d} ${t('months')[m - 1]} ${y} · ${state.time}`;
+}
+
+const HOURS = Array.from({ length: 11 }, (_, i) => String(i + 13).padStart(2, '0'));
+const MINUTES = ['00', '15', '30', '45'];
+
+/* Барабан крутится по горизонтали: страница листается вертикально, поэтому
+   случайно сбить время прокруткой невозможно. Тап по цифре тоже работает. */
+function buildClock() {
+  buildDrum($('hour-drum'), HOURS, 0, 'clock-h');
+  buildDrum($('min-drum'), MINUTES, 1, 'clock-m');
+  paintClock();
+}
+
+function buildDrum(track, values, part, readoutId) {
+  track.innerHTML = '';
+  for (const v of values) {
+    const cell = h('div', { class: 'hdrum-num', dataset: { v } }, v);
+    cell.addEventListener('click', () => cell.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }));
+    track.appendChild(cell);
+  }
+
+  const width = () => track.firstChild?.offsetWidth || 68;
+  const indexNow = () => Math.max(0, Math.min(values.length - 1, Math.round(track.scrollLeft / width())));
+
+  const settle = debounce(() => {
+    const v = values[indexNow()];
+    const parts = state.time.split(':');
+    if (parts[part] === v) return;
+    parts[part] = v;
+    state.time = parts.join(':');
+    haptic.tap();
+    bump(readoutId);
+    paintClock();
+    readDate();
+    saveDraft();
+  }, 130);
+
+  track.addEventListener('scroll', () => { paintDrum(track, indexNow()); settle(); }, { passive: true });
+
+  // стартовая позиция без анимации, до первой отрисовки
+  const start = Math.max(0, values.indexOf(state.time.split(':')[part]));
+  requestAnimationFrame(() => {
+    track.scrollLeft = start * width();
+    paintDrum(track, start);
+  });
+  track.scrollLeft = start * width();
+  paintDrum(track, start);
+}
+
+function paintDrum(track, idx) {
+  [...track.children].forEach((el, i) => {
+    el.classList.toggle('on', i === idx);
+    el.classList.toggle('near', Math.abs(i - idx) === 1);
   });
 }
 
-function showBlockErr(i, msg) {
-  const sec = blockEl(i);
-  if (!sec) return;
-  const box = sec.querySelector('.block-err');
-  if (box) { box.textContent = msg; box.hidden = false; }
-  sec.classList.remove('sec-error');
-  void sec.offsetWidth;
-  sec.classList.add('sec-error');
-  setTimeout(() => sec.classList.remove('sec-error'), 900);
-  haptic.err();
+function paintClock() {
+  const [hh, mm] = state.time.split(':');
+  $('clock-h').textContent = hh;
+  $('clock-m').textContent = mm;
 }
 
-function clearBlockErr(i) {
-  const box = blockEl(i)?.querySelector('.block-err');
-  if (box) box.hidden = true;
+function bump(id) {
+  const el = $(id);
+  el.classList.remove('tick');
+  void el.offsetWidth;
+  el.classList.add('tick');
 }
 
-// Блок заполнен верно → следующий выезжает САМ, без кнопки «Продолжить».
-// Необязательные блоки (музыка, гости) валидны сразу, поэтому цепочка
-// раскрывается с паузой 420 мс — блоки «вытекают» один за другим, а не вываливаются разом.
-let cascading = false;
-function maybeAdvance() {
-  if (state.revealed >= WIZARD.length - 1) { cascading = false; return; }
-  if (WIZARD[state.revealed].validate()) { cascading = false; return; }
-  clearBlockErr(state.revealed);
-  state.revealed++;
-  renderBlocks();
-  const next = blockEl(state.revealed);
-  next.classList.remove('block-in');
-  void next.offsetWidth;
-  next.classList.add('block-in');
-  WIZARD[state.revealed].onEnter?.();
-  updateProgress();
-  haptic.impact('light');
-  saveDraft();
-  if (!cascading) {
-    cascading = true;
-    setTimeout(() => scrollToBlock(next), 80);
-  }
-  setTimeout(maybeAdvance, 420);
-}
+/* ════ 03 · Локация ════ */
 
-function enterStudio() {
-  if (!state.templateId) {
-    toast(t('eTpl'), 'err');
-    showScreen('templates');
-    return;
-  }
-  renderBlocks();
-  for (let i = 0; i <= state.revealed; i++) WIZARD[i].onEnter?.();
-  updateProgress();
-  updateTgBack();
-  window.scrollTo({ top: 0 });
-  if (state.draftRestored) {
-    state.draftRestored = false;
-    toast(t('draftRestored'), 'info', 2600);
-  }
-}
-
-/* ── Валидация шагов ── */
-function vNames() {
-  if (!$('groom').value.trim()) return t('eGroom');
-  if (!$('bride').value.trim()) return t('eBride');
-  return null;
-}
-function vDate() {
-  if (!state.dateIso) return t('eDate');
-  if (!$('time').value) return t('eTime');
-  return null;
-}
-function vVenue() {
-  if (state.lat === null || state.lng === null) return t('eLoc');
-  return null;
-}
-function vPhotos() {
-  if (state.photos.some((p) => p.uploading)) return t('eWait');
-  const req = requiredPhotos() ?? 1;
-  if (state.photos.filter((p) => p.name).length < req) return t('ePhotos', req);
-  return null;
-}
-
-/* ════ Конфиг ════ */
-
-async function loadConfig() {
-  const res = await fetch('/api/config');
-  if (!res.ok) throw new Error('config');
-  state.config = await res.json();
-  renderGallery();
-  renderTopTracks();
-  updatePhotoTexts();
-  renderPhotos();
-  renderGuests();
-}
-
-/* ════ Шаг: календарь и время ════ */
-
-const today = new Date();
-today.setHours(0, 0, 0, 0);
-let calView = new Date(today.getFullYear(), today.getMonth(), 1);
-
-function isoOf(date) {
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return date.getFullYear() + '-' + m + '-' + d;
-}
-
-function renderCalendar() {
-  if (!LANG) return;
-  const y = calView.getFullYear();
-  const m = calView.getMonth();
-  $('cal-title').textContent = t('months')[m] + ' ' + y;
-  $('cal-prev').disabled = y === today.getFullYear() && m === today.getMonth();
-
-  const grid = $('cal-grid');
-  grid.innerHTML = '';
-  for (const wd of t('wdShort')) grid.appendChild(h('div', { class: 'cal-wd' }, wd));
-  const firstIdx = (new Date(y, m, 1).getDay() + 6) % 7;
-  for (let i = 0; i < firstIdx; i++) grid.appendChild(document.createElement('div'));
-
-  const daysInMonth = new Date(y, m + 1, 0).getDate();
-  for (let day = 1; day <= daysInMonth; day++) {
-    const date = new Date(y, m, day);
-    const btn = h('button', { type: 'button', class: 'cal-day' }, String(day));
-    if (date < today) btn.disabled = true;
-    if (date.getTime() === today.getTime()) btn.classList.add('today');
-    if (state.dateIso === isoOf(date)) btn.classList.add('selected');
-    btn.addEventListener('click', () => {
-      state.dateIso = isoOf(date);
-      haptic.tap();
-      updateDateLabel();
-      renderCalendar();
-      saveDraft();
-    });
-    grid.appendChild(btn);
-  }
-}
-
-function updateDateLabel() {
-  if (!state.dateIso) {
-    $('date-label').textContent = t('pickDate');
-    return;
-  }
-  const [y, m, d] = state.dateIso.split('-').map(Number);
-  const wd = t('wdFull')[new Date(y, m - 1, d).getDay()];
-  $('date-label').textContent = t('dateLabel', wd, d, t('monthsGen')[m - 1], y);
-}
-
-const TIME_PRESETS = ['11:00', '12:00', '17:00', '18:00', '19:00', '20:00'];
-
-function renderTimeChips() {
-  const box = $('time-chips');
-  box.innerHTML = '';
-  for (const tt of TIME_PRESETS) {
-    const chip = h('button', { type: 'button', class: 'chip' + ($('time').value === tt ? ' active' : '') }, tt);
-    chip.addEventListener('click', () => {
-      $('time').value = tt;
-      haptic.tap();
-      renderTimeChips();
-      saveDraft();
-    });
-    box.appendChild(chip);
-  }
-}
-
-/* ════ Шаг: локация (карта без инструментов, края растворяются) ════ */
-
-const UZ_BOUNDS = [[37.0, 55.9], [45.7, 73.2]];
+const UZ_CENTER = [41.311, 69.2797];
 let ymap = null;
-let placemark = null;
-let ymapsRequested = false;
+let mark = null;
+let mapAsked = false;
 
-// Карту грузим лениво — только когда пользователь дошёл до шага локации.
 function ensureMap() {
-  if (ymapsRequested) {
-    setTimeout(() => ymap?.container.fitToViewport(), 120);
-    return;
-  }
-  ymapsRequested = true;
+  if (mapAsked) return;
+  mapAsked = true;
   const key = state.config?.yandexMapsKey;
   const s = document.createElement('script');
-  s.src = 'https://api-maps.yandex.ru/2.1/?lang=ru_RU' + (key ? '&apikey=' + encodeURIComponent(key) : '');
+  s.src = `https://api-maps.yandex.ru/2.1/?lang=${LANG === 'ru' ? 'ru_RU' : 'uz_UZ'}${key ? `&apikey=${encodeURIComponent(key)}` : ''}`;
   s.onload = () => ymaps.ready(initMap);
   s.onerror = () => toast(t('eNet'), 'err');
   document.head.appendChild(s);
 }
 
 function initMap() {
-  // Без единого контрола: просто карта — ищи или коснись.
-  ymap = new ymaps.Map('map', {
-    center: state.lat !== null ? [state.lat, state.lng] : [41.311, 69.279],
-    zoom: state.lat !== null ? 15 : 11,
-    controls: [],
-  }, { suppressMapOpenBlock: true });
-  if (state.lat !== null) setPoint(state.lat, state.lng);
-  ymap.events.add('click', (e) => {
-    const c = e.get('coords');
-    setPoint(c[0], c[1]);
-    fillShortAddress(c);
-    haptic.tap();
-    saveDraft();
+  const c = Number.isFinite(state.lat) ? [state.lat, state.lng] : UZ_CENTER;
+  ymap = new ymaps.Map('map', { center: c, zoom: Number.isFinite(state.lat) ? 16 : 11, controls: [] }, {
+    suppressMapOpenBlock: true, yandexMapDisablePoiInteractivity: true,
   });
+  ymap.behaviors.disable('dblClickZoom');
+
+  // Точку ставит тап по карте: центр экрана ничего не выбирает сам.
+  ymap.events.add('click', (e) => {
+    const [lat, lng] = e.get('coords');
+    haptic.tap();
+    setPoint(lat, lng);
+    reverseName(lat, lng);
+    autoAdvance(1500);
+  });
+  if (Number.isFinite(state.lat)) setPoint(state.lat, state.lng);
 }
 
 function setPoint(lat, lng) {
-  state.lat = lat;
-  state.lng = lng;
-  if (placemark) {
-    placemark.geometry.setCoordinates([lat, lng]);
-  } else if (ymap) {
-    placemark = new ymaps.Placemark([lat, lng], {}, { preset: 'islands#redHeartIcon' });
-    ymap.geoObjects.add(placemark);
-  }
-  $('coords-hint').textContent = `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  state.lat = lat; state.lng = lng;
+  clearErr(2);
+  saveDraft();
+  if (!ymap) return;
+  if (mark) { mark.geometry.setCoordinates([lat, lng]); return; }
+  mark = new ymaps.Placemark([lat, lng], {}, {
+    preset: 'islands#circleIcon', iconColor: '#A82F49', draggable: true,
+  });
+  mark.events.add('dragend', () => {
+    const [dlat, dlng] = mark.geometry.getCoordinates();
+    state.lat = dlat; state.lng = dlng;
+    saveDraft();
+    reverseName(dlat, dlng);
+    autoAdvance(1500);
+  });
+  ymap.geoObjects.add(mark);
 }
 
-/* Поиск сразу в нескольких источниках: Google (через сервер) + Яндекс + Photon + Nominatim */
-async function googleResults(q) {
-  if (!state.config?.googleGeoEnabled) return [];
-  const res = await fetch('/api/geo?lang=' + LANG + '&q=' + encodeURIComponent(q));
-  if (!res.ok) return [];
-  const j = await res.json();
-  return j.results || [];
-}
-
-async function yandexResults(q) {
-  if (!state.config?.yandexMapsKey || !window.ymaps || !ymaps.geocode) return [];
-  const r = await ymaps.geocode(q, { boundedBy: UZ_BOUNDS, strictBounds: true, results: 5 });
-  const out = [];
-  for (let i = 0; i < r.geoObjects.getLength(); i++) {
-    const o = r.geoObjects.get(i);
-    const c = o.geometry.getCoordinates();
-    out.push({ lat: c[0], lng: c[1], name: String(o.properties.get('name') || ''), desc: String(o.properties.get('description') || '') });
-  }
-  return out.filter((r2) => r2.name);
-}
-
-async function photonResults(q) {
-  const res = await fetch('https://photon.komoot.io/api/?limit=6&bbox=55.9,37.0,73.2,45.7&q=' + encodeURIComponent(q));
-  if (!res.ok) return [];
-  const j = await res.json();
-  return (j.features || [])
-    .filter((f) => f.geometry && Array.isArray(f.geometry.coordinates))
-    .filter((f) => !f.properties.countrycode || f.properties.countrycode.toUpperCase() === 'UZ')
-    .map((f) => ({
-      lat: Number(f.geometry.coordinates[1]),
-      lng: Number(f.geometry.coordinates[0]),
-      name: String(f.properties.name || f.properties.street || ''),
-      desc: [f.properties.city || f.properties.county, f.properties.state].filter(Boolean).join(', '),
-    }))
-    .filter((r) => r.name);
-}
-
-async function nominatimResults(q) {
-  const res = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&countrycodes=uz&accept-language=' + LANG + '&q=' + encodeURIComponent(q));
-  if (!res.ok) return [];
-  const list = await res.json();
-  return list
-    .map((it) => ({
-      lat: Number(it.lat),
-      lng: Number(it.lon),
-      name: String(it.name || (it.display_name || '').split(',')[0] || ''),
-      desc: String(it.display_name || '').split(',').slice(1, 3).join(',').trim(),
-    }))
-    .filter((r) => r.name);
-}
-
-async function geoSearchUz(q) {
-  const settled = await Promise.allSettled([googleResults(q), yandexResults(q), photonResults(q), nominatimResults(q)]);
-  const all = settled.flatMap((s) => (s.status === 'fulfilled' ? s.value : []));
-  const out = [];
-  for (const r of all) {
-    if (!Number.isFinite(r.lat) || !Number.isFinite(r.lng)) continue;
-    const dup = out.some((x) =>
-      Math.abs(x.lat - r.lat) < 0.01 && Math.abs(x.lng - r.lng) < 0.01 &&
-      x.name.toLowerCase() === r.name.toLowerCase());
-    if (!dup) out.push(r);
-    if (out.length >= 8) break;
-  }
-  return out;
-}
-
-async function reverseNameUz(lat, lng) {
+const reverseName = debounce(async (lat, lng) => {
+  if ($('address').dataset.manual === '1' || !window.ymaps) return;
   try {
-    const res = await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=' + LANG + '&lat=' + lat + '&lon=' + lng);
-    if (res.ok) {
-      const d = await res.json();
-      return String(d.name || (d.display_name || '').split(',')[0] || '');
-    }
-  } catch (_) { /* адрес введут вручную */ }
-  return '';
-}
-
-function fillShortAddress(coords) {
-  if ($('address').value.trim()) return;
-  reverseNameUz(coords[0], coords[1]).then((name) => {
+    const res = await ymaps.geocode([lat, lng], { results: 1 });
+    const o = res.geoObjects.get(0);
+    if (!o) return;
+    const name = o.properties.get('name') || o.getAddressLine();
     if (name && !$('address').value.trim()) {
-      $('address').value = name.slice(0, 120);
+      $('address').value = String(name).slice(0, 140);
+      markFilled($('address'));
       saveDraft();
     }
+  } catch (_) { /* геокодер может молчать — адрес необязателен */ }
+}, 700);
+
+function flyTo(lat, lng, zoom = 17) {
+  setPoint(lat, lng);
+  if (ymap) ymap.setCenter([lat, lng], zoom, { duration: 500 });
+}
+
+let geoSeq = 0;
+
+async function seekPlace() {
+  const q = $('geo-q').value.trim();
+  if (q.length < 2) { $('geo-list').hidden = true; return; }
+  const seq = ++geoSeq;
+  $('geo-spin').hidden = false;
+  try {
+    const r = await fetch(`/api/geo?q=${encodeURIComponent(q)}&lang=${LANG}`);
+    const j = await r.json();
+    if (seq !== geoSeq) return;
+    showGeo(j.results || []);
+  } catch (_) {
+    if (seq === geoSeq) toast(t('eNet'), 'err');
+  } finally {
+    if (seq === geoSeq) $('geo-spin').hidden = true;
+  }
+}
+
+const seekPlaceSoon = debounce(seekPlace, 500);
+
+function showGeo(list) {
+  const box = $('geo-list');
+  box.innerHTML = '';
+  if (!list.length) {
+    box.appendChild(h('p', { class: 'geo-empty' }, t('eNoFound')));
+    box.hidden = false;
+    return;
+  }
+  list.forEach((r, i) => {
+    const item = h('button', { type: 'button', class: 'geo-item' },
+      h('b', {}, r.name || r.desc), r.desc ? h('span', {}, r.desc) : null);
+    item.style.animationDelay = `${i * 45}ms`;
+    item.addEventListener('click', () => {
+      haptic.tap();
+      flyTo(r.lat, r.lng);
+      $('address').value = (r.name || r.desc || '').slice(0, 140);
+      $('address').dataset.manual = '1';
+      markFilled($('address'));
+      box.hidden = true;
+      saveDraft();
+      autoAdvance(1100);
+    });
+    box.appendChild(item);
+  });
+  box.hidden = false;
+}
+
+
+/* ════ 04 · Музыка ════ */
+
+const player = new Audio();
+let playingUrl = null;
+let tracksLoaded = false;
+let lastList = [];
+
+async function loadTracks(q) {
+  if (!q && tracksLoaded) return;
+  const box = $('track-scroll');
+  box.innerHTML = '';
+  for (let i = 0; i < 4; i++) {
+    box.appendChild(h('div', { class: 'trk' }, h('div', { class: 'trk-play' }), h('div', { class: 'trk-info' }, h('b', {}, '···'))));
+  }
+  try {
+    const r = await fetch(`/api/music${q ? `?q=${encodeURIComponent(q)}` : ''}`);
+    const j = await r.json();
+    const top = !q ? (state.config?.topTracks || []) : [];
+    const seen = new Set(top.map((x) => x.url));
+    renderTracks([...top, ...(j.tracks || []).filter((x) => !seen.has(x.url))]);
+    if (!q) tracksLoaded = true;
+  } catch (_) {
+    box.innerHTML = '';
+    box.appendChild(h('p', { class: 'empty' }, t('eNet')));
+  }
+}
+
+function renderTracks(list) {
+  lastList = list;
+  const box = $('track-scroll');
+  box.innerHTML = '';
+  if (!list.length) { box.appendChild(h('p', { class: 'empty' }, '—')); return; }
+  list.forEach((track, i) => {
+    const chosen = state.music?.playUrl === track.url;
+    const play = h('button', { type: 'button', class: `trk-play${playingUrl === track.url ? ' playing' : ''}`, 'aria-label': 'Play' },
+      playingUrl === track.url ? '❚❚' : '▶');
+    const pick = h('button', { type: 'button', class: 'trk-pick' }, chosen ? t('taken') : t('take'));
+    const row = h('div', { class: `trk${chosen ? ' chosen' : ''}`, dataset: { url: track.url } },
+      play,
+      h('div', { class: 'trk-info' }, h('b', {}, track.name), h('span', {}, track.artist || '')),
+      track.uses ? h('span', { class: 'trk-hot' }, `×${track.uses}`) : null,
+      pick);
+    row.style.animationDelay = `${Math.min(i, 8) * 40}ms`;
+    play.addEventListener('click', () => togglePlay(track.url));
+    pick.addEventListener('click', () => setMusic({
+      type: 'itunes',
+      value: { name: track.name, artist: track.artist || '', url: track.url },
+      name: track.name, artist: track.artist || '', playUrl: track.url,
+    }));
+    box.appendChild(row);
   });
 }
 
-function hideGeoResults() {
-  const el = $('geo-results');
-  el.hidden = true;
-  el.innerHTML = '';
-}
-
-function showGeoResults(list) {
-  const el = $('geo-results');
-  el.innerHTML = '';
-  for (const r of list) {
-    const row = h('button', { type: 'button', class: 'geo-row' },
-      h('b', {}, r.name),
-      h('span', {}, r.desc || `${r.lat.toFixed(4)}, ${r.lng.toFixed(4)}`));
-    row.addEventListener('click', () => applyGeoResult(r));
-    el.appendChild(row);
-  }
-  el.hidden = list.length === 0;
-}
-
-function previewGeoResult(r) {
-  if (ymap) ymap.setCenter([r.lat, r.lng], 16, { duration: 300 });
-  setPoint(r.lat, r.lng);
-}
-
-function applyGeoResult(r) {
-  hideGeoResults();
+function togglePlay(url) {
   haptic.tap();
-  previewGeoResult(r);
-  if (r.name) $('address').value = r.name.slice(0, 120);
-  $('geo-search').value = r.name;
-  saveDraft();
+  if (playingUrl === url) { player.pause(); playingUrl = null; refreshPlayUI(); return; }
+  player.src = url;
+  player.currentTime = 0;
+  player.play().then(() => { playingUrl = url; refreshPlayUI(); }).catch(() => toast(t('eNet'), 'err'));
 }
+player.addEventListener('ended', () => { playingUrl = null; refreshPlayUI(); });
 
-let geoBusy = false;
-let geoTimer = null;
-let geoSeq = 0;
-
-async function searchPlace() {
-  const q = $('geo-search').value.trim();
-  if (q.length < 2 || geoBusy) return;
-  clearTimeout(geoTimer);
-  geoSeq++;
-  geoBusy = true;
-  const btn = $('geo-search-btn');
-  btn.disabled = true;
-  try {
-    const found = await geoSearchUz(q);
-    if (!found.length) {
-      hideGeoResults();
-      toast(t('eGeo'), 'err');
-      return;
-    }
-    if (found.length === 1) {
-      applyGeoResult(found[0]);
-    } else {
-      showGeoResults(found);
-      previewGeoResult(found[0]);
-    }
-  } catch (_) {
-    toast(t('eNet'), 'err');
-  } finally {
-    geoBusy = false;
-    btn.disabled = false;
+function refreshPlayUI() {
+  for (const row of document.querySelectorAll('#track-scroll .trk')) {
+    const b = row.querySelector('.trk-play');
+    if (!b) continue;
+    const now = row.dataset.url === playingUrl;
+    b.classList.toggle('playing', now);
+    b.textContent = now ? '❚❚' : '▶';
   }
 }
 
-/* ════ Шаг: фотографии ════ */
-
-function requiredPhotos() {
-  return selectedTemplate()?.minPhotos ?? null;
+/* Выбрал трек — прослушивание останавливается, каталог сворачивается.
+   Бесконечный список больше не нужно пролистывать, чтобы идти дальше. */
+function setMusic(music) {
+  state.music = music;
+  haptic.ok();
+  player.pause();
+  playingUrl = null;
+  $('picked-name').textContent = music.name;
+  $('picked-artist').textContent = music.artist || '';
+  $('music-pick').hidden = true;
+  $('music-picked').hidden = false;
+  saveDraft();
+  autoAdvance(900);
 }
 
-function updatePhotoTexts() {
-  const req = requiredPhotos();
-  $('photo-req').textContent = req === null ? t('eTpl') : t('photoReq', req);
+function reopenMusic() {
+  haptic.tap();
+  $('music-picked').hidden = true;
+  $('music-pick').hidden = false;
+  renderTracks(lastList);
 }
+
+const YT_RE = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/;
+
+function addMusicLink() {
+  const url = $('music-link').value.trim();
+  if (!/^https?:\/\/\S+$/.test(url)) { toast(t('eLink'), 'err'); return; }
+  const yt = YT_RE.test(url);
+  const direct = /\.(mp3|m4a|ogg|wav)(\?|$)/i.test(url);
+  if (!yt && !direct) { toast(t('eLink'), 'err'); return; }
+  setMusic({
+    type: yt ? 'youtube' : 'custom',
+    value: url,
+    name: yt ? 'YouTube' : t('myTrack'),
+    artist: url.replace(/^https?:\/\//, '').slice(0, 40),
+    playUrl: direct ? url : null,
+  });
+}
+
+async function uploadMusicFile(file) {
+  if (file.size > 16 * 1024 * 1024) { toast(t('eBig'), 'err'); return; }
+  try {
+    const r = await fetch('/api/upload', {
+      method: 'POST', headers: { 'x-init-data': tg ? tg.initData : '' }, body: file,
+    });
+    const j = await r.json();
+    if (!r.ok || !j.ok || j.kind !== 'audio') throw new Error('bad');
+    setMusic({
+      type: 'upload', value: j.file,
+      name: file.name.slice(0, 60), artist: t('myTrack'),
+      playUrl: `/uploads/${j.file}`,
+    });
+  } catch (_) {
+    toast(t('eUpload'), 'err');
+  }
+}
+
+/* ════ 05 · Шаблоны ════ */
+
+const templates = () => state.config?.templates || [];
+const selectedTpl = () => templates().find((x) => x.id === state.templateId) || null;
+const requiredPhotos = () => Math.max(1, selectedTpl()?.minPhotos ?? 1);
+const filledPhotos = () => state.photos.filter((p) => p.name).length;
+
+function renderTemplates() {
+  const rail = $('tpl-rail');
+  if (!rail) return;
+  rail.innerHTML = '';
+  const pops = state.config?.populars || {};
+  for (const tpl of templates()) {
+    const colors = tpl.colors?.length ? tpl.colors : ['#2A2038', '#E3BC7C', '#C0505C'];
+    const bands = h('div', { class: 'tpl-bands' });
+    bands.style.background =
+      `linear-gradient(160deg, ${colors[0]} 0%, ${colors[1] || colors[0]} 52%, ${colors[2] || colors[1] || colors[0]} 100%)`;
+
+    const card = h('div', { class: `tpl${tpl.id === state.templateId ? ' chosen' : ''}`, dataset: { id: tpl.id } },
+      h('div', { class: 'tpl-art' },
+        bands,
+        h('div', { class: 'tpl-veil' }),
+        h('div', { class: 'tpl-plate' },
+          h('i', {}, t('tplPlate')),
+          h('b', {}, `${$('groom').value.trim() || t('phGroom')} & ${$('bride').value.trim() || t('phBride')}`)),
+        h('div', { class: 'tpl-meta' },
+          h('h4', {}, tpl.name),
+          h('p', {}, money(tpl.price)),
+          h('span', { class: 'tpl-need' },
+            `${tpl.minPhotos} 📷${pops[tpl.id] ? ` · ×${pops[tpl.id]}` : ''}`))),
+      h('div', { class: 'tpl-acts' },
+        h('button', { type: 'button', class: 'tpl-demo' }, t('demo')),
+        h('button', { type: 'button', class: 'tpl-take' }, tpl.id === state.templateId ? t('taken') : t('take'))));
+
+    card.querySelector('.tpl-demo').addEventListener('click', () => openDemo(tpl));
+    card.querySelector('.tpl-take').addEventListener('click', () => takeTpl(tpl));
+    rail.appendChild(card);
+  }
+  renderDots();
+}
+
+function renderDots() {
+  const box = $('tpl-dots');
+  box.innerHTML = '';
+  templates().forEach((tpl) => box.appendChild(h('i', { class: tpl.id === state.templateId ? 'on' : '' })));
+}
+
+function openDemo(tpl) {
+  haptic.tap();
+  const q = new URLSearchParams({ groom: $('groom').value.trim(), bride: $('bride').value.trim(), lang: LANG });
+  $('sheet-title').textContent = tpl.name;
+  sheet.open({ src: `/demo/${tpl.id}?${q}`, actionLabel: t('take'), onAction: () => takeTpl(tpl) });
+}
+
+function takeTpl(tpl) {
+  state.templateId = tpl.id;
+  haptic.ok();
+  clearErr(4);
+  state.previewHtml = '';
+  state.seenInvite = false;
+  saveDraft();
+  renderTemplates();
+  renderPhotos();
+  document.querySelector(`.tpl[data-id="${tpl.id}"]`)
+    ?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+  autoAdvance(900);
+}
+
+/* ════ 06 · Фото: ровно столько, сколько просит шаблон ════ */
 
 function renderPhotos() {
   const grid = $('photo-grid');
+  if (!grid) return;
+  const need = requiredPhotos();
+  const max = state.config?.maxPhotos ?? 6;
+  const tpl = selectedTpl();
+  $('photo-lead').innerHTML = t('photoNeed', need) + (tpl ? ` · ${tpl.name}` : '');
+
   grid.innerHTML = '';
-  const max = state.config ? state.config.maxPhotos : 6;
-  for (const item of state.photos) {
-    const tile = h('div', { class: 'photo-tile' }, h('img', { src: item.previewUrl, alt: '' }));
-    if (item.uploading) {
-      tile.appendChild(h('div', { class: 'ph-loading' }, '⏳'));
-    } else {
-      const rm = h('button', { type: 'button', class: 'ph-remove' }, '✕');
-      rm.addEventListener('click', () => {
-        state.photos = state.photos.filter((p) => p !== item);
+  const slots = Math.max(need, Math.min(max, state.photos.length + (state.photos.length >= need ? 1 : 0)));
+
+  for (let i = 0; i < slots; i++) {
+    const p = state.photos[i];
+    if (p) {
+      const cell = h('div', { class: 'ph' },
+        p.url ? h('img', { src: p.url, alt: '' }) : null,
+        p.uploading ? h('div', { class: 'ph-wait' }, h('i', {})) : null,
+        h('button', { type: 'button', class: 'ph-del', 'aria-label': 'Remove' }, '✕'));
+      cell.style.animationDelay = `${i * 50}ms`;
+      cell.querySelector('.ph-del').addEventListener('click', () => {
+        state.photos.splice(i, 1);
         haptic.tap();
+        state.previewHtml = '';
         renderPhotos();
         saveDraft();
       });
-      tile.appendChild(rm);
-    }
-    grid.appendChild(tile);
-  }
-  if (state.photos.length < max) {
-    const add = h('button', { type: 'button', class: 'photo-add' }, h('span', {}, '+'), t('add'));
-    add.addEventListener('click', () => $('photo-input').click());
-    grid.appendChild(add);
-  }
-  const done = state.photos.filter((p) => p.name).length;
-  $('photo-hint').textContent = t('photoOf', done, requiredPhotos() ?? 1);
-}
-
-async function uploadFile(file) {
-  const res = await fetch('/api/upload', {
-    method: 'POST',
-    headers: { 'Content-Type': file.type || 'application/octet-stream', 'X-Init-Data': tg ? tg.initData : '' },
-    body: file,
-  });
-  const data = await res.json();
-  if (!res.ok || !data.ok) throw new Error(data.error || t('eNet'));
-  return data;
-}
-
-/* ════ Шаг: музыка — два чётких состояния: выбор ↔ выбрано ════ */
-
-const YT_RE = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/;
-const SOCIAL_RE = /(instagram\.com|tiktok\.com)/i;
-
-let previewAudio = new Audio();
-let musicLoaded = false;
-let lastMusicTab = 'catalog'; // куда вернуть кнопкой «Изменить»
-
-function setMusicTab(mt) {
-  document.querySelectorAll('#music-tabs .chip').forEach((b) => b.classList.toggle('active', b.dataset.mt === mt));
-  $('music-catalog').hidden = mt !== 'catalog';
-  $('music-own').hidden = mt !== 'own';
-  if (mt !== 'none') lastMusicTab = mt;
-  if (mt === 'catalog' && !musicLoaded) {
-    musicLoaded = true;
-    loadTracks('');
-  }
-}
-
-function setMusic(music) {
-  previewAudio.pause();
-  state.music = music;
-  updateSelectedMusic();
-  saveDraft();
-}
-
-// Единственная точка истины для UI шага: выбрано → карточка, нет → выбор.
-function updateSelectedMusic() {
-  const has = state.music.type !== 'none';
-  $('music-choice').hidden = has;
-  $('music-selected').hidden = !has;
-  if (!has) {
-    setMusicTab('none');
-    return;
-  }
-  $('sel-name').textContent = state.music.name;
-  if (state.music.previewUrl) {
-    $('trimmer').hidden = false;
-    $('cut-num-row').hidden = true;
-    setupTrimmer(state.music.previewUrl);
-  } else {
-    $('trimmer').hidden = true;
-    $('cut-num-row').hidden = state.music.type !== 'youtube';
-    $('cut-start').value = state.music.start ?? '';
-    $('cut-end').value = state.music.end ?? '';
-  }
-}
-
-function trackRow(track, extra) {
-  const row = h('div', { class: 'track-row' });
-  if (track.art) row.appendChild(h('img', { src: track.art, alt: '' }));
-  const info = h('div', { class: 'track-info' }, h('b', {}, track.name), h('span', {}, track.artist || ''));
-  if (extra) info.appendChild(h('div', { class: 'track-fire' }, extra));
-  const play = h('button', { type: 'button' }, '▶');
-  play.addEventListener('click', () => {
-    if (previewAudio.src === track.url && !previewAudio.paused) {
-      previewAudio.pause();
-      play.textContent = '▶';
+      grid.appendChild(cell);
     } else {
-      previewAudio.src = track.url;
-      previewAudio.play();
-      document.querySelectorAll('.track-row button').forEach((x) => { if (x.textContent === '⏸') x.textContent = '▶'; });
-      play.textContent = '⏸';
-      previewAudio.onended = () => { play.textContent = '▶'; };
+      const required = i < need;
+      const add = h('button', { type: 'button', class: `ph ph-add${required ? ' need' : ''}` },
+        h('span', {}, '+'),
+        h('em', {}, required ? t('photoOf', i + 1, need) : t('photoExtra')));
+      add.style.animationDelay = `${i * 50}ms`;
+      add.addEventListener('click', () => $('photo-input').click());
+      grid.appendChild(add);
     }
-  });
-  const pick = h('button', { type: 'button', class: 'pick' }, '✓');
-  pick.addEventListener('click', () => {
-    haptic.tap();
-    setMusic({
-      type: 'itunes',
-      value: { name: track.name, artist: track.artist, url: track.url },
-      name: track.name + (track.artist ? ' — ' + track.artist : ''),
-      previewUrl: track.url,
-      start: null,
-      end: null,
+  }
+}
+
+async function uploadPhotos(files) {
+  const max = state.config?.maxPhotos ?? 6;
+  for (const file of files) {
+    if (state.photos.length >= max) break;
+    if (file.size > 16 * 1024 * 1024) { toast(t('eBig'), 'err'); continue; }
+    const slot = { name: null, url: URL.createObjectURL(file), uploading: true };
+    state.photos.push(slot);
+    renderPhotos();
+    try {
+      const r = await fetch('/api/upload', {
+        method: 'POST', headers: { 'x-init-data': tg ? tg.initData : '' }, body: file,
+      });
+      const j = await r.json();
+      if (!r.ok || !j.ok || j.kind !== 'image') throw new Error('bad');
+      slot.name = j.file;
+      slot.uploading = false;
+    } catch (_) {
+      state.photos = state.photos.filter((p) => p !== slot);
+      toast(t('eUpload'), 'err');
+    }
+    renderPhotos();
+    saveDraft();
+  }
+  state.previewHtml = '';
+  const left = requiredPhotos() - filledPhotos();
+  if (left > 0) showErr(5, t('ePhoto_', left));
+  else { clearErr(5); autoAdvance(800); }
+}
+
+/* ════ 07 · Всё готово → полное демо ════ */
+
+function renderReady() {
+  const couple = `${$('groom').value.trim()} & ${$('bride').value.trim()}`;
+  $('ready-couple').textContent = couple;
+  const tpl = selectedTpl();
+  const parts = [];
+  if (state.dateIso) {
+    const [y, m, d] = state.dateIso.split('-').map(Number);
+    parts.push(`${d} ${t('months')[m - 1]} ${y} · ${state.time}`);
+  }
+  if (tpl) parts.push(tpl.name);
+  $('ready-meta').textContent = parts.join('  ·  ');
+}
+
+async function loadPreview() {
+  if (state.previewHtml) return true;
+  try {
+    const r = await fetch('/api/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData: tg ? tg.initData : '', form: collectForm() }),
     });
-  });
-  row.appendChild(info);
-  row.appendChild(play);
-  row.appendChild(pick);
-  return row;
-}
-
-function renderTopTracks() {
-  const box = $('top-tracks');
-  box.innerHTML = '';
-  for (const tr of state.config.topTracks || []) {
-    box.appendChild(trackRow(tr, `🔥 ${tr.uses} ${t('uses')}`));
-  }
-}
-
-async function loadTracks(q) {
-  const box = $('track-list');
-  box.innerHTML = '';
-  box.appendChild(skeletons(5, 'skel--row'));
-  try {
-    const res = await fetch('/api/music?q=' + encodeURIComponent(q));
-    const data = await res.json();
-    box.innerHTML = '';
-    if (!data.tracks.length) {
-      box.appendChild(h('div', { class: 'empty' }, h('span', { class: 'empty-ic' }, '🎧'), t('empty')));
-      return;
+    const j = await r.json();
+    if (!r.ok || !j.ok) {
+      if (j.step) jumpTo(j.step, j.error); else toast(j.error || t('eNet'), 'err');
+      return false;
     }
-    for (const tr of data.tracks) box.appendChild(trackRow(tr));
+    state.previewHtml = j.html;
+    return true;
   } catch (_) {
-    box.innerHTML = '';
-    box.appendChild(h('div', { class: 'empty' }, h('span', { class: 'empty-ic' }, '📡'), t('eNet')));
+    toast(t('eNet'), 'err');
+    return false;
   }
 }
 
-/* Волновой тример */
-const trim = { dur: 30, peaks: null, startFrac: 0, endFrac: 1, drag: null };
+async function openInvite() {
+  const btn = $('ready-open');
+  btn.classList.add('gold-btn--wait');
+  const ok = await loadPreview();
+  btn.classList.remove('gold-btn--wait');
+  if (!ok) return;
 
-function fmtTime(sec) {
-  const s = Math.max(0, Math.round(sec));
-  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
-}
+  $('sheet-title').textContent = t('tReady');
+  sheet.open({ srcdoc: state.previewHtml, actionLabel: t('lookDone'), onAction: finishInvite });
 
-async function setupTrimmer(url) {
-  const audio = $('cut-audio');
-  audio.src = url;
-  trim.dur = 30;
-  trim.peaks = null;
-  trim.startFrac = 0;
-  trim.endFrac = 1;
-
-  audio.onloadedmetadata = () => {
-    if (Number.isFinite(audio.duration) && audio.duration > 0) {
-      trim.dur = audio.duration;
-      drawTrim();
-    }
-  };
-
-  try {
-    const buf = await (await fetch(url)).arrayBuffer();
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    const ctx = new Ctx();
-    const ab = await ctx.decodeAudioData(buf);
-    trim.dur = ab.duration;
-    const ch = ab.getChannelData(0);
-    const N = 90;
-    const step = Math.floor(ch.length / N);
-    const peaks = [];
-    for (let i = 0; i < N; i++) {
-      let m = 0;
-      for (let j = i * step; j < (i + 1) * step; j += 60) {
-        const v = Math.abs(ch[j]);
-        if (v > m) m = v;
+  // Долистал до конца — приглашение закрывается само и возвращает к именным ссылкам.
+  const frame = $('sheet-frame');
+  frame.onload = () => {
+    const w = frame.contentWindow;
+    const d = frame.contentDocument;
+    if (!w || !d) return;
+    const onScroll = () => {
+      const el = d.scrollingElement || d.documentElement;
+      if (el.scrollTop + w.innerHeight >= el.scrollHeight - 60) {
+        w.removeEventListener('scroll', onScroll);
+        finishInvite();
       }
-      peaks.push(Math.min(1, m * 1.4));
-    }
-    trim.peaks = peaks;
-    ctx.close();
-  } catch (_) {
-    const peaks = [];
-    for (let i = 0; i < 90; i++) {
-      peaks.push(0.25 + 0.65 * Math.abs(Math.sin(i * 0.55) * Math.cos(i * 0.19) + Math.sin(i * 1.7) * 0.3) / 1.3);
-    }
-    trim.peaks = peaks;
-  }
-  drawTrim();
+    };
+    w.addEventListener('scroll', onScroll, { passive: true });
+  };
 }
 
-function drawTrim() {
-  const box = $('trim-box');
-  const canvas = $('trim-wave');
-  const W = box.clientWidth;
-  const H = box.clientHeight;
-  if (!W) return;
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = W * dpr;
-  canvas.height = H * dpr;
-  const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
-  ctx.clearRect(0, 0, W, H);
-
-  const peaks = trim.peaks || [];
-  const n = peaks.length || 1;
-  const bw = W / n;
-  for (let i = 0; i < n; i++) {
-    const frac = i / n;
-    const inside = frac >= trim.startFrac && frac <= trim.endFrac;
-    const hh = Math.max(3, peaks[i] * (H - 18));
-    ctx.fillStyle = inside ? '#A88FC9' : 'rgba(168,143,201,.28)';
-    ctx.beginPath();
-    ctx.roundRect(i * bw + 1, (H - hh) / 2, Math.max(2, bw - 2), hh, 2);
-    ctx.fill();
-  }
-
-  const lx = trim.startFrac * W;
-  const rx = trim.endFrac * W;
-  $('trim-sel').style.left = lx + 'px';
-  $('trim-sel').style.width = Math.max(0, rx - lx) + 'px';
-  $('trim-l').style.left = Math.max(0, lx - 9) + 'px';
-  $('trim-r').style.left = Math.min(W - 18, rx - 9) + 'px';
-
-  const s = trim.startFrac * trim.dur;
-  const e = trim.endFrac * trim.dur;
-  $('trim-lbl').textContent = fmtTime(s) + ' — ' + fmtTime(e);
-  state.music.start = trim.startFrac <= 0.001 ? null : Math.round(s);
-  state.music.end = trim.endFrac >= 0.999 ? null : Math.round(e);
-}
-
-function trimPointer(e) {
-  const rect = $('trim-box').getBoundingClientRect();
-  return Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-}
-
-function onTrimMove(e) {
-  const f = trimPointer(e);
-  if (trim.drag === 'trim-l') trim.startFrac = Math.min(f, trim.endFrac - 0.03);
-  else trim.endFrac = Math.max(f, trim.startFrac + 0.03);
-  drawTrim();
-}
-
-function onTrimUp() {
-  trim.drag = null;
-  document.removeEventListener('pointermove', onTrimMove);
+function finishInvite() {
+  if (state.seenInvite) return;
+  state.seenInvite = true;
+  sheet.close();
   saveDraft();
+  // Открываем сразу оба хвостовых блока: гости и контакты — дальше просто скролл.
+  setTimeout(() => {
+    const g = stepIdx('guests');
+    state.open = stepIdx('contact');
+    renderBlocks(g);
+    updateBill();
+    haptic.ok();
+    scrollToBlock(g);
+    armReveal(g);
+  }, 420);
 }
 
-/* ════ Шаг: гости — кнопка «добавить», 8 000 за каждого ════ */
+/* ════ 08 · Гости ════ */
 
-function guestNames() {
-  return state.guests.map((s) => s.trim()).filter(Boolean);
-}
+const guestPrice = () => state.config?.guestPrice ?? 10000;
+const cleanGuests = () => (state.guestsOn ? state.guests.map((g) => g.trim()).filter(Boolean) : []);
 
-function renderGuests() {
-  const box = $('guest-list');
-  if (!box) return;
-  box.innerHTML = '';
+/* Кнопки «добавить» нет: в конце списка всегда ждёт пустое поле.
+   Начал печатать — снизу сразу появляется следующее. Пустые не считаются. */
+function renderGuests(focusIdx = -1) {
+  const sw = $('guests-toggle');
+  sw.setAttribute('aria-checked', String(state.guestsOn));
+  $('guests-sw-sub').textContent = state.guestsOn ? t('guestsSwOn') : t('guestsSwOff');
+  $('guests-body').hidden = !state.guestsOn;
+
+  if (state.guests.length === 0 || state.guests[state.guests.length - 1].trim()) state.guests.push('');
+
+  const list = $('guest-list');
+  list.innerHTML = '';
+  const max = state.config?.maxGuests ?? 100;
+
   state.guests.forEach((name, i) => {
-    const input = h('input', { type: 'text', maxlength: 50, value: name, placeholder: t('guestPh'), autocomplete: 'off' });
+    const blank = !name.trim();
+    const input = h('input', {
+      type: 'text', maxlength: '50', value: name,
+      placeholder: i === state.guests.length - 1 ? t('guestPh') : '—',
+    });
     input.addEventListener('input', () => {
+      const wasBlank = !state.guests[i].trim();
       state.guests[i] = input.value;
-      updateGuestsTotal();
+      clearErr(7);
+      updateTally();
+      updateBill();
       saveDraft();
+      // первое слово в последнем поле — открываем следующее, не теряя фокуса
+      if (wasBlank && input.value.trim() && i === state.guests.length - 1 && state.guests.length < max) {
+        state.guests.push('');
+        renderGuests();
+        list.children[i]?.querySelector('input')?.focus();
+      }
+      row.classList.toggle('gst--blank', !input.value.trim());
     });
-    const rm = h('button', { type: 'button', class: 'iconbtn iconbtn--sm', 'aria-label': 'Remove' }, '✕');
-    rm.addEventListener('click', () => {
+    input.addEventListener('blur', () => {
+      // убираем опустевшие поля из середины списка
+      if (input.value.trim() || i === state.guests.length - 1) return;
       state.guests.splice(i, 1);
-      haptic.tap();
       renderGuests();
+      updateBill();
       saveDraft();
     });
-    box.appendChild(h('div', { class: 'guest-row' }, h('span', { class: 'guest-n' }, String(i + 1)), input, rm));
+    const row = h('div', { class: `gst${blank ? ' gst--blank' : ''}` },
+      h('span', { class: 'gst-n' }, blank ? '·' : String(i + 1)),
+      input);
+    row.style.animationDelay = `${Math.min(i, 8) * 35}ms`;
+    list.appendChild(row);
   });
-  updateGuestsTotal();
+
+  if (focusIdx >= 0) list.children[focusIdx]?.querySelector('input')?.focus();
+  updateTally();
 }
 
-function updateGuestsTotal() {
-  const price = state.config?.guestPrice ?? 8000;
-  const n = guestNames().length;
-  $('guests-total-row').hidden = n === 0;
-  $('guests-total').textContent = `${n} × ${money(price)} = ${money(n * price)}`;
+function updateTally() {
+  const n = cleanGuests().length;
+  $('guest-n').textContent = String(n);
+  $('guest-sum').textContent = money(n * guestPrice());
 }
 
-/* ════ Шаг: обзор и отправка ════ */
+/* ════ 09 · Счёт, контакты, отправка ════ */
 
-let lastPreviewHtml = '';
+function updateBill() {
+  const tpl = selectedTpl();
+  const box = $('bill-lines');
+  box.innerHTML = '';
+  const line = (k, v) => box.appendChild(h('div', { class: 'bill-line' }, h('span', {}, k), h('span', {}, v)));
+
+  line(t('tNames'), `${$('groom').value.trim()} & ${$('bride').value.trim()}`);
+  if (state.dateIso) {
+    const [y, m, d] = state.dateIso.split('-').map(Number);
+    line(t('tDate'), `${d} ${t('months')[m - 1]} ${y} · ${state.time}`);
+  }
+  if ($('address').value.trim()) line(t('tVenue'), $('address').value.trim());
+  if (state.music) line(t('tMusic'), state.music.name.slice(0, 32));
+  if (tpl) line(t('tTpl'), `${tpl.name} · ${money(tpl.price)}`);
+
+  let total = tpl ? tpl.price : 0;
+  const n = cleanGuests().length;
+  if (n) {
+    total += n * guestPrice();
+    line(t('tGuests'), `${n} × ${money(guestPrice())}`);
+  }
+  $('bill-total').textContent = money(total);
+}
+
+function jumpTo(stepId, msg) {
+  const map = { review: 'contact' };
+  const i = stepIdx(map[stepId] || stepId);
+  if (i < 0) { if (msg) toast(msg, 'err'); return; }
+  if (msg) showErr(i, msg);
+  scrollToBlock(i);
+}
+
+function contactsFilled() {
+  return [$('contact-tg').value.trim().replace(/^@/, ''), $('phone').value.trim(), $('phone2').value.trim()]
+    .filter(Boolean).length;
+}
 
 function collectForm() {
   return {
@@ -1223,486 +1095,270 @@ function collectForm() {
     groomName: $('groom').value.trim(),
     brideName: $('bride').value.trim(),
     weddingDate: state.dateIso,
-    weddingTime: $('time').value,
+    weddingTime: state.time,
     lat: state.lat,
     lng: state.lng,
     address: $('address').value.trim(),
     photos: state.photos.filter((p) => p.name).map((p) => p.name),
-    musicType: state.music.type,
-    musicValue: state.music.value,
-    musicStart: state.music.start,
-    musicEnd: state.music.end,
+    musicType: state.music?.type ?? 'none',
+    musicValue: state.music?.value ?? null,
+    musicStart: null,
+    musicEnd: null,
     templateId: state.templateId,
-    guestNames: guestNames(),
+    guestNames: cleanGuests(),
     contactTg: $('contact-tg').value.trim(),
     phone: $('phone').value.trim(),
     phone2: $('phone2').value.trim(),
   };
 }
 
-function renderReceipt() {
-  const tpl = selectedTemplate();
-  if (!tpl) return;
-  const box = $('rv-lines');
-  box.innerHTML = '';
-  const line = (k, v) => box.appendChild(h('div', { class: 'rc-line' }, h('span', {}, k), h('span', {}, v)));
-  line(t('rcCouple'), `${$('groom').value.trim()} & ${$('bride').value.trim()}`);
-  const [y, m, d] = (state.dateIso || '--').split('-').map(Number);
-  line(t('rcDate'), state.dateIso ? `${d} ${t('monthsGen')[m - 1]} ${y} · ${$('time').value}` : '—');
-  if ($('address').value.trim()) line(t('rcVenue'), $('address').value.trim());
-  if (state.music.type !== 'none') line(t('rcMusic'), state.music.name.slice(0, 34));
-
-  // Шаблон — с кнопкой «Изменить»: второй (и последний) шанс передумать.
-  const tplLine = h('div', { class: 'rc-line' },
-    h('span', {}, t('rcTplLine')),
-    h('span', {}, `${tpl.name} · ${money(tpl.price)} `,
-      h('button', { type: 'button', class: 'rc-change' }, t('changeTpl'))));
-  tplLine.querySelector('.rc-change').addEventListener('click', () => showScreen('templates'));
-  box.appendChild(tplLine);
-
-  let total = tpl.price;
-  const n = guestNames().length;
-  if (n > 0) {
-    const price = state.config?.guestPrice ?? 8000;
-    total += n * price;
-    line(t('rcGuestsLine'), `${n} × ${money(price)} = +${money(n * price)}`);
-  }
-  $('rv-total').textContent = money(total);
-}
-
-async function enterReview() {
-  renderReceipt();
-  const frame = $('rv-frame');
-  frame.removeAttribute('srcdoc');
-  try {
-    const res = await fetch('/api/preview', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ initData: tg ? tg.initData : '', form: collectForm() }),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.ok) {
-      if (data.step) jumpToStepId(data.step, data.error);
-      else toast(data.error || t('eNet'), 'err');
-      return;
-    }
-    lastPreviewHtml = data.html;
-    frame.srcdoc = data.html;
-  } catch (_) {
-    toast(t('eNet'), 'err');
-  }
-}
-
-function jumpToStepId(id, msg) {
-  if (id === 'template') {
-    showScreen('templates');
-    if (msg) toast(msg, 'err');
-    return;
-  }
-  const idx = WIZARD.findIndex((s) => s.id === id);
-  if (idx < 0) { if (msg) toast(msg, 'err'); return; }
-  if (state.revealed < idx) { state.revealed = idx; renderBlocks(); updateProgress(); }
-  if (msg) showBlockErr(idx, msg);
-  scrollToBlock(blockEl(idx));
-}
-
-function markField(id) {
-  const el = $(id);
-  el.classList.add('err');
-  setTimeout(() => el.classList.remove('err'), 1500);
-  el.focus();
-}
-
-async function submitApplication() {
-  // Контакты: три поля, достаточно любых ДВУХ заполненных.
-  const filled = [
-    $('contact-tg').value.trim().replace(/^@/, ''),
-    $('phone').value.trim(),
-    $('phone2').value.trim(),
-  ].filter(Boolean).length;
-  if (filled < 2) {
-    showBlockErr(WIZARD.length - 1, t('eContacts'));
-    markField('contact-tg');
-    return;
-  }
-  clearBlockErr(WIZARD.length - 1);
-  const btn = $('submit-btn');
+async function submit() {
+  if (state.sending) return;
+  if (contactsFilled() < 2) { showErr(8, t('eContact_')); return; }
+  clearErr(8);
+  state.sending = true;
+  const btn = $('submit');
+  btn.classList.add('gold-btn--wait');
   btn.disabled = true;
-  $('submit-label').textContent = t('sending');
   try {
-    const res = await fetch('/api/applications', {
+    const r = await fetch('/api/applications', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ initData: tg ? tg.initData : '', form: collectForm() }),
     });
-    const data = await res.json();
-    if (!res.ok || !data.ok) {
-      if (data.step && data.step !== 'review') jumpToStepId(data.step, data.error);
-      else toast(data.error || t('eNet'), 'err');
+    const j = await r.json();
+    if (!r.ok || !j.ok) {
+      if (j.step) jumpTo(j.step, j.error); else toast(j.error || t('eNet'), 'err');
       return;
     }
     clearDraft();
     haptic.ok();
-    petals($('petals'));
-    $('success-screen').hidden = false;
+    sparks();
+    $('done').hidden = false;
     try { tg?.BackButton?.hide(); } catch (_) { /* — */ }
   } catch (_) {
     toast(t('eNet'), 'err');
   } finally {
+    state.sending = false;
+    btn.classList.remove('gold-btn--wait');
     btn.disabled = false;
-    $('submit-label').textContent = t('send');
   }
 }
 
-/* ════ Привязка событий ════ */
-
-function wireEvents() {
-  /* навигация */
-  $('nav-brand').addEventListener('click', () => showScreen('templates'));
-  $('nav-tpl').addEventListener('click', () => showScreen('templates'));
-  $('nav-mine').addEventListener('click', () => showScreen('mine'));
-  $('mine-create').addEventListener('click', () => showScreen('templates'));
-  $('hsw-uz').addEventListener('click', () => setLang('uz'));
-  $('hsw-ru').addEventListener('click', () => setLang('ru'));
-
-  /* студия */
-  $('studio-exit').addEventListener('click', () => { toast(t('draftSaved'), 'info', 1600); showScreen('templates'); });
-  $('submit-btn').addEventListener('click', submitApplication);
-  // Любое действие внутри формы → проверяем, не пора ли раскрыть следующий блок.
-  const autoAdvance = debounce(maybeAdvance, 250);
-  const steps = $('studio-steps');
-  steps.addEventListener('input', autoAdvance);
-  steps.addEventListener('change', autoAdvance);
-  steps.addEventListener('click', autoAdvance);
-  $('studio-eye').addEventListener('click', () => {
-    const tpl = selectedTemplate();
-    if (tpl) sheet.open({ src: tpl.demoUrl + liveQuery() });
-  });
-  $('rv-expand').addEventListener('click', () => {
-    if (lastPreviewHtml) sheet.open({ srcdoc: lastPreviewHtml });
-  });
-  $('sheet-close').addEventListener('click', () => sheet.close());
-  $('succ-mine').addEventListener('click', () => {
-    $('success-screen').hidden = true;
-    resetWizard();
-    showScreen('mine');
-  });
-
-  /* поля с автосохранением */
-  ['groom', 'bride'].forEach((id) => $(id).addEventListener('input', saveDraft));
-  ['address', 'contact-tg', 'phone', 'phone2'].forEach((id) => $(id).addEventListener('input', saveDraft));
-
-  /* календарь и время */
-  $('cal-prev').addEventListener('click', () => {
-    calView = new Date(calView.getFullYear(), calView.getMonth() - 1, 1);
-    renderCalendar();
-  });
-  $('cal-next').addEventListener('click', () => {
-    calView = new Date(calView.getFullYear(), calView.getMonth() + 1, 1);
-    renderCalendar();
-  });
-  $('time').addEventListener('input', () => { renderTimeChips(); saveDraft(); });
-
-  /* локация */
-  $('geo-search-btn').addEventListener('click', searchPlace);
-  $('geo-search').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      searchPlace();
-    }
-  });
-  $('geo-search').addEventListener('input', () => {
-    clearTimeout(geoTimer);
-    const q = $('geo-search').value.trim();
-    if (q.length < 3) {
-      hideGeoResults();
-      return;
-    }
-    geoTimer = setTimeout(async () => {
-      const seq = ++geoSeq;
-      try {
-        const found = await geoSearchUz(q);
-        if (seq !== geoSeq) return;
-        showGeoResults(found);
-        if (found.length) previewGeoResult(found[0]);
-      } catch (_) { /* подсказки не критичны */ }
-    }, 350);
-  });
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.search-row') && !e.target.closest('#geo-results')) hideGeoResults();
-  });
-
-  /* фотографии */
-  $('photo-input').addEventListener('change', async (e) => {
-    const files = Array.from(e.target.files || []);
-    e.target.value = '';
-    const max = state.config ? state.config.maxPhotos : 6;
-    for (const file of files) {
-      if (state.photos.length >= max) break;
-      if (!/^image\/(jpeg|png|webp)$/.test(file.type)) { toast(t('eFile'), 'err'); continue; }
-      if (file.size > 8 * 1024 * 1024) { toast(t('eBig'), 'err'); continue; }
-      const item = { name: null, previewUrl: URL.createObjectURL(file), uploading: true };
-      state.photos.push(item);
-      renderPhotos();
-      try {
-        const data = await uploadFile(file);
-        item.name = data.file;
-      } catch (err) {
-        state.photos = state.photos.filter((p) => p !== item);
-        toast(err.message, 'err');
-      }
-      item.uploading = false;
-      renderPhotos();
-      saveDraft();
-    }
-  });
-
-  /* музыка: выбор режима */
-  document.querySelectorAll('#music-tabs .chip').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      haptic.tap();
-      previewAudio.pause();
-      setMusicTab(btn.dataset.mt);
-    });
-  });
-  $('music-q-btn').addEventListener('click', () => loadTracks($('music-q').value.trim()));
-  $('music-q').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      loadTracks($('music-q').value.trim());
-    }
-  });
-
-  /* музыка: выбранное состояние */
-  $('sel-change').addEventListener('click', () => {
-    setMusic({ type: 'none', value: null, name: '', previewUrl: null, start: null, end: null });
-    setMusicTab(lastMusicTab);
-  });
-  $('sel-remove').addEventListener('click', () => {
-    haptic.tap();
-    setMusic({ type: 'none', value: null, name: '', previewUrl: null, start: null, end: null });
-  });
-
-  /* своя музыка: ссылка */
-  $('music-link').addEventListener('change', async () => {
-    const url = $('music-link').value.trim();
-    if (!url) return;
-    if (!/^https?:\/\/\S+$/.test(url)) {
-      toast(t('eMusic'), 'err');
-      return;
-    }
-    const yt = url.match(YT_RE);
-    const social = SOCIAL_RE.test(url);
-
-    if ((yt || social) && state.config.extractEnabled) {
-      const linkEl = $('music-link');
-      linkEl.disabled = true;
-      const old = linkEl.value;
-      linkEl.value = t('extracting');
-      try {
-        const res = await fetch('/api/extract', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Init-Data': tg ? tg.initData : '' },
-          body: JSON.stringify({ url }),
-        });
-        const data = await res.json();
-        if (!res.ok || !data.ok) throw new Error('extract');
-        setMusic({ type: 'upload', value: data.file, name: '🎬 ' + url.slice(0, 50), previewUrl: '/uploads/' + data.file, start: null, end: null });
-        return;
-      } catch (_) {
-        if (!yt) {
-          toast(t('extractUnavail'), 'err');
-          return;
-        }
-      } finally {
-        linkEl.disabled = false;
-        linkEl.value = old;
-      }
-    }
-
-    if (yt) {
-      setMusic({ type: 'youtube', value: url, name: 'YouTube · ' + yt[1], previewUrl: null, start: null, end: null });
-      return;
-    }
-    if (social) {
-      toast(t('extractUnavail'), 'err');
-      return;
-    }
-    const playable = /\.(mp3|ogg|m4a|wav)(\?|$)/i.test(url);
-    setMusic({ type: 'custom', value: url, name: url.slice(0, 60), previewUrl: playable ? url : null, start: null, end: null });
-  });
-
-  /* своя музыка: файл */
-  $('music-upload-btn').addEventListener('click', () => $('music-file').click());
-  $('music-file').addEventListener('change', async (e) => {
-    const file = e.target.files && e.target.files[0];
-    e.target.value = '';
-    if (!file) return;
-    if (file.size > 16 * 1024 * 1024) { toast(t('eBig'), 'err'); return; }
-    const btn = $('music-upload-btn');
-    btn.disabled = true;
-    btn.textContent = t('uploading');
-    try {
-      const data = await uploadFile(file);
-      if (data.kind !== 'audio') throw new Error(t('eFile'));
-      setMusic({ type: 'upload', value: data.file, name: file.name, previewUrl: '/uploads/' + data.file, start: null, end: null });
-    } catch (err) {
-      toast(err.message, 'err');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = t('upload');
-    }
-  });
-
-  /* тример */
-  ['trim-l', 'trim-r'].forEach((id) => {
-    $(id).addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      trim.drag = id;
-      document.addEventListener('pointermove', onTrimMove);
-      document.addEventListener('pointerup', onTrimUp, { once: true });
-    });
-  });
-  $('cut-test').addEventListener('click', () => {
-    const audio = $('cut-audio');
-    const start = trim.startFrac * trim.dur;
-    const end = trim.endFrac * trim.dur;
-    audio.currentTime = start;
-    audio.play();
-    const stopAt = () => {
-      if (audio.currentTime >= end) {
-        audio.pause();
-        audio.removeEventListener('timeupdate', stopAt);
-      }
-    };
-    audio.addEventListener('timeupdate', stopAt);
-  });
-  $('cut-start').addEventListener('input', () => {
-    const v = parseInt($('cut-start').value, 10);
-    state.music.start = Number.isFinite(v) && v >= 0 ? v : null;
-    saveDraft();
-  });
-  $('cut-end').addEventListener('input', () => {
-    const v = parseInt($('cut-end').value, 10);
-    state.music.end = Number.isFinite(v) && v > 0 ? v : null;
-    saveDraft();
-  });
-
-  /* гости */
-  $('guest-add').addEventListener('click', () => {
-    haptic.tap();
-    state.guests.push('');
-    renderGuests();
-    const inputs = $('guest-list').querySelectorAll('input');
-    if (inputs.length) inputs[inputs.length - 1].focus();
-    saveDraft();
-  });
+function sparks() {
+  fill($('sparks'), 'spark', 20, 5, 5);
 }
 
-/* Чистый лист после отправленной заявки */
-function resetWizard() {
-  state.revealed = 0;
-  state.dateIso = null;
-  state.lat = null;
-  state.lng = null;
-  state.templateId = null;
-  state.photos = [];
-  state.music = { type: 'none', value: null, name: '', previewUrl: null, start: null, end: null };
-  state.guests = [];
-  for (const id of ['groom', 'bride', 'address', 'geo-search', 'contact-tg', 'phone', 'phone2', 'music-link']) $(id).value = '';
-  $('time').value = '18:00';
-  if (placemark && ymap) { ymap.geoObjects.remove(placemark); placemark = null; }
-  updateSelectedMusic();
-  renderPhotos();
-  renderGuests();
-  renderCalendar();
-  updateDateLabel();
-  renderBlocks();
-  updateProgress();
+function fill(root, cls, n, base, spread) {
+  if (!root) return;
+  root.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const el = h('i', { class: cls });
+    el.style.setProperty('--x', `${Math.random() * 100}%`);
+    el.style.setProperty('--d', `${(Math.random() * spread).toFixed(2)}s`);
+    el.style.setProperty('--t', `${(base + Math.random() * spread).toFixed(2)}s`);
+    el.style.setProperty('--s', (0.6 + Math.random() * 0.9).toFixed(2));
+    root.appendChild(el);
+  }
+}
+
+/* ════ Мои приглашения ════ */
+
+async function loadMine() {
+  const box = $('mine-list');
+  box.innerHTML = '';
+  box.appendChild(h('p', { class: 'empty' }, '···'));
+  try {
+    const r = await fetch('/api/my', { headers: { 'x-init-data': tg ? tg.initData : '' } });
+    const j = await r.json();
+    box.innerHTML = '';
+    if (!j.ok || !j.apps.length) { box.appendChild(h('p', { class: 'empty' }, '—')); return; }
+    for (const a of j.apps) {
+      const card = h('div', { class: 'inv' },
+        h('h4', {}, `${a.groom} & ${a.bride}`),
+        h('p', { class: 'inv-meta' }, `${a.date} · ${a.time} · ${money(a.total)}`),
+        h('span', { class: `inv-tag ${a.status}` }, a.status),
+        a.url ? h('div', { class: 'inv-link' }, a.url) : null);
+      if (a.url) {
+        card.querySelector('.inv-link').addEventListener('click', () => {
+          navigator.clipboard?.writeText(a.url);
+          toast(t('copied'), 'ok');
+        });
+      }
+      box.appendChild(card);
+    }
+  } catch (_) {
+    box.innerHTML = '';
+    box.appendChild(h('p', { class: 'empty' }, t('eNet')));
+  }
+}
+
+/* ════ События ════ */
+
+function wire() {
+  $('lang-uz').addEventListener('click', () => bootLang('uz'));
+  $('lang-ru').addEventListener('click', () => bootLang('ru'));
+  $('sw-uz').addEventListener('click', () => setLang('uz'));
+  $('sw-ru').addEventListener('click', () => setLang('ru'));
+  $('brand').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+
+  $('btn-mine').addEventListener('click', () => { $('mine').hidden = false; loadMine(); });
+  $('mine-close').addEventListener('click', () => { $('mine').hidden = true; });
+
+  for (const id of ['groom', 'bride']) {
+    $(id).addEventListener('input', () => {
+      paintPlate();
+      markFilled($(id));
+      clearErr(0);
+      saveDraft();
+      autoAdvance(1100);          // даём договорить имя, потом открываем календарь
+    });
+  }
+
+  $('cal-prev').addEventListener('click', () => { calView.setMonth(calView.getMonth() - 1); haptic.tap(); renderCalendar(); });
+  $('cal-next').addEventListener('click', () => { calView.setMonth(calView.getMonth() + 1); haptic.tap(); renderCalendar(); });
+
+  $('geo-q').addEventListener('input', seekPlaceSoon);
+  $('geo-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); seekPlace(); } });
+  $('geo-go').addEventListener('click', seekPlace);
+  $('map-in').addEventListener('click', () => ymap?.setZoom(ymap.getZoom() + 1, { duration: 220 }));
+  $('map-out').addEventListener('click', () => ymap?.setZoom(ymap.getZoom() - 1, { duration: 220 }));
+  $('address').addEventListener('input', () => {
+    $('address').dataset.manual = '1';
+    markFilled($('address'));
+    saveDraft();
+  });
+
+  document.querySelectorAll('.seg').forEach((b, i) => {
+    b.addEventListener('click', () => {
+      haptic.tap();
+      document.querySelectorAll('.seg').forEach((x) => x.classList.toggle('is-on', x === b));
+      document.querySelector('.segs').classList.toggle('at-1', i === 1);
+      $('ms-top').hidden = i !== 0;
+      $('ms-mine').hidden = i !== 1;
+    });
+  });
+  $('music-q').addEventListener('input', debounce((e) => loadTracks(e.target.value.trim()), 450));
+  $('music-link-go').addEventListener('click', addMusicLink);
+  $('music-link').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addMusicLink(); } });
+  $('music-upload').addEventListener('click', () => $('music-file').click());
+  $('music-file').addEventListener('change', (e) => {
+    if (e.target.files[0]) uploadMusicFile(e.target.files[0]);
+    e.target.value = '';
+  });
+  $('music-change').addEventListener('click', reopenMusic);
+  $('music-skip').addEventListener('click', () => {
+    state.music = null;
+    player.pause();
+    playingUrl = null;
+    $('music-picked').hidden = true;
+    haptic.tap();
+    saveDraft();
+    if (state.open === stepIdx('music')) unlock(state.open + 1);
+  });
+
+  $('tpl-rail').addEventListener('scroll', debounce(() => {
+    const rail = $('tpl-rail');
+    const mid = rail.scrollLeft + rail.clientWidth / 2;
+    const cards = [...rail.children];
+    if (!cards.length) return;
+    let near = 0;
+    cards.forEach((c, i) => {
+      const d = Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid);
+      const best = Math.abs(cards[near].offsetLeft + cards[near].offsetWidth / 2 - mid);
+      if (d < best) near = i;
+    });
+    [...$('tpl-dots').children].forEach((d, i) => d.classList.toggle('on', i === near));
+  }, 90));
+
+  $('photo-input').addEventListener('change', (e) => {
+    uploadPhotos([...e.target.files]);
+    e.target.value = '';
+  });
+
+  $('ready-open').addEventListener('click', openInvite);
+
+  $('guests-toggle').addEventListener('click', () => {
+    state.guestsOn = !state.guestsOn;
+    if (state.guestsOn && !state.guests.length) state.guests = [''];
+    haptic.tap();
+    renderGuests();
+    updateBill();
+    saveDraft();
+  });
+
+  for (const id of ['contact-tg', 'phone', 'phone2']) {
+    $(id).addEventListener('input', () => { markFilled($(id)); clearErr(8); saveDraft(); });
+  }
+  $('submit').addEventListener('click', submit);
+
+  $('sheet-close').addEventListener('click', () => sheet.close());
+  $('done-mine').addEventListener('click', () => { $('done').hidden = true; $('mine').hidden = false; loadMine(); });
+  $('done-new').addEventListener('click', () => location.reload());
+
+  // Свет сцены медленно едет вниз вместе со скроллом.
+  let raf = null;
+  window.addEventListener('scroll', () => {
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = null;
+      const k = Math.min(1, window.scrollY / Math.max(1, document.body.scrollHeight - innerHeight));
+      $('bloom').style.transform = `translate(-50%, ${-46 + k * 26}%)`;
+    });
+  }, { passive: true });
+
+  if (tg) {
+    tg.BackButton?.onClick(() => {
+      if (!$('sheet').hidden) { sheet.close(); return; }
+      if (!$('mine').hidden) { $('mine').hidden = true; return; }
+      tg.close();
+    });
+  }
 }
 
 /* ════ Старт ════ */
 
-function initLangScreen() {
-  const boot = () => {
-    $('app').hidden = false;
-    applyI18n();
-    revealOnScroll('.rv');
-    // Черновик с выбранным шаблоном — сразу в студию, к работе.
-    showScreen(state.draftRestored && state.templateId ? 'studio' : 'templates');
-  };
-  if (LANG) {
-    $('lang-screen').remove();
-    boot();
-    return;
+async function loadConfig() {
+  try {
+    const r = await fetch('/api/config');
+    state.config = await r.json();
+  } catch (_) {
+    state.config = { templates: [], guestPrice: 10000, maxGuests: 100, maxPhotos: 6, topTracks: [], populars: {} };
   }
-  LANG = 'uz';
-  const pick = (lang) => {
-    setLang(lang);
-    haptic.impact('medium');
-    $('lang-screen').classList.add('hide');
-    setTimeout(() => $('lang-screen').remove(), 500);
-    boot();
-  };
-  $('lang-uz').addEventListener('click', () => pick('uz'));
-  $('lang-ru').addEventListener('click', () => pick('ru'));
 }
 
-wireEvents();
-restoreDraft();
-$('gallery').appendChild(skeletons(4, 'skel--card'));
-loadConfig().then(initLangScreen).catch(() => {
-  initLangScreen();
-  toast(t('eNet'), 'err');
-});
+function bootLang(lang) {
+  setLang(lang);
+  $('lang-screen').classList.add('out');
+  setTimeout(() => { $('lang-screen').style.display = 'none'; }, 620);
+  $('app').hidden = false;
+  start();
+}
 
-/* ════ Живая атмосфера: пыль, лепестки, золотые листья, искры за контентом ════ */
-(function ambientLayer() {
-  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  var box = document.createElement('div');
-  box.className = 'app-amb';
-  box.setAttribute('aria-hidden', 'true');
-  var rnd = function (a, b) { return a + Math.random() * (b - a); };
-  function spawn(cls, n, make) {
-    for (var i = 0; i < n; i++) {
-      var el = document.createElement('i');
-      el.className = cls;
-      make(el);
-      box.appendChild(el);
-    }
+let started = false;
+async function start() {
+  if (started) return;
+  started = true;
+  await loadConfig();
+  restoreDraft();
+  applyI18n();
+  paintPlate();
+  for (const id of ['groom', 'bride', 'address', 'contact-tg', 'phone', 'phone2']) markFilled($(id));
+  if (state.music) {
+    $('picked-name').textContent = state.music.name;
+    $('picked-artist').textContent = state.music.artist || '';
+    $('music-pick').hidden = true;
+    $('music-picked').hidden = false;
   }
-  // золотая пыль — поднимается
-  spawn('amb-dust', 16, function (el) {
-    el.style.setProperty('--x', rnd(2, 98).toFixed(1) + '%');
-    el.style.setProperty('--y', rnd(15, 95).toFixed(1) + '%');
-    el.style.setProperty('--s', rnd(0.6, 1.8).toFixed(2));
-    el.style.setProperty('--sw', rnd(-40, 40).toFixed(0) + 'px');
-    el.style.setProperty('--t', rnd(9, 16).toFixed(1) + 's');
-    el.style.setProperty('--d', rnd(0, 10).toFixed(1) + 's');
-  });
-  // лепестки — падают, покачиваясь
-  spawn('amb-petal', 9, function (el) {
-    el.style.setProperty('--x', rnd(2, 96).toFixed(1) + '%');
-    el.style.setProperty('--s', rnd(0.7, 1.4).toFixed(2));
-    el.style.setProperty('--sw', rnd(-70, 70).toFixed(0) + 'px');
-    el.style.setProperty('--t', rnd(16, 30).toFixed(1) + 's');
-    el.style.setProperty('--d', rnd(0, 24).toFixed(1) + 's');
-  });
-  // золотые листья
-  spawn('amb-leaf', 6, function (el) {
-    el.style.setProperty('--x', rnd(2, 96).toFixed(1) + '%');
-    el.style.setProperty('--s', rnd(0.7, 1.4).toFixed(2));
-    el.style.setProperty('--sw', rnd(-90, 90).toFixed(0) + 'px');
-    el.style.setProperty('--t', rnd(18, 32).toFixed(1) + 's');
-    el.style.setProperty('--d', rnd(0, 26).toFixed(1) + 's');
-  });
-  // мерцающие искры
-  spawn('amb-spark', 12, function (el) {
-    el.style.setProperty('--x', rnd(2, 98).toFixed(1) + '%');
-    el.style.setProperty('--y', rnd(6, 92).toFixed(1) + '%');
-    el.style.setProperty('--s', rnd(0.5, 1.4).toFixed(2));
-    el.style.setProperty('--t', rnd(4, 9).toFixed(1) + 's');
-    el.style.setProperty('--d', rnd(0, 8).toFixed(1) + 's');
-  });
-  document.body.appendChild(box);
-})();
+  renderBlocks();
+  updateBill();
+  for (let i = 0; i <= state.open; i++) onEnterStep(i);
+}
+
+wire();
+if (LANG) {
+  $('lang-screen').style.display = 'none';
+  $('app').hidden = false;
+  applyI18n();
+  start();
+}

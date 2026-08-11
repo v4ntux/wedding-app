@@ -2,7 +2,7 @@
   "name": "Bahor",
   "event": "wedding",
   "price": 139000,
-  "minPhotos": 1,
+  "minPhotos": 2,
   "colors": ["#FBF7EF", "#C98A8E", "#8FA68E"],
   "order": 2
 }

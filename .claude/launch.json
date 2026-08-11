@@ -5,7 +5,7 @@
       "name": "wedding",
       "runtimeExecutable": "node",
       "runtimeArgs": ["src/index.js"],
-      "port": 3000,
+      "port": 3001,
       "autoPort": true
     }
   ]

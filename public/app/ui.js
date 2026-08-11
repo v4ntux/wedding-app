@@ -62,7 +62,10 @@ window.UI = (function () {
     open({ src = null, srcdoc = null, actionLabel = null, onAction = null }) {
       const s = $('sheet');
       const f = $('sheet-frame');
-      const act = $('sheet-action');
+      const act = $('sheet-act');
+      // Сбрасываем обработчик прошлого открытия: иначе слушатель «долистал до конца»
+      // из финального демо срабатывал бы и на превью шаблона.
+      f.onload = null;
       f.removeAttribute('srcdoc');
       f.removeAttribute('src');
       if (srcdoc !== null) f.srcdoc = srcdoc; else if (src) f.src = src;

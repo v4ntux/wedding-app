@@ -45,7 +45,7 @@ export const EXTRACT_API_KEY = (process.env.EXTRACT_API_KEY ?? '').trim();
 // новый дизайн добавляется папкой, без правок кода.
 
 // Именные ссылки: цена за каждого гостя — добавляй сколько хочешь.
-export const GUEST_LINK_PRICE = 9_900;
+export const GUEST_LINK_PRICE = 10_000;
 export const MAX_GUESTS = 100;
 export const MAX_PHOTOS = 6;
 

@@ -78,48 +78,101 @@ export function createServer({ onNewApplication }) {
     res.json({ ok: true, stats: db.adminStats(), templates: publicTemplates(), orders: db.listRecentOrders(30) });
   });
 
-  // Поиск мест через Google Places (New) — ключ остаётся на сервере.
-  // Возвращает до 6 мест по Узбекистану: заведения находит мгновенно и точно.
+  // Поиск мест. Цепочка провайдеров: Google Places (если есть ключ) → Photon →
+  // Nominatim. Все запросы уходят с сервера, поэтому CORS и ключи форму не касаются.
+  // Первый непустой ответ и выигрывает — поиск работает и без единого ключа.
+  const UZ_BOX = { minLat: 37.0, minLng: 55.9, maxLat: 45.7, maxLng: 73.2 };
+  const inUz = (p) => p.lat >= UZ_BOX.minLat && p.lat <= UZ_BOX.maxLat
+    && p.lng >= UZ_BOX.minLng && p.lng <= UZ_BOX.maxLng;
+
+  async function geoGoogle(q, lang) {
+    if (!GOOGLE_MAPS_API_KEY) return [];
+    const r = await fetch('https://places.googleapis.com/v1/places:searchText', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
+        'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location',
+      },
+      body: JSON.stringify({
+        textQuery: q,
+        regionCode: 'UZ',
+        languageCode: lang,
+        pageSize: 6,
+        locationRestriction: {
+          rectangle: {
+            low: { latitude: UZ_BOX.minLat, longitude: UZ_BOX.minLng },
+            high: { latitude: UZ_BOX.maxLat, longitude: UZ_BOX.maxLng },
+          },
+        },
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+    const j = await r.json();
+    return (j.places ?? []).map((p) => ({
+      lat: p.location?.latitude,
+      lng: p.location?.longitude,
+      name: p.displayName?.text ?? '',
+      desc: p.formattedAddress ?? '',
+    }));
+  }
+
+  async function geoPhoton(q, lang) {
+    const url = 'https://photon.komoot.io/api/?limit=8&lat=41.31&lon=69.28'
+      + `&lang=${lang === 'ru' ? 'ru' : 'en'}&q=${encodeURIComponent(q)}`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    const j = await r.json();
+    return (j.features ?? []).map((f) => {
+      const p = f.properties ?? {};
+      const parts = [p.street, p.district, p.city, p.state].filter(Boolean);
+      return {
+        lat: f.geometry?.coordinates?.[1],
+        lng: f.geometry?.coordinates?.[0],
+        name: p.name ?? '',
+        desc: parts.join(', '),
+      };
+    });
+  }
+
+  async function geoNominatim(q, lang) {
+    const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=8&countrycodes=uz'
+      + `&accept-language=${lang}&q=${encodeURIComponent(q)}`;
+    const r = await fetch(url, {
+      // Nominatim отклоняет запросы без User-Agent.
+      headers: { 'User-Agent': 'nvate-invites/1.0 (support@nvate.uz)' },
+      signal: AbortSignal.timeout(8000),
+    });
+    const j = await r.json();
+    return (Array.isArray(j) ? j : []).map((p) => {
+      const full = String(p.display_name ?? '');
+      const head = full.split(',')[0];
+      return {
+        lat: Number(p.lat),
+        lng: Number(p.lon),
+        name: p.name || head,
+        desc: full.slice(head.length + 2),
+      };
+    });
+  }
+
   app.get('/api/geo', async (req, res) => {
-    if (!GOOGLE_MAPS_API_KEY) return res.json({ ok: true, results: [] });
     const q = String(req.query.q ?? '').slice(0, 120).trim();
     if (q.length < 2) return res.json({ ok: true, results: [] });
     const lang = req.query.lang === 'ru' ? 'ru' : 'uz';
-    try {
-      const r = await fetch('https://places.googleapis.com/v1/places:searchText', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
-          'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location',
-        },
-        body: JSON.stringify({
-          textQuery: q,
-          regionCode: 'UZ',
-          languageCode: lang,
-          pageSize: 6,
-          // прямоугольник Узбекистана — чтобы не уезжать в соседние страны
-          locationRestriction: {
-            rectangle: {
-              low: { latitude: 37.0, longitude: 55.9 },
-              high: { latitude: 45.7, longitude: 73.2 },
-            },
-          },
-        }),
-        signal: AbortSignal.timeout(8000),
-      });
-      const j = await r.json();
-      const results = (j.places ?? []).map((p) => ({
-        lat: p.location?.latitude,
-        lng: p.location?.longitude,
-        name: p.displayName?.text ?? '',
-        desc: p.formattedAddress ?? '',
-      })).filter((p) => Number.isFinite(p.lat) && p.name);
-      res.json({ ok: true, results });
-    } catch (e) {
-      console.error('[server] google geo failed:', e.message);
-      res.json({ ok: true, results: [] });
+
+    for (const [name, provider] of [['google', geoGoogle], ['photon', geoPhoton], ['nominatim', geoNominatim]]) {
+      try {
+        const raw = await provider(q, lang);
+        const results = raw
+          .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng) && (p.name || p.desc))
+          .filter(inUz)
+          .slice(0, 6);
+        if (results.length) return res.json({ ok: true, results, source: name });
+      } catch (e) {
+        console.error(`[server] geo ${name} failed:`, e.message);
+      }
     }
+    res.json({ ok: true, results: [] });
   });
 
   // «Мои приглашения»: заявки текущего пользователя Telegram.
