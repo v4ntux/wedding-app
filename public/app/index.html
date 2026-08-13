@@ -4,19 +4,25 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <title>nvate — studio</title>
-<meta name="theme-color" content="#100B18">
+<meta name="theme-color" content="#0b0a08">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Prata&family=Golos+Text:wght@400;500;600;700&family=Martian+Mono:wght@300;400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;500&family=Golos+Text:wght@400;500;600;700&family=Martian+Mono:wght@300;400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- Световая сцена: тёплое пятно, атласная дымка, зерно -->
+<!-- Световая сцена «Шёлковая нить»: перламутровая дымка, ткань и лепестки -->
 <div id="stage" aria-hidden="true">
+  <div id="scene-a" class="scene-wash is-on"></div>
+  <div id="scene-b" class="scene-wash"></div>
   <div id="bloom"></div>
   <div id="ikat"></div>
   <div id="grain"></div>
+  <div id="silk-fall">
+    <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+    <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+  </div>
 </div>
 
 <!-- ═══ Первый вход: язык ═══ -->
@@ -101,6 +107,7 @@
       </div>
 
       <p class="sub-label" data-i18n="timeLbl"></p>
+      <p id="time-prompt" class="time-prompt" data-i18n="timePrompt" hidden></p>
       <div class="clock"><b id="clock-h">17</b><i>:</i><b id="clock-m">00</b></div>
 
       <div class="hdrum">
@@ -124,10 +131,7 @@
 
       <div class="field">
         <label for="geo-q" data-i18n="seekLbl"></label>
-        <div class="field-row">
-          <input id="geo-q" type="text" autocomplete="off" spellcheck="false">
-          <button id="geo-go" type="button" class="btn btn--gold btn--row" data-i18n="find"></button>
-        </div>
+        <input id="geo-q" type="text" autocomplete="off" spellcheck="false">
         <span id="geo-spin" class="field-spin" hidden></span>
       </div>
       <div id="geo-list" class="geo-list" hidden></div>
@@ -163,7 +167,7 @@
 
         <div id="ms-top">
           <div class="field field--tight">
-            <input id="music-q" type="text" autocomplete="off" spellcheck="false">
+            <input id="music-q" type="text" autocomplete="off" spellcheck="false" aria-label="Music search">
           </div>
           <div id="track-scroll" class="track-scroll"></div>
         </div>
@@ -248,6 +252,18 @@
       <span class="knot"></span>
       <p class="eyebrow"><b>08</b><span data-i18n="eGuests"></span></p>
       <h2 class="blk-title" data-i18n="tGuests"></h2>
+
+      <div id="personal-motion" class="personal-motion" aria-hidden="true">
+        <div class="pm-origin"><span>N</span><b>nvate</b></div>
+        <div class="pm-thread"><i></i><i></i><i></i></div>
+        <div class="pm-card">
+          <small data-i18n="personalPreview"></small>
+          <b data-i18n="personalGuest"></b>
+          <span>nvate.uz/…/aziz</span>
+        </div>
+        <div class="pm-people"><i>A</i><i>M</i><i>D</i></div>
+      </div>
+      <p class="motion-caption" data-i18n="personalCaption"></p>
 
       <button id="guests-toggle" type="button" class="switch" role="switch" aria-checked="false">
         <span class="switch-txt"><b data-i18n="guestsSwTitle"></b><i id="guests-sw-sub" data-i18n="guestsSwOff"></i></span>

@@ -53,7 +53,7 @@ window.UI = (function () {
     requestAnimationFrame(() => el.classList.add('in'));
     setTimeout(() => {
       el.classList.remove('in');
-      setTimeout(() => el.remove(), 350);
+      setTimeout(() => el.remove(), 170);
     }, ms);
   }
 
@@ -66,13 +66,14 @@ window.UI = (function () {
       // Сбрасываем обработчик прошлого открытия: иначе слушатель «долистал до конца»
       // из финального демо срабатывал бы и на превью шаблона.
       f.onload = null;
+      s.classList.remove('finishing', 'closing-slow');
       f.removeAttribute('srcdoc');
       f.removeAttribute('src');
       if (srcdoc !== null) f.srcdoc = srcdoc; else if (src) f.src = src;
       if (actionLabel && onAction) {
         act.textContent = actionLabel;
         act.hidden = false;
-        act.onclick = () => { sheet.close(); onAction(); };
+        act.onclick = () => { sheet.close().then(onAction); };
       } else {
         act.hidden = true;
         act.onclick = null;
@@ -81,15 +82,19 @@ window.UI = (function () {
       requestAnimationFrame(() => s.classList.add('in'));
       haptic.impact('light');
     },
-    close() {
+    close({ gentle = false } = {}) {
       const s = $('sheet');
-      s.classList.remove('in');
-      setTimeout(() => {
-        s.hidden = true;
-        const f = $('sheet-frame');
-        f.removeAttribute('srcdoc');
-        f.src = 'about:blank';
-      }, 380);
+      if (gentle) s.classList.add('closing-slow');
+      else s.classList.remove('in');
+      const delay = gentle ? 1130 : 1060;
+      return new Promise((resolve) => setTimeout(() => {
+          s.hidden = true;
+          s.classList.remove('in', 'finishing', 'closing-slow');
+          const f = $('sheet-frame');
+          f.removeAttribute('srcdoc');
+          f.src = 'about:blank';
+          resolve();
+        }, delay));
     },
   };
 
@@ -101,7 +106,7 @@ window.UI = (function () {
   }
 
   /* ── Count-up: цифры «оживают» при появлении ── */
-  function countUp(el, target, ms = 1400) {
+  function countUp(el, target, ms = 670) {
     const t0 = performance.now();
     const fmt = (n) => n.toLocaleString('ru-RU');
     function frame(now) {
@@ -134,8 +139,8 @@ window.UI = (function () {
     for (let i = 0; i < n; i++) {
       const p = h('i', { class: 'petal' + (i % 3 === 0 ? ' petal--spark' : '') });
       p.style.setProperty('--x', Math.random() * 100 + '%');
-      p.style.setProperty('--d', (Math.random() * 5).toFixed(2) + 's');
-      p.style.setProperty('--t', (6 + Math.random() * 6).toFixed(2) + 's');
+      p.style.setProperty('--d', (Math.random() * 2.4).toFixed(2) + 's');
+      p.style.setProperty('--t', (2.88 + Math.random() * 2.88).toFixed(2) + 's');
       p.style.setProperty('--s', (0.5 + Math.random()).toFixed(2));
       p.style.setProperty('--r', Math.round(Math.random() * 360) + 'deg');
       root.appendChild(p);

@@ -6,7 +6,7 @@
 
 const { $, h, debounce, toast, sheet, haptic, tg } = UI;
 
-if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#100B18'); } catch (_) { /* старый клиент */ } }
+if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#0b0a08'); } catch (_) { /* старый клиент */ } }
 
 /* ════ Состояние ════ */
 
@@ -15,6 +15,7 @@ const state = {
   open: 0,              // последний раскрытый блок — он же активный шаг
   dateIso: null,
   time: '17:00',
+  timeConfirmed: false,
   lat: null,
   lng: null,
   templateId: null,
@@ -34,7 +35,7 @@ const saveDraft = debounce(() => {
     localStorage.setItem(DRAFT, JSON.stringify({
       v: 4,
       groom: $('groom').value, bride: $('bride').value,
-      dateIso: state.dateIso, time: state.time,
+      dateIso: state.dateIso, time: state.time, timeConfirmed: state.timeConfirmed,
       lat: state.lat, lng: state.lng, address: $('address').value,
       templateId: state.templateId,
       photos: state.photos.filter((p) => p.name).map((p) => p.name),
@@ -60,6 +61,7 @@ function restoreDraft() {
   $('phone2').value = d.phone2 || '';
   state.dateIso = d.dateIso || null;
   state.time = d.time || '17:00';
+  state.timeConfirmed = Boolean(d.timeConfirmed);
   state.lat = Number.isFinite(d.lat) ? d.lat : null;
   state.lng = Number.isFinite(d.lng) ? d.lng : null;
   state.templateId = d.templateId || null;
@@ -79,6 +81,7 @@ const I18N = {
     eNames: 'Kim uylanmoqda', tNames: 'Ismlaringiz',
     phGroom: 'Kuyov', phBride: 'Kelin', groom: 'Kuyov ismi', bride: 'Kelin ismi',
     eDate: 'Qachon', tDate: 'To‘y sanasi', timeLbl: 'Boshlanish vaqti',
+    timePrompt: 'Vaqtni tanlang — 17:00 mos bo‘lsa ham barabanga bir marta teging.',
     eVenue: 'Qayerda', tVenue: 'To‘yxona', address: 'Manzil nomi', find: 'Qidirish',
     seekLbl: 'Joyni qidirish', seekPlace: 'Masalan: Hilton Tashkent',
     mapHint: 'To‘yxona turgan joyni xaritada bosing', linkLbl: 'Musiqa havolasi',
@@ -95,14 +98,16 @@ const I18N = {
     ePhotos: 'Suratlar', tPhotos: 'Sizning suratlaringiz',
     eReady: 'Tayyor', tReady: 'Hammasi tayyor',
     leadReady: 'Taklifnomangiz yig‘ildi. Uni to‘liq ko‘rib chiqing.',
-    seeInvite: 'Taklifnomani ko‘rish',
-    readyHint: 'Oxirigacha suring — o‘zi yopiladi va keyingi bosqichga qaytaradi.',
+    seeInvite: 'Qayta ko‘rish',
+    readyHint: 'Namuna o‘zi ochiladi. Oxirigacha suring — u sokin yopilib, studiyaga qaytaradi.',
     eGuests: 'Qo‘shimcha', tGuests: 'Ismli taklifnomalar',
     guestsSwTitle: 'Har bir mehmonga alohida havola',
     guestsSwOff: 'O‘chirilgan', guestsSwOn: 'Yoqilgan',
     guestsHow1: 'Taklifnoma ochilganda mehmon <b>o‘z ismini</b> ko‘radi: «Hurmatli Aziz, sizni to‘yimizga taklif qilamiz».',
     guestsHow2: 'Har bir mehmon uchun alohida havola tayyorlanadi: <code>nvate.uz/ali-zebo/aziz</code> — uni to‘g‘ridan-to‘g‘ri yuborasiz.',
     guestsHow3: 'Narxi: har bir ism uchun <b>10 000 so‘m</b>. Nechta bo‘lsa ham qo‘shaverasiz — umumiy summa pastda ko‘rinadi.',
+    personalPreview: 'Shaxsiy taklif', personalGuest: 'Hurmatli Aziz aka',
+    personalCaption: 'Bitta dizayn — har bir mehmon uchun ismi yozilgan alohida taklifnoma.',
     guestAdd: 'Ism qo‘shish', guestsUnit: 'ta ism',
     wmTitle: 'Namuna himoyalangan',
     wmText: 'Ustidagi «nVate» to‘ri va nusxa olish cheklovi faqat namunada. To‘lovdan so‘ng to‘r olib tashlanadi va sizga toza havola beriladi.',
@@ -118,10 +123,9 @@ const I18N = {
     pay: 'To‘lash va havola olish', sending: 'Yuborilmoqda',
     months: ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun', 'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr'],
     dow: ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'],
-    demo: 'Demo', take: 'Tanlash', taken: 'Tanlandi',
+    demo: 'Ochib ko‘rish', live: 'Jonli namuna', popular: 'Mashhur', take: 'Tanlash', taken: 'Tanlandi',
     photoNeed: (n) => `Bu uslub uchun <b>${n} ta</b> surat kerak`,
     photoOf: (i, n) => `${i} / ${n}`,
-    photoExtra: 'Ixtiyoriy',
     sum: 'so‘m',
     eNames_: 'Ikkala ismni ham yozing', eDate_: 'Taqvimdan sanani tanlang',
     eVenue_: 'Xaritada joyni belgilang', eTpl_: 'Uslubni tanlang',
@@ -139,6 +143,7 @@ const I18N = {
     eNames: 'Кто женится', tNames: 'Ваши имена',
     phGroom: 'Жених', phBride: 'Невеста', groom: 'Имя жениха', bride: 'Имя невесты',
     eDate: 'Когда', tDate: 'Дата свадьбы', timeLbl: 'Время начала',
+    timePrompt: 'Выберите время — даже если вам подходит 17:00, коснитесь барабана.',
     eVenue: 'Где', tVenue: 'Место', address: 'Название места', find: 'Найти',
     seekLbl: 'Поиск места', seekPlace: 'Например: Hilton Tashkent',
     mapHint: 'Нажмите на карту там, где будет торжество', linkLbl: 'Ссылка на музыку',
@@ -155,14 +160,16 @@ const I18N = {
     ePhotos: 'Фото', tPhotos: 'Ваши фотографии',
     eReady: 'Готово', tReady: 'Всё готово',
     leadReady: 'Приглашение собрано. Посмотрите его целиком.',
-    seeInvite: 'Смотреть приглашение',
-    readyHint: 'Долистайте до конца — оно закроется само и вернёт вас к следующему шагу.',
+    seeInvite: 'Посмотреть ещё раз',
+    readyHint: 'Образец откроется сам. Долистайте до конца — он мягко закроется и вернёт вас в студию.',
     eGuests: 'Дополнительно', tGuests: 'Именные приглашения',
     guestsSwTitle: 'Персональная ссылка каждому гостю',
     guestsSwOff: 'Выключено', guestsSwOn: 'Включено',
     guestsHow1: 'Открывая приглашение, гость видит <b>своё имя</b>: «Дорогой Азиз, приглашаем вас на нашу свадьбу».',
     guestsHow2: 'Для каждого гостя готовится отдельная ссылка: <code>nvate.uz/ali-zebo/aziz</code> — её вы отправляете лично.',
     guestsHow3: 'Цена: <b>10 000 сум</b> за каждое имя. Добавляйте сколько нужно — сумма пересчитывается ниже.',
+    personalPreview: 'Личное приглашение', personalGuest: 'Дорогой Азиз',
+    personalCaption: 'Один дизайн превращается в отдельное именное приглашение для каждого гостя.',
     guestAdd: 'Добавить имя', guestsUnit: 'имён',
     wmTitle: 'Образец защищён',
     wmText: 'Сетка «nVate» поверх и запрет копирования — только в образце. После оплаты сетка снимается, и вы получаете чистую ссылку.',
@@ -178,10 +185,9 @@ const I18N = {
     pay: 'Оплатить и получить ссылку', sending: 'Отправляем',
     months: ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'],
     dow: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
-    demo: 'Демо', take: 'Выбрать', taken: 'Выбрано',
+    demo: 'Открыть', live: 'Живой пример', popular: 'Популярно', take: 'Выбрать', taken: 'Выбрано',
     photoNeed: (n) => `Для этого стиля нужно <b>${n} фото</b>`,
     photoOf: (i, n) => `${i} / ${n}`,
-    photoExtra: 'Необязательно',
     sum: 'сум',
     eNames_: 'Впишите оба имени', eDate_: 'Выберите дату в календаре',
     eVenue_: 'Отметьте место на карте', eTpl_: 'Выберите стиль',
@@ -197,7 +203,8 @@ const I18N = {
   },
 };
 
-let LANG = localStorage.getItem('nv_lang') || null;
+/* Every new studio visit starts with an explicit language choice. */
+let LANG = null;
 const t = (k, ...a) => {
   const v = I18N[LANG || 'uz'][k];
   return typeof v === 'function' ? v(...a) : v;
@@ -237,18 +244,35 @@ function setLang(lang) {
 
 const STEPS = [
   { id: 'names', auto: true, check: () => $('groom').value.trim() && $('bride').value.trim() },
-  { id: 'datetime', auto: true, check: () => Boolean(state.dateIso) },
+  { id: 'datetime', auto: true, check: () => Boolean(state.dateIso) && state.timeConfirmed },
   { id: 'location', auto: true, check: () => Number.isFinite(state.lat) && Number.isFinite(state.lng) },
   { id: 'music', auto: true, check: () => true },
   { id: 'template', auto: true, check: () => Boolean(state.templateId) },
   { id: 'photos', auto: true, check: () => filledPhotos() >= requiredPhotos() },
   { id: 'ready', auto: false, check: () => state.seenInvite },
-  { id: 'guests', auto: false, check: () => true },       // пустые поля просто не считаются
+  { id: 'guests', auto: true, check: () => true },        // опциональный блок — после показа открывает контакты
   { id: 'contact', auto: false, check: () => contactsFilled() >= 2 },
 ];
 
 const blk = (i) => document.querySelector(`.blk[data-step="${STEPS[i].id}"]`);
 const stepIdx = (id) => STEPS.findIndex((s) => s.id === id);
+
+/* Вся студия живёт на одной постоянной сцене «Шёлковая нить»: фон не меняется.
+   Между этапами движутся только камера и следующая цельная карточка. */
+let revealRun = 0;
+const FLOW = Object.freeze({
+  settle: 670,
+  beforeScroll: 430,
+  scroll: 1100,
+  afterScroll: 335,
+  reveal: 1250,
+});
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function setScene() {
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#0b0a08');
+  try { tg?.setHeaderColor('#0b0a08'); } catch (_) { /* outside Telegram */ }
+}
 
 function showErr(i, msg) {
   const el = blk(i)?.querySelector('.blk-err');
@@ -259,11 +283,53 @@ function showErr(i, msg) {
 }
 function clearErr(i) { const el = blk(i)?.querySelector('.blk-err'); if (el) el.hidden = true; }
 
+function easeInOut(k) {
+  return k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+}
+
+function softScrollTo(top, duration = FLOW.scroll) {
+  const from = window.scrollY;
+  const delta = top - from;
+  if (Math.abs(delta) < 8) return Promise.resolve();
+  return new Promise((resolve) => {
+    const startedAt = performance.now();
+    const frame = (now) => {
+      const k = Math.min(1, (now - startedAt) / duration);
+      window.scrollTo(0, from + delta * easeInOut(k));
+      if (k < 1) requestAnimationFrame(frame); else resolve();
+    };
+    requestAnimationFrame(frame);
+  });
+}
+
+function softScrollRailTo(card, duration = 1055) {
+  const rail = $('tpl-rail');
+  if (!rail || !card) return Promise.resolve();
+  const from = rail.scrollLeft;
+  const target = Math.max(0, Math.min(rail.scrollWidth - rail.clientWidth,
+    card.offsetLeft - (rail.clientWidth - card.offsetWidth) / 2));
+  const delta = target - from;
+  if (Math.abs(delta) < 3) {
+    rail.scrollLeft = target;
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    const startedAt = performance.now();
+    const frame = (now) => {
+      const k = Math.min(1, (now - startedAt) / duration);
+      rail.scrollLeft = from + delta * easeInOut(k);
+      if (k < 1) requestAnimationFrame(frame); else resolve();
+    };
+    requestAnimationFrame(frame);
+  });
+}
+
 function scrollToBlock(i) {
   const el = blk(i);
   if (!el) return;
   const y = el.getBoundingClientRect().top + window.scrollY - 72;
-  window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+  setScene(i);
+  softScrollTo(Math.max(0, y), 1055);
 }
 
 function renderBlocks(armIdx = -1) {
@@ -278,51 +344,60 @@ function renderBlocks(armIdx = -1) {
   renderBeads();
 }
 
-/* Раскрытие: блок медленно всплывает на своём месте. Страницу не двигаем —
-   пользователь сам решает, когда прокрутить. */
 function unlock(i) {
   if (i >= STEPS.length || i <= state.open) return;
+  const run = ++revealRun;
   state.open = i;
   renderBlocks(i);
-  onEnterStep(i);
+  prepareStep(i);
   saveDraft();
-  haptic.ok();
-  // Сначала мягко подводим блок в кадр, и только потом играем появление —
-  // иначе анимация проходила ниже экрана и пользователь её не видел.
-  setTimeout(() => nudgeTo(i), 90);
-  armReveal(i);
+  // Камера сначала медленно подводит верх нового блока в кадр. Только после
+  // остановки начинается reveal — последовательность читается как смена сцены.
+  (async () => {
+    await wait(FLOW.beforeScroll);
+    if (run !== revealRun) return;
+    await nudgeTo(i);
+    await wait(FLOW.afterScroll);
+    if (run !== revealRun) return;
+    setScene(i);
+    haptic.ok();
+    armReveal(i);
+    await wait(FLOW.reveal);
+    if (run === revealRun && state.open === i) activateStep(i);
+  })();
 }
 
-/* Мягкий доскролл: верх нового блока выходит в нижнюю треть экрана, не по центру. */
-function nudgeTo(i) {
+/* Автоскролл — только короткий намёк. Он показывает начало нового блока,
+   а дальше пользователь сам решает, насколько далеко листать страницу. */
+async function nudgeTo(i) {
   const el = blk(i);
   if (!el) return;
-  const target = window.scrollY + el.getBoundingClientRect().top - window.innerHeight * 0.62;
-  if (target > window.scrollY + 8) window.scrollTo({ top: target, behavior: 'smooth' });
+  const armedOffset = el.classList.contains('is-armed') ? 112 : 0;
+  const blockTop = window.scrollY + el.getBoundingClientRect().top - armedOffset;
+  const revealLine = window.scrollY + window.innerHeight * .7;
+  const fullDistance = Math.max(0, blockTop - revealLine);
+  if (fullDistance > 8) {
+    const maxNudge = window.innerWidth < 700 ? 180 : 220;
+    const travel = Math.min(maxNudge, Math.max(84, fullDistance * .42));
+    const duration = Math.min(FLOW.scroll, 420 + travel * 3.4);
+    await softScrollTo(window.scrollY + travel, duration);
+  }
 }
 
-/* Появление запускаем ровно в тот момент, когда блок оказался в кадре. */
 function armReveal(i) {
   const el = blk(i);
   if (!el) return;
-  const play = () => {
-    if (!el.classList.contains('is-armed')) return;
-    el.classList.remove('is-armed');
-    void el.offsetWidth;
-    el.classList.add('is-new');
-  };
-  if (!('IntersectionObserver' in window)) { setTimeout(play, 400); return; }
-  const io = new IntersectionObserver((entries) => {
-    if (entries.some((e) => e.isIntersecting)) { io.disconnect(); play(); }
-  }, { rootMargin: '0px 0px -12% 0px', threshold: 0 });
-  io.observe(el);
-  setTimeout(() => { io.disconnect(); play(); }, 2200);   // страховка
+  if (!el.classList.contains('is-armed')) return;
+  el.classList.remove('is-armed');
+  void el.offsetWidth;
+  el.classList.add('is-new');
 }
 
 let advTimer = null;
+let autoPreviewTimer = null;
 
 /* Автопереход: следим за активным блоком, кнопки «продолжить» нет. */
-function autoAdvance(delay = 650) {
+function autoAdvance(delay = FLOW.settle) {
   clearTimeout(advTimer);
   const i = state.open;
   const step = STEPS[i];
@@ -332,16 +407,41 @@ function autoAdvance(delay = 650) {
     if (i !== state.open || !step.check()) return;
     clearErr(i);
     unlock(i + 1);
-  }, delay);
+  }, Math.max(FLOW.settle, Number(delay) || 0));
 }
 
-function onEnterStep(i) {
+function prepareStep(i) {
   const id = STEPS[i].id;
   if (id === 'location') ensureMap();
   if (id === 'music') loadTracks();
   if (id === 'photos') renderPhotos();
   if (id === 'ready') { renderReady(); loadPreview(); }
+  if (id === 'guests') renderGuests();
   if (id === 'contact') updateBill();
+}
+
+function activateStep(i) {
+  const id = STEPS[i].id;
+  if (id === 'ready') {
+    clearTimeout(autoPreviewTimer);
+    if (!state.seenInvite) {
+      autoPreviewTimer = setTimeout(() => {
+        if (state.open === i && !state.seenInvite && $('sheet').hidden) openInvite({ auto: true });
+      }, 1250);
+    }
+  }
+  if (id === 'guests') {
+    // Блок опциональный: даём время увидеть motion-пример, затем спокойно
+    // раскрываем контакты ниже. Гости при этом остаются редактируемыми.
+    setTimeout(() => {
+      if (state.open === i) autoAdvance(0);
+    }, 2200);
+  }
+}
+
+function onEnterStep(i) {
+  prepareStep(i);
+  activateStep(i);
 }
 
 /* ════ Док: бусины на нити ════ */
@@ -377,7 +477,7 @@ function paintPlate() {
   if (g && b && !plate.dataset.lit) {
     plate.dataset.lit = '1';
     plate.classList.add('lit');
-    setTimeout(() => plate.classList.remove('lit'), 1600);
+    setTimeout(() => plate.classList.remove('lit'), 770);
   }
   if (!g || !b) delete plate.dataset.lit;
 }
@@ -428,12 +528,14 @@ function renderCalendar() {
     if (!past) {
       cell.addEventListener('click', () => {
         state.dateIso = key;
+        state.timeConfirmed = false;
+        $('time-prompt').hidden = false;
+        blk(stepIdx('datetime'))?.classList.add('needs-time');
         haptic.tap();
         renderCalendar();
         readDate();
         clearErr(1);
         saveDraft();
-        autoAdvance(900);
       });
     }
     grid.appendChild(cell);
@@ -456,41 +558,77 @@ function buildClock() {
   buildDrum($('hour-drum'), HOURS, 0, 'clock-h');
   buildDrum($('min-drum'), MINUTES, 1, 'clock-m');
   paintClock();
+  $('time-prompt').hidden = !state.dateIso || state.timeConfirmed;
+  blk(stepIdx('datetime'))?.classList.toggle('needs-time', Boolean(state.dateIso) && !state.timeConfirmed);
 }
 
 function buildDrum(track, values, part, readoutId) {
   track.innerHTML = '';
+  let userTouched = false;
+
+  const commit = (v) => {
+    if (!userTouched || !state.dateIso) return;
+    const parts = state.time.split(':');
+    const changed = parts[part] !== v;
+    parts[part] = v;
+    state.time = parts.join(':');
+    state.timeConfirmed = true;
+    $('time-prompt').hidden = true;
+    blk(stepIdx('datetime'))?.classList.remove('needs-time');
+    if (changed) bump(readoutId);
+    paintClock();
+    readDate();
+    clearErr(1);
+    saveDraft();
+    autoAdvance(720);
+  };
+
   for (const v of values) {
     const cell = h('div', { class: 'hdrum-num', dataset: { v } }, v);
-    cell.addEventListener('click', () => cell.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }));
+    cell.addEventListener('click', () => {
+      userTouched = true;
+      const left = cell.offsetLeft - (track.clientWidth - cell.offsetWidth) / 2;
+      track.scrollTo({ left, behavior: 'smooth' });
+      setTimeout(() => commit(v), 360);
+    });
     track.appendChild(cell);
   }
 
-  const width = () => track.firstChild?.offsetWidth || 68;
-  const indexNow = () => Math.max(0, Math.min(values.length - 1, Math.round(track.scrollLeft / width())));
+  const indexNow = () => {
+    const center = track.scrollLeft + track.clientWidth / 2;
+    let near = 0;
+    let distance = Infinity;
+    [...track.children].forEach((cell, i) => {
+      const next = Math.abs(cell.offsetLeft + cell.offsetWidth / 2 - center);
+      if (next < distance) { distance = next; near = i; }
+    });
+    return near;
+  };
+
+  const centerAt = (index) => {
+    const cell = track.children[index];
+    if (!cell) return;
+    track.scrollLeft = cell.offsetLeft - (track.clientWidth - cell.offsetWidth) / 2;
+  };
 
   const settle = debounce(() => {
     const v = values[indexNow()];
-    const parts = state.time.split(':');
-    if (parts[part] === v) return;
-    parts[part] = v;
-    state.time = parts.join(':');
+    if (!userTouched) return;
     haptic.tap();
-    bump(readoutId);
-    paintClock();
-    readDate();
-    saveDraft();
+    commit(v);
   }, 130);
 
+  track.addEventListener('pointerdown', () => { userTouched = true; }, { passive: true });
+  track.addEventListener('wheel', () => { userTouched = true; }, { passive: true });
   track.addEventListener('scroll', () => { paintDrum(track, indexNow()); settle(); }, { passive: true });
 
   // стартовая позиция без анимации, до первой отрисовки
   const start = Math.max(0, values.indexOf(state.time.split(':')[part]));
   requestAnimationFrame(() => {
-    track.scrollLeft = start * width();
+    centerAt(start);
     paintDrum(track, start);
   });
-  track.scrollLeft = start * width();
+  centerAt(start);
   paintDrum(track, start);
 }
 
@@ -545,7 +683,7 @@ function initMap() {
     haptic.tap();
     setPoint(lat, lng);
     reverseName(lat, lng);
-    autoAdvance(1500);
+    autoAdvance(720);
   });
   if (Number.isFinite(state.lat)) setPoint(state.lat, state.lng);
 }
@@ -557,14 +695,14 @@ function setPoint(lat, lng) {
   if (!ymap) return;
   if (mark) { mark.geometry.setCoordinates([lat, lng]); return; }
   mark = new ymaps.Placemark([lat, lng], {}, {
-    preset: 'islands#circleIcon', iconColor: '#A82F49', draggable: true,
+    preset: 'islands#circleIcon', iconColor: '#B9985A', draggable: true,
   });
   mark.events.add('dragend', () => {
     const [dlat, dlng] = mark.geometry.getCoordinates();
     state.lat = dlat; state.lng = dlng;
     saveDraft();
     reverseName(dlat, dlng);
-    autoAdvance(1500);
+    autoAdvance(720);
   });
   ymap.geoObjects.add(mark);
 }
@@ -586,7 +724,7 @@ const reverseName = debounce(async (lat, lng) => {
 
 function flyTo(lat, lng, zoom = 17) {
   setPoint(lat, lng);
-  if (ymap) ymap.setCenter([lat, lng], zoom, { duration: 500 });
+  if (ymap) ymap.setCenter([lat, lng], zoom, { duration: 240 });
 }
 
 let geoSeq = 0;
@@ -621,7 +759,6 @@ function showGeo(list) {
   list.forEach((r, i) => {
     const item = h('button', { type: 'button', class: 'geo-item' },
       h('b', {}, r.name || r.desc), r.desc ? h('span', {}, r.desc) : null);
-    item.style.animationDelay = `${i * 45}ms`;
     item.addEventListener('click', () => {
       haptic.tap();
       flyTo(r.lat, r.lng);
@@ -630,7 +767,7 @@ function showGeo(list) {
       markFilled($('address'));
       box.hidden = true;
       saveDraft();
-      autoAdvance(1100);
+      autoAdvance(530);
     });
     box.appendChild(item);
   });
@@ -680,7 +817,6 @@ function renderTracks(list) {
       h('div', { class: 'trk-info' }, h('b', {}, track.name), h('span', {}, track.artist || '')),
       track.uses ? h('span', { class: 'trk-hot' }, `×${track.uses}`) : null,
       pick);
-    row.style.animationDelay = `${Math.min(i, 8) * 40}ms`;
     play.addEventListener('click', () => togglePlay(track.url));
     pick.addEventListener('click', () => setMusic({
       type: 'itunes',
@@ -722,7 +858,7 @@ function setMusic(music) {
   $('music-pick').hidden = true;
   $('music-picked').hidden = false;
   saveDraft();
-  autoAdvance(900);
+  autoAdvance(430);
 }
 
 function reopenMusic() {
@@ -770,6 +906,10 @@ async function uploadMusicFile(file) {
 /* ════ 05 · Шаблоны ════ */
 
 const templates = () => state.config?.templates || [];
+const rankedTemplates = () => {
+  const pops = state.config?.populars || {};
+  return [...templates()].sort((a, b) => (Number(pops[b.id]) || 0) - (Number(pops[a.id]) || 0) || (a.order || 0) - (b.order || 0));
+};
 const selectedTpl = () => templates().find((x) => x.id === state.templateId) || null;
 const requiredPhotos = () => Math.max(1, selectedTpl()?.minPhotos ?? 1);
 const filledPhotos = () => state.photos.filter((p) => p.name).length;
@@ -779,19 +919,27 @@ function renderTemplates() {
   if (!rail) return;
   rail.innerHTML = '';
   const pops = state.config?.populars || {};
-  for (const tpl of templates()) {
-    const colors = tpl.colors?.length ? tpl.colors : ['#2A2038', '#E3BC7C', '#C0505C'];
+  const ordered = rankedTemplates();
+  const bestPopularity = Math.max(0, ...ordered.map((tpl) => Number(pops[tpl.id]) || 0));
+  for (const tpl of ordered) {
+    const colors = tpl.colors?.length ? tpl.colors : ['#191713', '#C8AA6A', '#65776E'];
     const bands = h('div', { class: 'tpl-bands' });
     bands.style.background =
       `linear-gradient(160deg, ${colors[0]} 0%, ${colors[1] || colors[0]} 52%, ${colors[2] || colors[1] || colors[0]} 100%)`;
 
+    const demoQuery = new URLSearchParams({ groom: $('groom').value.trim(), bride: $('bride').value.trim(), lang: LANG, card: '1' });
+    const live = h('iframe', {
+      class: 'tpl-live', src: `/demo/${tpl.id}?${demoQuery}`, title: `${tpl.name} ${t('live')}`,
+      loading: 'lazy', tabindex: '-1', 'aria-hidden': 'true',
+    });
+    const isPopular = bestPopularity > 0 && (Number(pops[tpl.id]) || 0) === bestPopularity;
     const card = h('div', { class: `tpl${tpl.id === state.templateId ? ' chosen' : ''}`, dataset: { id: tpl.id } },
       h('div', { class: 'tpl-art' },
         bands,
+        live,
         h('div', { class: 'tpl-veil' }),
-        h('div', { class: 'tpl-plate' },
-          h('i', {}, t('tplPlate')),
-          h('b', {}, `${$('groom').value.trim() || t('phGroom')} & ${$('bride').value.trim() || t('phBride')}`)),
+        h('span', { class: 'tpl-live-badge' }, t('live')),
+        isPopular ? h('span', { class: 'tpl-popular' }, t('popular')) : null,
         h('div', { class: 'tpl-meta' },
           h('h4', {}, tpl.name),
           h('p', {}, money(tpl.price)),
@@ -801,8 +949,10 @@ function renderTemplates() {
         h('button', { type: 'button', class: 'tpl-demo' }, t('demo')),
         h('button', { type: 'button', class: 'tpl-take' }, tpl.id === state.templateId ? t('taken') : t('take'))));
 
-    card.querySelector('.tpl-demo').addEventListener('click', () => openDemo(tpl));
-    card.querySelector('.tpl-take').addEventListener('click', () => takeTpl(tpl));
+    card.addEventListener('click', (event) => {
+      if (event.target.closest('.tpl-demo')) { openDemo(tpl); return; }
+      takeTpl(tpl);
+    });
     rail.appendChild(card);
   }
   renderDots();
@@ -811,7 +961,7 @@ function renderTemplates() {
 function renderDots() {
   const box = $('tpl-dots');
   box.innerHTML = '';
-  templates().forEach((tpl) => box.appendChild(h('i', { class: tpl.id === state.templateId ? 'on' : '' })));
+  rankedTemplates().forEach((tpl) => box.appendChild(h('i', { class: tpl.id === state.templateId ? 'on' : '' })));
 }
 
 function openDemo(tpl) {
@@ -823,16 +973,23 @@ function openDemo(tpl) {
 
 function takeTpl(tpl) {
   state.templateId = tpl.id;
+  const need = Math.max(1, tpl.minPhotos || 1);
+  if (state.photos.length > need) state.photos = state.photos.slice(0, need);
   haptic.ok();
   clearErr(4);
   state.previewHtml = '';
   state.seenInvite = false;
   saveDraft();
-  renderTemplates();
+  document.querySelectorAll('.tpl').forEach((card) => {
+    const chosen = card.dataset.id === tpl.id;
+    card.classList.toggle('chosen', chosen);
+    const button = card.querySelector('.tpl-take');
+    if (button) button.textContent = chosen ? t('taken') : t('take');
+  });
+  renderDots();
   renderPhotos();
-  document.querySelector(`.tpl[data-id="${tpl.id}"]`)
-    ?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
-  autoAdvance(900);
+  softScrollRailTo(document.querySelector(`.tpl[data-id="${tpl.id}"]`));
+  autoAdvance(720);
 }
 
 /* ════ 06 · Фото: ровно столько, сколько просит шаблон ════ */
@@ -841,12 +998,12 @@ function renderPhotos() {
   const grid = $('photo-grid');
   if (!grid) return;
   const need = requiredPhotos();
-  const max = state.config?.maxPhotos ?? 6;
   const tpl = selectedTpl();
   $('photo-lead').innerHTML = t('photoNeed', need) + (tpl ? ` · ${tpl.name}` : '');
 
   grid.innerHTML = '';
-  const slots = Math.max(need, Math.min(max, state.photos.length + (state.photos.length >= need ? 1 : 0)));
+  const slots = need;
+  grid.dataset.count = String(slots);
 
   for (let i = 0; i < slots; i++) {
     const p = state.photos[i];
@@ -855,7 +1012,6 @@ function renderPhotos() {
         p.url ? h('img', { src: p.url, alt: '' }) : null,
         p.uploading ? h('div', { class: 'ph-wait' }, h('i', {})) : null,
         h('button', { type: 'button', class: 'ph-del', 'aria-label': 'Remove' }, '✕'));
-      cell.style.animationDelay = `${i * 50}ms`;
       cell.querySelector('.ph-del').addEventListener('click', () => {
         state.photos.splice(i, 1);
         haptic.tap();
@@ -868,8 +1024,7 @@ function renderPhotos() {
       const required = i < need;
       const add = h('button', { type: 'button', class: `ph ph-add${required ? ' need' : ''}` },
         h('span', {}, '+'),
-        h('em', {}, required ? t('photoOf', i + 1, need) : t('photoExtra')));
-      add.style.animationDelay = `${i * 50}ms`;
+        h('em', {}, t('photoOf', i + 1, need)));
       add.addEventListener('click', () => $('photo-input').click());
       grid.appendChild(add);
     }
@@ -877,7 +1032,7 @@ function renderPhotos() {
 }
 
 async function uploadPhotos(files) {
-  const max = state.config?.maxPhotos ?? 6;
+  const max = requiredPhotos();
   for (const file of files) {
     if (state.photos.length >= max) break;
     if (file.size > 16 * 1024 * 1024) { toast(t('eBig'), 'err'); continue; }
@@ -902,7 +1057,7 @@ async function uploadPhotos(files) {
   state.previewHtml = '';
   const left = requiredPhotos() - filledPhotos();
   if (left > 0) showErr(5, t('ePhoto_', left));
-  else { clearErr(5); autoAdvance(800); }
+  else { clearErr(5); autoAdvance(385); }
 }
 
 /* ════ 07 · Всё готово → полное демо ════ */
@@ -941,22 +1096,30 @@ async function loadPreview() {
   }
 }
 
-async function openInvite() {
+let previewOpening = false;
+let closingInvite = false;
+
+async function openInvite({ auto = false } = {}) {
+  if (previewOpening || !$('sheet').hidden) return;
+  previewOpening = true;
   const btn = $('ready-open');
-  btn.classList.add('gold-btn--wait');
+  btn.classList.add('btn--wait');
   const ok = await loadPreview();
-  btn.classList.remove('gold-btn--wait');
+  btn.classList.remove('btn--wait');
+  previewOpening = false;
   if (!ok) return;
 
   $('sheet-title').textContent = t('tReady');
-  sheet.open({ srcdoc: state.previewHtml, actionLabel: t('lookDone'), onAction: finishInvite });
+  sheet.open({ srcdoc: state.previewHtml });
 
-  // Долистал до конца — приглашение закрывается само и возвращает к именным ссылкам.
+  // Полное приглашение само раскрывает конверт. Долистал до конца — сначала
+  // мягко гасим сцену, затем возвращаемся в Studio к следующему блоку.
   const frame = $('sheet-frame');
   frame.onload = () => {
     const w = frame.contentWindow;
     const d = frame.contentDocument;
     if (!w || !d) return;
+    setTimeout(() => d.getElementById('env')?.click(), auto ? 250 : 325);
     const onScroll = () => {
       const el = d.scrollingElement || d.documentElement;
       if (el.scrollTop + w.innerHeight >= el.scrollHeight - 60) {
@@ -968,21 +1131,17 @@ async function openInvite() {
   };
 }
 
-function finishInvite() {
-  if (state.seenInvite) return;
+async function finishInvite() {
+  if (closingInvite) return;
+  closingInvite = true;
+  const firstCompletion = !state.seenInvite;
   state.seenInvite = true;
-  sheet.close();
   saveDraft();
-  // Открываем сразу оба хвостовых блока: гости и контакты — дальше просто скролл.
-  setTimeout(() => {
-    const g = stepIdx('guests');
-    state.open = stepIdx('contact');
-    renderBlocks(g);
-    updateBill();
-    haptic.ok();
-    scrollToBlock(g);
-    armReveal(g);
-  }, 420);
+  $('sheet').classList.add('finishing');
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  await sheet.close({ gentle: true });
+  closingInvite = false;
+  if (firstCompletion && state.open === stepIdx('ready')) unlock(stepIdx('guests'));
 }
 
 /* ════ 08 · Гости ════ */
@@ -995,6 +1154,7 @@ const cleanGuests = () => (state.guestsOn ? state.guests.map((g) => g.trim()).fi
 function renderGuests(focusIdx = -1) {
   const sw = $('guests-toggle');
   sw.setAttribute('aria-checked', String(state.guestsOn));
+  $('personal-motion')?.classList.toggle('is-on', state.guestsOn);
   $('guests-sw-sub').textContent = state.guestsOn ? t('guestsSwOn') : t('guestsSwOff');
   $('guests-body').hidden = !state.guestsOn;
 
@@ -1007,7 +1167,8 @@ function renderGuests(focusIdx = -1) {
   state.guests.forEach((name, i) => {
     const blank = !name.trim();
     const input = h('input', {
-      type: 'text', maxlength: '50', value: name,
+      id: `guest-${i}`, type: 'text', maxlength: '50', value: name,
+      'aria-label': `${t('guestPh')} ${i + 1}`,
       placeholder: i === state.guests.length - 1 ? t('guestPh') : '—',
     });
     input.addEventListener('input', () => {
@@ -1019,9 +1180,13 @@ function renderGuests(focusIdx = -1) {
       saveDraft();
       // первое слово в последнем поле — открываем следующее, не теряя фокуса
       if (wasBlank && input.value.trim() && i === state.guests.length - 1 && state.guests.length < max) {
+        const caret = input.selectionStart ?? input.value.length;
         state.guests.push('');
         renderGuests();
-        list.children[i]?.querySelector('input')?.focus();
+        const resumed = list.children[i]?.querySelector('input');
+        resumed?.focus({ preventScroll: true });
+        resumed?.setSelectionRange(caret, caret);
+        return;
       }
       row.classList.toggle('gst--blank', !input.value.trim());
     });
@@ -1036,7 +1201,6 @@ function renderGuests(focusIdx = -1) {
     const row = h('div', { class: `gst${blank ? ' gst--blank' : ''}` },
       h('span', { class: 'gst-n' }, blank ? '·' : String(i + 1)),
       input);
-    row.style.animationDelay = `${Math.min(i, 8) * 35}ms`;
     list.appendChild(row);
   });
 
@@ -1099,7 +1263,7 @@ function collectForm() {
     lat: state.lat,
     lng: state.lng,
     address: $('address').value.trim(),
-    photos: state.photos.filter((p) => p.name).map((p) => p.name),
+    photos: state.photos.filter((p) => p.name).slice(0, requiredPhotos()).map((p) => p.name),
     musicType: state.music?.type ?? 'none',
     musicValue: state.music?.value ?? null,
     musicStart: null,
@@ -1118,7 +1282,7 @@ async function submit() {
   clearErr(8);
   state.sending = true;
   const btn = $('submit');
-  btn.classList.add('gold-btn--wait');
+  btn.classList.add('btn--wait');
   btn.disabled = true;
   try {
     const r = await fetch('/api/applications', {
@@ -1140,7 +1304,7 @@ async function submit() {
     toast(t('eNet'), 'err');
   } finally {
     state.sending = false;
-    btn.classList.remove('gold-btn--wait');
+    btn.classList.remove('btn--wait');
     btn.disabled = false;
   }
 }
@@ -1211,7 +1375,7 @@ function wire() {
       markFilled($(id));
       clearErr(0);
       saveDraft();
-      autoAdvance(1100);          // даём договорить имя, потом открываем календарь
+      autoAdvance(720);
     });
   }
 
@@ -1220,9 +1384,8 @@ function wire() {
 
   $('geo-q').addEventListener('input', seekPlaceSoon);
   $('geo-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); seekPlace(); } });
-  $('geo-go').addEventListener('click', seekPlace);
-  $('map-in').addEventListener('click', () => ymap?.setZoom(ymap.getZoom() + 1, { duration: 220 }));
-  $('map-out').addEventListener('click', () => ymap?.setZoom(ymap.getZoom() - 1, { duration: 220 }));
+  $('map-in').addEventListener('click', () => ymap?.setZoom(ymap.getZoom() + 1, { duration: 105 }));
+  $('map-out').addEventListener('click', () => ymap?.setZoom(ymap.getZoom() - 1, { duration: 105 }));
   $('address').addEventListener('input', () => {
     $('address').dataset.manual = '1';
     markFilled($('address'));
@@ -1254,7 +1417,7 @@ function wire() {
     $('music-picked').hidden = true;
     haptic.tap();
     saveDraft();
-    if (state.open === stepIdx('music')) unlock(state.open + 1);
+    if (state.open === stepIdx('music')) autoAdvance(720);
   });
 
   $('tpl-rail').addEventListener('scroll', debounce(() => {
@@ -1276,7 +1439,7 @@ function wire() {
     e.target.value = '';
   });
 
-  $('ready-open').addEventListener('click', openInvite);
+  $('ready-open').addEventListener('click', () => openInvite());
 
   $('guests-toggle').addEventListener('click', () => {
     state.guestsOn = !state.guestsOn;
@@ -1297,16 +1460,6 @@ function wire() {
   $('done-new').addEventListener('click', () => location.reload());
 
   // Свет сцены медленно едет вниз вместе со скроллом.
-  let raf = null;
-  window.addEventListener('scroll', () => {
-    if (raf) return;
-    raf = requestAnimationFrame(() => {
-      raf = null;
-      const k = Math.min(1, window.scrollY / Math.max(1, document.body.scrollHeight - innerHeight));
-      $('bloom').style.transform = `translate(-50%, ${-46 + k * 26}%)`;
-    });
-  }, { passive: true });
-
   if (tg) {
     tg.BackButton?.onClick(() => {
       if (!$('sheet').hidden) { sheet.close(); return; }
@@ -1330,7 +1483,7 @@ async function loadConfig() {
 function bootLang(lang) {
   setLang(lang);
   $('lang-screen').classList.add('out');
-  setTimeout(() => { $('lang-screen').style.display = 'none'; }, 620);
+  setTimeout(() => { $('lang-screen').style.display = 'none'; }, 910);
   $('app').hidden = false;
   start();
 }
@@ -1341,6 +1494,9 @@ async function start() {
   started = true;
   await loadConfig();
   restoreDraft();
+  state.open = 0;
+  if (state.templateId && state.photos.length > requiredPhotos()) state.photos = state.photos.slice(0, requiredPhotos());
+  setScene(state.open, true);
   applyI18n();
   paintPlate();
   for (const id of ['groom', 'bride', 'address', 'contact-tg', 'phone', 'phone2']) markFilled($(id));
@@ -1356,9 +1512,3 @@ async function start() {
 }
 
 wire();
-if (LANG) {
-  $('lang-screen').style.display = 'none';
-  $('app').hidden = false;
-  applyI18n();
-  start();
-}

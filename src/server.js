@@ -49,6 +49,7 @@ export function createServer({ onNewApplication }) {
       groom: req.query.groom,
       bride: req.query.bride,
       lang: req.query.lang,
+      card: req.query.card === '1',
     });
     if (!html) return next();
     res.send(html);

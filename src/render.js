@@ -170,7 +170,41 @@ export function renderDemo(templateId, opts = {}) {
     template_id: templateId,
     photos: JSON.stringify(['/demo/sample1.svg', '/demo/sample2.svg']),
   };
-  return withWatermark(renderInvitation(sample, null));
+  const html = renderInvitation(sample, null);
+  if (opts.card) {
+    const cardMode = `<style>
+html,body{width:100%;min-height:100%;overflow:hidden!important;scrollbar-width:none;scroll-behavior:auto!important;touch-action:none;user-select:none}
+body::-webkit-scrollbar{display:none}.envx,#mbtn{display:none!important}.paper{margin:0 auto!important;box-shadow:none!important}
+.fx{opacity:1!important;transform:none!important;filter:none!important;transition:none!important}
+iframe{pointer-events:none!important}
+</style><script>(function(){
+document.body.classList.remove('locked');
+document.querySelectorAll('.fx').forEach(function(x){x.classList.add('in')});
+document.querySelectorAll('audio').forEach(function(x){x.pause()});
+function startPan(){
+  var paper=document.querySelector('.paper')||document.body;
+  var distance=Math.max(0,Math.ceil(paper.getBoundingClientRect().height-window.innerHeight));
+  if(distance<8)return;
+  paper.style.willChange='transform';
+  paper.animate([
+    {offset:0,transform:'translate3d(0,0,0)'},
+    {offset:.08,transform:'translate3d(0,0,0)'},
+    {offset:.92,transform:'translate3d(0,-'+distance+'px,0)'},
+    {offset:1,transform:'translate3d(0,-'+distance+'px,0)'}
+  ],{
+    duration:Math.max(15500,distance*9),
+    delay:700,
+    iterations:Infinity,
+    direction:'alternate',
+    easing:'cubic-bezier(.45,0,.55,1)',
+    fill:'both'
+  });
+}
+setTimeout(startPan,60);
+})();</script>`;
+    return html.replace('</body>', `${cardMode}</body>`);
+  }
+  return withWatermark(html);
 }
 
 // Накладывает водяную сетку на любую страницу (демо и предпросмотр).
