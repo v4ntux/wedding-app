@@ -50,6 +50,10 @@ export function createServer({ onNewApplication }) {
       bride: req.query.bride,
       lang: req.query.lang,
       card: req.query.card === '1',
+      address: req.query.address,
+      map: req.query.map,
+      lat: req.query.lat,
+      lng: req.query.lng,
     });
     if (!html) return next();
     res.send(html);
@@ -83,6 +87,7 @@ export function createServer({ onNewApplication }) {
   // Nominatim. Все запросы уходят с сервера, поэтому CORS и ключи форму не касаются.
   // Первый непустой ответ и выигрывает — поиск работает и без единого ключа.
   const UZ_BOX = { minLat: 37.0, minLng: 55.9, maxLat: 45.7, maxLng: 73.2 };
+  const MANGIT = { lat: 42.116169, lng: 60.0625143 };
   const inUz = (p) => p.lat >= UZ_BOX.minLat && p.lat <= UZ_BOX.maxLat
     && p.lng >= UZ_BOX.minLng && p.lng <= UZ_BOX.maxLng;
 
@@ -119,7 +124,7 @@ export function createServer({ onNewApplication }) {
   }
 
   async function geoPhoton(q, lang) {
-    const url = 'https://photon.komoot.io/api/?limit=8&lat=41.31&lon=69.28'
+    const url = `https://photon.komoot.io/api/?limit=8&lat=${MANGIT.lat}&lon=${MANGIT.lng}`
       + `&lang=${lang === 'ru' ? 'ru' : 'en'}&q=${encodeURIComponent(q)}`;
     const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
     const j = await r.json();
@@ -156,19 +161,80 @@ export function createServer({ onNewApplication }) {
     });
   }
 
+  app.get('/api/geo/reverse', async (req, res) => {
+    const lat = Number(req.query.lat);
+    const lng = Number(req.query.lng);
+    const lang = req.query.lang === 'ru' ? 'ru' : 'uz';
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || !inUz({ lat, lng })) {
+      return res.status(400).json({ ok: false, error: 'invalid_coordinates' });
+    }
+    try {
+      const url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18'
+        + `&accept-language=${lang}&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`;
+      const response = await fetch(url, {
+        headers: { 'User-Agent': 'nvate-invites/1.0 (support@nvate.uz)' },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!response.ok) throw new Error(`reverse status ${response.status}`);
+      const place = await response.json();
+      const address = place.address ?? {};
+      const name = place.name || address.amenity || address.tourism || address.building
+        || address.road || String(place.display_name ?? '').split(',')[0];
+      return res.json({ ok: true, name, address: place.display_name || '' });
+    } catch (error) {
+      console.error('[server] reverse geo failed:', error.message);
+      return res.json({ ok: false, name: '', address: '' });
+    }
+  });
+
   app.get('/api/geo', async (req, res) => {
     const q = String(req.query.q ?? '').slice(0, 120).trim();
     if (q.length < 2) return res.json({ ok: true, results: [] });
     const lang = req.query.lang === 'ru' ? 'ru' : 'uz';
 
+    const alreadyLocal = /mang|mańǵ|amud|ámiwd|qaraqal|karakal/i.test(q);
+    const localQuery = alreadyLocal ? q : `${q}, Mangit, Amudaryo, Karakalpakstan`;
+    const localScore = (p) => {
+      const text = `${p.name ?? ''} ${p.desc ?? ''}`.toLowerCase();
+      const named = /mang|mańǵ|amud|ámiwd/.test(text) ? 1000 : /qaraqal|karakal/.test(text) ? 400 : 0;
+      const distance = Math.hypot((p.lat - MANGIT.lat) * 111, (p.lng - MANGIT.lng) * 82);
+      return named - distance;
+    };
+
     for (const [name, provider] of [['google', geoGoogle], ['photon', geoPhoton], ['nominatim', geoNominatim]]) {
       try {
-        const raw = await provider(q, lang);
-        const results = raw
+        const nearby = await provider(localQuery, lang);
+        const wider = localQuery === q ? [] : await provider(q, lang);
+        const seen = new Set();
+        const results = [...nearby, ...wider]
           .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng) && (p.name || p.desc))
           .filter(inUz)
+          .filter((p) => {
+            const key = `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+          .sort((a, b) => localScore(b) - localScore(a))
           .slice(0, 6);
-        if (results.length) return res.json({ ok: true, results, source: name });
+        if (results.length) {
+          const hasLocal = results.some((place) => {
+            const distance = Math.hypot((place.lat - MANGIT.lat) * 111, (place.lng - MANGIT.lng) * 82);
+            return distance < 28 || /mang|mańǵ|amud|ámiwd/i.test(`${place.name} ${place.desc}`);
+          });
+          if (!hasLocal) {
+            results.unshift({
+              lat: MANGIT.lat,
+              lng: MANGIT.lng,
+              name: q,
+              desc: lang === 'ru'
+                ? 'Мангит, Амударьинский район — уточните точку на карте'
+                : 'Mang‘it, Amudaryo tumani — nuqtani xaritada aniqlashtiring',
+              approximate: true,
+            });
+          }
+          return res.json({ ok: true, results: results.slice(0, 6), source: name });
+        }
       } catch (e) {
         console.error(`[server] geo ${name} failed:`, e.message);
       }

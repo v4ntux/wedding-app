@@ -33,6 +33,17 @@ window.UI = (function () {
 
   /* ── Хаптика Telegram: селекция, удар, итог ── */
   const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+  function icon(kind) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 20 20');
+    svg.setAttribute('aria-hidden', 'true');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', kind === 'err' ? 'M5 5l10 10M15 5L5 15'
+      : kind === 'ok' ? 'M4 10l4 4 8-9'
+        : 'M10 2c.5 4.8 2.9 7.3 8 8-5.1.7-7.5 3.2-8 8-.5-4.8-2.9-7.3-8-8 5.1-.7 7.5-3.2 8-8z');
+    svg.appendChild(path);
+    return svg;
+  }
   const haptic = {
     tap() { try { tg?.HapticFeedback?.selectionChanged(); } catch (_) { /* вне Telegram */ } },
     impact(style = 'light') { try { tg?.HapticFeedback?.impactOccurred(style); } catch (_) { /* — */ } },
@@ -46,7 +57,7 @@ window.UI = (function () {
     const root = $('toasts');
     if (!root) return;
     const el = h('div', { class: `toast toast--${kind}` },
-      h('span', { class: 'toast-ic' }, kind === 'err' ? '✕' : kind === 'ok' ? '✓' : '✦'),
+      h('span', { class: 'toast-ic' }, icon(kind)),
       h('span', {}, msg));
     root.appendChild(el);
     if (kind === 'err') haptic.err(); else if (kind === 'ok') haptic.ok();
@@ -86,7 +97,8 @@ window.UI = (function () {
       const s = $('sheet');
       if (gentle) s.classList.add('closing-slow');
       else s.classList.remove('in');
-      const delay = gentle ? 1130 : 1060;
+      const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      const delay = reduced ? 20 : gentle ? 1500 : 1400;
       return new Promise((resolve) => setTimeout(() => {
           s.hidden = true;
           s.classList.remove('in', 'finishing', 'closing-slow');

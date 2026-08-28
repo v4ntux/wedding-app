@@ -51,14 +51,14 @@ h1,h2{font-family:'Playfair Display',serif;font-weight:500}
 .cd-label{font-size:.7rem;letter-spacing:4px;text-transform:uppercase;color:var(--gold);margin-bottom:22px}
 .cd{display:flex;justify-content:center;align-items:baseline;gap:4px}
 .cd>div{min-width:64px;position:relative}
-.cd>div+div:before{content:'✦';position:absolute;left:-7px;top:32%;font-size:.4rem;color:var(--gold)}
+.cd>div+div:before{content:'';position:absolute;left:-4px;top:43%;width:4px;height:4px;border:1px solid var(--gold);border-radius:50%}
 .cd b{display:block;font-family:'Playfair Display',serif;font-weight:500;font-size:2.1rem;color:var(--gold-l)}
-.cd span{font-size:.58rem;letter-spacing:2px;text-transform:uppercase;color:var(--mist)}
+.cd span{font-size:.7rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--mist)}
 .s-final{padding:48px 32px 20px;text-align:center}
 .final-msg{font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--gold-l);margin-bottom:22px;line-height:1.7}
-.sign-label{font-size:.66rem;letter-spacing:3px;text-transform:uppercase;color:var(--mist);margin-bottom:8px}
+.sign-label{font-size:.72rem;letter-spacing:2px;text-transform:uppercase;color:var(--mist);margin-bottom:8px}
 .sign{font-family:'Playfair Display',serif;font-style:italic;font-size:1.4rem;color:var(--gold)}
-.s-made{padding:10px 0 28px;text-align:center;font-size:.58rem;letter-spacing:3px;text-transform:uppercase;color:#5E6C84}
+.s-made{padding:10px 0 28px;text-align:center;font-size:.68rem;letter-spacing:2px;text-transform:uppercase;color:#5E6C84}
 #mbtn{border:1px solid var(--gold);background:var(--navy-d);color:var(--gold)}
 #mbtn.on{background:var(--gold);color:var(--navy-d)}
 </style>
@@ -142,7 +142,7 @@ h1,h2{font-family:'Playfair Display',serif;font-weight:500}
     <div class="sign-label">{{L.sign}}</div>
     <div class="sign">{{groom}} {{L.and}} {{bride}}</div>
   </section>
-  <footer class="s-made">Made with ♥</footer>
+  <footer class="s-made">{{L.made}}</footer>
 </div></div></main>
 {{{audioWidget}}}
 {{{experienceScript}}}

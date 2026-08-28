@@ -27,6 +27,7 @@ db.exec(`
     address TEXT,
     lat REAL NOT NULL,
     lng REAL NOT NULL,
+    map_enabled INTEGER NOT NULL DEFAULT 1,
     music_type TEXT NOT NULL DEFAULT 'none',
     music_value TEXT,
     music_start REAL,
@@ -35,6 +36,8 @@ db.exec(`
     template_price INTEGER NOT NULL,
     premium INTEGER NOT NULL DEFAULT 0,
     premium_price INTEGER NOT NULL DEFAULT 0,
+    domain_enabled INTEGER NOT NULL DEFAULT 0,
+    domain_price INTEGER NOT NULL DEFAULT 0,
     guest_names TEXT,
     photos TEXT,
     total_price INTEGER NOT NULL,
@@ -69,6 +72,9 @@ for (const [col, ddl] of [
   ['confirmed_by_name', 'ALTER TABLE applications ADD COLUMN confirmed_by_name TEXT'],
   ['payment_proof', 'ALTER TABLE applications ADD COLUMN payment_proof TEXT'],
   ['main_sent', 'ALTER TABLE applications ADD COLUMN main_sent INTEGER NOT NULL DEFAULT 0'],
+  ['map_enabled', 'ALTER TABLE applications ADD COLUMN map_enabled INTEGER NOT NULL DEFAULT 1'],
+  ['domain_enabled', 'ALTER TABLE applications ADD COLUMN domain_enabled INTEGER NOT NULL DEFAULT 0'],
+  ['domain_price', 'ALTER TABLE applications ADD COLUMN domain_price INTEGER NOT NULL DEFAULT 0'],
 ]) {
   if (!appCols.includes(col)) db.exec(ddl);
 }
@@ -81,9 +87,9 @@ export function insertApplication(a) {
     .prepare(
       `INSERT INTO applications
         (tg_user_id, tg_username, phone, phone2, contact_tg, event_type, lang, groom_name, bride_name, wedding_date, wedding_time,
-         address, lat, lng, music_type, music_value, music_start, music_end,
-         template_id, template_price, premium, premium_price, guest_names, photos, total_price, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')`
+         address, lat, lng, map_enabled, music_type, music_value, music_start, music_end,
+         template_id, template_price, premium, premium_price, domain_enabled, domain_price, guest_names, photos, total_price, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')`
     )
     .run(
       a.tgUserId,
@@ -100,6 +106,7 @@ export function insertApplication(a) {
       a.address ?? null,
       a.lat,
       a.lng,
+      a.mapEnabled ? 1 : 0,
       a.musicType,
       a.musicValue ?? null,
       a.musicStart ?? null,
@@ -108,6 +115,8 @@ export function insertApplication(a) {
       a.templatePrice,
       a.premium ? 1 : 0,
       a.premiumPrice,
+      a.domainEnabled ? 1 : 0,
+      a.domainPrice ?? 0,
       a.guestNames ? JSON.stringify(a.guestNames) : null,
       a.photos ? JSON.stringify(a.photos) : null,
       a.totalPrice

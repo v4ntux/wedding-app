@@ -87,12 +87,18 @@ export function validateForm(form, { requirePhone = false } = {}) {
     throw new ValidationError(uz ? 'Vaqtni kiriting' : 'Укажите время', 'datetime');
   }
 
-  const lat = Number(form.lat);
-  const lng = Number(form.lng);
-  if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180) {
-    throw new ValidationError(uz ? 'Xaritada joyni belgilang' : 'Отметьте локацию на карте', 'location');
+  const mapEnabled = form.mapEnabled === true;
+  let lat = 42.116169;
+  let lng = 60.0625143;
+  if (mapEnabled) {
+    lat = Number(form.lat);
+    lng = Number(form.lng);
+    if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180) {
+      throw new ValidationError(uz ? 'Xaritada joyni belgilang' : 'Отметьте локацию на карте', 'location');
+    }
   }
   const address = cleanStr(form.address, 300) || null;
+  if (!address) throw new ValidationError(uz ? 'To‘yxona nomini kiriting' : 'Укажите название места', 'location');
 
   const template = findTemplate(form.templateId);
   if (!template) throw new ValidationError(uz ? 'Shablonni tanlang' : 'Выберите шаблон', 'template');
@@ -124,6 +130,8 @@ export function validateForm(form, { requirePhone = false } = {}) {
   const premium = guestNames.length > 0;
   const premiumPrice = guestNames.length * GUEST_LINK_PRICE;
   if (!premium) guestNames = null;
+  const domainEnabled = false;
+  const domainPrice = 0;
 
   // Контакты: три поля (Telegram username, телефон, запасной — username ИЛИ номер).
   // Для отправки заявки достаточно любых ДВУХ заполненных.
@@ -156,9 +164,9 @@ export function validateForm(form, { requirePhone = false } = {}) {
   }
 
   return {
-    lang, groomName, brideName, weddingDate, weddingTime, address, lat, lng,
+    lang, groomName, brideName, weddingDate, weddingTime, address, lat, lng, mapEnabled,
     photos, musicType, musicValue, musicStart, musicEnd,
-    template, premium, guestNames, premiumPrice,
+    template, premium, guestNames, premiumPrice, domainEnabled, domainPrice,
     totalPrice: template.price + premiumPrice,
     phone, phone2, contactTg,
   };
@@ -183,6 +191,7 @@ export function submitApplication(form, tgUser) {
     address: v.address,
     lat: v.lat,
     lng: v.lng,
+    mapEnabled: v.mapEnabled,
     musicType: v.musicType,
     musicValue: v.musicValue,
     musicStart: v.musicStart,
@@ -191,6 +200,8 @@ export function submitApplication(form, tgUser) {
     templatePrice: v.template.price,
     premium: v.premium,
     premiumPrice: v.premiumPrice,
+    domainEnabled: v.domainEnabled,
+    domainPrice: v.domainPrice,
     guestNames: v.guestNames,
     photos: v.photos,
     totalPrice: v.totalPrice,
@@ -211,6 +222,9 @@ export function buildPreviewApp(form) {
     address: v.address,
     lat: v.lat,
     lng: v.lng,
+    map_enabled: v.mapEnabled ? 1 : 0,
+    domain_enabled: v.domainEnabled ? 1 : 0,
+    domain_price: v.domainPrice,
     music_type: v.musicType,
     music_value: v.musicValue,
     music_start: v.musicStart,

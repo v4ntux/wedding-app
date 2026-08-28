@@ -42,15 +42,16 @@ export function buildAdminText(app, { baseUrl, guests = [] } = {}) {
     `👰 Невеста: <b>${esc(app.bride_name)}</b>`,
     `📅 ${esc(app.wedding_date)}  🕐 ${esc(app.wedding_time)}`,
     `📍 ${esc(app.address ?? 'адрес не указан')}`,
-    `<a href="${links.google}">Google Maps</a> | <a href="${links.yandex}">Yandex Maps</a>`,
     `🎵 ${esc(musicLine(app))}`,
     `📷 Фото: ${photoCount(app)} шт.`,
     `🎨 Шаблон: ${esc(template?.name ?? app.template_id)} — ${money(app.template_price)}`,
   ];
+  if (app.map_enabled !== 0) lines.splice(6, 0, `<a href="${links.google}">Google Maps</a> | <a href="${links.yandex}">Yandex Maps</a>`);
   if (app.premium) {
     const count = JSON.parse(app.guest_names ?? '[]').length;
     lines.push(`⭐ Именные приглашения: ${count} гостей (+${money(app.premium_price)})`);
   }
+  if (app.domain_enabled) lines.push(`🔗 Именной домен на 1 год (+${money(app.domain_price)})`);
   lines.push(`💰 Итого: <b>${money(app.total_price)}</b>`);
   lines.push(`👤 От: ${app.tg_username ? '@' + esc(app.tg_username) : ''} (id ${app.tg_user_id})`);
   if (app.contact_tg) lines.push(`📨 Telegram: @${esc(app.contact_tg)}`);

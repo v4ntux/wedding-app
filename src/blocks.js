@@ -76,15 +76,18 @@ env.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.pr
 })();</script>`;
 }
 
-// Музыка: скрытый <audio> + плавающая кнопка ♪. Старт — из experienceScript
+// Музыка: скрытый <audio> + плавающая кнопка с векторной иконкой. Старт — из experienceScript
 // через window.__music.start() с нарастанием громкости ~2.5s.
-export function audioWidget(music) {
+const MUSIC_ICON = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>';
+
+export function audioWidget(music, lang = 'uz') {
   if (!music) return '';
+  const musicLabel = lang === 'ru' ? 'Музыка' : 'Musiqa';
   const start = Number(music.start) || 0;
   const end = Number(music.end) || 0;
   if (music.youtubeId) {
     const src = `https://www.youtube.com/embed/${music.youtubeId}?autoplay=1&start=${start}${end > start ? '&end=' + end : ''}&loop=1&playlist=${music.youtubeId}`;
-    return `<button id="mbtn" aria-label="Music">♪</button><div id="ytbox" style="position:fixed;width:1px;height:1px;overflow:hidden;opacity:0;bottom:0;right:0"></div>
+    return `<button id="mbtn" aria-label="${musicLabel}">${MUSIC_ICON}</button><div id="ytbox" style="position:fixed;width:1px;height:1px;overflow:hidden;opacity:0;bottom:0;right:0"></div>
 <script>(function(){var on=false,b=document.getElementById('mbtn'),x=document.getElementById('ytbox');
 function play(){x.innerHTML='<iframe src="${src}" allow="autoplay" width="1" height="1"></iframe>';b.classList.add('on');on=true}
 function stop(){x.innerHTML='';b.classList.remove('on');on=false}
@@ -93,7 +96,7 @@ window.__music={start:function(){if(!on)play()}};
 })();</script>`;
   }
   if (!music.playable) return '';
-  return `<audio id="bgm" preload="auto" src="${escapeHtml(music.url)}"></audio><button id="mbtn" aria-label="Music">♪</button>
+  return `<audio id="bgm" preload="auto" src="${escapeHtml(music.url)}"></audio><button id="mbtn" aria-label="${musicLabel}">${MUSIC_ICON}</button>
 <script>(function(){var a=document.getElementById('bgm'),b=document.getElementById('mbtn'),s=${start},e=${end},tm=null;
 if(e>s){a.addEventListener('timeupdate',function(){if(a.currentTime>=e){a.currentTime=s;a.play()}})}else{a.loop=true}
 function fade(to,ms){if(tm)clearInterval(tm);var f0=a.volume,t0=Date.now();
@@ -106,15 +109,32 @@ if(a.paused){play(600)}else{a.pause();b.classList.remove('on')}});
 })();</script>`;
 }
 
-// Встроенная карта локации: виджет Яндекс.Карт (работает без API-ключа,
-// лучше всего покрывает Узбекистан). Тап по метке открывает полную карту.
-export function mapEmbed({ lat, lng, lang, address }) {
+// Локация в приглашении: живая карта, если её включили, или крупная
+// типографическая сцена с названием места без декоративной иллюстрации.
+export function mapEmbed({ lat, lng, lang, address, enabled = true }) {
+  if (!enabled) {
+    const kicker = lang === 'ru' ? 'МЕСТО ВСТРЕЧИ' : 'UCHRASHUV MANZILI';
+    return `<style>
+.venue-type{position:relative;display:grid;min-height:clamp(310px,62vh,520px);margin:28px auto;overflow:hidden;place-content:center;padding:54px 22px;color:var(--gold,#c7a75f);text-align:center;border-block:1px solid currentColor;background:radial-gradient(circle at 50% 46%,color-mix(in srgb,currentColor 16%,transparent),transparent 36%),linear-gradient(180deg,transparent,rgba(5,4,2,.24),transparent);isolation:isolate}
+.venue-type:before{content:'';position:absolute;left:50%;top:50%;width:min(72vw,390px);aspect-ratio:1;border:1px solid currentColor;border-radius:50%;opacity:.13;transform:translate(-50%,-50%);box-shadow:0 0 0 34px color-mix(in srgb,currentColor 5%,transparent),0 0 0 72px color-mix(in srgb,currentColor 3%,transparent);animation:venueAura 8s ease-in-out infinite alternate}
+.venue-type:after{content:'';position:absolute;inset:13px;border:1px solid currentColor;opacity:.16;clip-path:polygon(0 0,24% 0,24% 1px,76% 1px,76% 0,100% 0,100% 100%,76% 100%,76% calc(100% - 1px),24% calc(100% - 1px),24% 100%,0 100%)}
+.venue-type small{position:relative;z-index:2;margin-bottom:24px;font:500 clamp(.58rem,1.8vw,.75rem)/1.4 ui-monospace,monospace;letter-spacing:.34em;text-transform:uppercase;opacity:.72}
+.venue-type b{position:relative;z-index:2;display:block;max-width:900px;color:var(--paper,#fff9eb);font:500 clamp(3.2rem,13vw,7.7rem)/.9 Georgia,serif;letter-spacing:-.055em;overflow-wrap:anywhere;text-wrap:balance;text-shadow:0 0 34px color-mix(in srgb,currentColor 26%,transparent);animation:venueTitle 6.8s ease-in-out infinite alternate}
+.venue-type span{position:relative;z-index:2;display:block;width:min(170px,52vw);height:1px;margin:32px auto 0;background:linear-gradient(90deg,transparent,currentColor,transparent);opacity:.78}
+.venue-type span:after{content:'';position:absolute;left:0;top:-2px;width:5px;height:5px;border-radius:50%;background:currentColor;box-shadow:0 0 14px currentColor;animation:venueTrace 5.4s ease-in-out infinite}
+@keyframes venueAura{to{opacity:.25;transform:translate(-50%,-50%) scale(1.08) rotate(6deg)}}
+@keyframes venueTitle{to{transform:translateY(-5px);letter-spacing:-.035em;text-shadow:0 0 48px color-mix(in srgb,currentColor 38%,transparent)}}
+@keyframes venueTrace{50%{left:calc(100% - 5px)}100%{left:0}}
+@media(prefers-reduced-motion:reduce){.venue-type:before,.venue-type b,.venue-type span:after{animation:none}}
+</style><div class="venue-type"><small>${kicker}</small><b>${escapeHtml(address || '')}</b><span aria-hidden="true"></span></div>`;
+  }
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return '';
   const mapLang = lang === 'ru' ? 'ru_RU' : 'uz_UZ';
+  const mapTitle = lang === 'ru' ? 'Карта места' : 'Joy xaritasi';
   const pt = `${lng},${lat}`;
   const src = `https://yandex.ru/map-widget/v1/?ll=${pt}&z=16&pt=${pt},pm2rdm&lang=${mapLang}`;
   return `<div class="mapbox"><iframe src="${src}" loading="lazy" allowfullscreen
-referrerpolicy="no-referrer-when-downgrade" title="Map" aria-label="${escapeHtml(address || 'Map')}"></iframe></div>`;
+referrerpolicy="no-referrer-when-downgrade" title="${mapTitle}" aria-label="${escapeHtml(address || mapTitle)}"></iframe></div>`;
 }
 
 // Живой отсчёт до события: пишет в элементы #cd #ch #cm #cs.

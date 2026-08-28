@@ -6,7 +6,7 @@
 
 const { $, h, debounce, toast, sheet, haptic, tg } = UI;
 
-if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#0b0a08'); } catch (_) { /* старый клиент */ } }
+if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#100b03'); } catch (_) { /* старый клиент */ } }
 
 /* ════ Состояние ════ */
 
@@ -18,6 +18,7 @@ const state = {
   timeConfirmed: false,
   lat: null,
   lng: null,
+  mapOn: false,
   templateId: null,
   photos: [],           // { name, url, uploading }
   music: null,          // { type, value, name, artist, playUrl }
@@ -33,10 +34,10 @@ const DRAFT = 'nv_draft_v4';
 const saveDraft = debounce(() => {
   try {
     localStorage.setItem(DRAFT, JSON.stringify({
-      v: 4,
+      v: 5,
       groom: $('groom').value, bride: $('bride').value,
       dateIso: state.dateIso, time: state.time, timeConfirmed: state.timeConfirmed,
-      lat: state.lat, lng: state.lng, address: $('address').value,
+      lat: state.lat, lng: state.lng, mapOn: state.mapOn, address: $('address').value,
       templateId: state.templateId,
       photos: state.photos.filter((p) => p.name).map((p) => p.name),
       music: state.music, guestsOn: state.guestsOn, guests: state.guests,
@@ -51,7 +52,7 @@ function clearDraft() { try { localStorage.removeItem(DRAFT); } catch (_) { /* �
 function restoreDraft() {
   let d = null;
   try { d = JSON.parse(localStorage.getItem(DRAFT) || 'null'); } catch (_) { return false; }
-  if (!d || d.v !== 4) return false;
+  if (!d || ![4, 5].includes(d.v)) return false;
   if (!d.groom && !d.bride && !d.templateId) return false;
   $('groom').value = d.groom || '';
   $('bride').value = d.bride || '';
@@ -60,10 +61,11 @@ function restoreDraft() {
   $('phone').value = d.phone || '';
   $('phone2').value = d.phone2 || '';
   state.dateIso = d.dateIso || null;
-  state.time = d.time || '17:00';
+  state.time = /^(1[5-9]|2[0-2]):(00|15|30|45)$/.test(d.time) ? d.time : '17:00';
   state.timeConfirmed = Boolean(d.timeConfirmed);
   state.lat = Number.isFinite(d.lat) ? d.lat : null;
   state.lng = Number.isFinite(d.lng) ? d.lng : null;
+  state.mapOn = d.v >= 5 ? Boolean(d.mapOn) : false;
   state.templateId = d.templateId || null;
   state.photos = (d.photos || []).map((name) => ({ name, url: '/uploads/' + name, uploading: false }));
   state.music = d.music || null;
@@ -81,20 +83,24 @@ const I18N = {
     eNames: 'Kim uylanmoqda', tNames: 'Ismlaringiz',
     phGroom: 'Kuyov', phBride: 'Kelin', groom: 'Kuyov ismi', bride: 'Kelin ismi',
     eDate: 'Qachon', tDate: 'To‘y sanasi', timeLbl: 'Boshlanish vaqti',
-    timePrompt: 'Vaqtni tanlang — 17:00 mos bo‘lsa ham barabanga bir marta teging.',
-    eVenue: 'Qayerda', tVenue: 'To‘yxona', address: 'Manzil nomi', find: 'Qidirish',
-    seekLbl: 'Joyni qidirish', seekPlace: 'Masalan: Hilton Tashkent',
-    mapHint: 'To‘yxona turgan joyni xaritada bosing', linkLbl: 'Musiqa havolasi',
+    timePrompt: 'Vaqt barabanini suring — tanlangan vaqt shu yerda paydo bo‘ladi.',
+    eVenue: 'Qayerda', tVenue: 'To‘yxona', address: 'To‘yxona nomi',
+    seekLbl: 'Xaritada joyni qidirish', seekPlace: 'Masalan: Mang‘it to‘yxona',
+    mapHint: 'Nuqtani aniqlashtirish uchun xaritada bosing',
+    mapHintFallback: 'Joyni yuqoridan qidiring va natijani tanlang — Yandex xarita shu nuqtani ko‘rsatadi.',
+    linkLbl: 'Musiqa havolasi',
+    mapSwTitle: 'Jonli xarita qo‘shish', mapSwOff: 'Shart emas', mapSwOn: 'Xarita yoqilgan',
     change: 'O‘zgartirish',
     guestPh: 'Ism yozing…',
-    guestsTip: 'Maslahat: jonli murojaat qilgandek yozing — <b>Aziz aka</b>, <b>Malika opa</b>, <b>Dilnoza singlim</b>. Taklifnomada bu juda iliq chiqadi.',
     eMusic: 'Ovoz', tMusic: 'Musiqa', msTop: 'Mashhur', msMine: 'Mening musiqam',
     seekMusic: 'Qo‘shiq yoki ijrochi', musicSkip: 'Musiqasiz davom etish',
     add: 'Qo‘shish', uploadMusic: 'Fayl yuklash', lookDone: 'Ko‘rib chiqdim',
     linkHint: 'YouTube havolasi yoki to‘g‘ridan-to‘g‘ri mp3 havolasi.',
     linkPh: 'https://…',
     eTpl: 'Dizayn', tTpl: 'Taklifnoma uslubi',
-    leadTpl: 'Yon tomonga suring. «Demo» — ko‘rish, «Tanlash» — shu uslubda davom etamiz.',
+    leadTpl: 'Uslublarni surib ko‘ring. Kartani bosing — to‘liq namuna ochiladi.',
+    tplSwipe: 'Surib tanlang', tplPrevAria: 'Oldingi uslub', tplNextAria: 'Keyingi uslub',
+    tplPhotos: (n) => `${n} ta surat`,
     ePhotos: 'Suratlar', tPhotos: 'Sizning suratlaringiz',
     eReady: 'Tayyor', tReady: 'Hammasi tayyor',
     leadReady: 'Taklifnomangiz yig‘ildi. Uni to‘liq ko‘rib chiqing.',
@@ -103,11 +109,8 @@ const I18N = {
     eGuests: 'Qo‘shimcha', tGuests: 'Ismli taklifnomalar',
     guestsSwTitle: 'Har bir mehmonga alohida havola',
     guestsSwOff: 'O‘chirilgan', guestsSwOn: 'Yoqilgan',
-    guestsHow1: 'Taklifnoma ochilganda mehmon <b>o‘z ismini</b> ko‘radi: «Hurmatli Aziz, sizni to‘yimizga taklif qilamiz».',
-    guestsHow2: 'Har bir mehmon uchun alohida havola tayyorlanadi: <code>nvate.uz/ali-zebo/aziz</code> — uni to‘g‘ridan-to‘g‘ri yuborasiz.',
-    guestsHow3: 'Narxi: har bir ism uchun <b>10 000 so‘m</b>. Nechta bo‘lsa ham qo‘shaverasiz — umumiy summa pastda ko‘rinadi.',
     personalPreview: 'Shaxsiy taklif', personalGuest: 'Hurmatli Aziz aka',
-    personalCaption: 'Bitta dizayn — har bir mehmon uchun ismi yozilgan alohida taklifnoma.',
+    personalTagline: 'Har bir mehmon uchun — shaxsiy taklifnoma.',
     guestAdd: 'Ism qo‘shish', guestsUnit: 'ta ism',
     wmTitle: 'Namuna himoyalangan',
     wmText: 'Ustidagi «nVate» to‘ri va nusxa olish cheklovi faqat namunada. To‘lovdan so‘ng to‘r olib tashlanadi va sizga toza havola beriladi.',
@@ -117,6 +120,11 @@ const I18N = {
     tgLbl: 'Telegram username', phoneLbl: 'Telefon raqam', phone2Lbl: 'Qo‘shimcha aloqa',
     contactRule: 'Username yoki raqam — ikkitasi yetarli.',
     mineTitle: 'Mening taklifnomalarim',
+    mineAria: 'Mening taklifnomalarimni ochish', closeAria: 'Yopish', stepsAria: 'Studio bosqichlari',
+    prevMonthAria: 'Oldingi oy', nextMonthAria: 'Keyingi oy', hoursAria: 'Soatlar', minutesAria: 'Daqiqalar',
+    musicSearchAria: 'Musiqa qidirish', playAria: 'Eshitish', pauseAria: 'To‘xtatish',
+    zoomInAria: 'Xaritani yaqinlashtirish', zoomOutAria: 'Xaritani uzoqlashtirish',
+    photoUploadAria: 'Surat yuklash', photoRemoveAria: 'Suratni o‘chirish', previewAria: 'Taklifnoma namunasi',
     doneTitle: 'Qabul qilindi', doneNew: 'Yangi taklifnoma',
     doneText: 'To‘lov tasdiqlangach, botga toza havolangiz keladi. Odatda bu 10 daqiqagacha vaqt oladi.',
     beads: ['Ismlar', 'Sana', 'Joy', 'Musiqa', 'Dizayn', 'Suratlar', 'Tayyor', 'Mehmonlar', 'Aloqa'],
@@ -128,7 +136,7 @@ const I18N = {
     photoOf: (i, n) => `${i} / ${n}`,
     sum: 'so‘m',
     eNames_: 'Ikkala ismni ham yozing', eDate_: 'Taqvimdan sanani tanlang',
-    eVenue_: 'Xaritada joyni belgilang', eTpl_: 'Uslubni tanlang',
+    eVenue_: 'To‘yxona nomini yozing, xarita yoqilgan bo‘lsa nuqtani ham belgilang', eTpl_: 'Uslubni tanlang',
     ePhoto_: (n) => `Yana surat kerak: ${n} ta`,
     eGuest_: 'Bo‘sh ismlarni to‘ldiring yoki o‘chiring',
     eContact_: 'Kamida 2 ta aloqa maydonini to‘ldiring',
@@ -143,20 +151,24 @@ const I18N = {
     eNames: 'Кто женится', tNames: 'Ваши имена',
     phGroom: 'Жених', phBride: 'Невеста', groom: 'Имя жениха', bride: 'Имя невесты',
     eDate: 'Когда', tDate: 'Дата свадьбы', timeLbl: 'Время начала',
-    timePrompt: 'Выберите время — даже если вам подходит 17:00, коснитесь барабана.',
-    eVenue: 'Где', tVenue: 'Место', address: 'Название места', find: 'Найти',
-    seekLbl: 'Поиск места', seekPlace: 'Например: Hilton Tashkent',
-    mapHint: 'Нажмите на карту там, где будет торжество', linkLbl: 'Ссылка на музыку',
+    timePrompt: 'Прокрутите барабан — выбранное время появится здесь.',
+    eVenue: 'Где', tVenue: 'Место', address: 'Название тойхоны',
+    seekLbl: 'Поиск места на карте', seekPlace: 'Например: тойхона в Мангите',
+    mapHint: 'Нажмите на карту, чтобы уточнить точку',
+    mapHintFallback: 'Найдите место выше и выберите результат — Яндекс Карты покажут эту точку.',
+    linkLbl: 'Ссылка на музыку',
+    mapSwTitle: 'Добавить живую карту', mapSwOff: 'Необязательно', mapSwOn: 'Карта включена',
     change: 'Изменить',
     guestPh: 'Впишите имя…',
-    guestsTip: 'Совет: пишите так, как обратитесь вживую — <b>Азиз ака</b>, <b>Малика опа</b>, <b>Дилноза синглим</b>. В приглашении это читается очень тепло.',
     eMusic: 'Звук', tMusic: 'Музыка', msTop: 'Популярное', msMine: 'Моя музыка',
     seekMusic: 'Песня или исполнитель', musicSkip: 'Продолжить без музыки',
     add: 'Добавить', uploadMusic: 'Загрузить файл', lookDone: 'Посмотрел',
     linkHint: 'Ссылка на YouTube или прямая ссылка на mp3.',
     linkPh: 'https://…',
     eTpl: 'Дизайн', tTpl: 'Стиль приглашения',
-    leadTpl: 'Листайте вбок. «Демо» — посмотреть, «Выбрать» — продолжаем в этом стиле.',
+    leadTpl: 'Листайте стили. Нажмите на карточку, чтобы открыть полный пример.',
+    tplSwipe: 'Листайте для выбора', tplPrevAria: 'Предыдущий стиль', tplNextAria: 'Следующий стиль',
+    tplPhotos: (n) => `${n} фото`,
     ePhotos: 'Фото', tPhotos: 'Ваши фотографии',
     eReady: 'Готово', tReady: 'Всё готово',
     leadReady: 'Приглашение собрано. Посмотрите его целиком.',
@@ -165,11 +177,8 @@ const I18N = {
     eGuests: 'Дополнительно', tGuests: 'Именные приглашения',
     guestsSwTitle: 'Персональная ссылка каждому гостю',
     guestsSwOff: 'Выключено', guestsSwOn: 'Включено',
-    guestsHow1: 'Открывая приглашение, гость видит <b>своё имя</b>: «Дорогой Азиз, приглашаем вас на нашу свадьбу».',
-    guestsHow2: 'Для каждого гостя готовится отдельная ссылка: <code>nvate.uz/ali-zebo/aziz</code> — её вы отправляете лично.',
-    guestsHow3: 'Цена: <b>10 000 сум</b> за каждое имя. Добавляйте сколько нужно — сумма пересчитывается ниже.',
     personalPreview: 'Личное приглашение', personalGuest: 'Дорогой Азиз',
-    personalCaption: 'Один дизайн превращается в отдельное именное приглашение для каждого гостя.',
+    personalTagline: 'Каждому гостю — персональное приглашение.',
     guestAdd: 'Добавить имя', guestsUnit: 'имён',
     wmTitle: 'Образец защищён',
     wmText: 'Сетка «nVate» поверх и запрет копирования — только в образце. После оплаты сетка снимается, и вы получаете чистую ссылку.',
@@ -179,6 +188,11 @@ const I18N = {
     tgLbl: 'Telegram username', phoneLbl: 'Номер телефона', phone2Lbl: 'Запасной контакт',
     contactRule: 'Username или номер — достаточно двух.',
     mineTitle: 'Мои приглашения',
+    mineAria: 'Открыть мои приглашения', closeAria: 'Закрыть', stepsAria: 'Этапы студии',
+    prevMonthAria: 'Предыдущий месяц', nextMonthAria: 'Следующий месяц', hoursAria: 'Часы', minutesAria: 'Минуты',
+    musicSearchAria: 'Поиск музыки', playAria: 'Прослушать', pauseAria: 'Пауза',
+    zoomInAria: 'Приблизить карту', zoomOutAria: 'Отдалить карту',
+    photoUploadAria: 'Загрузить фотографию', photoRemoveAria: 'Удалить фотографию', previewAria: 'Предпросмотр приглашения',
     doneTitle: 'Заявка принята', doneNew: 'Новое приглашение',
     doneText: 'После подтверждения оплаты чистая ссылка придёт в бот. Обычно это занимает до 10 минут.',
     beads: ['Имена', 'Дата', 'Место', 'Музыка', 'Дизайн', 'Фото', 'Готово', 'Гости', 'Контакты'],
@@ -190,7 +204,7 @@ const I18N = {
     photoOf: (i, n) => `${i} / ${n}`,
     sum: 'сум',
     eNames_: 'Впишите оба имени', eDate_: 'Выберите дату в календаре',
-    eVenue_: 'Отметьте место на карте', eTpl_: 'Выберите стиль',
+    eVenue_: 'Укажите название места; если карта включена — отметьте точку', eTpl_: 'Выберите стиль',
     ePhoto_: (n) => `Добавьте ещё ${n} фото`,
     eGuest_: 'Заполните или удалите пустые имена',
     eContact_: 'Заполните минимум 2 поля контактов',
@@ -222,14 +236,31 @@ function applyI18n() {
   $('music-q').placeholder = t('seekMusic');
   $('music-link').placeholder = t('linkPh');
   $('submit-label').textContent = t('pay');
+  $('btn-mine').setAttribute('aria-label', t('mineAria'));
+  $('mine-close').setAttribute('aria-label', t('closeAria'));
+  $('sheet-close').setAttribute('aria-label', t('closeAria'));
+  $('dock').setAttribute('aria-label', t('stepsAria'));
+  $('cal-prev').setAttribute('aria-label', t('prevMonthAria'));
+  $('cal-next').setAttribute('aria-label', t('nextMonthAria'));
+  $('hour-drum').setAttribute('aria-label', t('hoursAria'));
+  $('min-drum').setAttribute('aria-label', t('minutesAria'));
+  $('music-q').setAttribute('aria-label', t('musicSearchAria'));
+  $('map-in').setAttribute('aria-label', t('zoomInAria'));
+  $('map-out').setAttribute('aria-label', t('zoomOutAria'));
+  $('photo-input').setAttribute('aria-label', t('photoUploadAria'));
+  $('sheet-frame').setAttribute('title', t('previewAria'));
+  $('tpl-prev').setAttribute('aria-label', t('tplPrevAria'));
+  $('tpl-next').setAttribute('aria-label', t('tplNextAria'));
   $('sw-uz').classList.toggle('on', LANG === 'uz');
   $('sw-ru').classList.toggle('on', LANG === 'ru');
+  document.querySelector('.langsw')?.classList.toggle('at-ru', LANG === 'ru');
   renderBeads();
   renderCalendar();
   buildClock();
   renderTemplates();
   renderPhotos();
   renderGuests();
+  renderMapChoice();
   renderReady();
 }
 
@@ -245,7 +276,8 @@ function setLang(lang) {
 const STEPS = [
   { id: 'names', auto: true, check: () => $('groom').value.trim() && $('bride').value.trim() },
   { id: 'datetime', auto: true, check: () => Boolean(state.dateIso) && state.timeConfirmed },
-  { id: 'location', auto: true, check: () => Number.isFinite(state.lat) && Number.isFinite(state.lng) },
+  { id: 'location', auto: true, check: () => Boolean($('address').value.trim())
+      && (!state.mapOn || (Number.isFinite(state.lat) && Number.isFinite(state.lng))) },
   { id: 'music', auto: true, check: () => true },
   { id: 'template', auto: true, check: () => Boolean(state.templateId) },
   { id: 'photos', auto: true, check: () => filledPhotos() >= requiredPhotos() },
@@ -257,21 +289,111 @@ const STEPS = [
 const blk = (i) => document.querySelector(`.blk[data-step="${STEPS[i].id}"]`);
 const stepIdx = (id) => STEPS.findIndex((s) => s.id === id);
 
-/* Вся студия живёт на одной постоянной сцене «Шёлковая нить»: фон не меняется.
-   Между этапами движутся только камера и следующая цельная карточка. */
+/* Fill → 2s wait → slow camera to the next block's top → whole card rises. */
 let revealRun = 0;
+let mainScrollRun = 0;
 const FLOW = Object.freeze({
-  settle: 670,
-  beforeScroll: 430,
-  scroll: 1100,
-  afterScroll: 335,
-  reveal: 1250,
+  settle: 2000,
+  beforeScroll: 160,
+  scrollMin: 2200,
+  scrollMax: 3800,
+  pauseAfterScroll: 400,
+  reveal: 1000,
+  rise: 120,
+  topGap: 12,
 });
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function setScene() {
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#0b0a08');
-  try { tg?.setHeaderColor('#0b0a08'); } catch (_) { /* outside Telegram */ }
+function easeOut(k) {
+  return 1 - (1 - k) * (1 - k) * (1 - k);
+}
+
+function playMotion(duration, draw) {
+  return new Promise((resolve) => {
+    const t0 = performance.now();
+    const tick = (now) => {
+      const k = Math.min(1, (now - t0) / duration);
+      draw(k);
+      if (k < 1) requestAnimationFrame(tick);
+      else resolve();
+    };
+    requestAnimationFrame(tick);
+  });
+}
+
+function armBlock(el) {
+  if (!el) return;
+  el.classList.add('is-wait');
+  el.classList.remove('is-live', 'is-rising');
+  el.style.opacity = '0';
+  el.style.transform = `translate3d(0, ${FLOW.rise}px, 0)`;
+  el.style.pointerEvents = 'none';
+  el.setAttribute('inert', '');
+  el.setAttribute('aria-hidden', 'true');
+}
+
+function restBlock(el) {
+  if (!el) return;
+  el.classList.remove('is-wait', 'is-rising');
+  el.style.opacity = '';
+  el.style.transform = '';
+  el.style.pointerEvents = '';
+  el.removeAttribute('inert');
+  el.removeAttribute('aria-hidden');
+}
+
+function headerOffset() {
+  const bar = document.getElementById('topbar');
+  if (!bar) return FLOW.topGap + 72;
+  return Math.ceil(bar.getBoundingClientRect().bottom) + FLOW.topGap;
+}
+
+function slotTop(el) {
+  const y = window.scrollY + el.getBoundingClientRect().top;
+  return el.classList.contains('is-wait') || el.classList.contains('is-rising')
+    ? y - FLOW.rise
+    : y;
+}
+
+const SCENES = [
+  { rgb: '214,168,74', theme: '#160f04', bg: 'radial-gradient(92% 70% at 18% 9%,rgba(255,225,142,.48),transparent 48%),radial-gradient(70% 62% at 92% 28%,rgba(173,82,16,.28),transparent 62%),linear-gradient(145deg,#2b1905 0%,#100b04 52%,#050403 100%)' },
+  { rgb: '221,172,117', theme: '#150c08', bg: 'radial-gradient(82% 70% at 76% 5%,rgba(255,221,184,.42),transparent 51%),radial-gradient(64% 62% at 4% 68%,rgba(133,55,52,.3),transparent 70%),linear-gradient(158deg,#2a1510 0%,#100907 61%,#040303 100%)' },
+  { rgb: '174,169,101', theme: '#101007', bg: 'radial-gradient(90% 68% at 24% 2%,rgba(225,223,151,.38),transparent 53%),radial-gradient(66% 68% at 98% 66%,rgba(57,84,55,.28),transparent 70%),linear-gradient(150deg,#1c2113 0%,#0a0d08 61%,#030403 100%)' },
+  { rgb: '193,126,112', theme: '#140a0b', bg: 'radial-gradient(82% 70% at 12% 14%,rgba(239,182,164,.34),transparent 55%),radial-gradient(62% 60% at 92% 66%,rgba(104,31,55,.3),transparent 68%),linear-gradient(145deg,#271014 0%,#0d0709 63%,#030203 100%)' },
+  { rgb: '230,184,83', theme: '#160e02', bg: 'radial-gradient(70% 86% at 78% 7%,rgba(255,218,117,.46),transparent 49%),radial-gradient(72% 60% at 8% 78%,rgba(139,70,14,.24),transparent 70%),linear-gradient(152deg,#2b1703 0%,#0d0903 58%,#030302 100%)' },
+  { rgb: '193,183,146', theme: '#100e0a', bg: 'radial-gradient(88% 65% at 42% 0%,rgba(244,232,196,.37),transparent 53%),radial-gradient(58% 66% at 96% 64%,rgba(91,84,69,.28),transparent 72%),linear-gradient(168deg,#211d14 0%,#0a0907 61%,#030302 100%)' },
+  { rgb: '246,204,111', theme: '#120b02', bg: 'radial-gradient(78% 68% at 56% 6%,rgba(255,222,130,.52),transparent 47%),radial-gradient(70% 54% at 4% 82%,rgba(148,72,12,.23),transparent 69%),linear-gradient(156deg,#291604 0%,#0b0703 58%,#020202 100%)' },
+  { rgb: '202,151,104', theme: '#120b08', bg: 'radial-gradient(82% 70% at 15% 9%,rgba(239,202,167,.38),transparent 51%),radial-gradient(62% 64% at 90% 72%,rgba(100,50,67,.27),transparent 70%),linear-gradient(142deg,#241511 0%,#0a0707 64%,#020202 100%)' },
+  { rgb: '168,178,113', theme: '#0d1007', bg: 'radial-gradient(84% 68% at 82% 5%,rgba(221,229,158,.4),transparent 51%),radial-gradient(64% 70% at 5% 65%,rgba(45,78,57,.27),transparent 71%),linear-gradient(160deg,#182014 0%,#080b07 62%,#020302 100%)' },
+];
+let sceneIndex = -1;
+
+function setScene(i = state.open, instant = false) {
+  const index = Math.max(0, Math.min(SCENES.length - 1, Number(i) || 0));
+  if (index === sceneIndex && !instant) return;
+  const scene = SCENES[index];
+  const root = document.documentElement;
+  const a = $('scene-a');
+  const b = $('scene-b');
+  const active = document.querySelector('.scene-wash.is-on') || a;
+  const next = instant ? active : (active === a ? b : a);
+  next.style.background = scene.bg;
+  next.classList.toggle('is-instant', instant);
+  next.classList.add('is-on');
+  if (next !== active) active.classList.remove('is-on');
+  const [red, green, blue] = scene.rgb.split(',').map(Number);
+  if (instant) root.classList.add('scene-instant');
+  root.style.setProperty('--scene-r', String(red));
+  root.style.setProperty('--scene-g', String(green));
+  root.style.setProperty('--scene-b', String(blue));
+  requestAnimationFrame(() => {
+    next.classList.remove('is-instant');
+    root.classList.remove('scene-instant');
+  });
+  sceneIndex = index;
+  document.body.dataset.scene = String(index);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', scene.theme);
+  try { tg?.setHeaderColor(scene.theme); } catch (_) { /* outside Telegram */ }
 }
 
 function showErr(i, msg) {
@@ -284,31 +406,42 @@ function showErr(i, msg) {
 function clearErr(i) { const el = blk(i)?.querySelector('.blk-err'); if (el) el.hidden = true; }
 
 function easeInOut(k) {
-  return k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+  // Sine has a lower peak speed than smootherstep and never snaps in the middle.
+  return .5 - Math.cos(Math.PI * k) / 2;
 }
 
-function softScrollTo(top, duration = FLOW.scroll) {
+function cancelMainScroll() {
+  mainScrollRun += 1;
+}
+
+function softScrollTo(top, duration = FLOW.scrollMax) {
+  const run = ++mainScrollRun;
   const from = window.scrollY;
   const delta = top - from;
-  if (Math.abs(delta) < 8) return Promise.resolve();
+  if (Math.abs(delta) < 8) return Promise.resolve(true);
   return new Promise((resolve) => {
     const startedAt = performance.now();
     const frame = (now) => {
+      if (run !== mainScrollRun) { resolve(false); return; }
       const k = Math.min(1, (now - startedAt) / duration);
       window.scrollTo(0, from + delta * easeInOut(k));
-      if (k < 1) requestAnimationFrame(frame); else resolve();
+      if (k < 1) requestAnimationFrame(frame); else resolve(true);
     };
     requestAnimationFrame(frame);
   });
 }
 
-function softScrollRailTo(card, duration = 1055) {
+function softScrollRailTo(card, duration = 760) {
   const rail = $('tpl-rail');
   if (!rail || !card) return Promise.resolve();
   const from = rail.scrollLeft;
   const target = Math.max(0, Math.min(rail.scrollWidth - rail.clientWidth,
     card.offsetLeft - (rail.clientWidth - card.offsetWidth) / 2));
   const delta = target - from;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    rail.scrollLeft = target;
+    return Promise.resolve();
+  }
   if (Math.abs(delta) < 3) {
     rail.scrollLeft = target;
     return Promise.resolve();
@@ -329,19 +462,63 @@ function scrollToBlock(i) {
   if (!el) return;
   const y = el.getBoundingClientRect().top + window.scrollY - 72;
   setScene(i);
-  softScrollTo(Math.max(0, y), 1055);
+  const distance = Math.abs(y - window.scrollY);
+  const duration = Math.min(FLOW.scrollMax, Math.max(FLOW.scrollMin, 900 + distance * .9));
+  softScrollTo(Math.max(0, y), duration);
 }
 
-function renderBlocks(armIdx = -1) {
+function renderBlocks(waitIdx = -1) {
   STEPS.forEach((s, i) => {
     const el = blk(i);
+    const waiting = i === waitIdx;
+    if (waiting) armBlock(el);
+    else {
+      el.classList.remove('is-wait', 'is-rising');
+      if (i !== waitIdx) {
+        el.style.opacity = '';
+        el.style.transform = '';
+        el.style.pointerEvents = '';
+      }
+    }
     el.hidden = i > state.open;
+    el.toggleAttribute('inert', i > state.open || waiting);
+    if (i > state.open || waiting) el.setAttribute('aria-hidden', 'true');
+    else el.removeAttribute('aria-hidden');
     el.classList.toggle('is-done', i < state.open);
-    el.classList.toggle('is-live', i === state.open);
-    if (i !== armIdx) el.classList.remove('is-armed', 'is-new');
-    else el.classList.add('is-armed');       // держим блок в «до»-состоянии
+    el.classList.toggle('is-live', i === state.open && !waiting);
   });
   renderBeads();
+}
+
+async function cameraTo(i) {
+  const el = blk(i);
+  if (!el) return;
+  const dest = Math.max(0, slotTop(el) - headerOffset());
+  const maxTop = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+  const y = Math.min(maxTop, dest);
+  const distance = Math.abs(y - window.scrollY);
+  if (distance <= 8) return;
+  const duration = Math.min(FLOW.scrollMax, Math.max(FLOW.scrollMin, 900 + distance * .9));
+  await softScrollTo(y, duration);
+}
+
+async function riseBlock(el) {
+  if (!el) return;
+  el.style.opacity = '0';
+  el.style.transform = `translate3d(0, ${FLOW.rise}px, 0)`;
+  el.style.pointerEvents = 'none';
+  el.style.willChange = 'opacity, transform';
+  el.classList.add('is-rising', 'is-live');
+  el.classList.remove('is-wait');
+  await playMotion(FLOW.reveal, (k) => {
+    const riseK = easeOut(k);
+    const fadeK = k < .14 ? 0 : easeOut((k - .14) / .86);
+    el.style.opacity = String(fadeK);
+    el.style.transform = `translate3d(0, ${(1 - riseK) * FLOW.rise}px, 0)`;
+  });
+  el.style.willChange = '';
+  restBlock(el);
+  el.classList.add('is-live');
 }
 
 function unlock(i) {
@@ -351,46 +528,21 @@ function unlock(i) {
   renderBlocks(i);
   prepareStep(i);
   saveDraft();
-  // Камера сначала медленно подводит верх нового блока в кадр. Только после
-  // остановки начинается reveal — последовательность читается как смена сцены.
   (async () => {
     await wait(FLOW.beforeScroll);
     if (run !== revealRun) return;
-    await nudgeTo(i);
-    await wait(FLOW.afterScroll);
+    await new Promise((resolve) => requestAnimationFrame(resolve));
     if (run !== revealRun) return;
     setScene(i);
+    await cameraTo(i);
+    if (run !== revealRun) return;
+    await wait(FLOW.pauseAfterScroll);
+    if (run !== revealRun) return;
     haptic.ok();
-    armReveal(i);
-    await wait(FLOW.reveal);
+    pulseLiveBead();
+    await riseBlock(blk(i));
     if (run === revealRun && state.open === i) activateStep(i);
   })();
-}
-
-/* Автоскролл — только короткий намёк. Он показывает начало нового блока,
-   а дальше пользователь сам решает, насколько далеко листать страницу. */
-async function nudgeTo(i) {
-  const el = blk(i);
-  if (!el) return;
-  const armedOffset = el.classList.contains('is-armed') ? 112 : 0;
-  const blockTop = window.scrollY + el.getBoundingClientRect().top - armedOffset;
-  const revealLine = window.scrollY + window.innerHeight * .7;
-  const fullDistance = Math.max(0, blockTop - revealLine);
-  if (fullDistance > 8) {
-    const maxNudge = window.innerWidth < 700 ? 180 : 220;
-    const travel = Math.min(maxNudge, Math.max(84, fullDistance * .42));
-    const duration = Math.min(FLOW.scroll, 420 + travel * 3.4);
-    await softScrollTo(window.scrollY + travel, duration);
-  }
-}
-
-function armReveal(i) {
-  const el = blk(i);
-  if (!el) return;
-  if (!el.classList.contains('is-armed')) return;
-  el.classList.remove('is-armed');
-  void el.offsetWidth;
-  el.classList.add('is-new');
 }
 
 let advTimer = null;
@@ -412,7 +564,7 @@ function autoAdvance(delay = FLOW.settle) {
 
 function prepareStep(i) {
   const id = STEPS[i].id;
-  if (id === 'location') ensureMap();
+  if (id === 'location') renderMapChoice();
   if (id === 'music') loadTracks();
   if (id === 'photos') renderPhotos();
   if (id === 'ready') { renderReady(); loadPreview(); }
@@ -431,11 +583,15 @@ function activateStep(i) {
     }
   }
   if (id === 'guests') {
-    // Блок опциональный: даём время увидеть motion-пример, затем спокойно
-    // раскрываем контакты ниже. Гости при этом остаются редактируемыми.
-    setTimeout(() => {
-      if (state.open === i) autoAdvance(0);
-    }, 2200);
+    requestAnimationFrame(() => {
+      const motion = $('personal-motion');
+      if (!motion || !motion.offsetWidth) return;
+      personalMotionVisible = true;
+      motion.classList.add('is-visible');
+      layoutPersonalMotion();
+      startPersonalMotion();
+    });
+    autoAdvance(11800);
   }
 }
 
@@ -460,8 +616,17 @@ function renderBeads() {
   const live = box.querySelector('.bead.live');
   if (live) {
     box.style.setProperty('--fill', `${live.offsetLeft + live.offsetWidth / 2 - 10}px`);
-    live.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+    const left = Math.max(0, live.offsetLeft - (box.clientWidth - live.offsetWidth) / 2);
+    box.scrollTo({ left, behavior: 'smooth' });
   }
+}
+
+function pulseLiveBead() {
+  const live = document.querySelector('.bead.live');
+  if (!live) return;
+  live.classList.remove('is-pulse');
+  void live.offsetWidth;
+  live.classList.add('is-pulse');
 }
 
 /* ════ 01 · Имена ════ */
@@ -469,10 +634,8 @@ function renderBeads() {
 function paintPlate() {
   const g = $('groom').value.trim();
   const b = $('bride').value.trim();
-  $('cp-groom').textContent = g || t('phGroom');
-  $('cp-bride').textContent = b || t('phBride');
-  $('cp-groom').classList.toggle('plate-name--empty', !g);
-  $('cp-bride').classList.toggle('plate-name--empty', !b);
+  bumpPlateName($('cp-groom'), g || t('phGroom'), !g);
+  bumpPlateName($('cp-bride'), b || t('phBride'), !b);
   const plate = document.querySelector('.plate');
   if (g && b && !plate.dataset.lit) {
     plate.dataset.lit = '1';
@@ -480,6 +643,17 @@ function paintPlate() {
     setTimeout(() => plate.classList.remove('lit'), 770);
   }
   if (!g || !b) delete plate.dataset.lit;
+}
+
+function bumpPlateName(el, text, empty) {
+  if (!el) return;
+  const same = el.textContent === text;
+  el.classList.toggle('plate-name--empty', empty);
+  if (same) return;
+  el.textContent = text;
+  el.classList.remove('is-bump');
+  void el.offsetWidth;
+  el.classList.add('is-bump');
 }
 
 function markFilled(input) {
@@ -533,6 +707,7 @@ function renderCalendar() {
         blk(stepIdx('datetime'))?.classList.add('needs-time');
         haptic.tap();
         renderCalendar();
+        paintClock();
         readDate();
         clearErr(1);
         saveDraft();
@@ -546,10 +721,10 @@ function renderCalendar() {
 function readDate() {
   if (!state.dateIso) { $('date-read').textContent = ''; return; }
   const [y, m, d] = state.dateIso.split('-').map(Number);
-  $('date-read').textContent = `${d} ${t('months')[m - 1]} ${y} · ${state.time}`;
+  $('date-read').textContent = `${d} ${t('months')[m - 1]} ${y}${state.timeConfirmed ? ` · ${state.time}` : ''}`;
 }
 
-const HOURS = Array.from({ length: 11 }, (_, i) => String(i + 13).padStart(2, '0'));
+const HOURS = Array.from({ length: 8 }, (_, i) => String(i + 15).padStart(2, '0'));
 const MINUTES = ['00', '15', '30', '45'];
 
 /* Барабан крутится по горизонтали: страница листается вертикально, поэтому
@@ -640,9 +815,13 @@ function paintDrum(track, idx) {
 }
 
 function paintClock() {
+  const clock = document.querySelector('.clock');
+  const visible = Boolean(state.dateIso) && state.timeConfirmed;
   const [hh, mm] = state.time.split(':');
-  $('clock-h').textContent = hh;
-  $('clock-m').textContent = mm;
+  $('clock-h').textContent = visible ? hh : '';
+  $('clock-m').textContent = visible ? mm : '';
+  clock?.classList.toggle('is-empty', !visible);
+  clock?.setAttribute('aria-label', visible ? state.time : t('timePrompt'));
 }
 
 function bump(id) {
@@ -654,26 +833,92 @@ function bump(id) {
 
 /* ════ 03 · Локация ════ */
 
-const UZ_CENTER = [41.311, 69.2797];
+const MANGIT_CENTER = [42.116169, 60.0625143];
 let ymap = null;
 let mark = null;
 let mapAsked = false;
+let mapFallback = null;
+
+function renderMapChoice() {
+  const toggle = $('map-toggle');
+  const tools = $('map-tools');
+  if (!toggle || !tools) return;
+  toggle.setAttribute('aria-checked', String(state.mapOn));
+  $('map-sw-sub').textContent = state.mapOn ? t('mapSwOn') : t('mapSwOff');
+  tools.hidden = !state.mapOn;
+  if (state.mapOn) {
+    if (mapFallback) document.querySelector('.map-hint').textContent = t('mapHintFallback');
+    ensureMap();
+    requestAnimationFrame(() => ymap?.container?.fitToViewport?.());
+  } else {
+    $('geo-list').hidden = true;
+  }
+}
+
+function toggleMap() {
+  state.mapOn = !state.mapOn;
+  haptic.tap();
+  renderMapChoice();
+  clearErr(stepIdx('location'));
+  saveDraft();
+  if (!state.mapOn) autoAdvance(760);
+}
 
 function ensureMap() {
+  if (ymap) {
+    requestAnimationFrame(() => ymap.container.fitToViewport());
+    return;
+  }
   if (mapAsked) return;
   mapAsked = true;
-  const key = state.config?.yandexMapsKey;
-  const s = document.createElement('script');
-  s.src = `https://api-maps.yandex.ru/2.1/?lang=${LANG === 'ru' ? 'ru_RU' : 'uz_UZ'}${key ? `&apikey=${encodeURIComponent(key)}` : ''}`;
-  s.onload = () => ymaps.ready(initMap);
-  s.onerror = () => toast(t('eNet'), 'err');
-  document.head.appendChild(s);
+  const key = state.config?.yandexMapsKey || '';
+  if (!key) {
+    renderYandexWidget();
+    return;
+  }
+  const script = document.createElement('script');
+  const lang = 'ru_RU';
+  script.src = `https://api-maps.yandex.ru/2.1/?lang=${lang}${key ? `&apikey=${encodeURIComponent(key)}` : ''}`;
+  script.async = true;
+  script.onload = () => {
+    if (!window.ymaps) { mapAsked = false; toast(t('eNet'), 'err'); return; }
+    window.ymaps.ready(initMap);
+  };
+  script.onerror = () => { mapAsked = false; toast(t('eNet'), 'err'); };
+  document.head.appendChild(script);
+}
+
+function renderYandexWidget(lat = state.lat, lng = state.lng, zoom = Number.isFinite(state.lat) ? 16 : 13) {
+  const point = Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : MANGIT_CENTER;
+  const map = $('map');
+  map.innerHTML = '';
+  const marker = Number.isFinite(lat) && Number.isFinite(lng) ? `&pt=${lng},${lat},pm2rdm` : '';
+  const frame = document.createElement('iframe');
+  frame.className = 'yandex-widget';
+  frame.title = t('seekLbl');
+  frame.loading = 'lazy';
+  frame.referrerPolicy = 'no-referrer-when-downgrade';
+  frame.src = `https://yandex.ru/map-widget/v1/?ll=${point[1]}%2C${point[0]}&z=${zoom}&l=map${marker}`;
+  map.appendChild(frame);
+  mapFallback = frame;
+  document.querySelector('.map-hint').textContent = t('mapHintFallback');
+  $('map-in').parentElement.hidden = true;
 }
 
 function initMap() {
-  const c = Number.isFinite(state.lat) ? [state.lat, state.lng] : UZ_CENTER;
-  ymap = new ymaps.Map('map', { center: c, zoom: Number.isFinite(state.lat) ? 16 : 11, controls: [] }, {
-    suppressMapOpenBlock: true, yandexMapDisablePoiInteractivity: true,
+  if (ymap || !window.ymaps) return;
+  mapFallback = null;
+  $('map').innerHTML = '';
+  document.querySelector('.map-hint').textContent = t('mapHint');
+  $('map-in').parentElement.hidden = false;
+  const c = Number.isFinite(state.lat) ? [state.lat, state.lng] : MANGIT_CENTER;
+  ymap = new ymaps.Map('map', {
+    center: c,
+    zoom: Number.isFinite(state.lat) ? 16 : 13,
+    controls: [],
+  }, {
+    suppressMapOpenBlock: true,
+    yandexMapDisablePoiInteractivity: true,
   });
   ymap.behaviors.disable('dblClickZoom');
 
@@ -686,17 +931,24 @@ function initMap() {
     autoAdvance(720);
   });
   if (Number.isFinite(state.lat)) setPoint(state.lat, state.lng);
+  requestAnimationFrame(() => ymap?.container?.fitToViewport?.());
 }
 
 function setPoint(lat, lng) {
   state.lat = lat; state.lng = lng;
   clearErr(2);
   saveDraft();
-  if (!ymap) return;
+  if (!ymap) {
+    if (mapFallback) renderYandexWidget(lat, lng, 16);
+    return;
+  }
   if (mark) { mark.geometry.setCoordinates([lat, lng]); return; }
   mark = new ymaps.Placemark([lat, lng], {}, {
-    preset: 'islands#circleIcon', iconColor: '#B9985A', draggable: true,
+    preset: 'islands#circleIcon',
+    iconColor: '#d7a83f',
+    draggable: true,
   });
+  ymap.geoObjects.add(mark);
   mark.events.add('dragend', () => {
     const [dlat, dlng] = mark.geometry.getCoordinates();
     state.lat = dlat; state.lng = dlng;
@@ -704,30 +956,36 @@ function setPoint(lat, lng) {
     reverseName(dlat, dlng);
     autoAdvance(720);
   });
-  ymap.geoObjects.add(mark);
 }
 
 const reverseName = debounce(async (lat, lng) => {
-  if ($('address').dataset.manual === '1' || !window.ymaps) return;
+  if ($('address').dataset.manual === '1') return;
   try {
-    const res = await ymaps.geocode([lat, lng], { results: 1 });
-    const o = res.geoObjects.get(0);
-    if (!o) return;
-    const name = o.properties.get('name') || o.getAddressLine();
+    const response = await fetch(`/api/geo/reverse?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}&lang=${LANG}`);
+    const result = await response.json();
+    const name = result.name || result.address;
     if (name && !$('address').value.trim()) {
       $('address').value = String(name).slice(0, 140);
       markFilled($('address'));
       saveDraft();
+      autoAdvance(760);
     }
   } catch (_) { /* геокодер может молчать — адрес необязателен */ }
 }, 700);
 
 function flyTo(lat, lng, zoom = 17) {
   setPoint(lat, lng);
-  if (ymap) ymap.setCenter([lat, lng], zoom, { duration: 240 });
+  if (ymap) ymap.setCenter([lat, lng], zoom, { duration: 1200, timingFunction: 'ease-in-out' });
 }
 
 let geoSeq = 0;
+
+function geoLocalScore(place) {
+  const text = `${place.name || ''} ${place.desc || ''}`.toLowerCase();
+  const named = /mang|mańǵ|amud|ámiwd/.test(text) ? 1000 : /qaraqal|karakal/.test(text) ? 350 : 0;
+  const distance = Math.hypot((place.lat - MANGIT_CENTER[0]) * 111, (place.lng - MANGIT_CENTER[1]) * 82);
+  return named - distance;
+}
 
 async function seekPlace() {
   const q = $('geo-q').value.trim();
@@ -735,10 +993,20 @@ async function seekPlace() {
   const seq = ++geoSeq;
   $('geo-spin').hidden = false;
   try {
-    const r = await fetch(`/api/geo?q=${encodeURIComponent(q)}&lang=${LANG}`);
-    const j = await r.json();
+    const response = await fetch(`/api/geo?q=${encodeURIComponent(q)}&lang=${LANG}`).then((r) => r.json());
     if (seq !== geoSeq) return;
-    showGeo(j.results || []);
+    const seen = new Set();
+    const merged = [...(response.results || [])]
+      .filter((place) => Number.isFinite(place.lat) && Number.isFinite(place.lng))
+      .filter((place) => {
+        const key = `${place.lat.toFixed(5)},${place.lng.toFixed(5)}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((a, b) => geoLocalScore(b) - geoLocalScore(a))
+      .slice(0, 8);
+    showGeo(merged);
   } catch (_) {
     if (seq === geoSeq) toast(t('eNet'), 'err');
   } finally {
@@ -779,8 +1047,34 @@ function showGeo(list) {
 
 const player = new Audio();
 let playingUrl = null;
+let activeTrackUrl = null;
 let tracksLoaded = false;
 let lastList = [];
+
+function svgIcon(kind) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('aria-hidden', 'true');
+  const paths = kind === 'pause'
+    ? ['M8 6v12', 'M16 6v12']
+    : kind === 'close'
+      ? ['M6 6l12 12', 'M18 6L6 18']
+      : kind === 'add'
+        ? ['M12 5v14', 'M5 12h14']
+    : kind === 'check'
+      ? ['M5 12l4 4 10-10']
+      : kind === 'eye'
+        ? ['M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6', 'M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0']
+      : kind === 'image'
+        ? ['M4 5h16v14H4z', 'M7 15l4-4 3 3 2-2 3 3', 'M8 9h.01']
+        : ['M8 5l11 7-11 7z'];
+  paths.forEach((d) => {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+    svg.appendChild(path);
+  });
+  return svg;
+}
 
 async function loadTracks(q) {
   if (!q && tracksLoaded) return;
@@ -809,15 +1103,20 @@ function renderTracks(list) {
   if (!list.length) { box.appendChild(h('p', { class: 'empty' }, '—')); return; }
   list.forEach((track, i) => {
     const chosen = state.music?.playUrl === track.url;
-    const play = h('button', { type: 'button', class: `trk-play${playingUrl === track.url ? ' playing' : ''}`, 'aria-label': 'Play' },
-      playingUrl === track.url ? '❚❚' : '▶');
-    const pick = h('button', { type: 'button', class: 'trk-pick' }, chosen ? t('taken') : t('take'));
-    const row = h('div', { class: `trk${chosen ? ' chosen' : ''}`, dataset: { url: track.url } },
+    const previewing = activeTrackUrl === track.url;
+    const play = h('button', { type: 'button', class: `trk-play${playingUrl === track.url ? ' playing' : ''}`, 'aria-label': playingUrl === track.url ? t('pauseAria') : t('playAria') },
+      svgIcon(playingUrl === track.url ? 'pause' : 'play'));
+    const pick = h('button', { type: 'button', class: 'trk-pick', hidden: !previewing }, chosen ? t('taken') : t('take'));
+    const row = h('div', { class: `trk${chosen ? ' chosen' : ''}${previewing ? ' previewing' : ''}`, dataset: { url: track.url } },
       play,
       h('div', { class: 'trk-info' }, h('b', {}, track.name), h('span', {}, track.artist || '')),
       track.uses ? h('span', { class: 'trk-hot' }, `×${track.uses}`) : null,
       pick);
-    play.addEventListener('click', () => togglePlay(track.url));
+    play.addEventListener('click', (event) => { event.stopPropagation(); togglePlay(track); });
+    row.addEventListener('click', (event) => {
+      if (event.target.closest('.trk-pick')) return;
+      togglePlay(track);
+    });
     pick.addEventListener('click', () => setMusic({
       type: 'itunes',
       value: { name: track.name, artist: track.artist || '', url: track.url },
@@ -827,8 +1126,11 @@ function renderTracks(list) {
   });
 }
 
-function togglePlay(url) {
+function togglePlay(track) {
+  const url = track.url;
   haptic.tap();
+  activeTrackUrl = url;
+  refreshPlayUI();
   if (playingUrl === url) { player.pause(); playingUrl = null; refreshPlayUI(); return; }
   player.src = url;
   player.currentTime = 0;
@@ -841,8 +1143,13 @@ function refreshPlayUI() {
     const b = row.querySelector('.trk-play');
     if (!b) continue;
     const now = row.dataset.url === playingUrl;
+    const previewing = row.dataset.url === activeTrackUrl;
     b.classList.toggle('playing', now);
-    b.textContent = now ? '❚❚' : '▶';
+    b.setAttribute('aria-label', now ? t('pauseAria') : t('playAria'));
+    row.classList.toggle('previewing', previewing);
+    b.replaceChildren(svgIcon(now ? 'pause' : 'play'));
+    const pick = row.querySelector('.trk-pick');
+    if (pick) pick.hidden = !previewing;
   }
 }
 
@@ -853,6 +1160,7 @@ function setMusic(music) {
   haptic.ok();
   player.pause();
   playingUrl = null;
+  activeTrackUrl = null;
   $('picked-name').textContent = music.name;
   $('picked-artist').textContent = music.artist || '';
   $('music-pick').hidden = true;
@@ -913,10 +1221,74 @@ const rankedTemplates = () => {
 const selectedTpl = () => templates().find((x) => x.id === state.templateId) || null;
 const requiredPhotos = () => Math.max(1, selectedTpl()?.minPhotos ?? 1);
 const filledPhotos = () => state.photos.filter((p) => p.name).length;
+let templateMotionObserver = null;
+let templateFocusIndex = 0;
+
+function paintTemplateTakeButton(button, chosen) {
+  if (!button) return;
+  button.classList.toggle('is-selected', chosen);
+  button.setAttribute('aria-pressed', String(chosen));
+  button.replaceChildren(
+    svgIcon(chosen ? 'check' : 'add'),
+    h('span', {}, chosen ? t('taken') : t('take')),
+  );
+}
+
+function updateTemplateNavigation(index = templateFocusIndex) {
+  const rail = $('tpl-rail');
+  const cards = rail ? [...rail.children] : [];
+  const total = cards.length;
+  templateFocusIndex = total ? Math.max(0, Math.min(total - 1, index)) : 0;
+  $('tpl-current').textContent = String(total ? templateFocusIndex + 1 : 0).padStart(2, '0');
+  $('tpl-total').textContent = String(total).padStart(2, '0');
+  $('tpl-prev').disabled = !total || templateFocusIndex === 0;
+  $('tpl-next').disabled = !total || templateFocusIndex === total - 1;
+  cards.forEach((card, cardIndex) => card.classList.toggle('is-focus', cardIndex === templateFocusIndex));
+  [...$('tpl-dots').children].forEach((dot, dotIndex) => {
+    dot.classList.toggle('on', dotIndex === templateFocusIndex);
+    dot.classList.toggle('is-selected', cards[dotIndex]?.classList.contains('chosen'));
+    if (dotIndex === templateFocusIndex) dot.setAttribute('aria-current', 'true');
+    else dot.removeAttribute('aria-current');
+  });
+}
+
+function focusTemplate(index, feedback = false) {
+  const cards = [...$('tpl-rail').children];
+  if (!cards.length) return;
+  const targetIndex = Math.max(0, Math.min(cards.length - 1, index));
+  if (feedback) haptic.tap();
+  updateTemplateNavigation(targetIndex);
+  softScrollRailTo(cards[targetIndex]);
+}
+
+function observeTemplateMotion(card) {
+  const live = card.querySelector('.tpl-live');
+  if (!live) return;
+  if (!('IntersectionObserver' in window)) {
+    live.dataset.seenAt = String(Date.now());
+    live.src = live.dataset.src;
+    return;
+  }
+  templateMotionObserver.observe(card);
+}
 
 function renderTemplates() {
   const rail = $('tpl-rail');
   if (!rail) return;
+  templateMotionObserver?.disconnect();
+  templateMotionObserver = 'IntersectionObserver' in window
+    ? new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        const frame = entry.target.querySelector('.tpl-live');
+        if (frame && !frame.getAttribute('src')) {
+          frame.dataset.seenAt = String(Date.now());
+          frame.src = frame.dataset.src;
+        }
+        templateMotionObserver?.unobserve(entry.target);
+      });
+    }, { threshold: .08, rootMargin: '0px 0px -2% 0px' })
+    : null;
   rail.innerHTML = '';
   const pops = state.config?.populars || {};
   const ordered = rankedTemplates();
@@ -927,48 +1299,102 @@ function renderTemplates() {
     bands.style.background =
       `linear-gradient(160deg, ${colors[0]} 0%, ${colors[1] || colors[0]} 52%, ${colors[2] || colors[1] || colors[0]} 100%)`;
 
-    const demoQuery = new URLSearchParams({ groom: $('groom').value.trim(), bride: $('bride').value.trim(), lang: LANG, card: '1' });
+    const demoQuery = new URLSearchParams({
+      groom: $('groom').value.trim(), bride: $('bride').value.trim(), lang: LANG, card: '1',
+      address: $('address').value.trim(), map: state.mapOn ? '1' : '0',
+      lat: Number.isFinite(state.lat) ? String(state.lat) : '',
+      lng: Number.isFinite(state.lng) ? String(state.lng) : '',
+    });
     const live = h('iframe', {
-      class: 'tpl-live', src: `/demo/${tpl.id}?${demoQuery}`, title: `${tpl.name} ${t('live')}`,
+      class: 'tpl-live', dataset: { src: `/demo/${tpl.id}?${demoQuery}` }, title: `${tpl.name} ${t('live')}`,
       loading: 'lazy', tabindex: '-1', 'aria-hidden': 'true',
     });
+    const palette = h('span', { class: 'tpl-palette', 'aria-hidden': 'true' },
+      colors.slice(0, 4).map((color) => {
+        const dot = h('i');
+        dot.style.background = color;
+        return dot;
+      }));
     const isPopular = bestPopularity > 0 && (Number(pops[tpl.id]) || 0) === bestPopularity;
-    const card = h('div', { class: `tpl${tpl.id === state.templateId ? ' chosen' : ''}`, dataset: { id: tpl.id } },
+    const takeButton = h('button', {
+      type: 'button',
+      class: `tpl-take${tpl.id === state.templateId ? ' is-selected' : ''}`,
+      'aria-pressed': String(tpl.id === state.templateId),
+    }, svgIcon(tpl.id === state.templateId ? 'check' : 'add'),
+    h('span', {}, tpl.id === state.templateId ? t('taken') : t('take')));
+    const card = h('article', {
+      class: `tpl${tpl.id === state.templateId ? ' chosen' : ''}`,
+      dataset: { id: tpl.id },
+      'aria-label': tpl.name,
+    },
       h('div', { class: 'tpl-art' },
         bands,
         live,
         h('div', { class: 'tpl-veil' }),
         h('span', { class: 'tpl-live-badge' }, t('live')),
         isPopular ? h('span', { class: 'tpl-popular' }, t('popular')) : null,
+        h('span', { class: 'tpl-selected-mark' }, svgIcon('check')),
+        h('button', { type: 'button', class: 'tpl-art-open', 'aria-label': `${t('demo')}: ${tpl.name}` },
+          h('span', { class: 'tpl-art-open-cue' }, svgIcon('eye'), h('span', {}, t('demo'))))),
+      h('div', { class: 'tpl-info' },
         h('div', { class: 'tpl-meta' },
-          h('h4', {}, tpl.name),
-          h('p', {}, money(tpl.price)),
-          h('span', { class: 'tpl-need' },
-            `${tpl.minPhotos} 📷${pops[tpl.id] ? ` · ×${pops[tpl.id]}` : ''}`))),
-      h('div', { class: 'tpl-acts' },
-        h('button', { type: 'button', class: 'tpl-demo' }, t('demo')),
-        h('button', { type: 'button', class: 'tpl-take' }, tpl.id === state.templateId ? t('taken') : t('take'))));
+          h('h3', {}, tpl.name),
+          h('p', { class: 'tpl-price' }, money(tpl.price))),
+        h('div', { class: 'tpl-facts' },
+          h('span', { class: 'tpl-need' }, svgIcon('image'), t('tplPhotos', tpl.minPhotos)),
+          palette,
+          pops[tpl.id] ? h('span', { class: 'tpl-views' }, `×${pops[tpl.id]}`) : null)),
+      h('div', { class: 'tpl-acts' }, takeButton));
 
-    card.addEventListener('click', (event) => {
-      if (event.target.closest('.tpl-demo')) { openDemo(tpl); return; }
-      takeTpl(tpl);
-    });
+    card.querySelector('.tpl-art-open').addEventListener('click', () => openDemo(tpl));
+    card.querySelector('.tpl-take').addEventListener('click', () => takeTpl(tpl));
     rail.appendChild(card);
+    observeTemplateMotion(card);
   }
+  const selectedIndex = ordered.findIndex((tpl) => tpl.id === state.templateId);
+  templateFocusIndex = selectedIndex >= 0 ? selectedIndex : Math.min(templateFocusIndex, Math.max(0, ordered.length - 1));
   renderDots();
 }
 
 function renderDots() {
   const box = $('tpl-dots');
   box.innerHTML = '';
-  rankedTemplates().forEach((tpl) => box.appendChild(h('i', { class: tpl.id === state.templateId ? 'on' : '' })));
+  rankedTemplates().forEach((tpl, index) => {
+    const dot = h('button', { type: 'button', 'aria-label': tpl.name });
+    dot.addEventListener('click', () => focusTemplate(index, true));
+    box.appendChild(dot);
+  });
+  updateTemplateNavigation(templateFocusIndex);
 }
 
 function openDemo(tpl) {
   haptic.tap();
-  const q = new URLSearchParams({ groom: $('groom').value.trim(), bride: $('bride').value.trim(), lang: LANG });
+  const q = new URLSearchParams({
+    groom: $('groom').value.trim(), bride: $('bride').value.trim(), lang: LANG,
+    address: $('address').value.trim(), map: state.mapOn ? '1' : '0',
+    lat: Number.isFinite(state.lat) ? String(state.lat) : '',
+    lng: Number.isFinite(state.lng) ? String(state.lng) : '',
+  });
   $('sheet-title').textContent = tpl.name;
-  sheet.open({ src: `/demo/${tpl.id}?${q}`, actionLabel: t('take'), onAction: () => takeTpl(tpl) });
+  sheet.open({ src: `/demo/${tpl.id}?${q}` });
+  const frame = $('sheet-frame');
+  frame.onload = () => {
+    const w = frame.contentWindow;
+    const d = frame.contentDocument;
+    if (!w || !d) return;
+    setTimeout(() => d.getElementById('env')?.click(), 360);
+    let closing = false;
+    const onScroll = async () => {
+      const el = d.scrollingElement || d.documentElement;
+      if (closing || el.scrollTop + w.innerHeight < el.scrollHeight - 54) return;
+      closing = true;
+      w.removeEventListener('scroll', onScroll);
+      $('sheet').classList.add('finishing');
+      await wait(620);
+      await sheet.close({ gentle: true });
+    };
+    w.addEventListener('scroll', onScroll, { passive: true });
+  };
 }
 
 function takeTpl(tpl) {
@@ -984,11 +1410,12 @@ function takeTpl(tpl) {
     const chosen = card.dataset.id === tpl.id;
     card.classList.toggle('chosen', chosen);
     const button = card.querySelector('.tpl-take');
-    if (button) button.textContent = chosen ? t('taken') : t('take');
+    paintTemplateTakeButton(button, chosen);
   });
+  templateFocusIndex = Math.max(0, rankedTemplates().findIndex((item) => item.id === tpl.id));
   renderDots();
   renderPhotos();
-  softScrollRailTo(document.querySelector(`.tpl[data-id="${tpl.id}"]`));
+  focusTemplate(templateFocusIndex);
   autoAdvance(720);
 }
 
@@ -1011,7 +1438,7 @@ function renderPhotos() {
       const cell = h('div', { class: 'ph' },
         p.url ? h('img', { src: p.url, alt: '' }) : null,
         p.uploading ? h('div', { class: 'ph-wait' }, h('i', {})) : null,
-        h('button', { type: 'button', class: 'ph-del', 'aria-label': 'Remove' }, '✕'));
+        h('button', { type: 'button', class: 'ph-del', 'aria-label': t('photoRemoveAria') }, svgIcon('close')));
       cell.querySelector('.ph-del').addEventListener('click', () => {
         state.photos.splice(i, 1);
         haptic.tap();
@@ -1023,7 +1450,7 @@ function renderPhotos() {
     } else {
       const required = i < need;
       const add = h('button', { type: 'button', class: `ph ph-add${required ? ' need' : ''}` },
-        h('span', {}, '+'),
+        h('span', {}, svgIcon('add')),
         h('em', {}, t('photoOf', i + 1, need)));
       add.addEventListener('click', () => $('photo-input').click());
       grid.appendChild(add);
@@ -1148,6 +1575,306 @@ async function finishInvite() {
 
 const guestPrice = () => state.config?.guestPrice ?? 10000;
 const cleanGuests = () => (state.guestsOn ? state.guests.map((g) => g.trim()).filter(Boolean) : []);
+let serviceMotionReady = false;
+let personalPhase = 0;
+let personalMotionRun = 0;
+let personalMotionVisible = false;
+let personalMotionTimers = [];
+
+const PM_DEMOS = {
+  uz: [
+    { prefix: 'Hurmatli', name: 'Aziz aka', slug: 'Aziz' },
+    { prefix: 'Hurmatli', name: 'Dilnoza opa', slug: 'Dilnoza' },
+    { prefix: 'Hurmatli', name: 'Farxod uka', slug: 'Farxod' },
+  ],
+  ru: [
+    { prefix: 'Дорогой', name: 'Aziz aka', slug: 'Aziz' },
+    { prefix: 'Дорогая', name: 'Dilnoza opa', slug: 'Dilnoza' },
+    { prefix: 'Дорогой', name: 'Farxod uka', slug: 'Farxod' },
+  ],
+};
+
+function schedulePersonalMotion(callback, delay, run = personalMotionRun) {
+  const timer = setTimeout(() => {
+    personalMotionTimers = personalMotionTimers.filter((item) => item !== timer);
+    if (run === personalMotionRun) callback();
+  }, delay);
+  personalMotionTimers.push(timer);
+  return timer;
+}
+
+function stopPersonalMotion() {
+  personalMotionRun += 1;
+  personalMotionTimers.forEach(clearTimeout);
+  personalMotionTimers = [];
+  document.querySelectorAll('.pm-traveler').forEach((dot) => dot.classList.remove('is-traveling'));
+}
+
+function renderPersonalChars(element, value) {
+  if (!element) return;
+  element.classList.remove('is-deleting');
+  element.replaceChildren(...Array.from(value).map((char, index) => {
+    const letter = document.createElement('span');
+    letter.className = 'pm-char';
+    letter.style.setProperty('--pm-i', index);
+    letter.textContent = char;
+    return letter;
+  }));
+  element.style.setProperty('--pm-count', value.length);
+}
+
+function setPersonalInvitation(index, animate = false, run = personalMotionRun) {
+  const demos = PM_DEMOS[LANG || 'uz'];
+  const demo = demos[index % demos.length];
+  const prefix = $('pm-prefix');
+  const name = $('pm-name');
+  const link = $('pm-link');
+  if (!prefix || !name || !link) return;
+
+  personalPhase = index % demos.length;
+  const commit = () => {
+    prefix.textContent = demo.prefix;
+    renderPersonalChars(name, demo.name);
+    renderPersonalChars(link, `nVate.uz/~~~/${demo.slug}`);
+    if (animate && prefix.animate) {
+      prefix.animate([
+        { opacity: 0, filter: 'blur(4px)', transform: 'translateY(4px)' },
+        { opacity: 1, filter: 'blur(0)', transform: 'translateY(0)' },
+      ], { duration: 460, easing: 'cubic-bezier(.32, 0, .18, 1)', fill: 'both' });
+    }
+  };
+
+  if (!animate || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    commit();
+    return;
+  }
+
+  name.classList.add('is-deleting');
+  link.classList.add('is-deleting');
+  if (prefix.animate) {
+    prefix.animate([
+      { opacity: 1, filter: 'blur(0)', transform: 'translateY(0)' },
+      { opacity: 0, filter: 'blur(4px)', transform: 'translateY(-4px)' },
+    ], { duration: 330, easing: 'cubic-bezier(.55, 0, .78, .39)', fill: 'both' });
+  }
+  schedulePersonalMotion(commit, 650, run);
+}
+
+function pointAt(element, edge, rootRect) {
+  const rect = element.getBoundingClientRect();
+  const point = { x: rect.left - rootRect.left + rect.width / 2, y: rect.top - rootRect.top + rect.height / 2 };
+  if (edge === 'left') point.x = rect.left - rootRect.left;
+  if (edge === 'right') point.x = rect.right - rootRect.left;
+  if (edge === 'top') point.y = rect.top - rootRect.top;
+  if (edge === 'bottom') point.y = rect.bottom - rootRect.top;
+  return point;
+}
+
+function personalCurve(from, to, vertical) {
+  const f = (value) => Math.round(value * 10) / 10;
+  if (vertical) {
+    const bend = from.y + (to.y - from.y) * .52;
+    return `M${f(from.x)} ${f(from.y)}C${f(from.x)} ${f(bend)} ${f(to.x)} ${f(bend)} ${f(to.x)} ${f(to.y)}`;
+  }
+  const bend = from.x + (to.x - from.x) * .52;
+  return `M${f(from.x)} ${f(from.y)}C${f(bend)} ${f(from.y)} ${f(bend)} ${f(to.y)} ${f(to.x)} ${f(to.y)}`;
+}
+
+function layoutPersonalMotion() {
+  const motion = $('personal-motion');
+  const svg = $('pm-wires');
+  const origin = $('pm-origin');
+  const card = $('pm-card');
+  if (!motion || !svg || !origin || !card || !motion.offsetWidth) return;
+
+  const rootRect = motion.getBoundingClientRect();
+  const vertical = motion.clientWidth < 620;
+  svg.setAttribute('viewBox', `0 0 ${rootRect.width} ${rootRect.height}`);
+
+  const originPoint = pointAt(origin, vertical ? 'bottom' : 'right', rootRect);
+  const cardIn = pointAt(card, vertical ? 'top' : 'left', rootRect);
+  const cardOut = pointAt(card, vertical ? 'bottom' : 'right', rootRect);
+  $('pm-path-in').setAttribute('d', personalCurve(originPoint, cardIn, vertical));
+
+  for (let index = 0; index < 3; index += 1) {
+    const person = $(`pm-person-${index}`);
+    const destination = pointAt(person, vertical ? 'top' : 'left', rootRect);
+    $('pm-path-' + index).setAttribute('d', personalCurve(cardOut, destination, vertical));
+  }
+}
+
+function travelPersonalPath(path, dot, duration, run = personalMotionRun, onDone) {
+  if (!path || !dot || run !== personalMotionRun) return;
+  if (!path.getAttribute('d')) layoutPersonalMotion();
+  if (!path.getAttribute('d')) return;
+  const length = path.getTotalLength();
+  const started = performance.now();
+  dot.classList.add('is-traveling');
+
+  const frame = (now) => {
+    if (run !== personalMotionRun) {
+      dot.classList.remove('is-traveling');
+      return;
+    }
+    const elapsed = Math.min(1, (now - started) / duration);
+    const eased = 1 - Math.pow(1 - elapsed, 3.1);
+    const point = path.getPointAtLength(length * eased);
+    dot.setAttribute('cx', point.x);
+    dot.setAttribute('cy', point.y);
+    if (elapsed < 1) requestAnimationFrame(frame);
+    else {
+      dot.classList.remove('is-traveling');
+      onDone?.();
+    }
+  };
+  requestAnimationFrame(frame);
+}
+
+function pulsePersonalElement(element, duration = 850, run = personalMotionRun) {
+  if (!element) return;
+  element.classList.remove('is-pulsing', 'is-arriving');
+  void element.offsetWidth;
+  element.classList.add(element.classList.contains('pm-person') ? 'is-arriving' : 'is-pulsing');
+  schedulePersonalMotion(() => element.classList.remove('is-pulsing', 'is-arriving'), duration, run);
+}
+
+function drawPersonalPath(key, duration, run = personalMotionRun, onDone) {
+  const path = $(`pm-path-${key}`);
+  const dot = $(`pm-light-${key}`);
+  if (!path || !dot) return;
+  path.classList.remove('is-complete', 'is-drawing');
+  path.style.setProperty('--pm-draw', `${duration}ms`);
+  void path.getBoundingClientRect();
+  path.classList.add('is-drawing');
+  travelPersonalPath(path, dot, duration, run);
+  schedulePersonalMotion(() => {
+    path.classList.remove('is-drawing');
+    path.classList.add('is-complete');
+    onDone?.();
+  }, duration, run);
+}
+
+function connectPersonalGuest(index, run = personalMotionRun) {
+  drawPersonalPath(String(index), 820, run, () => {
+    document.querySelectorAll('.pm-person').forEach((person) => person.classList.remove('is-current'));
+    const person = $(`pm-person-${index}`);
+    person?.classList.add('is-connected', 'is-current');
+    pulsePersonalElement(person, 850, run);
+  });
+}
+
+function paintPersonalMotion() {
+  setPersonalInvitation(personalPhase, false);
+  requestAnimationFrame(layoutPersonalMotion);
+}
+
+function startPersonalMotion() {
+  const motion = $('personal-motion');
+  if (!motion || !personalMotionVisible || document.hidden) return;
+  stopPersonalMotion();
+  const run = personalMotionRun;
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const paths = ['in', '0', '1', '2'].map((key) => $(`pm-path-${key}`)).filter(Boolean);
+  const people = [0, 1, 2].map((index) => $(`pm-person-${index}`)).filter(Boolean);
+
+  motion.dataset.scene = 'intro';
+  motion.classList.remove('is-brand-visible', 'is-card-visible', 'is-final', 'is-resetting');
+  paths.forEach((path) => path.classList.remove('is-drawing', 'is-complete'));
+  people.forEach((person) => person.classList.remove('is-connected', 'is-current', 'is-arriving'));
+  setPersonalInvitation(0, false, run);
+  layoutPersonalMotion();
+
+  schedulePersonalMotion(() => {
+    motion.dataset.scene = 'brand';
+    motion.classList.add('is-brand-visible');
+  }, 280, run);
+
+  schedulePersonalMotion(() => drawPersonalPath('in', 900, run, () => {
+    motion.dataset.scene = 'invitation';
+    motion.classList.add('is-card-visible');
+    pulsePersonalElement($('pm-card'), 760, run);
+  }), 950, run);
+
+  schedulePersonalMotion(() => connectPersonalGuest(0, run), 2700, run);
+  schedulePersonalMotion(() => setPersonalInvitation(1, true, run), 3850, run);
+  schedulePersonalMotion(() => connectPersonalGuest(1, run), 5450, run);
+  schedulePersonalMotion(() => setPersonalInvitation(2, true, run), 6550, run);
+  schedulePersonalMotion(() => connectPersonalGuest(2, run), 8150, run);
+
+  schedulePersonalMotion(() => {
+    motion.dataset.scene = 'final';
+    motion.classList.add('is-final');
+    people.forEach((person) => person.classList.remove('is-current'));
+  }, 9400, run);
+
+  if (!reducedMotion) {
+    schedulePersonalMotion(() => {
+      pulsePersonalElement($('pm-origin'), 800, run);
+      travelPersonalPath($('pm-path-in'), $('pm-light-in'), 720, run, () => {
+        [0, 1, 2].forEach((index) => {
+          travelPersonalPath($(`pm-path-${index}`), $(`pm-light-${index}`), 820, run, () => {
+            pulsePersonalElement($(`pm-person-${index}`), 850, run);
+          });
+        });
+      });
+    }, 9800, run);
+
+    schedulePersonalMotion(() => motion.classList.add('is-resetting'), 12100, run);
+    schedulePersonalMotion(startPersonalMotion, 12850, run);
+  }
+}
+
+function setupServiceMotions() {
+  if (serviceMotionReady) return;
+  serviceMotionReady = true;
+  const targets = [$('personal-motion')].filter(Boolean);
+  const resizeObserver = 'ResizeObserver' in window ? new ResizeObserver(layoutPersonalMotion) : null;
+  targets.forEach((target) => resizeObserver?.observe(target));
+  window.addEventListener('resize', layoutPersonalMotion, { passive: true });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stopPersonalMotion();
+    else if (personalMotionVisible) startPersonalMotion();
+  });
+  const setPersonalVisibility = (visible) => {
+    const motion = $('personal-motion');
+    if (!motion) return;
+    const changed = visible !== personalMotionVisible;
+    personalMotionVisible = visible;
+    motion.classList.toggle('is-visible', visible);
+    if (!changed) return;
+    if (visible) {
+      layoutPersonalMotion();
+      startPersonalMotion();
+    } else stopPersonalMotion();
+  };
+
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => setPersonalVisibility(entry.isIntersecting));
+    }, { threshold: .24 });
+    targets.forEach((target) => observer.observe(target));
+    return;
+  }
+
+  let visibilityFrame = 0;
+  const checkPersonalVisibility = () => {
+    visibilityFrame = 0;
+    const motion = $('personal-motion');
+    if (!motion || !motion.offsetWidth) {
+      setPersonalVisibility(false);
+      return;
+    }
+    const rect = motion.getBoundingClientRect();
+    const visible = rect.bottom > 0 && rect.top < innerHeight && rect.right > 0 && rect.left < innerWidth;
+    setPersonalVisibility(visible);
+  };
+  const queuePersonalVisibilityCheck = () => {
+    if (!visibilityFrame) visibilityFrame = requestAnimationFrame(checkPersonalVisibility);
+  };
+  window.addEventListener('scroll', queuePersonalVisibilityCheck, { passive: true });
+  window.addEventListener('resize', queuePersonalVisibilityCheck, { passive: true });
+  queuePersonalVisibilityCheck();
+}
 
 /* Кнопки «добавить» нет: в конце списка всегда ждёт пустое поле.
    Начал печатать — снизу сразу появляется следующее. Пустые не считаются. */
@@ -1157,6 +1884,7 @@ function renderGuests(focusIdx = -1) {
   $('personal-motion')?.classList.toggle('is-on', state.guestsOn);
   $('guests-sw-sub').textContent = state.guestsOn ? t('guestsSwOn') : t('guestsSwOff');
   $('guests-body').hidden = !state.guestsOn;
+  paintPersonalMotion();
 
   if (state.guests.length === 0 || state.guests[state.guests.length - 1].trim()) state.guests.push('');
 
@@ -1260,8 +1988,9 @@ function collectForm() {
     brideName: $('bride').value.trim(),
     weddingDate: state.dateIso,
     weddingTime: state.time,
-    lat: state.lat,
-    lng: state.lng,
+    mapEnabled: state.mapOn,
+    lat: state.mapOn ? state.lat : null,
+    lng: state.mapOn ? state.lng : null,
     address: $('address').value.trim(),
     photos: state.photos.filter((p) => p.name).slice(0, requiredPhotos()).map((p) => p.name),
     musicType: state.music?.type ?? 'none',
@@ -1339,7 +2068,7 @@ async function loadMine() {
     if (!j.ok || !j.apps.length) { box.appendChild(h('p', { class: 'empty' }, '—')); return; }
     for (const a of j.apps) {
       const card = h('div', { class: 'inv' },
-        h('h4', {}, `${a.groom} & ${a.bride}`),
+        h('h3', {}, `${a.groom} & ${a.bride}`),
         h('p', { class: 'inv-meta' }, `${a.date} · ${a.time} · ${money(a.total)}`),
         h('span', { class: `inv-tag ${a.status}` }, a.status),
         a.url ? h('div', { class: 'inv-link' }, a.url) : null);
@@ -1360,11 +2089,15 @@ async function loadMine() {
 /* ════ События ════ */
 
 function wire() {
+  window.addEventListener('wheel', cancelMainScroll, { passive: true });
+  window.addEventListener('touchstart', cancelMainScroll, { passive: true });
+  window.addEventListener('pointerdown', cancelMainScroll, { passive: true });
+  window.addEventListener('keydown', cancelMainScroll);
   $('lang-uz').addEventListener('click', () => bootLang('uz'));
   $('lang-ru').addEventListener('click', () => bootLang('ru'));
   $('sw-uz').addEventListener('click', () => setLang('uz'));
   $('sw-ru').addEventListener('click', () => setLang('ru'));
-  $('brand').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  $('brand').addEventListener('click', () => softScrollTo(0, 3200));
 
   $('btn-mine').addEventListener('click', () => { $('mine').hidden = false; loadMine(); });
   $('mine-close').addEventListener('click', () => { $('mine').hidden = true; });
@@ -1384,12 +2117,19 @@ function wire() {
 
   $('geo-q').addEventListener('input', seekPlaceSoon);
   $('geo-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); seekPlace(); } });
-  $('map-in').addEventListener('click', () => ymap?.setZoom(ymap.getZoom() + 1, { duration: 105 }));
-  $('map-out').addEventListener('click', () => ymap?.setZoom(ymap.getZoom() - 1, { duration: 105 }));
+  $('map-toggle').addEventListener('click', toggleMap);
+  $('map-in').addEventListener('click', () => {
+    if (ymap) ymap.setZoom(Math.min(19, ymap.getZoom() + 1), { duration: 900 });
+  });
+  $('map-out').addEventListener('click', () => {
+    if (ymap) ymap.setZoom(Math.max(0, ymap.getZoom() - 1), { duration: 900 });
+  });
   $('address').addEventListener('input', () => {
     $('address').dataset.manual = '1';
     markFilled($('address'));
+    clearErr(stepIdx('location'));
     saveDraft();
+    autoAdvance(760);
   });
 
   document.querySelectorAll('.seg').forEach((b, i) => {
@@ -1414,6 +2154,7 @@ function wire() {
     state.music = null;
     player.pause();
     playingUrl = null;
+    activeTrackUrl = null;
     $('music-picked').hidden = true;
     haptic.tap();
     saveDraft();
@@ -1431,8 +2172,10 @@ function wire() {
       const best = Math.abs(cards[near].offsetLeft + cards[near].offsetWidth / 2 - mid);
       if (d < best) near = i;
     });
-    [...$('tpl-dots').children].forEach((d, i) => d.classList.toggle('on', i === near));
+    updateTemplateNavigation(near);
   }, 90));
+  $('tpl-prev').addEventListener('click', () => focusTemplate(templateFocusIndex - 1, true));
+  $('tpl-next').addEventListener('click', () => focusTemplate(templateFocusIndex + 1, true));
 
   $('photo-input').addEventListener('change', (e) => {
     uploadPhotos([...e.target.files]);
@@ -1482,8 +2225,11 @@ async function loadConfig() {
 
 function bootLang(lang) {
   setLang(lang);
+  document.body.classList.add('studio-entering');
+  const first = document.querySelector('.blk[data-step="names"]');
+  if (first) armBlock(first);
   $('lang-screen').classList.add('out');
-  setTimeout(() => { $('lang-screen').style.display = 'none'; }, 910);
+  setTimeout(() => { $('lang-screen').style.display = 'none'; }, 1400);
   $('app').hidden = false;
   start();
 }
@@ -1494,7 +2240,8 @@ async function start() {
   started = true;
   await loadConfig();
   restoreDraft();
-  state.open = 0;
+  const testingTemplates = location.hostname === 'localhost' && new URLSearchParams(location.search).has('__template_test');
+  state.open = testingTemplates ? stepIdx('template') : 0;
   if (state.templateId && state.photos.length > requiredPhotos()) state.photos = state.photos.slice(0, requiredPhotos());
   setScene(state.open, true);
   applyI18n();
@@ -1506,9 +2253,21 @@ async function start() {
     $('music-pick').hidden = true;
     $('music-picked').hidden = false;
   }
-  renderBlocks();
+  renderBlocks(testingTemplates ? -1 : 0);
+  renderMapChoice();
+  setupServiceMotions();
   updateBill();
-  for (let i = 0; i <= state.open; i++) onEnterStep(i);
+  if (testingTemplates) {
+    await cameraTo(state.open);
+    document.body.classList.remove('studio-entering');
+    return;
+  }
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+  pulseLiveBead();
+  await riseBlock(blk(0));
+  document.body.classList.remove('studio-entering');
+  activateStep(0);
 }
 
 wire();

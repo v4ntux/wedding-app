@@ -28,8 +28,8 @@ export const DEV_NO_AUTH = process.env.DEV_NO_AUTH === '1';
 // Ссылка поддержки для кнопки Support в боте (напр. https://t.me/username). Необязательно.
 export const SUPPORT_URL = (process.env.SUPPORT_URL ?? 'https://t.me/nvate_admin').trim();
 
-// Яндекс-карты: без ключа работают в режиме разработки, для продакшена получите ключ
-// на developer.tech.yandex.ru и пропишите в .env
+// Яндекс-карты: с ключом работает JS API и выбор точки; без ключа показываем
+// официальный интерактивный виджет. Для продакшена пропишите ключ в .env.
 export const YANDEX_MAPS_API_KEY = (process.env.YANDEX_MAPS_API_KEY ?? '').trim();
 
 // Google Places (console.cloud.google.com, «Places API (New)»): даёт мгновенный и

@@ -28,6 +28,7 @@ const LOCALES = {
       emo: 'Ikki qalb endi bir yo‘ldan boradi. Hayotimizdagi eng go‘zal kunda yonimizda bo‘lishingiz — biz uchun eng katta baxt.',
       until: 'To‘ygacha qoldi',
       final: 'Kelishingizni intiqlik bilan kutamiz!',
+      made: 'nvate bilan yaratildi',
     },
   },
   ru: {
@@ -46,6 +47,7 @@ const LOCALES = {
       emo: 'Два сердца теперь идут одной дорогой. Ваше присутствие рядом в самый прекрасный день нашей жизни — большое счастье для нас.',
       until: 'До свадьбы осталось',
       final: 'С нетерпением ждём встречи с Вами!',
+      made: 'Создано с nvate',
     },
   },
 };
@@ -60,7 +62,8 @@ export function buildData(app, guestName = null, tpl = null) {
   const lang = app.lang === 'ru' ? 'ru' : 'uz';
   const loc = LOCALES[lang];
   const L = { ...loc.L, ...(tpl?.strings?.[lang] ?? {}) };
-  const links = mapsLinks(app.lat, app.lng);
+  const mapEnabled = app.map_enabled === undefined ? true : Boolean(Number(app.map_enabled));
+  const links = mapEnabled ? mapsLinks(app.lat, app.lng) : { google: '', yandex: '' };
 
   let music = null;
   if (app.music_type === 'preset') {
@@ -116,6 +119,7 @@ export function buildData(app, guestName = null, tpl = null) {
     address: app.address ?? '',
     lat,
     lng,
+    mapEnabled,
     gmaps: links.google,
     ymaps: links.yandex,
     guestName: guestName ?? null,
@@ -124,8 +128,8 @@ export function buildData(app, guestName = null, tpl = null) {
     grain: GRAIN,
     experienceCSS: experienceCSS(),
     experienceScript: experienceScript(),
-    audioWidget: audioWidget(music),
-    map: mapEmbed({ lat, lng, lang, address: app.address }),
+    audioWidget: audioWidget(music, lang),
+    map: mapEmbed({ lat, lng, lang, address: app.address, enabled: mapEnabled }),
     countdown: countdownScript(targetIso),
   };
 }
@@ -156,15 +160,18 @@ export function renderDemo(templateId, opts = {}) {
   const tpl = getTemplate(templateId);
   if (!tpl) return null;
   const lang = opts.lang === 'ru' ? 'ru' : 'uz';
+  const demoLat = Number(opts.lat);
+  const demoLng = Number(opts.lng);
   const sample = {
     lang,
     groom_name: String(opts.groom ?? '').slice(0, 100).trim() || 'Ali',
     bride_name: String(opts.bride ?? '').slice(0, 100).trim() || 'Zebo',
     wedding_date: '2026-09-19',
     wedding_time: '18:00',
-    address: 'To‘yxona «Navro‘z», Toshkent',
-    lat: 41.311081,
-    lng: 69.240562,
+    address: String(opts.address ?? '').slice(0, 140).trim() || 'To‘yxona «Navro‘z», Mang‘it',
+    lat: Number.isFinite(demoLat) ? demoLat : 42.1151,
+    lng: Number.isFinite(demoLng) ? demoLng : 60.0593,
+    map_enabled: opts.map === undefined ? 1 : (String(opts.map) === '1' ? 1 : 0),
     music_type: 'none',
     music_value: null,
     template_id: templateId,
@@ -185,22 +192,24 @@ function startPan(){
   var paper=document.querySelector('.paper')||document.body;
   var distance=Math.max(0,Math.ceil(paper.getBoundingClientRect().height-window.innerHeight));
   if(distance<8)return;
+  var frame=window.frameElement;
+  var seenAt=frame?Number(frame.dataset.seenAt)||Date.now():Date.now();
+  var startDelay=Math.max(0,2000-(Date.now()-seenAt));
   paper.style.willChange='transform';
   paper.animate([
     {offset:0,transform:'translate3d(0,0,0)'},
-    {offset:.08,transform:'translate3d(0,0,0)'},
-    {offset:.92,transform:'translate3d(0,-'+distance+'px,0)'},
+    {offset:.9,transform:'translate3d(0,-'+distance+'px,0)'},
     {offset:1,transform:'translate3d(0,-'+distance+'px,0)'}
   ],{
-    duration:Math.max(15500,distance*9),
-    delay:700,
+    duration:Math.max(34000,distance*20),
+    delay:startDelay,
     iterations:Infinity,
     direction:'alternate',
-    easing:'cubic-bezier(.45,0,.55,1)',
+    easing:'cubic-bezier(.28,.18,.55,1)',
     fill:'both'
   });
 }
-setTimeout(startPan,60);
+startPan();
 })();</script>`;
     return html.replace('</body>', `${cardMode}</body>`);
   }

@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <title>nvate — studio</title>
-<meta name="theme-color" content="#0b0a08">
+<meta name="theme-color" content="#100b03">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;500&family=Golos+Text:wght@400;500;600;700&family=Martian+Mono:wght@300;400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;500;600&family=Golos+Text:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -59,7 +59,7 @@
   <section id="mine" class="overlay" hidden>
     <div class="mine-head">
       <h2 data-i18n="mineTitle"></h2>
-      <button id="mine-close" type="button" class="ghost-ic" aria-label="Close">✕</button>
+      <button id="mine-close" type="button" class="ghost-ic" aria-label="Close"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg></button>
     </div>
     <div id="mine-list"></div>
   </section>
@@ -108,7 +108,7 @@
 
       <p class="sub-label" data-i18n="timeLbl"></p>
       <p id="time-prompt" class="time-prompt" data-i18n="timePrompt" hidden></p>
-      <div class="clock"><b id="clock-h">17</b><i>:</i><b id="clock-m">00</b></div>
+      <div class="clock" aria-live="polite"><b id="clock-h"></b><i>:</i><b id="clock-m"></b></div>
 
       <div class="hdrum">
         <span class="hdrum-band" aria-hidden="true"></span>
@@ -130,24 +130,31 @@
       <h2 class="blk-title" data-i18n="tVenue"></h2>
 
       <div class="field">
-        <label for="geo-q" data-i18n="seekLbl"></label>
-        <input id="geo-q" type="text" autocomplete="off" spellcheck="false">
-        <span id="geo-spin" class="field-spin" hidden></span>
-      </div>
-      <div id="geo-list" class="geo-list" hidden></div>
-
-      <p class="map-hint" data-i18n="mapHint"></p>
-      <div class="mapframe">
-        <div id="map"></div>
-        <div class="map-zoom">
-          <button id="map-in" type="button" class="map-btn" aria-label="Zoom in">+</button>
-          <button id="map-out" type="button" class="map-btn" aria-label="Zoom out">−</button>
-        </div>
-      </div>
-
-      <div class="field">
         <label for="address" data-i18n="address"></label>
         <input id="address" type="text" maxlength="140" autocomplete="off">
+      </div>
+
+      <button id="map-toggle" type="button" class="switch map-switch" role="switch" aria-checked="false">
+        <span class="switch-txt"><b data-i18n="mapSwTitle"></b><i id="map-sw-sub" data-i18n="mapSwOff"></i></span>
+        <span class="switch-track"><span class="switch-knob"></span></span>
+      </button>
+
+      <div id="map-tools" class="map-tools" hidden>
+        <div class="field">
+          <label for="geo-q" data-i18n="seekLbl"></label>
+          <input id="geo-q" type="text" autocomplete="off" spellcheck="false">
+          <span id="geo-spin" class="field-spin" hidden></span>
+        </div>
+        <div id="geo-list" class="geo-list" hidden></div>
+
+        <p class="map-hint" data-i18n="mapHint"></p>
+        <div class="mapframe">
+          <div id="map"></div>
+          <div class="map-zoom">
+            <button id="map-in" type="button" class="map-btn" aria-label="Zoom in"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg></button>
+            <button id="map-out" type="button" class="map-btn" aria-label="Zoom out"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h12"/></svg></button>
+          </div>
+        </div>
       </div>
       <p class="blk-err" hidden></p>
     </section>
@@ -189,7 +196,7 @@
       </div>
 
       <div id="music-picked" class="picked" hidden>
-        <span class="picked-note">♪</span>
+        <span class="picked-note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg></span>
         <div class="picked-info"><b id="picked-name"></b><span id="picked-artist"></span></div>
         <button id="music-change" type="button" class="btn btn--ghost btn--tiny" data-i18n="change"></button>
       </div>
@@ -203,8 +210,22 @@
       <h2 class="blk-title" data-i18n="tTpl"></h2>
       <p class="blk-lead" data-i18n="leadTpl"></p>
 
+      <div class="tpl-toolbar">
+        <p class="tpl-position" aria-live="polite">
+          <span id="tpl-current">01</span><i>/</i><span id="tpl-total">00</span>
+        </p>
+        <p class="tpl-swipe" data-i18n="tplSwipe"></p>
+        <div class="tpl-nav">
+          <button id="tpl-prev" type="button" aria-label="Previous template">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+          </button>
+          <button id="tpl-next" type="button" aria-label="Next template">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      </div>
       <div id="tpl-rail" class="tpl-rail"></div>
-      <div id="tpl-dots" class="tpl-dots"></div>
+      <div id="tpl-dots" class="tpl-dots" aria-label="Templates"></div>
       <p class="blk-err" hidden></p>
     </section>
 
@@ -253,37 +274,79 @@
       <p class="eyebrow"><b>08</b><span data-i18n="eGuests"></span></p>
       <h2 class="blk-title" data-i18n="tGuests"></h2>
 
-      <div id="personal-motion" class="personal-motion" aria-hidden="true">
-        <div class="pm-origin"><span>N</span><b>nvate</b></div>
-        <div class="pm-thread"><i></i><i></i><i></i></div>
-        <div class="pm-card">
-          <small data-i18n="personalPreview"></small>
-          <b data-i18n="personalGuest"></b>
-          <span>nvate.uz/…/aziz</span>
+      <div id="personal-motion" class="personal-motion" data-scene="idle" role="img" aria-label="nVate creates a personalized invitation for every guest">
+        <div class="pm-atmosphere" aria-hidden="true">
+          <span class="pm-ray pm-ray--one"></span>
+          <span class="pm-ray pm-ray--two"></span>
+          <span class="pm-dust"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
         </div>
-        <div class="pm-people"><i>A</i><i>M</i><i>D</i></div>
-      </div>
-      <p class="motion-caption" data-i18n="personalCaption"></p>
 
+        <div id="pm-origin" class="pm-origin">
+          <span class="pm-origin-mark">nV</span>
+          <b>nVate</b>
+          <small>PERSONAL</small>
+        </div>
+
+        <svg id="pm-wires" class="pm-wires" aria-hidden="true">
+          <defs>
+            <linearGradient id="pm-gold-line" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#81632f"/>
+              <stop offset=".52" stop-color="#f5e3b7"/>
+              <stop offset="1" stop-color="#b38a45"/>
+            </linearGradient>
+            <filter id="pm-line-glow" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="2" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          <path id="pm-path-in" class="pm-wire pm-wire--in" pathLength="1"/>
+          <path id="pm-path-0" class="pm-wire pm-wire--branch" pathLength="1"/>
+          <path id="pm-path-1" class="pm-wire pm-wire--branch" pathLength="1"/>
+          <path id="pm-path-2" class="pm-wire pm-wire--branch" pathLength="1"/>
+          <circle id="pm-light-in" class="pm-traveler" r="3"/>
+          <circle id="pm-light-0" class="pm-traveler" r="3"/>
+          <circle id="pm-light-1" class="pm-traveler" r="3"/>
+          <circle id="pm-light-2" class="pm-traveler" r="3"/>
+        </svg>
+
+        <div id="pm-card" class="pm-card">
+          <span class="pm-card-rule" aria-hidden="true"></span>
+          <small data-i18n="personalPreview"></small>
+          <p class="pm-salutation"><span id="pm-prefix">Hurmatli</span> <b id="pm-name">Aziz aka</b></p>
+          <span id="pm-link" class="pm-link">nVate.uz/~~~/Aziz</span>
+          <span class="pm-card-seal" aria-hidden="true">nV</span>
+        </div>
+
+        <div class="pm-people">
+          <div id="pm-person-0" class="pm-person">
+            <span class="pm-person-monogram">A</span>
+            <span class="pm-person-copy"><b>Aziz aka</b><small>01</small></span>
+          </div>
+          <div id="pm-person-1" class="pm-person">
+            <span class="pm-person-monogram">D</span>
+            <span class="pm-person-copy"><b>Dilnoza opa</b><small>02</small></span>
+          </div>
+          <div id="pm-person-2" class="pm-person">
+            <span class="pm-person-monogram">F</span>
+            <span class="pm-person-copy"><b>Farxod uka</b><small>03</small></span>
+          </div>
+        </div>
+
+        <p class="pm-tagline" data-i18n="personalTagline">Har bir mehmon uchun — shaxsiy taklifnoma.</p>
+      </div>
       <button id="guests-toggle" type="button" class="switch" role="switch" aria-checked="false">
         <span class="switch-txt"><b data-i18n="guestsSwTitle"></b><i id="guests-sw-sub" data-i18n="guestsSwOff"></i></span>
         <span class="switch-track"><span class="switch-knob"></span></span>
       </button>
 
-      <div class="explain">
-        <p data-i18n="guestsHow1"></p>
-        <p data-i18n="guestsHow2"></p>
-        <p data-i18n="guestsHow3"></p>
-      </div>
-
       <div id="guests-body" hidden>
-        <p class="tip"><span class="tip-ic">✦</span><span data-i18n="guestsTip"></span></p>
         <div id="guest-list" class="guest-list"></div>
         <div class="tally">
           <span><b id="guest-n">0</b> <span data-i18n="guestsUnit"></span></span>
           <b id="guest-sum">0</b>
         </div>
       </div>
+
       <p class="blk-err" hidden></p>
     </section>
 
@@ -332,7 +395,7 @@
 <!-- ═══ Полноэкранная шторка ═══ -->
 <div id="sheet" hidden>
   <div class="sheet-bar">
-    <button id="sheet-close" type="button" class="ghost-ic" aria-label="Close">✕</button>
+    <button id="sheet-close" type="button" class="ghost-ic" aria-label="Close"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg></button>
     <b id="sheet-title"></b>
     <span class="sheet-pad"></span>
   </div>
