@@ -105,17 +105,17 @@ img {
   background: radial-gradient(ellipse at 75% 5%, #c1a5660c, transparent 50%);
 }
 .header {
-  padding: 19px 22px;
+  padding: 19px 16px;
   border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
   min-height: 93px;
 }
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 7px;
   font: 500 36px/1 var(--serif);
   letter-spacing: -2px;
 }
@@ -123,6 +123,7 @@ img {
   border: 1px solid var(--line);
   border-radius: 50%;
   width: 42px;
+  flex-shrink: 0;
   height: 42px;
   display: grid;
   place-items: center;
@@ -133,7 +134,8 @@ img {
 .brand small {
   display: block;
   font: 500 8px/1 var(--sans);
-  letter-spacing: 2.1px;
+  letter-spacing: 1.4px;
+  white-space: nowrap;
   margin-top: 6px;
   color: var(--muted);
 }
@@ -162,19 +164,19 @@ img {
   display: flex;
   align-items: center;
   font-size: 12px;
-  gap: 3px;
+  gap: 0;
 }
 .language button {
   padding: 0 5px;
   color: var(--muted);
   font-size: 12px;
-  min-width: 30px;
+  min-width: 44px;
 }
 .language button[aria-pressed="true"] {
   color: var(--gold);
 }
 .language span {
-  color: var(--line);
+  display: none;
 }
 main {
   min-height: 70vh;
@@ -277,6 +279,7 @@ main {
   animation-delay: calc(var(--i) * 0.12s);
 }
 .template-art {
+  container-type: inline-size;
   position: relative;
   isolation: isolate;
   overflow: hidden;
@@ -356,7 +359,9 @@ main {
   margin-bottom: 17px;
 }
 .mini-names {
-  font: 400 clamp(33px, 8vw, 54px) / 0.88 var(--serif);
+  font: 400 clamp(26px, 10.5cqw, 54px) / 0.96 var(--serif);
+  width: 100%;
+  overflow-wrap: anywhere;
 }
 .mini-names i {
   display: block;
@@ -418,32 +423,25 @@ main {
   border-color: #ffffffbd;
   backdrop-filter: blur(6px);
 }
-.art-oqshom:before {
-  filter: brightness(0.45) sepia(0.35);
-}
 .art-oqshom:after {
-  background: linear-gradient(#0b302163, #0a201cb0);
+  background: linear-gradient(#0b302112, #0a201c26);
 }
 .art-oqshom .invitation-mini {
   border-radius: 45% 45% 3px 3px;
   inset: 22% 18% 15%;
   padding-top: 35px;
-  background: #153e34c9;
+  background: linear-gradient(140deg, #234a3866, #102b227d);
   border-color: #ccb97e80;
 }
-.art-marsala:before {
-  filter: brightness(0.4) sepia(0.6);
-}
 .art-marsala:after {
-  background: linear-gradient(145deg, #5e152aaf, #240e19b0);
-  mix-blend-mode: multiply;
+  background: linear-gradient(145deg, #5e152a05, #240e1926);
 }
 .art-marsala .invitation-mini {
   border: 1px solid #d8bb785e;
   outline: 1px solid #d8bb7850;
   outline-offset: 7px;
   inset: 24% 17% 20%;
-  background: linear-gradient(145deg, #4c182ddd, #341024e6);
+  background: linear-gradient(145deg, #63223973, #341024a6);
   color: #edd4b0;
 }
 .preview-cue {
@@ -650,15 +648,17 @@ main {
   margin-bottom: 28px;
 }
 .step-nav button {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   font-size: 12px;
   text-align: left;
   color: var(--muted);
   padding: 12px 2px;
   border-bottom: 2px solid transparent;
   display: flex;
-  gap: 6px;
-  align-items: center;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-start;
 }
 .step-nav button span {
   font: 17px var(--serif);
@@ -1147,12 +1147,11 @@ dialog::backdrop {
   }
   .step-nav button {
     font-size: 14px;
+    flex-direction: row;
+    align-items: center;
   }
   .collection-heading h1 {
     max-width: 620px;
-  }
-  .mini-names {
-    font-size: 48px;
   }
 }
 @media (min-width: 640px) {
@@ -1173,9 +1172,6 @@ dialog::backdrop {
   }
   .template-art {
     aspect-ratio: 4/5.1;
-  }
-  .mini-names {
-    font-size: 40px;
   }
   .collection-heading {
     display: flex;
@@ -1306,9 +1302,6 @@ dialog::backdrop {
   .template-art {
     aspect-ratio: 4/4.95;
   }
-  .mini-names {
-    font-size: 47px;
-  }
   .collection-toolbar {
     margin-top: 39px;
   }
@@ -1358,9 +1351,6 @@ dialog::backdrop {
   }
   .gallery {
     gap: 44px 30px;
-  }
-  .mini-names {
-    font-size: 60px;
   }
   .mini-kicker {
     font-size: 10px;

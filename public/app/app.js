@@ -93,6 +93,13 @@ Object.assign(ru, {
   cancelled: "Отклонено",
   personalInvitation: "ЛИЧНОЕ ПРИГЛАШЕНИЕ",
   continue: "Продолжить",
+  navigation: "Навигация",
+  language: "Язык",
+  setupSteps: "Шаги настройки",
+  changeTheme: "Сменить тему",
+  close: "Закрыть",
+  previewTitle: "Предпросмотр приглашения",
+  invitationTitle: "Свадебное приглашение",
 });
 const uz = {
   skip: "Asosiy qismga o‘tish",
@@ -193,6 +200,13 @@ const uz = {
   pending: "Tasdiq kutilmoqda",
   paid: "Tayyor",
   cancelled: "Rad etilgan",
+  navigation: "Navigatsiya",
+  language: "Til",
+  setupSteps: "Sozlash bosqichlari",
+  changeTheme: "Mavzuni o‘zgartirish",
+  close: "Yopish",
+  previewTitle: "Taklifnoma ko‘rinishi",
+  invitationTitle: "To‘y taklifnomasi",
 };
 Object.assign(ru, {
   findVenue: "Найти место на карте",
@@ -233,6 +247,18 @@ export function localize() {
   document
     .querySelectorAll("[data-key-html]")
     .forEach((el) => (el.innerHTML = t(el.dataset.keyHtml)));
+  for (const [selector, key] of Object.entries({
+    ".main-nav": "navigation",
+    ".language": "language",
+    ".filters": "collection",
+    ".step-nav": "setupSteps",
+    "#mobile-mine": "mine",
+    "#theme-toggle": "changeTheme",
+    "#expand-preview": "fullPreview",
+    "#close-preview": "close",
+  })) document.querySelector(selector)?.setAttribute("aria-label", t(key));
+  $("live-frame").title = t("previewTitle");
+  $("preview-frame").title = t("invitationTitle");
   document
     .querySelectorAll("[data-lang]")
     .forEach((el) =>
@@ -413,11 +439,21 @@ export async function loadMine() {
 }
 $("mine-nav").onclick = $("mobile-mine").onclick = loadMine;
 const theme = storage.get("nvate_theme");
-document.documentElement.dataset.theme = theme || "dark";
+const systemTheme = matchMedia("(prefers-color-scheme: dark)");
+let chosenTheme = ["dark", "light"].includes(theme) ? theme : null;
+const syncTheme = () => {
+  const value = chosenTheme || (systemTheme.matches ? "dark" : "light");
+  document.documentElement.dataset.theme = value;
+  document.querySelector('meta[name="theme-color"]').content =
+    value === "dark" ? "#111210" : "#f4f2eb";
+};
+syncTheme();
+systemTheme.addEventListener("change", syncTheme);
 $("theme-toggle").onclick = () => {
   const value =
     document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-  document.documentElement.dataset.theme = value;
+  chosenTheme = value;
+  syncTheme();
   storage.set("nvate_theme", value);
 };
 $("year").textContent = new Date().getFullYear();

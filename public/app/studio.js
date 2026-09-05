@@ -46,7 +46,7 @@ export function bootEditor({
     try {
       const old = JSON.parse(storage.get("nv_draft_v4") || "null");
       if (!old || ![4, 5].includes(old.v)) return;
-      storage.set(
+      const migrated = storage.set(
         draftKey,
         JSON.stringify({
           v: 1,
@@ -77,6 +77,7 @@ export function bootEditor({
           },
         }),
       );
+      if (migrated) storage.remove("nv_draft_v4");
     } catch {
       /* A malformed legacy draft must not prevent entry. */
     }
@@ -668,6 +669,7 @@ export function bootEditor({
       });
       clearTimeout(saving);
       storage.remove(draftKey);
+      storage.remove("nv_draft_v4");
       $("success-copy").textContent = t("successCopy", { id: result.id });
       $("success-dialog").showModal();
       form.reset();

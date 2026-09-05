@@ -45,7 +45,8 @@
 - public/app/invitation.css, invitation.js — темы, движение и календарь.
 - src/render.js, templateStore.js — данные и загрузка шаблонов.
 - src/server.js, service.js, db.js, bot.js — существующая платформа Node/Express/SQLite/Telegram.
-- public/app/assets/source-manifest.json — точные промпты трёх оригинальных фонов (built-in image_gen). Финальные WebP расположены рядом, суммарно около 427 КБ.
+- public/app/assets/source-manifest.json — точные промпты пяти оригинальных фонов (built-in image_gen). Финальные WebP расположены рядом, суммарно около 822 КБ.
+- DESIGN_REVIEW_2026-09-05.md — актуальная проверка новой коллекции; прежний DESIGN_REVIEW.md относится к предыдущему дизайну.
 
 ## Развёртывание
 

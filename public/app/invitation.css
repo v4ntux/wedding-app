@@ -432,6 +432,7 @@ h2 em {
 .env-front,
 .env-flap {
   background-image: url("/app/assets/paper-texture.png");
+  background-blend-mode: multiply;
   background-size: 450px;
   box-shadow: inset 0 0 0 1px #fff3;
 }
@@ -615,15 +616,15 @@ body[data-template="oqshom"] {
   --env-hint: #e5d8b1;
 }
 .hero-oqshom .hero-scene img {
-  filter: brightness(0.43) sepia(0.25);
+  filter: none;
 }
 .hero-oqshom:after {
-  background: linear-gradient(#0a392574, #102d25ad 60%, var(--base));
+  background: linear-gradient(#0a39250a, #102d251f 70%, var(--base));
 }
 .hero-oqshom .hero-card {
   border-radius: 220px 220px 3px 3px;
   max-width: 400px;
-  background: linear-gradient(#ffffff10, #0b2c20b8);
+  background: linear-gradient(#ffffff0a, #0b2c208f);
   padding-top: 75px;
 }
 .evening-monogram {
@@ -655,13 +656,13 @@ body[data-template="marsala"] {
   --env-hint: #efd9b7;
 }
 .hero-marsala .hero-scene img {
-  filter: brightness(0.45) sepia(0.5);
+  filter: none;
 }
 .hero-marsala:after {
-  background: linear-gradient(#591b3799, #3b1229c4 65%, var(--base));
+  background: linear-gradient(#591b3710, #3b122929 75%, var(--base));
 }
 .hero-marsala .hero-card {
-  background: #41192ade;
+  background: linear-gradient(140deg, #63223966, #41192aab);
   border: 1px solid var(--gold);
   outline: 1px solid #d1aa734d;
   outline-offset: 9px;

@@ -99,7 +99,7 @@ window.__music={start:function(){if(!on)play()}};
   if (!music.playable) return '';
   return `<audio id="bgm" preload="auto" src="${escapeHtml(music.url)}"></audio><button id="mbtn" aria-label="${musicLabel}">${MUSIC_ICON}</button>
 <script>(function(){var a=document.getElementById('bgm'),b=document.getElementById('mbtn'),s=${start},e=${end},tm=null;
-if(e>s){a.addEventListener('timeupdate',function(){if(a.currentTime>=e){a.currentTime=s;a.play()}})}else{a.loop=true}
+if(e>s){a.addEventListener('timeupdate',function(){if(a.currentTime>=e){a.currentTime=s;a.play()}})}else if(s>0){a.addEventListener('ended',function(){a.currentTime=s;a.play().catch(function(){})})}else{a.loop=true}
 function fade(to,ms){if(tm)clearInterval(tm);var f0=a.volume,t0=Date.now();
 tm=setInterval(function(){var k=Math.min(1,(Date.now()-t0)/ms);a.volume=f0+(to-f0)*k;if(k>=1){clearInterval(tm);tm=null}},50)}
 function play(ms){if(s&&a.currentTime<s)a.currentTime=s;a.volume=0;
