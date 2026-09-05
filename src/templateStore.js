@@ -2,44 +2,57 @@
 // Новый шаблон = положить папку — код менять не нужно, подхватывается на лету (fs.watch).
 // Сломанный шаблон пропускается с ошибкой в лог и не роняет платформу.
 
-import { readdirSync, readFileSync, existsSync, watch } from 'node:fs';
-import path from 'node:path';
-import { parseTemplate } from './templateEngine.js';
+import { readdirSync, readFileSync, existsSync, watch } from "node:fs";
+import path from "node:path";
+import { parseTemplate } from "./templateEngine.js";
 
-export const TEMPLATES_DIR = path.resolve(process.cwd(), 'templates');
+export const TEMPLATES_DIR = path.resolve(process.cwd(), "templates");
 
 // Типы событий платформы. Событие «активно», когда для него есть хотя бы один шаблон.
 export const EVENTS = [
-  { id: 'wedding', uz: 'To‘y', ru: 'Свадьба', emoji: '💍' },
-  { id: 'birthday', uz: 'Tug‘ilgan kun', ru: 'День рождения', emoji: '🎂' },
+  { id: "wedding", uz: "To‘y", ru: "Свадьба", emoji: "💍" },
+  { id: "birthday", uz: "Tug‘ilgan kun", ru: "День рождения", emoji: "🎂" },
 ];
 
 let cache = null;
+let templateWatcher = null;
+let reloadTimer = null;
+export function closeTemplateWatcher() {
+  clearTimeout(reloadTimer);
+  templateWatcher?.close();
+  templateWatcher = null;
+}
 
 function loadOne(id) {
   const dir = path.join(TEMPLATES_DIR, id);
-  const manifestPath = path.join(dir, 'manifest.json');
-  const htmlPath = path.join(dir, 'template.html');
+  const manifestPath = path.join(dir, "manifest.json");
+  const htmlPath = path.join(dir, "template.html");
   if (!existsSync(manifestPath) || !existsSync(htmlPath)) {
-    throw new Error('нужны manifest.json и template.html');
+    throw new Error("нужны manifest.json и template.html");
   }
-  const m = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const m = JSON.parse(readFileSync(manifestPath, "utf8"));
   const name = String(m.name ?? id).slice(0, 60);
   const price = Number(m.price);
-  if (!Number.isFinite(price) || price < 0) throw new Error('в manifest.json нет корректного price');
-  const event = EVENTS.some((e) => e.id === m.event) ? m.event : 'wedding';
+  if (!Number.isFinite(price) || price < 0)
+    throw new Error("в manifest.json нет корректного price");
+  const event = EVENTS.some((e) => e.id === m.event) ? m.event : "wedding";
   return {
     id,
     name,
     event,
     price,
-    minPhotos: Number.isInteger(m.minPhotos) && m.minPhotos >= 0 ? m.minPhotos : 1,
+    minPhotos:
+      Number.isInteger(m.minPhotos) && m.minPhotos >= 0 ? m.minPhotos : 1,
     colors: Array.isArray(m.colors) ? m.colors.slice(0, 4).map(String) : [],
+    description: m.description ?? {},
+    material: String(m.material ?? "ATELIER"),
+    tone: m.tone === "light" ? "light" : "dark",
+    previewImage: String(m.previewImage ?? "/app/assets/paper-texture.png"),
     order: Number.isFinite(Number(m.order)) ? Number(m.order) : 999,
     demoUrl: `/demo/${id}`,
     // локализация поверх базовой (см. LOCALES в render.js): { uz: {...}, ru: {...} }
-    strings: m.strings && typeof m.strings === 'object' ? m.strings : null,
-    tree: parseTemplate(readFileSync(htmlPath, 'utf8')),
+    strings: m.strings && typeof m.strings === "object" ? m.strings : null,
+    tree: parseTemplate(readFileSync(htmlPath, "utf8")),
   };
 }
 
@@ -57,7 +70,9 @@ function load() {
   }
   list.sort((a, b) => a.order - b.order || a.price - b.price);
   cache = { list, byId: new Map(list.map((t) => [t.id, t])) };
-  console.log(`[templates] загружено ${list.length}: ${list.map((t) => t.id).join(', ') || '—'}`);
+  console.log(
+    `[templates] загружено ${list.length}: ${list.map((t) => t.id).join(", ") || "—"}`,
+  );
   return cache;
 }
 
@@ -92,15 +107,18 @@ export function publicEvents() {
 // Горячая перезагрузка: правка/добавление шаблона подхватывается без рестарта.
 if (existsSync(TEMPLATES_DIR)) {
   try {
-    let timer = null;
-    watch(TEMPLATES_DIR, { recursive: true }, () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
+    templateWatcher = watch(TEMPLATES_DIR, { recursive: true }, () => {
+      clearTimeout(reloadTimer);
+      reloadTimer = setTimeout(() => {
         cache = null;
-        console.log('[templates] изменения в templates/ — перезагрузка');
+        console.log("[templates] изменения в templates/ — перезагрузка");
       }, 300);
     });
+    templateWatcher.unref();
   } catch (e) {
-    console.warn('[templates] fs.watch недоступен, шаблоны читаются один раз:', e.message);
+    console.warn(
+      "[templates] fs.watch недоступен, шаблоны читаются один раз:",
+      e.message,
+    );
   }
 }

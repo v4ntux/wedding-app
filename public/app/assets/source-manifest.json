@@ -1,0 +1,33 @@
+{
+  "created": "2026-09-05",
+  "mode": "built-in image_gen",
+  "calls": 3,
+  "variants_retried": false,
+  "validation": "Visually inspected all three original outputs. Each is photorealistic, portrait 1024x1536, has central negative space, and contains no visible text, logo, people, card UI, or watermark. Copied without image modifications.",
+  "assets": [
+    {
+      "slug": "royal-palace",
+      "destination": "public/app/assets/royal-palace.webp",
+      "prompt": "Use case: photorealistic-natural\nAsset type: original portrait wedding invitation background, 1024x1536 portrait.\nPrimary request: A photorealistic luxurious champagne limestone palace garden wedding setting, with a symmetrical tall rounded architectural arch and natural realistic stone texture and depth.\nComposition/framing: Portrait 2:3 composition. Large empty quiet center reserved for overlaid HTML invitation names. Soft atmospheric ivory floral arrangements only at the lower corners.\nLighting/mood: Warm gold daylight, sophisticated editorial photography.\nColor palette: Rich gold, cream, and smoky black edges.\nConstraints: No people, no text, no logo, no lettering, no card, no UI. This must be a photographic scene, not illustration.",
+      "width": 1024,
+      "height": 1536,
+      "optimization": "WebP quality 86; same original pixel dimensions"
+    },
+    {
+      "slug": "ivory-botanical",
+      "destination": "public/app/assets/ivory-botanical.webp",
+      "prompt": "Use case: photorealistic-natural\nAsset type: original portrait wedding invitation background, 1024x1536 portrait.\nPrimary request: Photorealistic portrait close-up flat lay on warm ivory fine linen paper, realistic dimensional white lilies and jasmine with olive leaves at the top left and bottom right corners.\nComposition/framing: Portrait 2:3. Generous open central 60 percent for overlaid HTML typography. Florals and foliage frame corners only.\nLighting/mood: Dappled sunlight with delicate shadows, tactile delicate wedding stationery art direction.\nColor palette: Ivory, champagne, olive, gold.\nMaterials/textures: Fine linen paper, natural fresh petals, realistic leaves.\nConstraints: No lettering, no text, no logo, no watermark, no card UI. Photorealistic, not illustration.",
+      "width": 1024,
+      "height": 1536,
+      "optimization": "WebP quality 86; same original pixel dimensions"
+    },
+    {
+      "slug": "champagne-silk",
+      "destination": "public/app/assets/champagne-silk.webp",
+      "prompt": "Use case: photorealistic-natural\nAsset type: original portrait wedding invitation background, 1024x1536 portrait.\nPrimary request: Photorealistic close shot of luxurious champagne silk draping around the outer edges with elegant folds, soft gold specular highlights, and a few white pearl accents at one corner.\nComposition/framing: Portrait 2:3. Luminous creamy central negative space for overlaid HTML typography. Rich silk folds remain along the outer edges.\nLighting/mood: Bespoke bridal stationery editorial photography, luminous and refined.\nColor palette: Champagne, creamy ivory, soft gold.\nMaterials/textures: Realistic glossy silk weave and folds, white lustrous pearls.\nConstraints: No text, no lettering, no logo, no watermark, no UI, no people.",
+      "width": 1024,
+      "height": 1536,
+      "optimization": "WebP quality 86; same original pixel dimensions"
+    }
+  ]
+}

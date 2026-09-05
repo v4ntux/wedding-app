@@ -3,6 +3,17 @@
   "event": "wedding",
   "price": 199000,
   "minPhotos": 1,
-  "colors": ["#152742", "#C9A959", "#F4EFE3"],
-  "order": 5
+  "colors": [
+    "#1a1d16",
+    "#d7b97b",
+    "#ede2ca"
+  ],
+  "order": 1,
+  "tone": "dark",
+  "material": "SIGNATURE",
+  "previewImage": "/app/assets/royal-palace.webp",
+  "description": {
+    "ru": "Дворцовая элегантность",
+    "uz": "Saroy nafisligi"
+  }
 }

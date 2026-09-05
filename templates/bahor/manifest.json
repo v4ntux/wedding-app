@@ -3,6 +3,17 @@
   "event": "wedding",
   "price": 139000,
   "minPhotos": 2,
-  "colors": ["#FBF7EF", "#C98A8E", "#8FA68E"],
-  "order": 2
+  "colors": [
+    "#f6f3e8",
+    "#7c8d6a",
+    "#d8c693"
+  ],
+  "order": 3,
+  "tone": "light",
+  "material": "BOTANICAL",
+  "previewImage": "/app/assets/ivory-botanical.webp",
+  "description": {
+    "ru": "Нежность в каждом лепестке",
+    "uz": "Har bir gulbargda nafosat"
+  }
 }

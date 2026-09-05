@@ -65,12 +65,13 @@ g.gain.exponentialRampToValueAtTime(.001,c.currentTime+.75);
 s.connect(f);f.connect(g);g.connect(c.destination);s.start()}catch(e){}}
 if(!x){reveal();return}
 document.body.classList.add('locked');
+var invitation=document.getElementById('invitation');if(invitation)invitation.inert=true;
 var opened=false;
 function open(){if(opened)return;opened=true;x.classList.add('open');
 if(!rm)sfx();
 setTimeout(function(){if(window.__music)window.__music.start()},rm?50:1250);
 setTimeout(function(){x.classList.add('gone')},rm?50:2550);
-setTimeout(function(){x.style.display='none';document.body.classList.remove('locked');reveal()},rm?400:3450);}
+setTimeout(function(){x.style.display='none';document.body.classList.remove('locked');if(invitation){invitation.inert=false;invitation.focus({preventScroll:true})}reveal()},rm?400:3450);}
 env.addEventListener('click',open);
 env.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();open()}});
 })();</script>`;

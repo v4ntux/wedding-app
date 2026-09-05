@@ -3,6 +3,17 @@
   "event": "wedding",
   "price": 129000,
   "minPhotos": 2,
-  "colors": ["#5C2233", "#F4EFE4", "#C08A97"],
-  "order": 1
+  "colors": [
+    "#35131f",
+    "#d4ae76",
+    "#f0ddc3"
+  ],
+  "order": 5,
+  "tone": "dark",
+  "material": "VELVET",
+  "previewImage": "/app/assets/champagne-silk.webp",
+  "description": {
+    "ru": "Бархатная история любви",
+    "uz": "Baxmaldek sevgi hikoyasi"
+  }
 }

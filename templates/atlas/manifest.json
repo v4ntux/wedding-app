@@ -3,6 +3,17 @@
   "event": "wedding",
   "price": 149000,
   "minPhotos": 1,
-  "colors": ["#F7F2E8", "#B08D4F", "#A54B3F"],
-  "order": 3
+  "colors": [
+    "#f5efe1",
+    "#b59966",
+    "#e4d7ba"
+  ],
+  "order": 2,
+  "tone": "light",
+  "material": "SILK",
+  "previewImage": "/app/assets/champagne-silk.webp",
+  "description": {
+    "ru": "Прикосновение шёлка",
+    "uz": "Ipak nafisligi"
+  }
 }
