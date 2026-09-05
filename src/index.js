@@ -27,7 +27,7 @@ const server = createServer({
   },
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, DEV_NO_AUTH ? '127.0.0.1' : '0.0.0.0', () => {
   console.log(`[server] http://localhost:${PORT}  (BASE_URL: ${BASE_URL})`);
   if (DEV_NO_AUTH) console.log('[server] DEV_NO_AUTH=1 — форма доступна без Telegram (только для разработки!)');
   if (!ADMIN_CHAT_IDS.length) console.warn('[server] ADMIN_CHAT_IDS не задан — напишите боту, он подскажет ваш id');

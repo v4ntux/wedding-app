@@ -65,12 +65,13 @@ g.gain.exponentialRampToValueAtTime(.001,c.currentTime+.75);
 s.connect(f);f.connect(g);g.connect(c.destination);s.start()}catch(e){}}
 if(!x){reveal();return}
 document.body.classList.add('locked');
+var invitation=document.getElementById('invitation');if(invitation)invitation.inert=true;
 var opened=false;
 function open(){if(opened)return;opened=true;x.classList.add('open');
 if(!rm)sfx();
 setTimeout(function(){if(window.__music)window.__music.start()},rm?50:1250);
 setTimeout(function(){x.classList.add('gone')},rm?50:2550);
-setTimeout(function(){x.style.display='none';document.body.classList.remove('locked');reveal()},rm?400:3450);}
+setTimeout(function(){x.style.display='none';document.body.classList.remove('locked');if(invitation){invitation.inert=false;invitation.focus({preventScroll:true})}reveal()},rm?400:3450);}
 env.addEventListener('click',open);
 env.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();open()}});
 })();</script>`;
@@ -98,7 +99,7 @@ window.__music={start:function(){if(!on)play()}};
   if (!music.playable) return '';
   return `<audio id="bgm" preload="auto" src="${escapeHtml(music.url)}"></audio><button id="mbtn" aria-label="${musicLabel}">${MUSIC_ICON}</button>
 <script>(function(){var a=document.getElementById('bgm'),b=document.getElementById('mbtn'),s=${start},e=${end},tm=null;
-if(e>s){a.addEventListener('timeupdate',function(){if(a.currentTime>=e){a.currentTime=s;a.play()}})}else{a.loop=true}
+if(e>s){a.addEventListener('timeupdate',function(){if(a.currentTime>=e){a.currentTime=s;a.play()}})}else if(s>0){a.addEventListener('ended',function(){a.currentTime=s;a.play().catch(function(){})})}else{a.loop=true}
 function fade(to,ms){if(tm)clearInterval(tm);var f0=a.volume,t0=Date.now();
 tm=setInterval(function(){var k=Math.min(1,(Date.now()-t0)/ms);a.volume=f0+(to-f0)*k;if(k>=1){clearInterval(tm);tm=null}},50)}
 function play(ms){if(s&&a.currentTime<s)a.currentTime=s;a.volume=0;

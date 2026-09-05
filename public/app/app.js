@@ -1,2273 +1,489 @@
-/* global ymaps, UI */
-/* nvate studio — одна вертикальная нить. Кнопки «продолжить» нет: как только блок
-   заполнен верно, следующий сам медленно проявляется и подъезжает к экрану.
-   Секции: состояние · словарь · нить и док · блоки · демо · отправка · старт. */
-'use strict';
+import { bootEditor } from "./studio.js";
 
-const { $, h, debounce, toast, sheet, haptic, tg } = UI;
-
-if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#100b03'); } catch (_) { /* старый клиент */ } }
-
-/* ════ Состояние ════ */
-
-const state = {
-  config: null,
-  open: 0,              // последний раскрытый блок — он же активный шаг
-  dateIso: null,
-  time: '17:00',
-  timeConfirmed: false,
-  lat: null,
-  lng: null,
-  mapOn: false,
-  templateId: null,
-  photos: [],           // { name, url, uploading }
-  music: null,          // { type, value, name, artist, playUrl }
-  guestsOn: false,
-  guests: [],
-  previewHtml: '',
-  seenInvite: false,
-  sending: false,
+export const $ = (id) => document.getElementById(id);
+export const text = (tag, value, cls = "") => {
+  const el = document.createElement(tag);
+  el.textContent = value;
+  if (cls) el.className = cls;
+  return el;
 };
-
-const DRAFT = 'nv_draft_v4';
-
-const saveDraft = debounce(() => {
-  try {
-    localStorage.setItem(DRAFT, JSON.stringify({
-      v: 5,
-      groom: $('groom').value, bride: $('bride').value,
-      dateIso: state.dateIso, time: state.time, timeConfirmed: state.timeConfirmed,
-      lat: state.lat, lng: state.lng, mapOn: state.mapOn, address: $('address').value,
-      templateId: state.templateId,
-      photos: state.photos.filter((p) => p.name).map((p) => p.name),
-      music: state.music, guestsOn: state.guestsOn, guests: state.guests,
-      contactTg: $('contact-tg').value, phone: $('phone').value, phone2: $('phone2').value,
-      open: state.open, seenInvite: state.seenInvite,
-    }));
-  } catch (_) { /* переполненное хранилище не критично */ }
-}, 400);
-
-function clearDraft() { try { localStorage.removeItem(DRAFT); } catch (_) { /* — */ } }
-
-function restoreDraft() {
-  let d = null;
-  try { d = JSON.parse(localStorage.getItem(DRAFT) || 'null'); } catch (_) { return false; }
-  if (!d || ![4, 5].includes(d.v)) return false;
-  if (!d.groom && !d.bride && !d.templateId) return false;
-  $('groom').value = d.groom || '';
-  $('bride').value = d.bride || '';
-  $('address').value = d.address || '';
-  $('contact-tg').value = d.contactTg || '';
-  $('phone').value = d.phone || '';
-  $('phone2').value = d.phone2 || '';
-  state.dateIso = d.dateIso || null;
-  state.time = /^(1[5-9]|2[0-2]):(00|15|30|45)$/.test(d.time) ? d.time : '17:00';
-  state.timeConfirmed = Boolean(d.timeConfirmed);
-  state.lat = Number.isFinite(d.lat) ? d.lat : null;
-  state.lng = Number.isFinite(d.lng) ? d.lng : null;
-  state.mapOn = d.v >= 5 ? Boolean(d.mapOn) : false;
-  state.templateId = d.templateId || null;
-  state.photos = (d.photos || []).map((name) => ({ name, url: '/uploads/' + name, uploading: false }));
-  state.music = d.music || null;
-  state.guestsOn = Boolean(d.guestsOn);
-  state.guests = Array.isArray(d.guests) ? d.guests.slice(0, 100) : [];
-  state.seenInvite = Boolean(d.seenInvite);
-  state.open = Math.min(Number(d.open) || 0, STEPS.length - 1);
-  return true;
-}
-
-/* ════ Словарь ════ */
-
-const I18N = {
-  uz: {
-    eNames: 'Kim uylanmoqda', tNames: 'Ismlaringiz',
-    phGroom: 'Kuyov', phBride: 'Kelin', groom: 'Kuyov ismi', bride: 'Kelin ismi',
-    eDate: 'Qachon', tDate: 'To‘y sanasi', timeLbl: 'Boshlanish vaqti',
-    timePrompt: 'Vaqt barabanini suring — tanlangan vaqt shu yerda paydo bo‘ladi.',
-    eVenue: 'Qayerda', tVenue: 'To‘yxona', address: 'To‘yxona nomi',
-    seekLbl: 'Xaritada joyni qidirish', seekPlace: 'Masalan: Mang‘it to‘yxona',
-    mapHint: 'Nuqtani aniqlashtirish uchun xaritada bosing',
-    mapHintFallback: 'Joyni yuqoridan qidiring va natijani tanlang — Yandex xarita shu nuqtani ko‘rsatadi.',
-    linkLbl: 'Musiqa havolasi',
-    mapSwTitle: 'Jonli xarita qo‘shish', mapSwOff: 'Shart emas', mapSwOn: 'Xarita yoqilgan',
-    change: 'O‘zgartirish',
-    guestPh: 'Ism yozing…',
-    eMusic: 'Ovoz', tMusic: 'Musiqa', msTop: 'Mashhur', msMine: 'Mening musiqam',
-    seekMusic: 'Qo‘shiq yoki ijrochi', musicSkip: 'Musiqasiz davom etish',
-    add: 'Qo‘shish', uploadMusic: 'Fayl yuklash', lookDone: 'Ko‘rib chiqdim',
-    linkHint: 'YouTube havolasi yoki to‘g‘ridan-to‘g‘ri mp3 havolasi.',
-    linkPh: 'https://…',
-    eTpl: 'Dizayn', tTpl: 'Taklifnoma uslubi',
-    leadTpl: 'Uslublarni surib ko‘ring. Kartani bosing — to‘liq namuna ochiladi.',
-    tplSwipe: 'Surib tanlang', tplPrevAria: 'Oldingi uslub', tplNextAria: 'Keyingi uslub',
-    tplPhotos: (n) => `${n} ta surat`,
-    ePhotos: 'Suratlar', tPhotos: 'Sizning suratlaringiz',
-    eReady: 'Tayyor', tReady: 'Hammasi tayyor',
-    leadReady: 'Taklifnomangiz yig‘ildi. Uni to‘liq ko‘rib chiqing.',
-    seeInvite: 'Qayta ko‘rish',
-    readyHint: 'Namuna o‘zi ochiladi. Oxirigacha suring — u sokin yopilib, studiyaga qaytaradi.',
-    eGuests: 'Qo‘shimcha', tGuests: 'Ismli taklifnomalar',
-    guestsSwTitle: 'Har bir mehmonga alohida havola',
-    guestsSwOff: 'O‘chirilgan', guestsSwOn: 'Yoqilgan',
-    personalPreview: 'Shaxsiy taklif', personalGuest: 'Hurmatli Aziz aka',
-    personalTagline: 'Har bir mehmon uchun — shaxsiy taklifnoma.',
-    guestAdd: 'Ism qo‘shish', guestsUnit: 'ta ism',
-    wmTitle: 'Namuna himoyalangan',
-    wmText: 'Ustidagi «nVate» to‘ri va nusxa olish cheklovi faqat namunada. To‘lovdan so‘ng to‘r olib tashlanadi va sizga toza havola beriladi.',
-    total: 'Jami',
-    eContact: 'Aloqa', tContact: 'Siz bilan qanday bog‘lanamiz',
-    leadContact: 'To‘lovni tasdiqlash uchun kamida 2 ta maydonni to‘ldiring.',
-    tgLbl: 'Telegram username', phoneLbl: 'Telefon raqam', phone2Lbl: 'Qo‘shimcha aloqa',
-    contactRule: 'Username yoki raqam — ikkitasi yetarli.',
-    mineTitle: 'Mening taklifnomalarim',
-    mineAria: 'Mening taklifnomalarimni ochish', closeAria: 'Yopish', stepsAria: 'Studio bosqichlari',
-    prevMonthAria: 'Oldingi oy', nextMonthAria: 'Keyingi oy', hoursAria: 'Soatlar', minutesAria: 'Daqiqalar',
-    musicSearchAria: 'Musiqa qidirish', playAria: 'Eshitish', pauseAria: 'To‘xtatish',
-    zoomInAria: 'Xaritani yaqinlashtirish', zoomOutAria: 'Xaritani uzoqlashtirish',
-    photoUploadAria: 'Surat yuklash', photoRemoveAria: 'Suratni o‘chirish', previewAria: 'Taklifnoma namunasi',
-    doneTitle: 'Qabul qilindi', doneNew: 'Yangi taklifnoma',
-    doneText: 'To‘lov tasdiqlangach, botga toza havolangiz keladi. Odatda bu 10 daqiqagacha vaqt oladi.',
-    beads: ['Ismlar', 'Sana', 'Joy', 'Musiqa', 'Dizayn', 'Suratlar', 'Tayyor', 'Mehmonlar', 'Aloqa'],
-    pay: 'To‘lash va havola olish', sending: 'Yuborilmoqda',
-    months: ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun', 'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr'],
-    dow: ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'],
-    demo: 'Ochib ko‘rish', live: 'Jonli namuna', popular: 'Mashhur', take: 'Tanlash', taken: 'Tanlandi',
-    photoNeed: (n) => `Bu uslub uchun <b>${n} ta</b> surat kerak`,
-    photoOf: (i, n) => `${i} / ${n}`,
-    sum: 'so‘m',
-    eNames_: 'Ikkala ismni ham yozing', eDate_: 'Taqvimdan sanani tanlang',
-    eVenue_: 'To‘yxona nomini yozing, xarita yoqilgan bo‘lsa nuqtani ham belgilang', eTpl_: 'Uslubni tanlang',
-    ePhoto_: (n) => `Yana surat kerak: ${n} ta`,
-    eGuest_: 'Bo‘sh ismlarni to‘ldiring yoki o‘chiring',
-    eContact_: 'Kamida 2 ta aloqa maydonini to‘ldiring',
-    eNet: 'Aloqa yo‘q. Qayta urinib ko‘ring', eNoFound: 'Hech narsa topilmadi',
-    eUpload: 'Fayl yuklanmadi', eBig: 'Fayl juda katta (16 МБ gacha)',
-    eLink: 'Havola tanilmadi',
-    noGeo: 'Joylashuv aniqlanmadi', copied: 'Nusxa olindi',
-    nextUp: 'Keyingi bosqich ochildi',
-    tplPlate: 'Taklifnoma', myTrack: 'Mening trekim',
-  },
-  ru: {
-    eNames: 'Кто женится', tNames: 'Ваши имена',
-    phGroom: 'Жених', phBride: 'Невеста', groom: 'Имя жениха', bride: 'Имя невесты',
-    eDate: 'Когда', tDate: 'Дата свадьбы', timeLbl: 'Время начала',
-    timePrompt: 'Прокрутите барабан — выбранное время появится здесь.',
-    eVenue: 'Где', tVenue: 'Место', address: 'Название тойхоны',
-    seekLbl: 'Поиск места на карте', seekPlace: 'Например: тойхона в Мангите',
-    mapHint: 'Нажмите на карту, чтобы уточнить точку',
-    mapHintFallback: 'Найдите место выше и выберите результат — Яндекс Карты покажут эту точку.',
-    linkLbl: 'Ссылка на музыку',
-    mapSwTitle: 'Добавить живую карту', mapSwOff: 'Необязательно', mapSwOn: 'Карта включена',
-    change: 'Изменить',
-    guestPh: 'Впишите имя…',
-    eMusic: 'Звук', tMusic: 'Музыка', msTop: 'Популярное', msMine: 'Моя музыка',
-    seekMusic: 'Песня или исполнитель', musicSkip: 'Продолжить без музыки',
-    add: 'Добавить', uploadMusic: 'Загрузить файл', lookDone: 'Посмотрел',
-    linkHint: 'Ссылка на YouTube или прямая ссылка на mp3.',
-    linkPh: 'https://…',
-    eTpl: 'Дизайн', tTpl: 'Стиль приглашения',
-    leadTpl: 'Листайте стили. Нажмите на карточку, чтобы открыть полный пример.',
-    tplSwipe: 'Листайте для выбора', tplPrevAria: 'Предыдущий стиль', tplNextAria: 'Следующий стиль',
-    tplPhotos: (n) => `${n} фото`,
-    ePhotos: 'Фото', tPhotos: 'Ваши фотографии',
-    eReady: 'Готово', tReady: 'Всё готово',
-    leadReady: 'Приглашение собрано. Посмотрите его целиком.',
-    seeInvite: 'Посмотреть ещё раз',
-    readyHint: 'Образец откроется сам. Долистайте до конца — он мягко закроется и вернёт вас в студию.',
-    eGuests: 'Дополнительно', tGuests: 'Именные приглашения',
-    guestsSwTitle: 'Персональная ссылка каждому гостю',
-    guestsSwOff: 'Выключено', guestsSwOn: 'Включено',
-    personalPreview: 'Личное приглашение', personalGuest: 'Дорогой Азиз',
-    personalTagline: 'Каждому гостю — персональное приглашение.',
-    guestAdd: 'Добавить имя', guestsUnit: 'имён',
-    wmTitle: 'Образец защищён',
-    wmText: 'Сетка «nVate» поверх и запрет копирования — только в образце. После оплаты сетка снимается, и вы получаете чистую ссылку.',
-    total: 'Итого',
-    eContact: 'Контакты', tContact: 'Как с вами связаться',
-    leadContact: 'Для подтверждения оплаты заполните минимум 2 поля.',
-    tgLbl: 'Telegram username', phoneLbl: 'Номер телефона', phone2Lbl: 'Запасной контакт',
-    contactRule: 'Username или номер — достаточно двух.',
-    mineTitle: 'Мои приглашения',
-    mineAria: 'Открыть мои приглашения', closeAria: 'Закрыть', stepsAria: 'Этапы студии',
-    prevMonthAria: 'Предыдущий месяц', nextMonthAria: 'Следующий месяц', hoursAria: 'Часы', minutesAria: 'Минуты',
-    musicSearchAria: 'Поиск музыки', playAria: 'Прослушать', pauseAria: 'Пауза',
-    zoomInAria: 'Приблизить карту', zoomOutAria: 'Отдалить карту',
-    photoUploadAria: 'Загрузить фотографию', photoRemoveAria: 'Удалить фотографию', previewAria: 'Предпросмотр приглашения',
-    doneTitle: 'Заявка принята', doneNew: 'Новое приглашение',
-    doneText: 'После подтверждения оплаты чистая ссылка придёт в бот. Обычно это занимает до 10 минут.',
-    beads: ['Имена', 'Дата', 'Место', 'Музыка', 'Дизайн', 'Фото', 'Готово', 'Гости', 'Контакты'],
-    pay: 'Оплатить и получить ссылку', sending: 'Отправляем',
-    months: ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'],
-    dow: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
-    demo: 'Открыть', live: 'Живой пример', popular: 'Популярно', take: 'Выбрать', taken: 'Выбрано',
-    photoNeed: (n) => `Для этого стиля нужно <b>${n} фото</b>`,
-    photoOf: (i, n) => `${i} / ${n}`,
-    sum: 'сум',
-    eNames_: 'Впишите оба имени', eDate_: 'Выберите дату в календаре',
-    eVenue_: 'Укажите название места; если карта включена — отметьте точку', eTpl_: 'Выберите стиль',
-    ePhoto_: (n) => `Добавьте ещё ${n} фото`,
-    eGuest_: 'Заполните или удалите пустые имена',
-    eContact_: 'Заполните минимум 2 поля контактов',
-    eNet: 'Нет связи. Попробуйте ещё раз', eNoFound: 'Ничего не найдено',
-    eUpload: 'Файл не загрузился', eBig: 'Файл слишком большой (до 16 МБ)',
-    eLink: 'Ссылка не распознана',
-    noGeo: 'Не удалось определить геопозицию', copied: 'Скопировано',
-    nextUp: 'Следующий шаг открыт',
-    tplPlate: 'Приглашение', myTrack: 'Мой трек',
-  },
-};
-
-/* Every new studio visit starts with an explicit language choice. */
-let LANG = null;
-const t = (k, ...a) => {
-  const v = I18N[LANG || 'uz'][k];
-  return typeof v === 'function' ? v(...a) : v;
-};
-const money = (n) => `${Number(n || 0).toLocaleString('ru-RU')} ${t('sum')}`;
-
-function applyI18n() {
-  document.documentElement.lang = LANG;
-  for (const el of document.querySelectorAll('[data-i18n]')) {
-    const v = t(el.dataset.i18n);
-    if (typeof v !== 'string') continue;
-    if (v.includes('<')) el.innerHTML = v; else el.textContent = v;
-  }
-  $('geo-q').placeholder = t('seekPlace');
-  $('music-q').placeholder = t('seekMusic');
-  $('music-link').placeholder = t('linkPh');
-  $('submit-label').textContent = t('pay');
-  $('btn-mine').setAttribute('aria-label', t('mineAria'));
-  $('mine-close').setAttribute('aria-label', t('closeAria'));
-  $('sheet-close').setAttribute('aria-label', t('closeAria'));
-  $('dock').setAttribute('aria-label', t('stepsAria'));
-  $('cal-prev').setAttribute('aria-label', t('prevMonthAria'));
-  $('cal-next').setAttribute('aria-label', t('nextMonthAria'));
-  $('hour-drum').setAttribute('aria-label', t('hoursAria'));
-  $('min-drum').setAttribute('aria-label', t('minutesAria'));
-  $('music-q').setAttribute('aria-label', t('musicSearchAria'));
-  $('map-in').setAttribute('aria-label', t('zoomInAria'));
-  $('map-out').setAttribute('aria-label', t('zoomOutAria'));
-  $('photo-input').setAttribute('aria-label', t('photoUploadAria'));
-  $('sheet-frame').setAttribute('title', t('previewAria'));
-  $('tpl-prev').setAttribute('aria-label', t('tplPrevAria'));
-  $('tpl-next').setAttribute('aria-label', t('tplNextAria'));
-  $('sw-uz').classList.toggle('on', LANG === 'uz');
-  $('sw-ru').classList.toggle('on', LANG === 'ru');
-  document.querySelector('.langsw')?.classList.toggle('at-ru', LANG === 'ru');
-  renderBeads();
-  renderCalendar();
-  buildClock();
-  renderTemplates();
-  renderPhotos();
-  renderGuests();
-  renderMapChoice();
-  renderReady();
-}
-
-function setLang(lang) {
-  LANG = lang;
-  localStorage.setItem('nv_lang', lang);
-  applyI18n();
-}
-
-/* ════ Шаги ════
-   auto: блок сам открывает следующий, как только заполнен верно. */
-
-const STEPS = [
-  { id: 'names', auto: true, check: () => $('groom').value.trim() && $('bride').value.trim() },
-  { id: 'datetime', auto: true, check: () => Boolean(state.dateIso) && state.timeConfirmed },
-  { id: 'location', auto: true, check: () => Boolean($('address').value.trim())
-      && (!state.mapOn || (Number.isFinite(state.lat) && Number.isFinite(state.lng))) },
-  { id: 'music', auto: true, check: () => true },
-  { id: 'template', auto: true, check: () => Boolean(state.templateId) },
-  { id: 'photos', auto: true, check: () => filledPhotos() >= requiredPhotos() },
-  { id: 'ready', auto: false, check: () => state.seenInvite },
-  { id: 'guests', auto: true, check: () => true },        // опциональный блок — после показа открывает контакты
-  { id: 'contact', auto: false, check: () => contactsFilled() >= 2 },
-];
-
-const blk = (i) => document.querySelector(`.blk[data-step="${STEPS[i].id}"]`);
-const stepIdx = (id) => STEPS.findIndex((s) => s.id === id);
-
-/* Fill → 2s wait → slow camera to the next block's top → whole card rises. */
-let revealRun = 0;
-let mainScrollRun = 0;
-const FLOW = Object.freeze({
-  settle: 2000,
-  beforeScroll: 160,
-  scrollMin: 2200,
-  scrollMax: 3800,
-  pauseAfterScroll: 400,
-  reveal: 1000,
-  rise: 120,
-  topGap: 12,
-});
-const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-function easeOut(k) {
-  return 1 - (1 - k) * (1 - k) * (1 - k);
-}
-
-function playMotion(duration, draw) {
-  return new Promise((resolve) => {
-    const t0 = performance.now();
-    const tick = (now) => {
-      const k = Math.min(1, (now - t0) / duration);
-      draw(k);
-      if (k < 1) requestAnimationFrame(tick);
-      else resolve();
-    };
-    requestAnimationFrame(tick);
-  });
-}
-
-function armBlock(el) {
-  if (!el) return;
-  el.classList.add('is-wait');
-  el.classList.remove('is-live', 'is-rising');
-  el.style.opacity = '0';
-  el.style.transform = `translate3d(0, ${FLOW.rise}px, 0)`;
-  el.style.pointerEvents = 'none';
-  el.setAttribute('inert', '');
-  el.setAttribute('aria-hidden', 'true');
-}
-
-function restBlock(el) {
-  if (!el) return;
-  el.classList.remove('is-wait', 'is-rising');
-  el.style.opacity = '';
-  el.style.transform = '';
-  el.style.pointerEvents = '';
-  el.removeAttribute('inert');
-  el.removeAttribute('aria-hidden');
-}
-
-function headerOffset() {
-  const bar = document.getElementById('topbar');
-  if (!bar) return FLOW.topGap + 72;
-  return Math.ceil(bar.getBoundingClientRect().bottom) + FLOW.topGap;
-}
-
-function slotTop(el) {
-  const y = window.scrollY + el.getBoundingClientRect().top;
-  return el.classList.contains('is-wait') || el.classList.contains('is-rising')
-    ? y - FLOW.rise
-    : y;
-}
-
-const SCENES = [
-  { rgb: '214,168,74', theme: '#160f04', bg: 'radial-gradient(92% 70% at 18% 9%,rgba(255,225,142,.48),transparent 48%),radial-gradient(70% 62% at 92% 28%,rgba(173,82,16,.28),transparent 62%),linear-gradient(145deg,#2b1905 0%,#100b04 52%,#050403 100%)' },
-  { rgb: '221,172,117', theme: '#150c08', bg: 'radial-gradient(82% 70% at 76% 5%,rgba(255,221,184,.42),transparent 51%),radial-gradient(64% 62% at 4% 68%,rgba(133,55,52,.3),transparent 70%),linear-gradient(158deg,#2a1510 0%,#100907 61%,#040303 100%)' },
-  { rgb: '174,169,101', theme: '#101007', bg: 'radial-gradient(90% 68% at 24% 2%,rgba(225,223,151,.38),transparent 53%),radial-gradient(66% 68% at 98% 66%,rgba(57,84,55,.28),transparent 70%),linear-gradient(150deg,#1c2113 0%,#0a0d08 61%,#030403 100%)' },
-  { rgb: '193,126,112', theme: '#140a0b', bg: 'radial-gradient(82% 70% at 12% 14%,rgba(239,182,164,.34),transparent 55%),radial-gradient(62% 60% at 92% 66%,rgba(104,31,55,.3),transparent 68%),linear-gradient(145deg,#271014 0%,#0d0709 63%,#030203 100%)' },
-  { rgb: '230,184,83', theme: '#160e02', bg: 'radial-gradient(70% 86% at 78% 7%,rgba(255,218,117,.46),transparent 49%),radial-gradient(72% 60% at 8% 78%,rgba(139,70,14,.24),transparent 70%),linear-gradient(152deg,#2b1703 0%,#0d0903 58%,#030302 100%)' },
-  { rgb: '193,183,146', theme: '#100e0a', bg: 'radial-gradient(88% 65% at 42% 0%,rgba(244,232,196,.37),transparent 53%),radial-gradient(58% 66% at 96% 64%,rgba(91,84,69,.28),transparent 72%),linear-gradient(168deg,#211d14 0%,#0a0907 61%,#030302 100%)' },
-  { rgb: '246,204,111', theme: '#120b02', bg: 'radial-gradient(78% 68% at 56% 6%,rgba(255,222,130,.52),transparent 47%),radial-gradient(70% 54% at 4% 82%,rgba(148,72,12,.23),transparent 69%),linear-gradient(156deg,#291604 0%,#0b0703 58%,#020202 100%)' },
-  { rgb: '202,151,104', theme: '#120b08', bg: 'radial-gradient(82% 70% at 15% 9%,rgba(239,202,167,.38),transparent 51%),radial-gradient(62% 64% at 90% 72%,rgba(100,50,67,.27),transparent 70%),linear-gradient(142deg,#241511 0%,#0a0707 64%,#020202 100%)' },
-  { rgb: '168,178,113', theme: '#0d1007', bg: 'radial-gradient(84% 68% at 82% 5%,rgba(221,229,158,.4),transparent 51%),radial-gradient(64% 70% at 5% 65%,rgba(45,78,57,.27),transparent 71%),linear-gradient(160deg,#182014 0%,#080b07 62%,#020302 100%)' },
-];
-let sceneIndex = -1;
-
-function setScene(i = state.open, instant = false) {
-  const index = Math.max(0, Math.min(SCENES.length - 1, Number(i) || 0));
-  if (index === sceneIndex && !instant) return;
-  const scene = SCENES[index];
-  const root = document.documentElement;
-  const a = $('scene-a');
-  const b = $('scene-b');
-  const active = document.querySelector('.scene-wash.is-on') || a;
-  const next = instant ? active : (active === a ? b : a);
-  next.style.background = scene.bg;
-  next.classList.toggle('is-instant', instant);
-  next.classList.add('is-on');
-  if (next !== active) active.classList.remove('is-on');
-  const [red, green, blue] = scene.rgb.split(',').map(Number);
-  if (instant) root.classList.add('scene-instant');
-  root.style.setProperty('--scene-r', String(red));
-  root.style.setProperty('--scene-g', String(green));
-  root.style.setProperty('--scene-b', String(blue));
-  requestAnimationFrame(() => {
-    next.classList.remove('is-instant');
-    root.classList.remove('scene-instant');
-  });
-  sceneIndex = index;
-  document.body.dataset.scene = String(index);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', scene.theme);
-  try { tg?.setHeaderColor(scene.theme); } catch (_) { /* outside Telegram */ }
-}
-
-function showErr(i, msg) {
-  const el = blk(i)?.querySelector('.blk-err');
-  if (!el) return;
-  el.textContent = msg;
-  el.hidden = false;
-  haptic.err();
-}
-function clearErr(i) { const el = blk(i)?.querySelector('.blk-err'); if (el) el.hidden = true; }
-
-function easeInOut(k) {
-  // Sine has a lower peak speed than smootherstep and never snaps in the middle.
-  return .5 - Math.cos(Math.PI * k) / 2;
-}
-
-function cancelMainScroll() {
-  mainScrollRun += 1;
-}
-
-function softScrollTo(top, duration = FLOW.scrollMax) {
-  const run = ++mainScrollRun;
-  const from = window.scrollY;
-  const delta = top - from;
-  if (Math.abs(delta) < 8) return Promise.resolve(true);
-  return new Promise((resolve) => {
-    const startedAt = performance.now();
-    const frame = (now) => {
-      if (run !== mainScrollRun) { resolve(false); return; }
-      const k = Math.min(1, (now - startedAt) / duration);
-      window.scrollTo(0, from + delta * easeInOut(k));
-      if (k < 1) requestAnimationFrame(frame); else resolve(true);
-    };
-    requestAnimationFrame(frame);
-  });
-}
-
-function softScrollRailTo(card, duration = 760) {
-  const rail = $('tpl-rail');
-  if (!rail || !card) return Promise.resolve();
-  const from = rail.scrollLeft;
-  const target = Math.max(0, Math.min(rail.scrollWidth - rail.clientWidth,
-    card.offsetLeft - (rail.clientWidth - card.offsetWidth) / 2));
-  const delta = target - from;
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    rail.scrollLeft = target;
-    return Promise.resolve();
-  }
-  if (Math.abs(delta) < 3) {
-    rail.scrollLeft = target;
-    return Promise.resolve();
-  }
-  return new Promise((resolve) => {
-    const startedAt = performance.now();
-    const frame = (now) => {
-      const k = Math.min(1, (now - startedAt) / duration);
-      rail.scrollLeft = from + delta * easeInOut(k);
-      if (k < 1) requestAnimationFrame(frame); else resolve();
-    };
-    requestAnimationFrame(frame);
-  });
-}
-
-function scrollToBlock(i) {
-  const el = blk(i);
-  if (!el) return;
-  const y = el.getBoundingClientRect().top + window.scrollY - 72;
-  setScene(i);
-  const distance = Math.abs(y - window.scrollY);
-  const duration = Math.min(FLOW.scrollMax, Math.max(FLOW.scrollMin, 900 + distance * .9));
-  softScrollTo(Math.max(0, y), duration);
-}
-
-function renderBlocks(waitIdx = -1) {
-  STEPS.forEach((s, i) => {
-    const el = blk(i);
-    const waiting = i === waitIdx;
-    if (waiting) armBlock(el);
-    else {
-      el.classList.remove('is-wait', 'is-rising');
-      if (i !== waitIdx) {
-        el.style.opacity = '';
-        el.style.transform = '';
-        el.style.pointerEvents = '';
-      }
-    }
-    el.hidden = i > state.open;
-    el.toggleAttribute('inert', i > state.open || waiting);
-    if (i > state.open || waiting) el.setAttribute('aria-hidden', 'true');
-    else el.removeAttribute('aria-hidden');
-    el.classList.toggle('is-done', i < state.open);
-    el.classList.toggle('is-live', i === state.open && !waiting);
-  });
-  renderBeads();
-}
-
-async function cameraTo(i) {
-  const el = blk(i);
-  if (!el) return;
-  const dest = Math.max(0, slotTop(el) - headerOffset());
-  const maxTop = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
-  const y = Math.min(maxTop, dest);
-  const distance = Math.abs(y - window.scrollY);
-  if (distance <= 8) return;
-  const duration = Math.min(FLOW.scrollMax, Math.max(FLOW.scrollMin, 900 + distance * .9));
-  await softScrollTo(y, duration);
-}
-
-async function riseBlock(el) {
-  if (!el) return;
-  el.style.opacity = '0';
-  el.style.transform = `translate3d(0, ${FLOW.rise}px, 0)`;
-  el.style.pointerEvents = 'none';
-  el.style.willChange = 'opacity, transform';
-  el.classList.add('is-rising', 'is-live');
-  el.classList.remove('is-wait');
-  await playMotion(FLOW.reveal, (k) => {
-    const riseK = easeOut(k);
-    const fadeK = k < .14 ? 0 : easeOut((k - .14) / .86);
-    el.style.opacity = String(fadeK);
-    el.style.transform = `translate3d(0, ${(1 - riseK) * FLOW.rise}px, 0)`;
-  });
-  el.style.willChange = '';
-  restBlock(el);
-  el.classList.add('is-live');
-}
-
-function unlock(i) {
-  if (i >= STEPS.length || i <= state.open) return;
-  const run = ++revealRun;
-  state.open = i;
-  renderBlocks(i);
-  prepareStep(i);
-  saveDraft();
-  (async () => {
-    await wait(FLOW.beforeScroll);
-    if (run !== revealRun) return;
-    await new Promise((resolve) => requestAnimationFrame(resolve));
-    if (run !== revealRun) return;
-    setScene(i);
-    await cameraTo(i);
-    if (run !== revealRun) return;
-    await wait(FLOW.pauseAfterScroll);
-    if (run !== revealRun) return;
-    haptic.ok();
-    pulseLiveBead();
-    await riseBlock(blk(i));
-    if (run === revealRun && state.open === i) activateStep(i);
-  })();
-}
-
-let advTimer = null;
-let autoPreviewTimer = null;
-
-/* Автопереход: следим за активным блоком, кнопки «продолжить» нет. */
-function autoAdvance(delay = FLOW.settle) {
-  clearTimeout(advTimer);
-  const i = state.open;
-  const step = STEPS[i];
-  if (!step || !step.auto || i >= STEPS.length - 1) return;
-  if (!step.check()) return;
-  advTimer = setTimeout(() => {
-    if (i !== state.open || !step.check()) return;
-    clearErr(i);
-    unlock(i + 1);
-  }, Math.max(FLOW.settle, Number(delay) || 0));
-}
-
-function prepareStep(i) {
-  const id = STEPS[i].id;
-  if (id === 'location') renderMapChoice();
-  if (id === 'music') loadTracks();
-  if (id === 'photos') renderPhotos();
-  if (id === 'ready') { renderReady(); loadPreview(); }
-  if (id === 'guests') renderGuests();
-  if (id === 'contact') updateBill();
-}
-
-function activateStep(i) {
-  const id = STEPS[i].id;
-  if (id === 'ready') {
-    clearTimeout(autoPreviewTimer);
-    if (!state.seenInvite) {
-      autoPreviewTimer = setTimeout(() => {
-        if (state.open === i && !state.seenInvite && $('sheet').hidden) openInvite({ auto: true });
-      }, 1250);
-    }
-  }
-  if (id === 'guests') {
-    requestAnimationFrame(() => {
-      const motion = $('personal-motion');
-      if (!motion || !motion.offsetWidth) return;
-      personalMotionVisible = true;
-      motion.classList.add('is-visible');
-      layoutPersonalMotion();
-      startPersonalMotion();
-    });
-    autoAdvance(11800);
-  }
-}
-
-function onEnterStep(i) {
-  prepareStep(i);
-  activateStep(i);
-}
-
-/* ════ Док: бусины на нити ════ */
-
-function renderBeads() {
-  const box = $('beads');
-  box.innerHTML = '';
-  const labels = I18N[LANG || 'uz'].beads;
-  STEPS.forEach((s, i) => {
-    const cls = i < state.open ? 'done' : i === state.open ? 'live' : 'lock';
-    const b = h('button', { type: 'button', class: `bead ${cls}`, 'aria-label': labels[i] },
-      h('i', {}), h('span', {}, labels[i]));
-    if (i <= state.open) b.addEventListener('click', () => { haptic.tap(); scrollToBlock(i); });
-    box.appendChild(b);
-  });
-  const live = box.querySelector('.bead.live');
-  if (live) {
-    box.style.setProperty('--fill', `${live.offsetLeft + live.offsetWidth / 2 - 10}px`);
-    const left = Math.max(0, live.offsetLeft - (box.clientWidth - live.offsetWidth) / 2);
-    box.scrollTo({ left, behavior: 'smooth' });
-  }
-}
-
-function pulseLiveBead() {
-  const live = document.querySelector('.bead.live');
-  if (!live) return;
-  live.classList.remove('is-pulse');
-  void live.offsetWidth;
-  live.classList.add('is-pulse');
-}
-
-/* ════ 01 · Имена ════ */
-
-function paintPlate() {
-  const g = $('groom').value.trim();
-  const b = $('bride').value.trim();
-  bumpPlateName($('cp-groom'), g || t('phGroom'), !g);
-  bumpPlateName($('cp-bride'), b || t('phBride'), !b);
-  const plate = document.querySelector('.plate');
-  if (g && b && !plate.dataset.lit) {
-    plate.dataset.lit = '1';
-    plate.classList.add('lit');
-    setTimeout(() => plate.classList.remove('lit'), 770);
-  }
-  if (!g || !b) delete plate.dataset.lit;
-}
-
-function bumpPlateName(el, text, empty) {
-  if (!el) return;
-  const same = el.textContent === text;
-  el.classList.toggle('plate-name--empty', empty);
-  if (same) return;
-  el.textContent = text;
-  el.classList.remove('is-bump');
-  void el.offsetWidth;
-  el.classList.add('is-bump');
-}
-
-function markFilled(input) {
-  input.closest('.field')?.classList.toggle('filled', Boolean(input.value.trim()));
-}
-
-/* ════ 02 · Дата и барабан времени ════ */
-
-const today = new Date();
-let calView = new Date(today.getFullYear(), today.getMonth(), 1);
-
-const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-function renderCalendar() {
-  const dow = $('cal-dow');
-  dow.innerHTML = '';
-  for (const d of t('dow')) dow.appendChild(h('span', {}, d));
-
-  $('cal-title').textContent = `${t('months')[calView.getMonth()]} ${calView.getFullYear()}`;
-  const grid = $('cal-grid');
-  grid.innerHTML = '';
-
-  const first = new Date(calView.getFullYear(), calView.getMonth(), 1);
-  const lead = (first.getDay() + 6) % 7;               // неделя с понедельника
-  const days = new Date(calView.getFullYear(), calView.getMonth() + 1, 0).getDate();
-  const floor = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-
-  for (let i = 0; i < lead; i++) grid.appendChild(h('div', { class: 'cal-cell pad' }));
-
-  for (let d = 1; d <= days; d++) {
-    const date = new Date(calView.getFullYear(), calView.getMonth(), d);
-    const key = iso(date);
-    const past = date < floor;
-    const wknd = date.getDay() === 0 || date.getDay() === 6;
-    const cell = h('button', {
-      type: 'button',
-      class: `cal-cell${past ? ' off' : ''}${wknd && !past ? ' wknd' : ''}${key === iso(today) ? ' today' : ''}${key === state.dateIso ? ' sel' : ''}`,
-    }, String(d));
-    if (key === state.dateIso) {
-      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svg.setAttribute('class', 'cal-ring');
-      svg.setAttribute('viewBox', '0 0 44 44');
-      svg.innerHTML = '<circle cx="22" cy="22" r="20"/>';
-      cell.appendChild(svg);
-    }
-    if (!past) {
-      cell.addEventListener('click', () => {
-        state.dateIso = key;
-        state.timeConfirmed = false;
-        $('time-prompt').hidden = false;
-        blk(stepIdx('datetime'))?.classList.add('needs-time');
-        haptic.tap();
-        renderCalendar();
-        paintClock();
-        readDate();
-        clearErr(1);
-        saveDraft();
-      });
-    }
-    grid.appendChild(cell);
-  }
-  readDate();
-}
-
-function readDate() {
-  if (!state.dateIso) { $('date-read').textContent = ''; return; }
-  const [y, m, d] = state.dateIso.split('-').map(Number);
-  $('date-read').textContent = `${d} ${t('months')[m - 1]} ${y}${state.timeConfirmed ? ` · ${state.time}` : ''}`;
-}
-
-const HOURS = Array.from({ length: 8 }, (_, i) => String(i + 15).padStart(2, '0'));
-const MINUTES = ['00', '15', '30', '45'];
-
-/* Барабан крутится по горизонтали: страница листается вертикально, поэтому
-   случайно сбить время прокруткой невозможно. Тап по цифре тоже работает. */
-function buildClock() {
-  buildDrum($('hour-drum'), HOURS, 0, 'clock-h');
-  buildDrum($('min-drum'), MINUTES, 1, 'clock-m');
-  paintClock();
-  $('time-prompt').hidden = !state.dateIso || state.timeConfirmed;
-  blk(stepIdx('datetime'))?.classList.toggle('needs-time', Boolean(state.dateIso) && !state.timeConfirmed);
-}
-
-function buildDrum(track, values, part, readoutId) {
-  track.innerHTML = '';
-  let userTouched = false;
-
-  const commit = (v) => {
-    if (!userTouched || !state.dateIso) return;
-    const parts = state.time.split(':');
-    const changed = parts[part] !== v;
-    parts[part] = v;
-    state.time = parts.join(':');
-    state.timeConfirmed = true;
-    $('time-prompt').hidden = true;
-    blk(stepIdx('datetime'))?.classList.remove('needs-time');
-    if (changed) bump(readoutId);
-    paintClock();
-    readDate();
-    clearErr(1);
-    saveDraft();
-    autoAdvance(720);
-  };
-
-  for (const v of values) {
-    const cell = h('div', { class: 'hdrum-num', dataset: { v } }, v);
-    cell.addEventListener('click', () => {
-      userTouched = true;
-      const left = cell.offsetLeft - (track.clientWidth - cell.offsetWidth) / 2;
-      track.scrollTo({ left, behavior: 'smooth' });
-      setTimeout(() => commit(v), 360);
-    });
-    track.appendChild(cell);
-  }
-
-  const indexNow = () => {
-    const center = track.scrollLeft + track.clientWidth / 2;
-    let near = 0;
-    let distance = Infinity;
-    [...track.children].forEach((cell, i) => {
-      const next = Math.abs(cell.offsetLeft + cell.offsetWidth / 2 - center);
-      if (next < distance) { distance = next; near = i; }
-    });
-    return near;
-  };
-
-  const centerAt = (index) => {
-    const cell = track.children[index];
-    if (!cell) return;
-    track.scrollLeft = cell.offsetLeft - (track.clientWidth - cell.offsetWidth) / 2;
-  };
-
-  const settle = debounce(() => {
-    const v = values[indexNow()];
-    if (!userTouched) return;
-    haptic.tap();
-    commit(v);
-  }, 130);
-
-  track.addEventListener('pointerdown', () => { userTouched = true; }, { passive: true });
-  track.addEventListener('wheel', () => { userTouched = true; }, { passive: true });
-  track.addEventListener('scroll', () => { paintDrum(track, indexNow()); settle(); }, { passive: true });
-
-  // стартовая позиция без анимации, до первой отрисовки
-  const start = Math.max(0, values.indexOf(state.time.split(':')[part]));
-  requestAnimationFrame(() => {
-    centerAt(start);
-    paintDrum(track, start);
-  });
-  centerAt(start);
-  paintDrum(track, start);
-}
-
-function paintDrum(track, idx) {
-  [...track.children].forEach((el, i) => {
-    el.classList.toggle('on', i === idx);
-    el.classList.toggle('near', Math.abs(i - idx) === 1);
-  });
-}
-
-function paintClock() {
-  const clock = document.querySelector('.clock');
-  const visible = Boolean(state.dateIso) && state.timeConfirmed;
-  const [hh, mm] = state.time.split(':');
-  $('clock-h').textContent = visible ? hh : '';
-  $('clock-m').textContent = visible ? mm : '';
-  clock?.classList.toggle('is-empty', !visible);
-  clock?.setAttribute('aria-label', visible ? state.time : t('timePrompt'));
-}
-
-function bump(id) {
-  const el = $(id);
-  el.classList.remove('tick');
-  void el.offsetWidth;
-  el.classList.add('tick');
-}
-
-/* ════ 03 · Локация ════ */
-
-const MANGIT_CENTER = [42.116169, 60.0625143];
-let ymap = null;
-let mark = null;
-let mapAsked = false;
-let mapFallback = null;
-
-function renderMapChoice() {
-  const toggle = $('map-toggle');
-  const tools = $('map-tools');
-  if (!toggle || !tools) return;
-  toggle.setAttribute('aria-checked', String(state.mapOn));
-  $('map-sw-sub').textContent = state.mapOn ? t('mapSwOn') : t('mapSwOff');
-  tools.hidden = !state.mapOn;
-  if (state.mapOn) {
-    if (mapFallback) document.querySelector('.map-hint').textContent = t('mapHintFallback');
-    ensureMap();
-    requestAnimationFrame(() => ymap?.container?.fitToViewport?.());
-  } else {
-    $('geo-list').hidden = true;
-  }
-}
-
-function toggleMap() {
-  state.mapOn = !state.mapOn;
-  haptic.tap();
-  renderMapChoice();
-  clearErr(stepIdx('location'));
-  saveDraft();
-  if (!state.mapOn) autoAdvance(760);
-}
-
-function ensureMap() {
-  if (ymap) {
-    requestAnimationFrame(() => ymap.container.fitToViewport());
-    return;
-  }
-  if (mapAsked) return;
-  mapAsked = true;
-  const key = state.config?.yandexMapsKey || '';
-  if (!key) {
-    renderYandexWidget();
-    return;
-  }
-  const script = document.createElement('script');
-  const lang = 'ru_RU';
-  script.src = `https://api-maps.yandex.ru/2.1/?lang=${lang}${key ? `&apikey=${encodeURIComponent(key)}` : ''}`;
-  script.async = true;
-  script.onload = () => {
-    if (!window.ymaps) { mapAsked = false; toast(t('eNet'), 'err'); return; }
-    window.ymaps.ready(initMap);
-  };
-  script.onerror = () => { mapAsked = false; toast(t('eNet'), 'err'); };
-  document.head.appendChild(script);
-}
-
-function renderYandexWidget(lat = state.lat, lng = state.lng, zoom = Number.isFinite(state.lat) ? 16 : 13) {
-  const point = Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : MANGIT_CENTER;
-  const map = $('map');
-  map.innerHTML = '';
-  const marker = Number.isFinite(lat) && Number.isFinite(lng) ? `&pt=${lng},${lat},pm2rdm` : '';
-  const frame = document.createElement('iframe');
-  frame.className = 'yandex-widget';
-  frame.title = t('seekLbl');
-  frame.loading = 'lazy';
-  frame.referrerPolicy = 'no-referrer-when-downgrade';
-  frame.src = `https://yandex.ru/map-widget/v1/?ll=${point[1]}%2C${point[0]}&z=${zoom}&l=map${marker}`;
-  map.appendChild(frame);
-  mapFallback = frame;
-  document.querySelector('.map-hint').textContent = t('mapHintFallback');
-  $('map-in').parentElement.hidden = true;
-}
-
-function initMap() {
-  if (ymap || !window.ymaps) return;
-  mapFallback = null;
-  $('map').innerHTML = '';
-  document.querySelector('.map-hint').textContent = t('mapHint');
-  $('map-in').parentElement.hidden = false;
-  const c = Number.isFinite(state.lat) ? [state.lat, state.lng] : MANGIT_CENTER;
-  ymap = new ymaps.Map('map', {
-    center: c,
-    zoom: Number.isFinite(state.lat) ? 16 : 13,
-    controls: [],
-  }, {
-    suppressMapOpenBlock: true,
-    yandexMapDisablePoiInteractivity: true,
-  });
-  ymap.behaviors.disable('dblClickZoom');
-
-  // Точку ставит тап по карте: центр экрана ничего не выбирает сам.
-  ymap.events.add('click', (e) => {
-    const [lat, lng] = e.get('coords');
-    haptic.tap();
-    setPoint(lat, lng);
-    reverseName(lat, lng);
-    autoAdvance(720);
-  });
-  if (Number.isFinite(state.lat)) setPoint(state.lat, state.lng);
-  requestAnimationFrame(() => ymap?.container?.fitToViewport?.());
-}
-
-function setPoint(lat, lng) {
-  state.lat = lat; state.lng = lng;
-  clearErr(2);
-  saveDraft();
-  if (!ymap) {
-    if (mapFallback) renderYandexWidget(lat, lng, 16);
-    return;
-  }
-  if (mark) { mark.geometry.setCoordinates([lat, lng]); return; }
-  mark = new ymaps.Placemark([lat, lng], {}, {
-    preset: 'islands#circleIcon',
-    iconColor: '#d7a83f',
-    draggable: true,
-  });
-  ymap.geoObjects.add(mark);
-  mark.events.add('dragend', () => {
-    const [dlat, dlng] = mark.geometry.getCoordinates();
-    state.lat = dlat; state.lng = dlng;
-    saveDraft();
-    reverseName(dlat, dlng);
-    autoAdvance(720);
-  });
-}
-
-const reverseName = debounce(async (lat, lng) => {
-  if ($('address').dataset.manual === '1') return;
-  try {
-    const response = await fetch(`/api/geo/reverse?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}&lang=${LANG}`);
-    const result = await response.json();
-    const name = result.name || result.address;
-    if (name && !$('address').value.trim()) {
-      $('address').value = String(name).slice(0, 140);
-      markFilled($('address'));
-      saveDraft();
-      autoAdvance(760);
-    }
-  } catch (_) { /* геокодер может молчать — адрес необязателен */ }
-}, 700);
-
-function flyTo(lat, lng, zoom = 17) {
-  setPoint(lat, lng);
-  if (ymap) ymap.setCenter([lat, lng], zoom, { duration: 1200, timingFunction: 'ease-in-out' });
-}
-
-let geoSeq = 0;
-
-function geoLocalScore(place) {
-  const text = `${place.name || ''} ${place.desc || ''}`.toLowerCase();
-  const named = /mang|mańǵ|amud|ámiwd/.test(text) ? 1000 : /qaraqal|karakal/.test(text) ? 350 : 0;
-  const distance = Math.hypot((place.lat - MANGIT_CENTER[0]) * 111, (place.lng - MANGIT_CENTER[1]) * 82);
-  return named - distance;
-}
-
-async function seekPlace() {
-  const q = $('geo-q').value.trim();
-  if (q.length < 2) { $('geo-list').hidden = true; return; }
-  const seq = ++geoSeq;
-  $('geo-spin').hidden = false;
-  try {
-    const response = await fetch(`/api/geo?q=${encodeURIComponent(q)}&lang=${LANG}`).then((r) => r.json());
-    if (seq !== geoSeq) return;
-    const seen = new Set();
-    const merged = [...(response.results || [])]
-      .filter((place) => Number.isFinite(place.lat) && Number.isFinite(place.lng))
-      .filter((place) => {
-        const key = `${place.lat.toFixed(5)},${place.lng.toFixed(5)}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .sort((a, b) => geoLocalScore(b) - geoLocalScore(a))
-      .slice(0, 8);
-    showGeo(merged);
-  } catch (_) {
-    if (seq === geoSeq) toast(t('eNet'), 'err');
-  } finally {
-    if (seq === geoSeq) $('geo-spin').hidden = true;
-  }
-}
-
-const seekPlaceSoon = debounce(seekPlace, 500);
-
-function showGeo(list) {
-  const box = $('geo-list');
-  box.innerHTML = '';
-  if (!list.length) {
-    box.appendChild(h('p', { class: 'geo-empty' }, t('eNoFound')));
-    box.hidden = false;
-    return;
-  }
-  list.forEach((r, i) => {
-    const item = h('button', { type: 'button', class: 'geo-item' },
-      h('b', {}, r.name || r.desc), r.desc ? h('span', {}, r.desc) : null);
-    item.addEventListener('click', () => {
-      haptic.tap();
-      flyTo(r.lat, r.lng);
-      $('address').value = (r.name || r.desc || '').slice(0, 140);
-      $('address').dataset.manual = '1';
-      markFilled($('address'));
-      box.hidden = true;
-      saveDraft();
-      autoAdvance(530);
-    });
-    box.appendChild(item);
-  });
-  box.hidden = false;
-}
-
-
-/* ════ 04 · Музыка ════ */
-
-const player = new Audio();
-let playingUrl = null;
-let activeTrackUrl = null;
-let tracksLoaded = false;
-let lastList = [];
-
-function svgIcon(kind) {
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', '0 0 24 24');
-  svg.setAttribute('aria-hidden', 'true');
-  const paths = kind === 'pause'
-    ? ['M8 6v12', 'M16 6v12']
-    : kind === 'close'
-      ? ['M6 6l12 12', 'M18 6L6 18']
-      : kind === 'add'
-        ? ['M12 5v14', 'M5 12h14']
-    : kind === 'check'
-      ? ['M5 12l4 4 10-10']
-      : kind === 'eye'
-        ? ['M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6', 'M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0']
-      : kind === 'image'
-        ? ['M4 5h16v14H4z', 'M7 15l4-4 3 3 2-2 3 3', 'M8 9h.01']
-        : ['M8 5l11 7-11 7z'];
-  paths.forEach((d) => {
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', d);
-    svg.appendChild(path);
-  });
-  return svg;
-}
-
-async function loadTracks(q) {
-  if (!q && tracksLoaded) return;
-  const box = $('track-scroll');
-  box.innerHTML = '';
-  for (let i = 0; i < 4; i++) {
-    box.appendChild(h('div', { class: 'trk' }, h('div', { class: 'trk-play' }), h('div', { class: 'trk-info' }, h('b', {}, '···'))));
-  }
-  try {
-    const r = await fetch(`/api/music${q ? `?q=${encodeURIComponent(q)}` : ''}`);
-    const j = await r.json();
-    const top = !q ? (state.config?.topTracks || []) : [];
-    const seen = new Set(top.map((x) => x.url));
-    renderTracks([...top, ...(j.tracks || []).filter((x) => !seen.has(x.url))]);
-    if (!q) tracksLoaded = true;
-  } catch (_) {
-    box.innerHTML = '';
-    box.appendChild(h('p', { class: 'empty' }, t('eNet')));
-  }
-}
-
-function renderTracks(list) {
-  lastList = list;
-  const box = $('track-scroll');
-  box.innerHTML = '';
-  if (!list.length) { box.appendChild(h('p', { class: 'empty' }, '—')); return; }
-  list.forEach((track, i) => {
-    const chosen = state.music?.playUrl === track.url;
-    const previewing = activeTrackUrl === track.url;
-    const play = h('button', { type: 'button', class: `trk-play${playingUrl === track.url ? ' playing' : ''}`, 'aria-label': playingUrl === track.url ? t('pauseAria') : t('playAria') },
-      svgIcon(playingUrl === track.url ? 'pause' : 'play'));
-    const pick = h('button', { type: 'button', class: 'trk-pick', hidden: !previewing }, chosen ? t('taken') : t('take'));
-    const row = h('div', { class: `trk${chosen ? ' chosen' : ''}${previewing ? ' previewing' : ''}`, dataset: { url: track.url } },
-      play,
-      h('div', { class: 'trk-info' }, h('b', {}, track.name), h('span', {}, track.artist || '')),
-      track.uses ? h('span', { class: 'trk-hot' }, `×${track.uses}`) : null,
-      pick);
-    play.addEventListener('click', (event) => { event.stopPropagation(); togglePlay(track); });
-    row.addEventListener('click', (event) => {
-      if (event.target.closest('.trk-pick')) return;
-      togglePlay(track);
-    });
-    pick.addEventListener('click', () => setMusic({
-      type: 'itunes',
-      value: { name: track.name, artist: track.artist || '', url: track.url },
-      name: track.name, artist: track.artist || '', playUrl: track.url,
-    }));
-    box.appendChild(row);
-  });
-}
-
-function togglePlay(track) {
-  const url = track.url;
-  haptic.tap();
-  activeTrackUrl = url;
-  refreshPlayUI();
-  if (playingUrl === url) { player.pause(); playingUrl = null; refreshPlayUI(); return; }
-  player.src = url;
-  player.currentTime = 0;
-  player.play().then(() => { playingUrl = url; refreshPlayUI(); }).catch(() => toast(t('eNet'), 'err'));
-}
-player.addEventListener('ended', () => { playingUrl = null; refreshPlayUI(); });
-
-function refreshPlayUI() {
-  for (const row of document.querySelectorAll('#track-scroll .trk')) {
-    const b = row.querySelector('.trk-play');
-    if (!b) continue;
-    const now = row.dataset.url === playingUrl;
-    const previewing = row.dataset.url === activeTrackUrl;
-    b.classList.toggle('playing', now);
-    b.setAttribute('aria-label', now ? t('pauseAria') : t('playAria'));
-    row.classList.toggle('previewing', previewing);
-    b.replaceChildren(svgIcon(now ? 'pause' : 'play'));
-    const pick = row.querySelector('.trk-pick');
-    if (pick) pick.hidden = !previewing;
-  }
-}
-
-/* Выбрал трек — прослушивание останавливается, каталог сворачивается.
-   Бесконечный список больше не нужно пролистывать, чтобы идти дальше. */
-function setMusic(music) {
-  state.music = music;
-  haptic.ok();
-  player.pause();
-  playingUrl = null;
-  activeTrackUrl = null;
-  $('picked-name').textContent = music.name;
-  $('picked-artist').textContent = music.artist || '';
-  $('music-pick').hidden = true;
-  $('music-picked').hidden = false;
-  saveDraft();
-  autoAdvance(430);
-}
-
-function reopenMusic() {
-  haptic.tap();
-  $('music-picked').hidden = true;
-  $('music-pick').hidden = false;
-  renderTracks(lastList);
-}
-
-const YT_RE = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/;
-
-function addMusicLink() {
-  const url = $('music-link').value.trim();
-  if (!/^https?:\/\/\S+$/.test(url)) { toast(t('eLink'), 'err'); return; }
-  const yt = YT_RE.test(url);
-  const direct = /\.(mp3|m4a|ogg|wav)(\?|$)/i.test(url);
-  if (!yt && !direct) { toast(t('eLink'), 'err'); return; }
-  setMusic({
-    type: yt ? 'youtube' : 'custom',
-    value: url,
-    name: yt ? 'YouTube' : t('myTrack'),
-    artist: url.replace(/^https?:\/\//, '').slice(0, 40),
-    playUrl: direct ? url : null,
-  });
-}
-
-async function uploadMusicFile(file) {
-  if (file.size > 16 * 1024 * 1024) { toast(t('eBig'), 'err'); return; }
-  try {
-    const r = await fetch('/api/upload', {
-      method: 'POST', headers: { 'x-init-data': tg ? tg.initData : '' }, body: file,
-    });
-    const j = await r.json();
-    if (!r.ok || !j.ok || j.kind !== 'audio') throw new Error('bad');
-    setMusic({
-      type: 'upload', value: j.file,
-      name: file.name.slice(0, 60), artist: t('myTrack'),
-      playUrl: `/uploads/${j.file}`,
-    });
-  } catch (_) {
-    toast(t('eUpload'), 'err');
-  }
-}
-
-/* ════ 05 · Шаблоны ════ */
-
-const templates = () => state.config?.templates || [];
-const rankedTemplates = () => {
-  const pops = state.config?.populars || {};
-  return [...templates()].sort((a, b) => (Number(pops[b.id]) || 0) - (Number(pops[a.id]) || 0) || (a.order || 0) - (b.order || 0));
-};
-const selectedTpl = () => templates().find((x) => x.id === state.templateId) || null;
-const requiredPhotos = () => Math.max(1, selectedTpl()?.minPhotos ?? 1);
-const filledPhotos = () => state.photos.filter((p) => p.name).length;
-let templateMotionObserver = null;
-let templateFocusIndex = 0;
-
-function paintTemplateTakeButton(button, chosen) {
-  if (!button) return;
-  button.classList.toggle('is-selected', chosen);
-  button.setAttribute('aria-pressed', String(chosen));
-  button.replaceChildren(
-    svgIcon(chosen ? 'check' : 'add'),
-    h('span', {}, chosen ? t('taken') : t('take')),
+export const escape = (v) =>
+  String(v ?? "").replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ],
   );
-}
-
-function updateTemplateNavigation(index = templateFocusIndex) {
-  const rail = $('tpl-rail');
-  const cards = rail ? [...rail.children] : [];
-  const total = cards.length;
-  templateFocusIndex = total ? Math.max(0, Math.min(total - 1, index)) : 0;
-  $('tpl-current').textContent = String(total ? templateFocusIndex + 1 : 0).padStart(2, '0');
-  $('tpl-total').textContent = String(total).padStart(2, '0');
-  $('tpl-prev').disabled = !total || templateFocusIndex === 0;
-  $('tpl-next').disabled = !total || templateFocusIndex === total - 1;
-  cards.forEach((card, cardIndex) => card.classList.toggle('is-focus', cardIndex === templateFocusIndex));
-  [...$('tpl-dots').children].forEach((dot, dotIndex) => {
-    dot.classList.toggle('on', dotIndex === templateFocusIndex);
-    dot.classList.toggle('is-selected', cards[dotIndex]?.classList.contains('chosen'));
-    if (dotIndex === templateFocusIndex) dot.setAttribute('aria-current', 'true');
-    else dot.removeAttribute('aria-current');
-  });
-}
-
-function focusTemplate(index, feedback = false) {
-  const cards = [...$('tpl-rail').children];
-  if (!cards.length) return;
-  const targetIndex = Math.max(0, Math.min(cards.length - 1, index));
-  if (feedback) haptic.tap();
-  updateTemplateNavigation(targetIndex);
-  softScrollRailTo(cards[targetIndex]);
-}
-
-function observeTemplateMotion(card) {
-  const live = card.querySelector('.tpl-live');
-  if (!live) return;
-  if (!('IntersectionObserver' in window)) {
-    live.dataset.seenAt = String(Date.now());
-    live.src = live.dataset.src;
-    return;
-  }
-  templateMotionObserver.observe(card);
-}
-
-function renderTemplates() {
-  const rail = $('tpl-rail');
-  if (!rail) return;
-  templateMotionObserver?.disconnect();
-  templateMotionObserver = 'IntersectionObserver' in window
-    ? new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (!entry.isIntersecting) return;
-        const frame = entry.target.querySelector('.tpl-live');
-        if (frame && !frame.getAttribute('src')) {
-          frame.dataset.seenAt = String(Date.now());
-          frame.src = frame.dataset.src;
-        }
-        templateMotionObserver?.unobserve(entry.target);
-      });
-    }, { threshold: .08, rootMargin: '0px 0px -2% 0px' })
-    : null;
-  rail.innerHTML = '';
-  const pops = state.config?.populars || {};
-  const ordered = rankedTemplates();
-  const bestPopularity = Math.max(0, ...ordered.map((tpl) => Number(pops[tpl.id]) || 0));
-  for (const tpl of ordered) {
-    const colors = tpl.colors?.length ? tpl.colors : ['#191713', '#C8AA6A', '#65776E'];
-    const bands = h('div', { class: 'tpl-bands' });
-    bands.style.background =
-      `linear-gradient(160deg, ${colors[0]} 0%, ${colors[1] || colors[0]} 52%, ${colors[2] || colors[1] || colors[0]} 100%)`;
-
-    const demoQuery = new URLSearchParams({
-      groom: $('groom').value.trim(), bride: $('bride').value.trim(), lang: LANG, card: '1',
-      address: $('address').value.trim(), map: state.mapOn ? '1' : '0',
-      lat: Number.isFinite(state.lat) ? String(state.lat) : '',
-      lng: Number.isFinite(state.lng) ? String(state.lng) : '',
-    });
-    const live = h('iframe', {
-      class: 'tpl-live', dataset: { src: `/demo/${tpl.id}?${demoQuery}` }, title: `${tpl.name} ${t('live')}`,
-      loading: 'lazy', tabindex: '-1', 'aria-hidden': 'true',
-    });
-    const palette = h('span', { class: 'tpl-palette', 'aria-hidden': 'true' },
-      colors.slice(0, 4).map((color) => {
-        const dot = h('i');
-        dot.style.background = color;
-        return dot;
-      }));
-    const isPopular = bestPopularity > 0 && (Number(pops[tpl.id]) || 0) === bestPopularity;
-    const takeButton = h('button', {
-      type: 'button',
-      class: `tpl-take${tpl.id === state.templateId ? ' is-selected' : ''}`,
-      'aria-pressed': String(tpl.id === state.templateId),
-    }, svgIcon(tpl.id === state.templateId ? 'check' : 'add'),
-    h('span', {}, tpl.id === state.templateId ? t('taken') : t('take')));
-    const card = h('article', {
-      class: `tpl${tpl.id === state.templateId ? ' chosen' : ''}`,
-      dataset: { id: tpl.id },
-      'aria-label': tpl.name,
-    },
-      h('div', { class: 'tpl-art' },
-        bands,
-        live,
-        h('div', { class: 'tpl-veil' }),
-        h('span', { class: 'tpl-live-badge' }, t('live')),
-        isPopular ? h('span', { class: 'tpl-popular' }, t('popular')) : null,
-        h('span', { class: 'tpl-selected-mark' }, svgIcon('check')),
-        h('button', { type: 'button', class: 'tpl-art-open', 'aria-label': `${t('demo')}: ${tpl.name}` },
-          h('span', { class: 'tpl-art-open-cue' }, svgIcon('eye'), h('span', {}, t('demo'))))),
-      h('div', { class: 'tpl-info' },
-        h('div', { class: 'tpl-meta' },
-          h('h3', {}, tpl.name),
-          h('p', { class: 'tpl-price' }, money(tpl.price))),
-        h('div', { class: 'tpl-facts' },
-          h('span', { class: 'tpl-need' }, svgIcon('image'), t('tplPhotos', tpl.minPhotos)),
-          palette,
-          pops[tpl.id] ? h('span', { class: 'tpl-views' }, `×${pops[tpl.id]}`) : null)),
-      h('div', { class: 'tpl-acts' }, takeButton));
-
-    card.querySelector('.tpl-art-open').addEventListener('click', () => openDemo(tpl));
-    card.querySelector('.tpl-take').addEventListener('click', () => takeTpl(tpl));
-    rail.appendChild(card);
-    observeTemplateMotion(card);
-  }
-  const selectedIndex = ordered.findIndex((tpl) => tpl.id === state.templateId);
-  templateFocusIndex = selectedIndex >= 0 ? selectedIndex : Math.min(templateFocusIndex, Math.max(0, ordered.length - 1));
-  renderDots();
-}
-
-function renderDots() {
-  const box = $('tpl-dots');
-  box.innerHTML = '';
-  rankedTemplates().forEach((tpl, index) => {
-    const dot = h('button', { type: 'button', 'aria-label': tpl.name });
-    dot.addEventListener('click', () => focusTemplate(index, true));
-    box.appendChild(dot);
-  });
-  updateTemplateNavigation(templateFocusIndex);
-}
-
-function openDemo(tpl) {
-  haptic.tap();
-  const q = new URLSearchParams({
-    groom: $('groom').value.trim(), bride: $('bride').value.trim(), lang: LANG,
-    address: $('address').value.trim(), map: state.mapOn ? '1' : '0',
-    lat: Number.isFinite(state.lat) ? String(state.lat) : '',
-    lng: Number.isFinite(state.lng) ? String(state.lng) : '',
-  });
-  $('sheet-title').textContent = tpl.name;
-  sheet.open({ src: `/demo/${tpl.id}?${q}` });
-  const frame = $('sheet-frame');
-  frame.onload = () => {
-    const w = frame.contentWindow;
-    const d = frame.contentDocument;
-    if (!w || !d) return;
-    setTimeout(() => d.getElementById('env')?.click(), 360);
-    let closing = false;
-    const onScroll = async () => {
-      const el = d.scrollingElement || d.documentElement;
-      if (closing || el.scrollTop + w.innerHeight < el.scrollHeight - 54) return;
-      closing = true;
-      w.removeEventListener('scroll', onScroll);
-      $('sheet').classList.add('finishing');
-      await wait(620);
-      await sheet.close({ gentle: true });
-    };
-    w.addEventListener('scroll', onScroll, { passive: true });
-  };
-}
-
-function takeTpl(tpl) {
-  state.templateId = tpl.id;
-  const need = Math.max(1, tpl.minPhotos || 1);
-  if (state.photos.length > need) state.photos = state.photos.slice(0, need);
-  haptic.ok();
-  clearErr(4);
-  state.previewHtml = '';
-  state.seenInvite = false;
-  saveDraft();
-  document.querySelectorAll('.tpl').forEach((card) => {
-    const chosen = card.dataset.id === tpl.id;
-    card.classList.toggle('chosen', chosen);
-    const button = card.querySelector('.tpl-take');
-    paintTemplateTakeButton(button, chosen);
-  });
-  templateFocusIndex = Math.max(0, rankedTemplates().findIndex((item) => item.id === tpl.id));
-  renderDots();
-  renderPhotos();
-  focusTemplate(templateFocusIndex);
-  autoAdvance(720);
-}
-
-/* ════ 06 · Фото: ровно столько, сколько просит шаблон ════ */
-
-function renderPhotos() {
-  const grid = $('photo-grid');
-  if (!grid) return;
-  const need = requiredPhotos();
-  const tpl = selectedTpl();
-  $('photo-lead').innerHTML = t('photoNeed', need) + (tpl ? ` · ${tpl.name}` : '');
-
-  grid.innerHTML = '';
-  const slots = need;
-  grid.dataset.count = String(slots);
-
-  for (let i = 0; i < slots; i++) {
-    const p = state.photos[i];
-    if (p) {
-      const cell = h('div', { class: 'ph' },
-        p.url ? h('img', { src: p.url, alt: '' }) : null,
-        p.uploading ? h('div', { class: 'ph-wait' }, h('i', {})) : null,
-        h('button', { type: 'button', class: 'ph-del', 'aria-label': t('photoRemoveAria') }, svgIcon('close')));
-      cell.querySelector('.ph-del').addEventListener('click', () => {
-        state.photos.splice(i, 1);
-        haptic.tap();
-        state.previewHtml = '';
-        renderPhotos();
-        saveDraft();
-      });
-      grid.appendChild(cell);
-    } else {
-      const required = i < need;
-      const add = h('button', { type: 'button', class: `ph ph-add${required ? ' need' : ''}` },
-        h('span', {}, svgIcon('add')),
-        h('em', {}, t('photoOf', i + 1, need)));
-      add.addEventListener('click', () => $('photo-input').click());
-      grid.appendChild(add);
-    }
-  }
-}
-
-async function uploadPhotos(files) {
-  const max = requiredPhotos();
-  for (const file of files) {
-    if (state.photos.length >= max) break;
-    if (file.size > 16 * 1024 * 1024) { toast(t('eBig'), 'err'); continue; }
-    const slot = { name: null, url: URL.createObjectURL(file), uploading: true };
-    state.photos.push(slot);
-    renderPhotos();
-    try {
-      const r = await fetch('/api/upload', {
-        method: 'POST', headers: { 'x-init-data': tg ? tg.initData : '' }, body: file,
-      });
-      const j = await r.json();
-      if (!r.ok || !j.ok || j.kind !== 'image') throw new Error('bad');
-      slot.name = j.file;
-      slot.uploading = false;
-    } catch (_) {
-      state.photos = state.photos.filter((p) => p !== slot);
-      toast(t('eUpload'), 'err');
-    }
-    renderPhotos();
-    saveDraft();
-  }
-  state.previewHtml = '';
-  const left = requiredPhotos() - filledPhotos();
-  if (left > 0) showErr(5, t('ePhoto_', left));
-  else { clearErr(5); autoAdvance(385); }
-}
-
-/* ════ 07 · Всё готово → полное демо ════ */
-
-function renderReady() {
-  const couple = `${$('groom').value.trim()} & ${$('bride').value.trim()}`;
-  $('ready-couple').textContent = couple;
-  const tpl = selectedTpl();
-  const parts = [];
-  if (state.dateIso) {
-    const [y, m, d] = state.dateIso.split('-').map(Number);
-    parts.push(`${d} ${t('months')[m - 1]} ${y} · ${state.time}`);
-  }
-  if (tpl) parts.push(tpl.name);
-  $('ready-meta').textContent = parts.join('  ·  ');
-}
-
-async function loadPreview() {
-  if (state.previewHtml) return true;
+export const safeLink = (value) => {
   try {
-    const r = await fetch('/api/preview', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ initData: tg ? tg.initData : '', form: collectForm() }),
-    });
-    const j = await r.json();
-    if (!r.ok || !j.ok) {
-      if (j.step) jumpTo(j.step, j.error); else toast(j.error || t('eNet'), 'err');
+    const u = new URL(value, location.origin);
+    return ["http:", "https:"].includes(u.protocol) ? u.href : "";
+  } catch {
+    return "";
+  }
+};
+export const storage = {
+  get(key) {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  set(key, v) {
+    try {
+      localStorage.setItem(key, v);
+      return true;
+    } catch {
       return false;
     }
-    state.previewHtml = j.html;
-    return true;
-  } catch (_) {
-    toast(t('eNet'), 'err');
-    return false;
-  }
-}
-
-let previewOpening = false;
-let closingInvite = false;
-
-async function openInvite({ auto = false } = {}) {
-  if (previewOpening || !$('sheet').hidden) return;
-  previewOpening = true;
-  const btn = $('ready-open');
-  btn.classList.add('btn--wait');
-  const ok = await loadPreview();
-  btn.classList.remove('btn--wait');
-  previewOpening = false;
-  if (!ok) return;
-
-  $('sheet-title').textContent = t('tReady');
-  sheet.open({ srcdoc: state.previewHtml });
-
-  // Полное приглашение само раскрывает конверт. Долистал до конца — сначала
-  // мягко гасим сцену, затем возвращаемся в Studio к следующему блоку.
-  const frame = $('sheet-frame');
-  frame.onload = () => {
-    const w = frame.contentWindow;
-    const d = frame.contentDocument;
-    if (!w || !d) return;
-    setTimeout(() => d.getElementById('env')?.click(), auto ? 250 : 325);
-    const onScroll = () => {
-      const el = d.scrollingElement || d.documentElement;
-      if (el.scrollTop + w.innerHeight >= el.scrollHeight - 60) {
-        w.removeEventListener('scroll', onScroll);
-        finishInvite();
-      }
-    };
-    w.addEventListener('scroll', onScroll, { passive: true });
-  };
-}
-
-async function finishInvite() {
-  if (closingInvite) return;
-  closingInvite = true;
-  const firstCompletion = !state.seenInvite;
-  state.seenInvite = true;
-  saveDraft();
-  $('sheet').classList.add('finishing');
-  await new Promise((resolve) => setTimeout(resolve, 700));
-  await sheet.close({ gentle: true });
-  closingInvite = false;
-  if (firstCompletion && state.open === stepIdx('ready')) unlock(stepIdx('guests'));
-}
-
-/* ════ 08 · Гости ════ */
-
-const guestPrice = () => state.config?.guestPrice ?? 10000;
-const cleanGuests = () => (state.guestsOn ? state.guests.map((g) => g.trim()).filter(Boolean) : []);
-let serviceMotionReady = false;
-let personalPhase = 0;
-let personalMotionRun = 0;
-let personalMotionVisible = false;
-let personalMotionTimers = [];
-
-const PM_DEMOS = {
-  uz: [
-    { prefix: 'Hurmatli', name: 'Aziz aka', slug: 'Aziz' },
-    { prefix: 'Hurmatli', name: 'Dilnoza opa', slug: 'Dilnoza' },
-    { prefix: 'Hurmatli', name: 'Farxod uka', slug: 'Farxod' },
-  ],
-  ru: [
-    { prefix: 'Дорогой', name: 'Aziz aka', slug: 'Aziz' },
-    { prefix: 'Дорогая', name: 'Dilnoza opa', slug: 'Dilnoza' },
-    { prefix: 'Дорогой', name: 'Farxod uka', slug: 'Farxod' },
-  ],
+  },
+  remove(key) {
+    try {
+      localStorage.removeItem(key);
+    } catch {}
+  },
 };
-
-function schedulePersonalMotion(callback, delay, run = personalMotionRun) {
-  const timer = setTimeout(() => {
-    personalMotionTimers = personalMotionTimers.filter((item) => item !== timer);
-    if (run === personalMotionRun) callback();
-  }, delay);
-  personalMotionTimers.push(timer);
-  return timer;
+export const state = {
+  lang: storage.get("nvate_language") || "ru",
+  config: null,
+  filter: "all",
+  templateId: null,
+  view: "collection",
+};
+if (!["ru", "uz"].includes(state.lang)) state.lang = "ru";
+const ru = Object.fromEntries(
+  [...document.querySelectorAll("[data-key]")].map((el) => [
+    el.dataset.key,
+    el.textContent,
+  ]),
+);
+Object.assign(ru, {
+  headline: "Искусство <em>приглашать.</em>",
+  collectionNote: "Пять настроений.<br>Одна ваша история.",
+  choose: "Выбрать дизайн",
+  open: "Открыть приглашение",
+  sum: "сум",
+  retry: "Попробовать снова",
+  net: "Не удалось загрузить данные. Проверьте соединение.",
+  saved: "Черновик на этом устройстве",
+  notSaved: "Не удалось сохранить черновик",
+  submit: "Отправить заявку",
+  sending: "Отправляем…",
+  uploading: "Загружаем…",
+  photoNeed: "Минимум {n} фото · максимум {max}",
+  photoError: "Добавьте минимум {n} фото.",
+  tooMany: "Можно загрузить до {n} фотографий.",
+  photoRemove: "Удалить фотографию",
+  fileError: "Проверьте формат и размер файла (до 16 МБ).",
+  contactError: "Укажите два корректных контакта.",
+  required: "Заполните обязательные поля.",
+  musicError: "Укажите ссылку YouTube или прямую ссылку на MP3, M4A, WAV, OGG.",
+  guestError: "Не больше {n} гостей. Имя — до 50 символов.",
+  guestCount: "Гостей: {n} · {price}",
+  successCopy:
+    "Заявка №{id} сохранена. Администратор свяжется с вами для подтверждения и оплаты.",
+  empty: "Здесь появятся ваши приглашения после отправки заявки.",
+  telegram:
+    "Для загрузки фото и отправки заявки откройте студию через Telegram-бота.",
+  openBot: "Открыть Telegram",
+  pending: "Ожидает подтверждения",
+  paid: "Готово",
+  cancelled: "Отклонено",
+  personalInvitation: "ЛИЧНОЕ ПРИГЛАШЕНИЕ",
+  continue: "Продолжить",
+  navigation: "Навигация",
+  language: "Язык",
+  setupSteps: "Шаги настройки",
+  changeTheme: "Сменить тему",
+  close: "Закрыть",
+  previewTitle: "Предпросмотр приглашения",
+  invitationTitle: "Свадебное приглашение",
+});
+const uz = {
+  skip: "Asosiy qismga o‘tish",
+  collection: "Kolleksiya",
+  mine: "Taklifnomalarim",
+  atelier: "TO‘Y TAKLIFNOMALARI",
+  headline: "Taklif etish <em>san’ati.</em>",
+  lead: "Unutilmas kuningiz go‘zal taklifnomadan boshlanadi.",
+  collectionNote: "Besh kayfiyat.<br>Sizning bir hikoyangiz.",
+  all: "Barcha dizaynlar",
+  light: "Yorug‘",
+  dark: "To‘q",
+  previewHint: "Har bir taklifnomani ochib ko‘ring",
+  loading: "Kolleksiya ochilmoqda…",
+  footerNote: "Sizning abadiy sevgingiz uchun.",
+  footer: "Sizning kuningiz. Sizning hikoyangiz.",
+  backCollection: "Kolleksiyaga",
+  yourInvitation: "SIZNING TAKLIFNOMANGIZ",
+  details: "Tafsilotlar",
+  media: "Muhit",
+  guests: "Mehmonlar",
+  finish: "Yakunlash",
+  detailsTitle: "Hammasi sizdan boshlanadi",
+  detailsIntro: "Ismlar, sana va yaqinlaringiz bilan uchrashuv manzili.",
+  groom: "Kuyovning ismi",
+  bride: "Kelinning ismi",
+  date: "To‘y sanasi",
+  time: "Vaqti",
+  venue: "To‘yxona va manzil",
+  mapEnabled: "Mehmonlar uchun xarita qo‘shish",
+  coordinatesHint:
+    "Google yoki Yandex xaritadan joy koordinatalarini ko‘chiring.",
+  latitude: "Kenglik",
+  longitude: "Uzunlik",
+  checkMap: "Xaritada tekshirish ↗",
+  mediaTitle: "Tuyg‘ular jonlansin",
+  mediaIntro: "Suratlar va musiqa taklifnomangizni yanada shaxsiy qiladi.",
+  photos: "Suratlar",
+  addPhotos: "Surat qo‘shish",
+  music: "Musiqa",
+  noMusic: "Musiqasiz",
+  uploadMusic: "Audio yuklash",
+  musicLink: "YouTube yoki audio havolasi",
+  musicStart: "Boshlanishi, soniya",
+  musicEnd: "Oxiri, soniya (ixtiyoriy)",
+  guestsTitle: "Har biriga — shaxsan",
+  guestsIntro:
+    "Har bir mehmon o‘z ismini taklifnomada ko‘radi va alohida havola oladi.",
+  personalInvitation: "SHAXSIY TAKLIFNOMA",
+  guestExample: "Hurmatli Dilnoza,",
+  guestExampleBody: "sizni baxtli kunimizda ko‘rishdan xursand bo‘lamiz.",
+  enableGuests: "Ismli taklifnomalar yaratish",
+  guestList: "Mehmon ismlari — har biri yangi qatordan",
+  guestsOptional:
+    "Barcha mehmonlar uchun umumiy taklifnomani qoldirish ham mumkin.",
+  finishTitle: "So‘nggi tafsilotlar",
+  finishIntro:
+    "Ikkita aloqa ma’lumotini qoldiring. Administrator tasdiqlash va to‘lov uchun bog‘lanadi.",
+  phone: "Telefon",
+  extraContact: "Qo‘shimcha aloqa",
+  personalLinks: "Ismli havolalar",
+  total: "Jami",
+  paymentHint: "To‘lov tasdiqlangach, tayyor havolani Telegram orqali olasiz.",
+  fullPreview: "To‘liq taklifnomani tekshirish",
+  back: "Orqaga",
+  continue: "Davom etish",
+  livePreview: "Sizning taklifnomangiz",
+  previewSample:
+    "Dizayn ko‘rinishi. Suratlaringiz va musiqa — to‘liq ko‘rinishda.",
+  openEnvelope: "Ochish uchun muhrni bosing",
+  choose: "Dizaynni tanlash",
+  received: "ARIZA QABUL QILINDI",
+  successTitle: "Go‘zal hikoyaning boshlanishi.",
+  open: "Taklifnomani ochish",
+  sum: "so‘m",
+  retry: "Qayta urinish",
+  net: "Ma’lumot yuklanmadi. Internetni tekshiring.",
+  saved: "Qoralama shu qurilmada saqlandi",
+  notSaved: "Qoralama saqlanmadi",
+  submit: "Ariza yuborish",
+  sending: "Yuborilmoqda…",
+  uploading: "Yuklanmoqda…",
+  photoNeed: "Kamida {n} surat · ko‘pi bilan {max}",
+  photoError: "Kamida {n} surat qo‘shing.",
+  tooMany: "Ko‘pi bilan {n} surat yuklash mumkin.",
+  photoRemove: "Suratni o‘chirish",
+  fileError: "Fayl formati va hajmini tekshiring (16 MB gacha).",
+  contactError: "Ikkita to‘g‘ri aloqa ma’lumotini kiriting.",
+  required: "Majburiy maydonlarni to‘ldiring.",
+  musicError: "YouTube yoki MP3, M4A, WAV, OGG havolasini kiriting.",
+  guestError: "Ko‘pi bilan {n} mehmon. Ism 50 belgigacha.",
+  guestCount: "Mehmonlar: {n} · {price}",
+  successCopy:
+    "№{id} ariza saqlandi. Administrator tasdiqlash va to‘lov uchun bog‘lanadi.",
+  empty: "Ariza yuborgandan so‘ng taklifnomalaringiz shu yerda paydo bo‘ladi.",
+  telegram: "Surat yuklash va ariza yuborish uchun Telegram bot orqali oching.",
+  openBot: "Telegramni ochish",
+  pending: "Tasdiq kutilmoqda",
+  paid: "Tayyor",
+  cancelled: "Rad etilgan",
+  navigation: "Navigatsiya",
+  language: "Til",
+  setupSteps: "Sozlash bosqichlari",
+  changeTheme: "Mavzuni o‘zgartirish",
+  close: "Yopish",
+  previewTitle: "Taklifnoma ko‘rinishi",
+  invitationTitle: "To‘y taklifnomasi",
+};
+Object.assign(ru, {
+  findVenue: "Найти место на карте",
+  search: "Найти",
+  findMusic: "Поиск музыки",
+  musicSample:
+    "В каталоге — 30-секундные фрагменты. Полный трек можно загрузить файлом.",
+  noResults: "Ничего не найдено. Попробуйте другой запрос.",
+  selectTrack: "Выбрать",
+  listen: "Прослушать",
+  pause: "Пауза",
+});
+Object.assign(uz, {
+  findVenue: "Xaritadan joy topish",
+  search: "Topish",
+  findMusic: "Musiqa qidirish",
+  musicSample:
+    "Katalogda 30 soniyali parchalar mavjud. To‘liq trekni fayl orqali yuklashingiz mumkin.",
+  noResults: "Hech narsa topilmadi. Boshqa so‘rovni sinab ko‘ring.",
+  selectTrack: "Tanlash",
+  listen: "Tinglash",
+  pause: "To‘xtatish",
+});
+export function t(key, values = {}) {
+  let s = (state.lang === "uz" ? uz[key] : ru[key]) || ru[key] || key;
+  for (const [k, v] of Object.entries(values))
+    s = s.replaceAll(`{${k}}`, String(v));
+  return s;
 }
-
-function stopPersonalMotion() {
-  personalMotionRun += 1;
-  personalMotionTimers.forEach(clearTimeout);
-  personalMotionTimers = [];
-  document.querySelectorAll('.pm-traveler').forEach((dot) => dot.classList.remove('is-traveling'));
+export function money(n) {
+  return `${Number(n || 0).toLocaleString("ru-RU")} ${t("sum")}`;
 }
-
-function renderPersonalChars(element, value) {
-  if (!element) return;
-  element.classList.remove('is-deleting');
-  element.replaceChildren(...Array.from(value).map((char, index) => {
-    const letter = document.createElement('span');
-    letter.className = 'pm-char';
-    letter.style.setProperty('--pm-i', index);
-    letter.textContent = char;
-    return letter;
-  }));
-  element.style.setProperty('--pm-count', value.length);
+export function localize() {
+  document.documentElement.lang = state.lang;
+  document
+    .querySelectorAll("[data-key]")
+    .forEach((el) => (el.textContent = t(el.dataset.key)));
+  document
+    .querySelectorAll("[data-key-html]")
+    .forEach((el) => (el.innerHTML = t(el.dataset.keyHtml)));
+  for (const [selector, key] of Object.entries({
+    ".main-nav": "navigation",
+    ".language": "language",
+    ".filters": "collection",
+    ".step-nav": "setupSteps",
+    "#mobile-mine": "mine",
+    "#theme-toggle": "changeTheme",
+    "#expand-preview": "fullPreview",
+    "#close-preview": "close",
+  })) document.querySelector(selector)?.setAttribute("aria-label", t(key));
+  $("live-frame").title = t("previewTitle");
+  $("preview-frame").title = t("invitationTitle");
+  document
+    .querySelectorAll("[data-lang]")
+    .forEach((el) =>
+      el.setAttribute("aria-pressed", String(el.dataset.lang === state.lang)),
+    );
+  document.title =
+    state.lang === "ru"
+      ? "nvate — Свадебное ателье"
+      : "nvate — To‘y taklifnomalari";
 }
-
-function setPersonalInvitation(index, animate = false, run = personalMotionRun) {
-  const demos = PM_DEMOS[LANG || 'uz'];
-  const demo = demos[index % demos.length];
-  const prefix = $('pm-prefix');
-  const name = $('pm-name');
-  const link = $('pm-link');
-  if (!prefix || !name || !link) return;
-
-  personalPhase = index % demos.length;
-  const commit = () => {
-    prefix.textContent = demo.prefix;
-    renderPersonalChars(name, demo.name);
-    renderPersonalChars(link, `nVate.uz/~~~/${demo.slug}`);
-    if (animate && prefix.animate) {
-      prefix.animate([
-        { opacity: 0, filter: 'blur(4px)', transform: 'translateY(4px)' },
-        { opacity: 1, filter: 'blur(0)', transform: 'translateY(0)' },
-      ], { duration: 460, easing: 'cubic-bezier(.32, 0, .18, 1)', fill: 'both' });
-    }
-  };
-
-  if (!animate || matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    commit();
-    return;
-  }
-
-  name.classList.add('is-deleting');
-  link.classList.add('is-deleting');
-  if (prefix.animate) {
-    prefix.animate([
-      { opacity: 1, filter: 'blur(0)', transform: 'translateY(0)' },
-      { opacity: 0, filter: 'blur(4px)', transform: 'translateY(-4px)' },
-    ], { duration: 330, easing: 'cubic-bezier(.55, 0, .78, .39)', fill: 'both' });
-  }
-  schedulePersonalMotion(commit, 650, run);
+let toastTimer;
+export function toast(message) {
+  $("toast").textContent = message;
+  $("toast").hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => ($("toast").hidden = true), 6000);
 }
-
-function pointAt(element, edge, rootRect) {
-  const rect = element.getBoundingClientRect();
-  const point = { x: rect.left - rootRect.left + rect.width / 2, y: rect.top - rootRect.top + rect.height / 2 };
-  if (edge === 'left') point.x = rect.left - rootRect.left;
-  if (edge === 'right') point.x = rect.right - rootRect.left;
-  if (edge === 'top') point.y = rect.top - rootRect.top;
-  if (edge === 'bottom') point.y = rect.bottom - rootRect.top;
-  return point;
-}
-
-function personalCurve(from, to, vertical) {
-  const f = (value) => Math.round(value * 10) / 10;
-  if (vertical) {
-    const bend = from.y + (to.y - from.y) * .52;
-    return `M${f(from.x)} ${f(from.y)}C${f(from.x)} ${f(bend)} ${f(to.x)} ${f(bend)} ${f(to.x)} ${f(to.y)}`;
-  }
-  const bend = from.x + (to.x - from.x) * .52;
-  return `M${f(from.x)} ${f(from.y)}C${f(bend)} ${f(from.y)} ${f(bend)} ${f(to.y)} ${f(to.x)} ${f(to.y)}`;
-}
-
-function layoutPersonalMotion() {
-  const motion = $('personal-motion');
-  const svg = $('pm-wires');
-  const origin = $('pm-origin');
-  const card = $('pm-card');
-  if (!motion || !svg || !origin || !card || !motion.offsetWidth) return;
-
-  const rootRect = motion.getBoundingClientRect();
-  const vertical = motion.clientWidth < 620;
-  svg.setAttribute('viewBox', `0 0 ${rootRect.width} ${rootRect.height}`);
-
-  const originPoint = pointAt(origin, vertical ? 'bottom' : 'right', rootRect);
-  const cardIn = pointAt(card, vertical ? 'top' : 'left', rootRect);
-  const cardOut = pointAt(card, vertical ? 'bottom' : 'right', rootRect);
-  $('pm-path-in').setAttribute('d', personalCurve(originPoint, cardIn, vertical));
-
-  for (let index = 0; index < 3; index += 1) {
-    const person = $(`pm-person-${index}`);
-    const destination = pointAt(person, vertical ? 'top' : 'left', rootRect);
-    $('pm-path-' + index).setAttribute('d', personalCurve(cardOut, destination, vertical));
-  }
-}
-
-function travelPersonalPath(path, dot, duration, run = personalMotionRun, onDone) {
-  if (!path || !dot || run !== personalMotionRun) return;
-  if (!path.getAttribute('d')) layoutPersonalMotion();
-  if (!path.getAttribute('d')) return;
-  const length = path.getTotalLength();
-  const started = performance.now();
-  dot.classList.add('is-traveling');
-
-  const frame = (now) => {
-    if (run !== personalMotionRun) {
-      dot.classList.remove('is-traveling');
-      return;
-    }
-    const elapsed = Math.min(1, (now - started) / duration);
-    const eased = 1 - Math.pow(1 - elapsed, 3.1);
-    const point = path.getPointAtLength(length * eased);
-    dot.setAttribute('cx', point.x);
-    dot.setAttribute('cy', point.y);
-    if (elapsed < 1) requestAnimationFrame(frame);
-    else {
-      dot.classList.remove('is-traveling');
-      onDone?.();
-    }
-  };
-  requestAnimationFrame(frame);
-}
-
-function pulsePersonalElement(element, duration = 850, run = personalMotionRun) {
-  if (!element) return;
-  element.classList.remove('is-pulsing', 'is-arriving');
-  void element.offsetWidth;
-  element.classList.add(element.classList.contains('pm-person') ? 'is-arriving' : 'is-pulsing');
-  schedulePersonalMotion(() => element.classList.remove('is-pulsing', 'is-arriving'), duration, run);
-}
-
-function drawPersonalPath(key, duration, run = personalMotionRun, onDone) {
-  const path = $(`pm-path-${key}`);
-  const dot = $(`pm-light-${key}`);
-  if (!path || !dot) return;
-  path.classList.remove('is-complete', 'is-drawing');
-  path.style.setProperty('--pm-draw', `${duration}ms`);
-  void path.getBoundingClientRect();
-  path.classList.add('is-drawing');
-  travelPersonalPath(path, dot, duration, run);
-  schedulePersonalMotion(() => {
-    path.classList.remove('is-drawing');
-    path.classList.add('is-complete');
-    onDone?.();
-  }, duration, run);
-}
-
-function connectPersonalGuest(index, run = personalMotionRun) {
-  drawPersonalPath(String(index), 820, run, () => {
-    document.querySelectorAll('.pm-person').forEach((person) => person.classList.remove('is-current'));
-    const person = $(`pm-person-${index}`);
-    person?.classList.add('is-connected', 'is-current');
-    pulsePersonalElement(person, 850, run);
+export async function api(url, options = {}) {
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      "x-init-data": window.Telegram?.WebApp?.initData || "",
+      ...options.headers,
+    },
   });
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error(t("net"));
+  }
+  if (!response.ok || data.ok === false) {
+    const err = new Error(
+      response.status === 401 ? t("telegram") : data.error || t("net"),
+    );
+    err.step = data.step;
+    throw err;
+  }
+  return data;
 }
-
-function paintPersonalMotion() {
-  setPersonalInvitation(personalPhase, false);
-  requestAnimationFrame(layoutPersonalMotion);
+export function showView(name) {
+  state.view = name;
+  for (const v of ["collection", "editor", "mine"])
+    $(v + "-view").hidden = v !== name;
+  document
+    .querySelectorAll(".nav-link")
+    .forEach((b) => b.classList.toggle("active", b.id === name + "-nav"));
+  if (name !== "editor") $("live-frame").src = "about:blank";
+  window.scrollTo({ top: 0, behavior: "instant" });
 }
-
-function startPersonalMotion() {
-  const motion = $('personal-motion');
-  if (!motion || !personalMotionVisible || document.hidden) return;
-  stopPersonalMotion();
-  const run = personalMotionRun;
-  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const paths = ['in', '0', '1', '2'].map((key) => $(`pm-path-${key}`)).filter(Boolean);
-  const people = [0, 1, 2].map((index) => $(`pm-person-${index}`)).filter(Boolean);
-
-  motion.dataset.scene = 'intro';
-  motion.classList.remove('is-brand-visible', 'is-card-visible', 'is-final', 'is-resetting');
-  paths.forEach((path) => path.classList.remove('is-drawing', 'is-complete'));
-  people.forEach((person) => person.classList.remove('is-connected', 'is-current', 'is-arriving'));
-  setPersonalInvitation(0, false, run);
-  layoutPersonalMotion();
-
-  schedulePersonalMotion(() => {
-    motion.dataset.scene = 'brand';
-    motion.classList.add('is-brand-visible');
-  }, 280, run);
-
-  schedulePersonalMotion(() => drawPersonalPath('in', 900, run, () => {
-    motion.dataset.scene = 'invitation';
-    motion.classList.add('is-card-visible');
-    pulsePersonalElement($('pm-card'), 760, run);
-  }), 950, run);
-
-  schedulePersonalMotion(() => connectPersonalGuest(0, run), 2700, run);
-  schedulePersonalMotion(() => setPersonalInvitation(1, true, run), 3850, run);
-  schedulePersonalMotion(() => connectPersonalGuest(1, run), 5450, run);
-  schedulePersonalMotion(() => setPersonalInvitation(2, true, run), 6550, run);
-  schedulePersonalMotion(() => connectPersonalGuest(2, run), 8150, run);
-
-  schedulePersonalMotion(() => {
-    motion.dataset.scene = 'final';
-    motion.classList.add('is-final');
-    people.forEach((person) => person.classList.remove('is-current'));
-  }, 9400, run);
-
-  if (!reducedMotion) {
-    schedulePersonalMotion(() => {
-      pulsePersonalElement($('pm-origin'), 800, run);
-      travelPersonalPath($('pm-path-in'), $('pm-light-in'), 720, run, () => {
-        [0, 1, 2].forEach((index) => {
-          travelPersonalPath($(`pm-path-${index}`), $(`pm-light-${index}`), 820, run, () => {
-            pulsePersonalElement($(`pm-person-${index}`), 850, run);
-          });
-        });
+export function renderGallery() {
+  const gallery = $("gallery");
+  gallery.replaceChildren();
+  gallery.classList.toggle("filtered", state.filter !== "all");
+  for (const [index, tpl] of state.config.templates.entries()) {
+    if (state.filter !== "all" && tpl.tone !== state.filter) continue;
+    const card = text("article", "", "template-card");
+    card.style.setProperty("--i", index);
+    const art = text("button", "", `template-art art-${tpl.id}`);
+    art.type = "button";
+    art.style.setProperty("--art", `url("${tpl.previewImage}")`);
+    art.setAttribute("aria-label", `${t("open")}: ${tpl.name}`);
+    art.innerHTML = `<span class="card-edition">N° ${String(index + 1).padStart(2, "0")}</span><span class="card-tag">${escape(tpl.material || "ATELIER")}</span><span class="invitation-mini"><span class="mini-kicker">${state.lang === "ru" ? "МЫ ЖЕНИМСЯ" : "BIZNING TO‘YIMIZ"}</span><span class="mini-names">${state.lang === "ru" ? "Александр" : "Javohir"}<i>&</i>${state.lang === "ru" ? "София" : "Madina"}</span><span class="mini-rule"></span><span class="mini-date">19 · 09 · ${new Date().getFullYear() + 1}</span><span class="mini-bottom">${state.lang === "ru" ? "С ЛЮБОВЬЮ К ВАМ" : "MEHR BILAN"}</span></span><span class="preview-cue">${escape(t("open"))} ↗</span>`;
+    art.onclick = () => openDemo(tpl);
+    const meta = text("div", "", "template-meta");
+    const title = text("div", "");
+    title.append(
+      text("h2", tpl.name),
+      text("p", tpl.description?.[state.lang] || "", "template-subtitle"),
+    );
+    meta.append(title, text("p", money(tpl.price), "template-price"));
+    const bottom = text("div", "", "template-bottom");
+    const swatches = text("span", "", "swatches");
+    swatches.ariaHidden = "true";
+    for (const color of tpl.colors) {
+      const swatch = document.createElement("i");
+      swatch.style.background = color;
+      swatches.append(swatch);
+    }
+    const select = text("button", "", "template-select");
+    select.innerHTML = `<span>${escape(t("choose"))}</span><span>↗</span>`;
+    select.onclick = () => editor.choose(tpl.id);
+    bottom.append(swatches, select);
+    card.append(art, meta, bottom);
+    gallery.append(card);
+  }
+}
+let previewTpl = null;
+export function openDemo(tpl, query = new URLSearchParams()) {
+  previewTpl = tpl;
+  query.set("lang", state.lang);
+  if (!query.get("groom")) query.set("groom", state.lang === "ru" ? "Александр" : "Javohir");
+  if (!query.get("bride")) query.set("bride", state.lang === "ru" ? "София" : "Madina");
+  $("preview-title").textContent = tpl.name;
+  $("preview-frame").removeAttribute("srcdoc");
+  $("preview-frame").src = `${tpl.demoUrl}?${query}`;
+  $("choose-preview").hidden = false;
+  if (!$("preview-dialog").open) $("preview-dialog").showModal();
+}
+$("preview-dialog").addEventListener("close", () => {
+  $("preview-frame").src = "about:blank";
+  $("preview-frame").removeAttribute("srcdoc");
+});
+$("close-preview").onclick = () => $("preview-dialog").close();
+$("choose-preview").onclick = () => {
+  if (previewTpl) {
+    $("preview-dialog").close();
+    editor.choose(previewTpl.id);
+  }
+};
+document.querySelectorAll("[data-filter]").forEach(
+  (b) =>
+    (b.onclick = () => {
+      state.filter = b.dataset.filter;
+      document.querySelectorAll("[data-filter]").forEach((x) => {
+        x.classList.toggle("active", x === b);
+        x.setAttribute("aria-pressed", String(x === b));
       });
-    }, 9800, run);
-
-    schedulePersonalMotion(() => motion.classList.add('is-resetting'), 12100, run);
-    schedulePersonalMotion(startPersonalMotion, 12850, run);
-  }
-}
-
-function setupServiceMotions() {
-  if (serviceMotionReady) return;
-  serviceMotionReady = true;
-  const targets = [$('personal-motion')].filter(Boolean);
-  const resizeObserver = 'ResizeObserver' in window ? new ResizeObserver(layoutPersonalMotion) : null;
-  targets.forEach((target) => resizeObserver?.observe(target));
-  window.addEventListener('resize', layoutPersonalMotion, { passive: true });
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) stopPersonalMotion();
-    else if (personalMotionVisible) startPersonalMotion();
-  });
-  const setPersonalVisibility = (visible) => {
-    const motion = $('personal-motion');
-    if (!motion) return;
-    const changed = visible !== personalMotionVisible;
-    personalMotionVisible = visible;
-    motion.classList.toggle('is-visible', visible);
-    if (!changed) return;
-    if (visible) {
-      layoutPersonalMotion();
-      startPersonalMotion();
-    } else stopPersonalMotion();
-  };
-
-  if ('IntersectionObserver' in window) {
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => setPersonalVisibility(entry.isIntersecting));
-    }, { threshold: .24 });
-    targets.forEach((target) => observer.observe(target));
-    return;
-  }
-
-  let visibilityFrame = 0;
-  const checkPersonalVisibility = () => {
-    visibilityFrame = 0;
-    const motion = $('personal-motion');
-    if (!motion || !motion.offsetWidth) {
-      setPersonalVisibility(false);
+      renderGallery();
+    }),
+);
+document.querySelectorAll("[data-lang]").forEach(
+  (b) =>
+    (b.onclick = () => {
+      state.lang = b.dataset.lang;
+      storage.set("nvate_language", state.lang);
+      localize();
+      if (state.config) {
+        renderGallery();
+        editor.refresh();
+        if (state.view === "mine") loadMine();
+      }
+    }),
+);
+$("collection-nav").onclick = $("back-collection").onclick = () =>
+  showView("collection");
+export async function loadMine() {
+  showView("mine");
+  const root = $("mine-list");
+  root.replaceChildren(text("p", t("loading"), "loading"));
+  try {
+    const data = await api("/api/my");
+    root.replaceChildren();
+    if (!data.apps.length) {
+      root.append(text("p", t("empty"), "empty-state"));
       return;
     }
-    const rect = motion.getBoundingClientRect();
-    const visible = rect.bottom > 0 && rect.top < innerHeight && rect.right > 0 && rect.left < innerWidth;
-    setPersonalVisibility(visible);
-  };
-  const queuePersonalVisibilityCheck = () => {
-    if (!visibilityFrame) visibilityFrame = requestAnimationFrame(checkPersonalVisibility);
-  };
-  window.addEventListener('scroll', queuePersonalVisibilityCheck, { passive: true });
-  window.addEventListener('resize', queuePersonalVisibilityCheck, { passive: true });
-  queuePersonalVisibilityCheck();
-}
-
-/* Кнопки «добавить» нет: в конце списка всегда ждёт пустое поле.
-   Начал печатать — снизу сразу появляется следующее. Пустые не считаются. */
-function renderGuests(focusIdx = -1) {
-  const sw = $('guests-toggle');
-  sw.setAttribute('aria-checked', String(state.guestsOn));
-  $('personal-motion')?.classList.toggle('is-on', state.guestsOn);
-  $('guests-sw-sub').textContent = state.guestsOn ? t('guestsSwOn') : t('guestsSwOff');
-  $('guests-body').hidden = !state.guestsOn;
-  paintPersonalMotion();
-
-  if (state.guests.length === 0 || state.guests[state.guests.length - 1].trim()) state.guests.push('');
-
-  const list = $('guest-list');
-  list.innerHTML = '';
-  const max = state.config?.maxGuests ?? 100;
-
-  state.guests.forEach((name, i) => {
-    const blank = !name.trim();
-    const input = h('input', {
-      id: `guest-${i}`, type: 'text', maxlength: '50', value: name,
-      'aria-label': `${t('guestPh')} ${i + 1}`,
-      placeholder: i === state.guests.length - 1 ? t('guestPh') : '—',
-    });
-    input.addEventListener('input', () => {
-      const wasBlank = !state.guests[i].trim();
-      state.guests[i] = input.value;
-      clearErr(7);
-      updateTally();
-      updateBill();
-      saveDraft();
-      // первое слово в последнем поле — открываем следующее, не теряя фокуса
-      if (wasBlank && input.value.trim() && i === state.guests.length - 1 && state.guests.length < max) {
-        const caret = input.selectionStart ?? input.value.length;
-        state.guests.push('');
-        renderGuests();
-        const resumed = list.children[i]?.querySelector('input');
-        resumed?.focus({ preventScroll: true });
-        resumed?.setSelectionRange(caret, caret);
-        return;
+    for (const item of data.apps) {
+      const box = text("article", "", "mine-item");
+      box.append(
+        text("h2", `${item.groom} & ${item.bride}`),
+        text(
+          "p",
+          `${item.date} · ${t(item.status === "new" ? "pending" : item.status)} · ${money(item.total)}`,
+        ),
+      );
+      for (const link of [{ name: t("open"), url: item.url }, ...item.guests]) {
+        const url = safeLink(link.url || "");
+        if (!link.url || !url) continue;
+        const a = text("a", `${link.name} ↗`);
+        a.href = url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        box.append(a);
       }
-      row.classList.toggle('gst--blank', !input.value.trim());
-    });
-    input.addEventListener('blur', () => {
-      // убираем опустевшие поля из середины списка
-      if (input.value.trim() || i === state.guests.length - 1) return;
-      state.guests.splice(i, 1);
-      renderGuests();
-      updateBill();
-      saveDraft();
-    });
-    const row = h('div', { class: `gst${blank ? ' gst--blank' : ''}` },
-      h('span', { class: 'gst-n' }, blank ? '·' : String(i + 1)),
-      input);
-    list.appendChild(row);
-  });
-
-  if (focusIdx >= 0) list.children[focusIdx]?.querySelector('input')?.focus();
-  updateTally();
-}
-
-function updateTally() {
-  const n = cleanGuests().length;
-  $('guest-n').textContent = String(n);
-  $('guest-sum').textContent = money(n * guestPrice());
-}
-
-/* ════ 09 · Счёт, контакты, отправка ════ */
-
-function updateBill() {
-  const tpl = selectedTpl();
-  const box = $('bill-lines');
-  box.innerHTML = '';
-  const line = (k, v) => box.appendChild(h('div', { class: 'bill-line' }, h('span', {}, k), h('span', {}, v)));
-
-  line(t('tNames'), `${$('groom').value.trim()} & ${$('bride').value.trim()}`);
-  if (state.dateIso) {
-    const [y, m, d] = state.dateIso.split('-').map(Number);
-    line(t('tDate'), `${d} ${t('months')[m - 1]} ${y} · ${state.time}`);
-  }
-  if ($('address').value.trim()) line(t('tVenue'), $('address').value.trim());
-  if (state.music) line(t('tMusic'), state.music.name.slice(0, 32));
-  if (tpl) line(t('tTpl'), `${tpl.name} · ${money(tpl.price)}`);
-
-  let total = tpl ? tpl.price : 0;
-  const n = cleanGuests().length;
-  if (n) {
-    total += n * guestPrice();
-    line(t('tGuests'), `${n} × ${money(guestPrice())}`);
-  }
-  $('bill-total').textContent = money(total);
-}
-
-function jumpTo(stepId, msg) {
-  const map = { review: 'contact' };
-  const i = stepIdx(map[stepId] || stepId);
-  if (i < 0) { if (msg) toast(msg, 'err'); return; }
-  if (msg) showErr(i, msg);
-  scrollToBlock(i);
-}
-
-function contactsFilled() {
-  return [$('contact-tg').value.trim().replace(/^@/, ''), $('phone').value.trim(), $('phone2').value.trim()]
-    .filter(Boolean).length;
-}
-
-function collectForm() {
-  return {
-    lang: LANG,
-    groomName: $('groom').value.trim(),
-    brideName: $('bride').value.trim(),
-    weddingDate: state.dateIso,
-    weddingTime: state.time,
-    mapEnabled: state.mapOn,
-    lat: state.mapOn ? state.lat : null,
-    lng: state.mapOn ? state.lng : null,
-    address: $('address').value.trim(),
-    photos: state.photos.filter((p) => p.name).slice(0, requiredPhotos()).map((p) => p.name),
-    musicType: state.music?.type ?? 'none',
-    musicValue: state.music?.value ?? null,
-    musicStart: null,
-    musicEnd: null,
-    templateId: state.templateId,
-    guestNames: cleanGuests(),
-    contactTg: $('contact-tg').value.trim(),
-    phone: $('phone').value.trim(),
-    phone2: $('phone2').value.trim(),
-  };
-}
-
-async function submit() {
-  if (state.sending) return;
-  if (contactsFilled() < 2) { showErr(8, t('eContact_')); return; }
-  clearErr(8);
-  state.sending = true;
-  const btn = $('submit');
-  btn.classList.add('btn--wait');
-  btn.disabled = true;
-  try {
-    const r = await fetch('/api/applications', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ initData: tg ? tg.initData : '', form: collectForm() }),
-    });
-    const j = await r.json();
-    if (!r.ok || !j.ok) {
-      if (j.step) jumpTo(j.step, j.error); else toast(j.error || t('eNet'), 'err');
-      return;
+      root.append(box);
     }
-    clearDraft();
-    haptic.ok();
-    sparks();
-    $('done').hidden = false;
-    try { tg?.BackButton?.hide(); } catch (_) { /* — */ }
-  } catch (_) {
-    toast(t('eNet'), 'err');
-  } finally {
-    state.sending = false;
-    btn.classList.remove('btn--wait');
-    btn.disabled = false;
-  }
-}
-
-function sparks() {
-  fill($('sparks'), 'spark', 20, 5, 5);
-}
-
-function fill(root, cls, n, base, spread) {
-  if (!root) return;
-  root.innerHTML = '';
-  for (let i = 0; i < n; i++) {
-    const el = h('i', { class: cls });
-    el.style.setProperty('--x', `${Math.random() * 100}%`);
-    el.style.setProperty('--d', `${(Math.random() * spread).toFixed(2)}s`);
-    el.style.setProperty('--t', `${(base + Math.random() * spread).toFixed(2)}s`);
-    el.style.setProperty('--s', (0.6 + Math.random() * 0.9).toFixed(2));
-    root.appendChild(el);
-  }
-}
-
-/* ════ Мои приглашения ════ */
-
-async function loadMine() {
-  const box = $('mine-list');
-  box.innerHTML = '';
-  box.appendChild(h('p', { class: 'empty' }, '···'));
-  try {
-    const r = await fetch('/api/my', { headers: { 'x-init-data': tg ? tg.initData : '' } });
-    const j = await r.json();
-    box.innerHTML = '';
-    if (!j.ok || !j.apps.length) { box.appendChild(h('p', { class: 'empty' }, '—')); return; }
-    for (const a of j.apps) {
-      const card = h('div', { class: 'inv' },
-        h('h3', {}, `${a.groom} & ${a.bride}`),
-        h('p', { class: 'inv-meta' }, `${a.date} · ${a.time} · ${money(a.total)}`),
-        h('span', { class: `inv-tag ${a.status}` }, a.status),
-        a.url ? h('div', { class: 'inv-link' }, a.url) : null);
-      if (a.url) {
-        card.querySelector('.inv-link').addEventListener('click', () => {
-          navigator.clipboard?.writeText(a.url);
-          toast(t('copied'), 'ok');
-        });
-      }
-      box.appendChild(card);
+  } catch (e) {
+    root.replaceChildren(text("p", e.message, "empty-state"));
+    if (state.config?.botUrl) {
+      const a = text("a", t("openBot"), "text-button");
+      a.href = safeLink(state.config.botUrl);
+      a.target = "_blank";
+      a.rel = "noopener";
+      root.append(a);
     }
-  } catch (_) {
-    box.innerHTML = '';
-    box.appendChild(h('p', { class: 'empty' }, t('eNet')));
   }
 }
-
-/* ════ События ════ */
-
-function wire() {
-  window.addEventListener('wheel', cancelMainScroll, { passive: true });
-  window.addEventListener('touchstart', cancelMainScroll, { passive: true });
-  window.addEventListener('pointerdown', cancelMainScroll, { passive: true });
-  window.addEventListener('keydown', cancelMainScroll);
-  $('lang-uz').addEventListener('click', () => bootLang('uz'));
-  $('lang-ru').addEventListener('click', () => bootLang('ru'));
-  $('sw-uz').addEventListener('click', () => setLang('uz'));
-  $('sw-ru').addEventListener('click', () => setLang('ru'));
-  $('brand').addEventListener('click', () => softScrollTo(0, 3200));
-
-  $('btn-mine').addEventListener('click', () => { $('mine').hidden = false; loadMine(); });
-  $('mine-close').addEventListener('click', () => { $('mine').hidden = true; });
-
-  for (const id of ['groom', 'bride']) {
-    $(id).addEventListener('input', () => {
-      paintPlate();
-      markFilled($(id));
-      clearErr(0);
-      saveDraft();
-      autoAdvance(720);
-    });
-  }
-
-  $('cal-prev').addEventListener('click', () => { calView.setMonth(calView.getMonth() - 1); haptic.tap(); renderCalendar(); });
-  $('cal-next').addEventListener('click', () => { calView.setMonth(calView.getMonth() + 1); haptic.tap(); renderCalendar(); });
-
-  $('geo-q').addEventListener('input', seekPlaceSoon);
-  $('geo-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); seekPlace(); } });
-  $('map-toggle').addEventListener('click', toggleMap);
-  $('map-in').addEventListener('click', () => {
-    if (ymap) ymap.setZoom(Math.min(19, ymap.getZoom() + 1), { duration: 900 });
-  });
-  $('map-out').addEventListener('click', () => {
-    if (ymap) ymap.setZoom(Math.max(0, ymap.getZoom() - 1), { duration: 900 });
-  });
-  $('address').addEventListener('input', () => {
-    $('address').dataset.manual = '1';
-    markFilled($('address'));
-    clearErr(stepIdx('location'));
-    saveDraft();
-    autoAdvance(760);
-  });
-
-  document.querySelectorAll('.seg').forEach((b, i) => {
-    b.addEventListener('click', () => {
-      haptic.tap();
-      document.querySelectorAll('.seg').forEach((x) => x.classList.toggle('is-on', x === b));
-      document.querySelector('.segs').classList.toggle('at-1', i === 1);
-      $('ms-top').hidden = i !== 0;
-      $('ms-mine').hidden = i !== 1;
-    });
-  });
-  $('music-q').addEventListener('input', debounce((e) => loadTracks(e.target.value.trim()), 450));
-  $('music-link-go').addEventListener('click', addMusicLink);
-  $('music-link').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addMusicLink(); } });
-  $('music-upload').addEventListener('click', () => $('music-file').click());
-  $('music-file').addEventListener('change', (e) => {
-    if (e.target.files[0]) uploadMusicFile(e.target.files[0]);
-    e.target.value = '';
-  });
-  $('music-change').addEventListener('click', reopenMusic);
-  $('music-skip').addEventListener('click', () => {
-    state.music = null;
-    player.pause();
-    playingUrl = null;
-    activeTrackUrl = null;
-    $('music-picked').hidden = true;
-    haptic.tap();
-    saveDraft();
-    if (state.open === stepIdx('music')) autoAdvance(720);
-  });
-
-  $('tpl-rail').addEventListener('scroll', debounce(() => {
-    const rail = $('tpl-rail');
-    const mid = rail.scrollLeft + rail.clientWidth / 2;
-    const cards = [...rail.children];
-    if (!cards.length) return;
-    let near = 0;
-    cards.forEach((c, i) => {
-      const d = Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid);
-      const best = Math.abs(cards[near].offsetLeft + cards[near].offsetWidth / 2 - mid);
-      if (d < best) near = i;
-    });
-    updateTemplateNavigation(near);
-  }, 90));
-  $('tpl-prev').addEventListener('click', () => focusTemplate(templateFocusIndex - 1, true));
-  $('tpl-next').addEventListener('click', () => focusTemplate(templateFocusIndex + 1, true));
-
-  $('photo-input').addEventListener('change', (e) => {
-    uploadPhotos([...e.target.files]);
-    e.target.value = '';
-  });
-
-  $('ready-open').addEventListener('click', () => openInvite());
-
-  $('guests-toggle').addEventListener('click', () => {
-    state.guestsOn = !state.guestsOn;
-    if (state.guestsOn && !state.guests.length) state.guests = [''];
-    haptic.tap();
-    renderGuests();
-    updateBill();
-    saveDraft();
-  });
-
-  for (const id of ['contact-tg', 'phone', 'phone2']) {
-    $(id).addEventListener('input', () => { markFilled($(id)); clearErr(8); saveDraft(); });
-  }
-  $('submit').addEventListener('click', submit);
-
-  $('sheet-close').addEventListener('click', () => sheet.close());
-  $('done-mine').addEventListener('click', () => { $('done').hidden = true; $('mine').hidden = false; loadMine(); });
-  $('done-new').addEventListener('click', () => location.reload());
-
-  // Свет сцены медленно едет вниз вместе со скроллом.
-  if (tg) {
-    tg.BackButton?.onClick(() => {
-      if (!$('sheet').hidden) { sheet.close(); return; }
-      if (!$('mine').hidden) { $('mine').hidden = true; return; }
-      tg.close();
-    });
-  }
-}
-
-/* ════ Старт ════ */
-
-async function loadConfig() {
+$("mine-nav").onclick = $("mobile-mine").onclick = loadMine;
+const theme = storage.get("nvate_theme");
+const systemTheme = matchMedia("(prefers-color-scheme: dark)");
+let chosenTheme = ["dark", "light"].includes(theme) ? theme : null;
+const syncTheme = () => {
+  const value = chosenTheme || (systemTheme.matches ? "dark" : "light");
+  document.documentElement.dataset.theme = value;
+  document.querySelector('meta[name="theme-color"]').content =
+    value === "dark" ? "#111210" : "#f4f2eb";
+};
+syncTheme();
+systemTheme.addEventListener("change", syncTheme);
+$("theme-toggle").onclick = () => {
+  const value =
+    document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  chosenTheme = value;
+  syncTheme();
+  storage.set("nvate_theme", value);
+};
+$("year").textContent = new Date().getFullYear();
+const editor = bootEditor({
+  $,
+  text,
+  escape,
+  safeLink,
+  storage,
+  state,
+  t,
+  money,
+  api,
+  toast,
+  showView,
+  openDemo,
+});
+async function init() {
+  localize();
   try {
-    const r = await fetch('/api/config');
-    state.config = await r.json();
-  } catch (_) {
-    state.config = { templates: [], guestPrice: 10000, maxGuests: 100, maxPhotos: 6, topTracks: [], populars: {} };
+    state.config = await api("/api/config");
+    renderGallery();
+    editor.restore();
+    window.Telegram?.WebApp?.ready();
+    window.Telegram?.WebApp?.expand();
+  } catch (e) {
+    $("gallery").replaceChildren(text("p", e.message, "form-error"));
+    const retry = text("button", t("retry"), "primary");
+    retry.onclick = init;
+    $("gallery").append(retry);
   }
 }
-
-function bootLang(lang) {
-  setLang(lang);
-  document.body.classList.add('studio-entering');
-  const first = document.querySelector('.blk[data-step="names"]');
-  if (first) armBlock(first);
-  $('lang-screen').classList.add('out');
-  setTimeout(() => { $('lang-screen').style.display = 'none'; }, 1400);
-  $('app').hidden = false;
-  start();
-}
-
-let started = false;
-async function start() {
-  if (started) return;
-  started = true;
-  await loadConfig();
-  restoreDraft();
-  const testingTemplates = location.hostname === 'localhost' && new URLSearchParams(location.search).has('__template_test');
-  state.open = testingTemplates ? stepIdx('template') : 0;
-  if (state.templateId && state.photos.length > requiredPhotos()) state.photos = state.photos.slice(0, requiredPhotos());
-  setScene(state.open, true);
-  applyI18n();
-  paintPlate();
-  for (const id of ['groom', 'bride', 'address', 'contact-tg', 'phone', 'phone2']) markFilled($(id));
-  if (state.music) {
-    $('picked-name').textContent = state.music.name;
-    $('picked-artist').textContent = state.music.artist || '';
-    $('music-pick').hidden = true;
-    $('music-picked').hidden = false;
-  }
-  renderBlocks(testingTemplates ? -1 : 0);
-  renderMapChoice();
-  setupServiceMotions();
-  updateBill();
-  if (testingTemplates) {
-    await cameraTo(state.open);
-    document.body.classList.remove('studio-entering');
-    return;
-  }
-  await new Promise((resolve) => requestAnimationFrame(resolve));
-  await new Promise((resolve) => requestAnimationFrame(resolve));
-  pulseLiveBead();
-  await riseBlock(blk(0));
-  document.body.classList.remove('studio-entering');
-  activateStep(0);
-}
-
-wire();
+init();

@@ -1,0 +1,49 @@
+{
+  "created": "2026-09-05",
+  "mode": "built-in image_gen",
+  "calls": 5,
+  "variants_retried": false,
+  "validation": "Visually inspected five original photographic backgrounds, then exported WebP at original dimensions for web delivery. No scene edits.",
+  "assets": [
+    {
+      "slug": "royal-palace",
+      "destination": "public/app/assets/royal-palace.webp",
+      "prompt": "Use case: photorealistic-natural\nAsset type: original portrait wedding invitation background, 1024x1536 portrait.\nPrimary request: A photorealistic luxurious champagne limestone palace garden wedding setting, with a symmetrical tall rounded architectural arch and natural realistic stone texture and depth.\nComposition/framing: Portrait 2:3 composition. Large empty quiet center reserved for overlaid HTML invitation names. Soft atmospheric ivory floral arrangements only at the lower corners.\nLighting/mood: Warm gold daylight, sophisticated editorial photography.\nColor palette: Rich gold, cream, and smoky black edges.\nConstraints: No people, no text, no logo, no lettering, no card, no UI. This must be a photographic scene, not illustration.",
+      "width": 1024,
+      "height": 1536,
+      "optimization": "WebP quality 86; same original pixel dimensions"
+    },
+    {
+      "slug": "ivory-botanical",
+      "destination": "public/app/assets/ivory-botanical.webp",
+      "prompt": "Use case: photorealistic-natural\nAsset type: original portrait wedding invitation background, 1024x1536 portrait.\nPrimary request: Photorealistic portrait close-up flat lay on warm ivory fine linen paper, realistic dimensional white lilies and jasmine with olive leaves at the top left and bottom right corners.\nComposition/framing: Portrait 2:3. Generous open central 60 percent for overlaid HTML typography. Florals and foliage frame corners only.\nLighting/mood: Dappled sunlight with delicate shadows, tactile delicate wedding stationery art direction.\nColor palette: Ivory, champagne, olive, gold.\nMaterials/textures: Fine linen paper, natural fresh petals, realistic leaves.\nConstraints: No lettering, no text, no logo, no watermark, no card UI. Photorealistic, not illustration.",
+      "width": 1024,
+      "height": 1536,
+      "optimization": "WebP quality 86; same original pixel dimensions"
+    },
+    {
+      "slug": "champagne-silk",
+      "destination": "public/app/assets/champagne-silk.webp",
+      "prompt": "Use case: photorealistic-natural\nAsset type: original portrait wedding invitation background, 1024x1536 portrait.\nPrimary request: Photorealistic close shot of luxurious champagne silk draping around the outer edges with elegant folds, soft gold specular highlights, and a few white pearl accents at one corner.\nComposition/framing: Portrait 2:3. Luminous creamy central negative space for overlaid HTML typography. Rich silk folds remain along the outer edges.\nLighting/mood: Bespoke bridal stationery editorial photography, luminous and refined.\nColor palette: Champagne, creamy ivory, soft gold.\nMaterials/textures: Realistic glossy silk weave and folds, white lustrous pearls.\nConstraints: No text, no lettering, no logo, no watermark, no UI, no people.",
+      "width": 1024,
+      "height": 1536,
+      "optimization": "WebP quality 86; same original pixel dimensions"
+    },
+    {
+      "slug": "midnight-garden",
+      "destination": "public/app/assets/midnight-garden.webp",
+      "prompt": "Use case: photorealistic-natural\nAsset type: Original portrait wedding invitation background, 1024x1536 pixels, portrait 2:3.\nPrimary request: A photographic elegant night wedding conservatory with deep emerald foliage, a subtle weathered stone arch in the background, actual amber candle lanterns along the lower path, and white jasmine at the corners.\nComposition/framing: Clear, uncluttered center occupying 60 percent of the image, reserved for overlaid HTML text. Architectural and botanical details frame the outer edges. Lanterns are along the lower path.\nLighting/mood: Romantic warm gold candlelight in an elegant nighttime conservatory.\nMaterials/textures: Real foliage, weathered stone, realistic glass and metal lanterns with actual candles.\nConstraints: Photorealistic. No people, no text, no lettering, no UI, no card, no logo.",
+      "width": 1024,
+      "height": 1536,
+      "optimization": "WebP quality 86; same original pixel dimensions"
+    },
+    {
+      "slug": "marsala-velvet",
+      "destination": "public/app/assets/marsala-velvet.webp",
+      "prompt": "Use case: photorealistic-natural\nAsset type: Original portrait wedding invitation background, 1024x1536 pixels, portrait 2:3.\nPrimary request: A photorealistic luxury stationery flat lay with tactile deep wine burgundy velvet draped subtly around the outer edges, dark burgundy roses and tiny white flowers at the lower right and top left, and a thin champagne silk ribbon curved along the outer edge.\nComposition/framing: Large empty deep oxblood center for overlaid HTML typography. Velvet folds, flowers, and ribbon frame the edges and leave the central area open.\nLighting/mood: Directional soft light with gold reflections, refined luxury stationery photography.\nMaterials/textures: Realistic tactile velvet pile, natural rose petals and tiny white flowers, delicate silk ribbon.\nConstraints: Photorealistic. No people, no text, no lettering, no logo, no UI, no card.",
+      "width": 1023,
+      "height": 1537,
+      "optimization": "WebP quality 86; same original pixel dimensions"
+    }
+  ]
+}

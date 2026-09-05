@@ -1,428 +1,531 @@
-<!DOCTYPE html>
-<html lang="uz">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
-<title>nvate — studio</title>
-<meta name="theme-color" content="#100b03">
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;500;600&family=Golos+Text:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-
-<!-- Световая сцена «Шёлковая нить»: перламутровая дымка, ткань и лепестки -->
-<div id="stage" aria-hidden="true">
-  <div id="scene-a" class="scene-wash is-on"></div>
-  <div id="scene-b" class="scene-wash"></div>
-  <div id="bloom"></div>
-  <div id="ikat"></div>
-  <div id="grain"></div>
-  <div id="silk-fall">
-    <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
-    <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
-  </div>
-</div>
-
-<!-- ═══ Первый вход: язык ═══ -->
-<div id="lang-screen">
-  <div class="lang-inner">
-    <svg class="ring-mark" viewBox="0 0 120 120" aria-hidden="true">
-      <circle class="ring-mark__b" cx="60" cy="60" r="46"/>
-      <circle class="ring-mark__a" cx="60" cy="60" r="46"/>
-    </svg>
-    <h1 class="wordmark">nvate</h1>
-    <p class="lang-lead">Taklifnoma studiyasi<br><span>Студия приглашений</span></p>
-    <div class="lang-picks">
-      <button id="lang-uz" type="button" class="btn btn--gold">O‘zbekcha</button>
-      <button id="lang-ru" type="button" class="btn btn--ghost">Русский</button>
-    </div>
-  </div>
-</div>
-
-<div id="app" hidden>
-
-  <header id="topbar">
-    <button id="brand" type="button" class="brand">nvate</button>
-    <div class="top-right">
-      <button id="btn-mine" type="button" class="ghost-ic" aria-label="My invitations">
-        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5.5h14v9H3z"/><path d="M3 6l7 5 7-5"/></svg>
-      </button>
-      <div class="langsw">
-        <button id="sw-uz" type="button">UZ</button><button id="sw-ru" type="button">RU</button>
-      </div>
-    </div>
-  </header>
-
-  <!-- ═══ Мои приглашения ═══ -->
-  <section id="mine" class="overlay" hidden>
-    <div class="mine-head">
-      <h2 data-i18n="mineTitle"></h2>
-      <button id="mine-close" type="button" class="ghost-ic" aria-label="Close"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg></button>
-    </div>
-    <div id="mine-list"></div>
-  </section>
-
-  <!-- ═══ СТУДИЯ ═══ -->
-  <main id="studio">
-
-    <!-- 1 · Имена -->
-    <section class="blk" data-step="names">
-      <span class="knot"></span>
-      <p class="eyebrow"><b>01</b><span data-i18n="eNames"></span></p>
-      <h2 class="blk-title" data-i18n="tNames"></h2>
-
-      <div class="plate">
-        <span id="cp-groom" class="plate-name plate-name--empty" data-i18n="phGroom"></span>
-        <span class="plate-amp">&amp;</span>
-        <span id="cp-bride" class="plate-name plate-name--empty" data-i18n="phBride"></span>
-      </div>
-
-      <div class="field">
-        <label for="groom" data-i18n="groom"></label>
-        <input id="groom" type="text" maxlength="100" autocomplete="off" spellcheck="false">
-      </div>
-      <div class="field">
-        <label for="bride" data-i18n="bride"></label>
-        <input id="bride" type="text" maxlength="100" autocomplete="off" spellcheck="false">
-      </div>
-      <p class="blk-err" hidden></p>
-    </section>
-
-    <!-- 2 · Дата и время -->
-    <section class="blk" data-step="datetime" hidden>
-      <span class="knot"></span>
-      <p class="eyebrow"><b>02</b><span data-i18n="eDate"></span></p>
-      <h2 class="blk-title" data-i18n="tDate"></h2>
-
-      <div class="cal">
-        <div class="cal-bar">
-          <button id="cal-prev" type="button" class="cal-arrow" aria-label="Prev">‹</button>
-          <b id="cal-title"></b>
-          <button id="cal-next" type="button" class="cal-arrow" aria-label="Next">›</button>
-        </div>
-        <div id="cal-dow" class="cal-dow"></div>
-        <div id="cal-grid" class="cal-grid"></div>
-      </div>
-
-      <p class="sub-label" data-i18n="timeLbl"></p>
-      <p id="time-prompt" class="time-prompt" data-i18n="timePrompt" hidden></p>
-      <div class="clock" aria-live="polite"><b id="clock-h"></b><i>:</i><b id="clock-m"></b></div>
-
-      <div class="hdrum">
-        <span class="hdrum-band" aria-hidden="true"></span>
-        <div id="hour-drum" class="hdrum-track" aria-label="Hours"></div>
-      </div>
-      <div class="hdrum hdrum--min">
-        <span class="hdrum-band" aria-hidden="true"></span>
-        <div id="min-drum" class="hdrum-track" aria-label="Minutes"></div>
-      </div>
-
-      <p id="date-read" class="read-out"></p>
-      <p class="blk-err" hidden></p>
-    </section>
-
-    <!-- 3 · Локация -->
-    <section class="blk" data-step="location" hidden>
-      <span class="knot"></span>
-      <p class="eyebrow"><b>03</b><span data-i18n="eVenue"></span></p>
-      <h2 class="blk-title" data-i18n="tVenue"></h2>
-
-      <div class="field">
-        <label for="address" data-i18n="address"></label>
-        <input id="address" type="text" maxlength="140" autocomplete="off">
-      </div>
-
-      <button id="map-toggle" type="button" class="switch map-switch" role="switch" aria-checked="false">
-        <span class="switch-txt"><b data-i18n="mapSwTitle"></b><i id="map-sw-sub" data-i18n="mapSwOff"></i></span>
-        <span class="switch-track"><span class="switch-knob"></span></span>
-      </button>
-
-      <div id="map-tools" class="map-tools" hidden>
-        <div class="field">
-          <label for="geo-q" data-i18n="seekLbl"></label>
-          <input id="geo-q" type="text" autocomplete="off" spellcheck="false">
-          <span id="geo-spin" class="field-spin" hidden></span>
-        </div>
-        <div id="geo-list" class="geo-list" hidden></div>
-
-        <p class="map-hint" data-i18n="mapHint"></p>
-        <div class="mapframe">
-          <div id="map"></div>
-          <div class="map-zoom">
-            <button id="map-in" type="button" class="map-btn" aria-label="Zoom in"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg></button>
-            <button id="map-out" type="button" class="map-btn" aria-label="Zoom out"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h12"/></svg></button>
-          </div>
-        </div>
-      </div>
-      <p class="blk-err" hidden></p>
-    </section>
-
-    <!-- 4 · Музыка -->
-    <section class="blk" data-step="music" hidden>
-      <span class="knot"></span>
-      <p class="eyebrow"><b>04</b><span data-i18n="eMusic"></span></p>
-      <h2 class="blk-title" data-i18n="tMusic"></h2>
-
-      <div id="music-pick">
-        <div class="segs">
-          <button type="button" class="seg is-on" data-ms="top" data-i18n="msTop"></button>
-          <button type="button" class="seg" data-ms="mine" data-i18n="msMine"></button>
-          <i class="segs-glide"></i>
-        </div>
-
-        <div id="ms-top">
-          <div class="field field--tight">
-            <input id="music-q" type="text" autocomplete="off" spellcheck="false" aria-label="Music search">
-          </div>
-          <div id="track-scroll" class="track-scroll"></div>
-        </div>
-
-        <div id="ms-mine" hidden>
-          <div class="field field--tight">
-            <label for="music-link" data-i18n="linkLbl"></label>
-            <div class="field-row">
-              <input id="music-link" type="url" maxlength="300" autocomplete="off" spellcheck="false">
-              <button id="music-link-go" type="button" class="btn btn--gold btn--row" data-i18n="add"></button>
-            </div>
-          </div>
-          <p class="hint" data-i18n="linkHint"></p>
-          <button id="music-upload" type="button" class="btn btn--ghost btn--block"><span data-i18n="uploadMusic"></span></button>
-          <input id="music-file" type="file" accept="audio/*,.mp3,.m4a,.ogg,.wav" hidden>
-        </div>
-
-        <button id="music-skip" type="button" class="linkbtn" data-i18n="musicSkip"></button>
-      </div>
-
-      <div id="music-picked" class="picked" hidden>
-        <span class="picked-note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg></span>
-        <div class="picked-info"><b id="picked-name"></b><span id="picked-artist"></span></div>
-        <button id="music-change" type="button" class="btn btn--ghost btn--tiny" data-i18n="change"></button>
-      </div>
-      <p class="blk-err" hidden></p>
-    </section>
-
-    <!-- 5 · Шаблон -->
-    <section class="blk blk--bleed" data-step="template" hidden>
-      <span class="knot"></span>
-      <p class="eyebrow"><b>05</b><span data-i18n="eTpl"></span></p>
-      <h2 class="blk-title" data-i18n="tTpl"></h2>
-      <p class="blk-lead" data-i18n="leadTpl"></p>
-
-      <div class="tpl-toolbar">
-        <p class="tpl-position" aria-live="polite">
-          <span id="tpl-current">01</span><i>/</i><span id="tpl-total">00</span>
-        </p>
-        <p class="tpl-swipe" data-i18n="tplSwipe"></p>
-        <div class="tpl-nav">
-          <button id="tpl-prev" type="button" aria-label="Previous template">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
-          </button>
-          <button id="tpl-next" type="button" aria-label="Next template">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
-          </button>
-        </div>
-      </div>
-      <div id="tpl-rail" class="tpl-rail"></div>
-      <div id="tpl-dots" class="tpl-dots" aria-label="Templates"></div>
-      <p class="blk-err" hidden></p>
-    </section>
-
-    <!-- 6 · Фото -->
-    <section class="blk" data-step="photos" hidden>
-      <span class="knot"></span>
-      <p class="eyebrow"><b>06</b><span data-i18n="ePhotos"></span></p>
-      <h2 class="blk-title" data-i18n="tPhotos"></h2>
-      <p id="photo-lead" class="blk-lead"></p>
-
-      <div id="photo-grid" class="photo-grid"></div>
-      <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
-      <p class="blk-err" hidden></p>
-    </section>
-
-    <!-- 7 · Всё готово → полное демо -->
-    <section class="blk" data-step="ready" hidden>
-      <span class="knot"></span>
-      <p class="eyebrow"><b>07</b><span data-i18n="eReady"></span></p>
-      <h2 class="blk-title" data-i18n="tReady"></h2>
-      <p class="blk-lead" data-i18n="leadReady"></p>
-
-      <div class="readycard">
-        <svg class="ring-mark ring-mark--sm" viewBox="0 0 120 120" aria-hidden="true">
-          <circle class="ring-mark__b" cx="60" cy="60" r="46"/>
-          <circle class="ring-mark__a" cx="60" cy="60" r="46"/>
-        </svg>
-        <b id="ready-couple"></b>
-        <span id="ready-meta"></span>
-        <button id="ready-open" type="button" class="btn btn--gold btn--block">
-          <span data-i18n="seeInvite"></span>
+<!doctype html>
+<html lang="ru" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#111210" />
+    <meta
+      name="description"
+      content="nvate — студия персональных свадебных приглашений. Пять коллекционных дизайнов, фотографии, музыка и именные ссылки для гостей."
+    />
+    <title>nvate — Свадебное ателье</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
+    <script src="app.js" type="module"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main" data-key="skip">К содержимому</a>
+    <div class="ambient" aria-hidden="true"></div>
+    <header class="header">
+      <a class="brand" href="/app/" aria-label="nvate"
+        ><span class="brand-symbol">n.</span
+        ><span>nvate<small>WEDDING ATELIER</small></span></a
+      >
+      <nav class="main-nav" aria-label="Навигация">
+        <button
+          class="nav-link active"
+          id="collection-nav"
+          data-key="collection"
+        >
+          Коллекция</button
+        ><button class="nav-link" id="mine-nav" data-key="mine">
+          Мои приглашения
         </button>
-        <p class="readycard-hint" data-i18n="readyHint"></p>
+      </nav>
+      <div class="header-actions">
+        <button
+          id="mobile-mine"
+          class="icon-button mobile-only"
+          aria-label="Мои приглашения"
+        >
+          ▤</button
+        ><button
+          id="theme-toggle"
+          class="icon-button"
+          aria-label="Сменить тему"
+        >
+          ◐
+        </button>
+        <div class="language" role="group" aria-label="Язык">
+          <button data-lang="uz">UZ</button><span>/</span
+          ><button data-lang="ru" aria-pressed="true">RU</button>
+        </div>
       </div>
-
-      <div class="notice">
-        <b data-i18n="wmTitle"></b>
-        <p data-i18n="wmText"></p>
-      </div>
-      <p class="blk-err" hidden></p>
-    </section>
-
-    <!-- 8 · Именные приглашения -->
-    <section class="blk" data-step="guests" hidden>
-      <span class="knot"></span>
-      <p class="eyebrow"><b>08</b><span data-i18n="eGuests"></span></p>
-      <h2 class="blk-title" data-i18n="tGuests"></h2>
-
-      <div id="personal-motion" class="personal-motion" data-scene="idle" role="img" aria-label="nVate creates a personalized invitation for every guest">
-        <div class="pm-atmosphere" aria-hidden="true">
-          <span class="pm-ray pm-ray--one"></span>
-          <span class="pm-ray pm-ray--two"></span>
-          <span class="pm-dust"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
-        </div>
-
-        <div id="pm-origin" class="pm-origin">
-          <span class="pm-origin-mark">nV</span>
-          <b>nVate</b>
-          <small>PERSONAL</small>
-        </div>
-
-        <svg id="pm-wires" class="pm-wires" aria-hidden="true">
-          <defs>
-            <linearGradient id="pm-gold-line" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0" stop-color="#81632f"/>
-              <stop offset=".52" stop-color="#f5e3b7"/>
-              <stop offset="1" stop-color="#b38a45"/>
-            </linearGradient>
-            <filter id="pm-line-glow" x="-30%" y="-30%" width="160%" height="160%">
-              <feGaussianBlur stdDeviation="2" result="blur"/>
-              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-            </filter>
-          </defs>
-          <path id="pm-path-in" class="pm-wire pm-wire--in" pathLength="1"/>
-          <path id="pm-path-0" class="pm-wire pm-wire--branch" pathLength="1"/>
-          <path id="pm-path-1" class="pm-wire pm-wire--branch" pathLength="1"/>
-          <path id="pm-path-2" class="pm-wire pm-wire--branch" pathLength="1"/>
-          <circle id="pm-light-in" class="pm-traveler" r="3"/>
-          <circle id="pm-light-0" class="pm-traveler" r="3"/>
-          <circle id="pm-light-1" class="pm-traveler" r="3"/>
-          <circle id="pm-light-2" class="pm-traveler" r="3"/>
-        </svg>
-
-        <div id="pm-card" class="pm-card">
-          <span class="pm-card-rule" aria-hidden="true"></span>
-          <small data-i18n="personalPreview"></small>
-          <p class="pm-salutation"><span id="pm-prefix">Hurmatli</span> <b id="pm-name">Aziz aka</b></p>
-          <span id="pm-link" class="pm-link">nVate.uz/~~~/Aziz</span>
-          <span class="pm-card-seal" aria-hidden="true">nV</span>
-        </div>
-
-        <div class="pm-people">
-          <div id="pm-person-0" class="pm-person">
-            <span class="pm-person-monogram">A</span>
-            <span class="pm-person-copy"><b>Aziz aka</b><small>01</small></span>
+    </header>
+    <main id="main" tabindex="-1">
+      <section id="collection-view" class="collection-view">
+        <div class="collection-heading">
+          <div>
+            <p class="eyebrow">
+              <span class="line"></span
+              ><span data-key="atelier">СВАДЕБНОЕ АТЕЛЬЕ</span>
+            </p>
+            <h1 data-key-html="headline">Искусство <em>приглашать.</em></h1>
+            <p class="lead" data-key="lead">
+              Ваш особенный день начинается с красивого приглашения.
+            </p>
           </div>
-          <div id="pm-person-1" class="pm-person">
-            <span class="pm-person-monogram">D</span>
-            <span class="pm-person-copy"><b>Dilnoza opa</b><small>02</small></span>
-          </div>
-          <div id="pm-person-2" class="pm-person">
-            <span class="pm-person-monogram">F</span>
-            <span class="pm-person-copy"><b>Farxod uka</b><small>03</small></span>
+          <div class="collection-note">
+            <span class="edition">N° 01 — 05</span>
+            <p data-key-html="collectionNote">
+              Пять настроений.<br />Одна ваша история.
+            </p>
+            <span class="tiny-star" aria-hidden="true">✧</span>
           </div>
         </div>
-
-        <p class="pm-tagline" data-i18n="personalTagline">Har bir mehmon uchun — shaxsiy taklifnoma.</p>
+        <div class="collection-toolbar">
+          <div class="filters" role="group" aria-label="Коллекция">
+            <button class="filter active" data-filter="all" aria-pressed="true">
+              <span data-key="all">Вся коллекция</span><small>05</small></button
+            ><button
+              class="filter"
+              data-filter="light"
+              aria-pressed="false"
+              data-key="light"
+            >
+              Светлые</button
+            ><button
+              class="filter"
+              data-filter="dark"
+              aria-pressed="false"
+              data-key="dark"
+            >
+              Тёмные
+            </button>
+          </div>
+          <p class="toolbar-note">
+            <span class="status-dot"></span
+            ><span data-key="previewHint"
+              >Каждое приглашение можно открыть</span
+            >
+          </p>
+        </div>
+        <div id="gallery" class="gallery" aria-live="polite">
+          <p class="loading" data-key="loading">Открываем коллекцию…</p>
+        </div>
+        <div class="collection-footer">
+          <span>DESIGNED TO BE REMEMBERED</span>
+          <p data-key="footerNote">Создано для вашего «навсегда».</p>
+          <span>NVATE · COLLECTION</span>
+        </div>
+      </section>
+      <section id="editor-view" class="editor-view" hidden>
+        <div class="editor-heading">
+          <button class="text-button" id="back-collection">
+            ← <span data-key="backCollection">К коллекции</span></button
+          ><span
+            class="draft-status"
+            id="draft-status"
+            aria-live="polite"
+          ></span>
+        </div>
+        <div class="editor-layout">
+          <div class="editor-workspace">
+            <p class="eyebrow" data-key="yourInvitation">ВАШЕ ПРИГЛАШЕНИЕ</p>
+            <h1 class="editor-title" id="editor-title">Royal</h1>
+            <nav class="step-nav" aria-label="Шаги настройки">
+              <button data-step="0">
+                <span>01</span><b data-key="details">Детали</b></button
+              ><button data-step="1">
+                <span>02</span><b data-key="media">Атмосфера</b></button
+              ><button data-step="2">
+                <span>03</span><b data-key="guests">Гости</b></button
+              ><button data-step="3">
+                <span>04</span><b data-key="finish">Завершение</b>
+              </button>
+            </nav>
+            <form id="invitation-form" novalidate>
+              <section class="form-step" data-panel="0">
+                <h2 data-key="detailsTitle">Всё начинается с вас</h2>
+                <p class="form-intro" data-key="detailsIntro">
+                  Имена, дата и место вашей встречи с близкими.
+                </p>
+                <div class="field-row">
+                  <label
+                    ><span data-key="groom">Имя жениха</span
+                    ><input
+                      name="groomName"
+                      required
+                      maxlength="100"
+                      placeholder="Александр"
+                      autocomplete="off" /></label
+                  ><label
+                    ><span data-key="bride">Имя невесты</span
+                    ><input
+                      name="brideName"
+                      required
+                      maxlength="100"
+                      placeholder="София"
+                      autocomplete="off"
+                  /></label>
+                </div>
+                <div class="field-row">
+                  <label
+                    ><span data-key="date">Дата свадьбы</span
+                    ><input name="weddingDate" type="date" required /></label
+                  ><label
+                    ><span data-key="time">Время</span
+                    ><input
+                      name="weddingTime"
+                      type="time"
+                      value="18:00"
+                      required
+                  /></label>
+                </div>
+                <label
+                  ><span data-key="venue">Место проведения</span
+                  ><input
+                    name="address"
+                    maxlength="300"
+                    placeholder="Название ресторана, город"
+                    required /></label
+                ><label class="check-field"
+                  ><input name="mapEnabled" type="checkbox" /><span
+                    data-key="mapEnabled"
+                    >Добавить карту для гостей</span
+                  ></label
+                >
+                <div id="coordinate-fields" hidden>
+                  <label
+                    ><span data-key="findVenue">Найти место на карте</span>
+                    <div class="search-row">
+                      <input
+                        id="venue-search"
+                        type="search"
+                        placeholder="Название ресторана, город"
+                      /><button
+                        type="button"
+                        id="venue-search-button"
+                        class="secondary"
+                        data-key="search"
+                      >
+                        Найти
+                      </button>
+                    </div></label
+                  >
+                  <div
+                    id="venue-results"
+                    class="search-results"
+                    aria-live="polite"
+                  ></div>
+                  <p class="field-help" data-key="coordinatesHint">
+                    Скопируйте координаты места из Google или Яндекс Карт.
+                  </p>
+                  <div class="field-row">
+                    <label
+                      ><span data-key="latitude">Широта</span
+                      ><input
+                        name="lat"
+                        type="number"
+                        min="-90"
+                        max="90"
+                        step="any"
+                        placeholder="41.3111"
+                        inputmode="decimal" /></label
+                    ><label
+                      ><span data-key="longitude">Долгота</span
+                      ><input
+                        name="lng"
+                        type="number"
+                        min="-180"
+                        max="180"
+                        step="any"
+                        placeholder="69.2797"
+                        inputmode="decimal"
+                    /></label>
+                  </div>
+                  <a
+                    id="map-check"
+                    class="text-button"
+                    target="_blank"
+                    rel="noopener"
+                    hidden
+                    data-key="checkMap"
+                    >Проверить точку на карте ↗</a
+                  >
+                </div>
+              </section>
+              <section class="form-step" data-panel="1" hidden>
+                <h2 data-key="mediaTitle">Пусть оживут чувства</h2>
+                <p class="form-intro" data-key="mediaIntro">
+                  Ваши фотографии и музыка сделают приглашение личным.
+                </p>
+                <div class="section-label">
+                  <h3 data-key="photos">Фотографии</h3>
+                  <span id="photo-count"></span>
+                </div>
+                <p class="field-help" id="photo-requirement"></p>
+                <div id="photo-list" class="photo-list"></div>
+                <label class="upload-area"
+                  ><span class="upload-icon" aria-hidden="true">＋</span
+                  ><b data-key="addPhotos">Добавить фотографии</b
+                  ><span>JPG, PNG, WEBP · ≤ 16 MB</span
+                  ><input
+                    id="photo-input"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple
+                /></label>
+                <div class="section-label">
+                  <h3 data-key="music">Музыка</h3>
+                  <button
+                    type="button"
+                    id="clear-music"
+                    class="text-button"
+                    data-key="noMusic"
+                  >
+                    Без музыки
+                  </button>
+                </div>
+                <p
+                  id="music-selected"
+                  class="field-help"
+                  aria-live="polite"
+                ></p>
+                <label
+                  ><span data-key="findMusic">Поиск музыки</span>
+                  <div class="search-row">
+                    <input
+                      id="music-search"
+                      type="search"
+                      placeholder="Piano, wedding…"
+                    /><button
+                      type="button"
+                      id="music-search-button"
+                      class="secondary"
+                      data-key="search"
+                    >
+                      Найти
+                    </button>
+                  </div></label
+                >
+                <p class="field-help" data-key="musicSample">
+                  В каталоге — 30-секундные фрагменты. Полный трек можно
+                  загрузить файлом.
+                </p>
+                <div
+                  id="music-results"
+                  class="search-results"
+                  aria-live="polite"
+                ></div>
+                <div class="field-row">
+                  <label class="upload-small"
+                    ><span data-key="uploadMusic">Загрузить аудио</span
+                    ><input
+                      id="music-input"
+                      type="file"
+                      accept="audio/mpeg,audio/mp4,audio/ogg,audio/wav,.mp3,.m4a,.ogg,.wav" /></label
+                  ><label
+                    ><span data-key="musicLink"
+                      >Ссылка на YouTube или аудио</span
+                    ><input name="musicLink" type="url" placeholder="https://…"
+                  /></label>
+                </div>
+                <div class="field-row">
+                  <label
+                    ><span data-key="musicStart">Начало, сек.</span
+                    ><input
+                      name="musicStart"
+                      type="number"
+                      min="0"
+                      max="7199"
+                      value="0" /></label
+                  ><label
+                    ><span data-key="musicEnd">Конец, сек. (необязательно)</span
+                    ><input name="musicEnd" type="number" min="1" max="7200"
+                  /></label>
+                </div>
+              </section>
+              <section class="form-step" data-panel="2" hidden>
+                <h2 data-key="guestsTitle">Каждому — лично</h2>
+                <p class="form-intro" data-key="guestsIntro">
+                  Гость увидит своё имя в приглашении. У каждого будет
+                  собственная ссылка.
+                </p>
+                <div class="guest-example">
+                  <span class="eyebrow" data-key="personalInvitation"
+                    >ЛИЧНОЕ ПРИГЛАШЕНИЕ</span
+                  >
+                  <p data-key="guestExample">Дорогая Дильноза,</p>
+                  <span data-key="guestExampleBody"
+                    >будем счастливы разделить этот день с Вами.</span
+                  >
+                </div>
+                <label class="check-field"
+                  ><input name="personalGuests" type="checkbox" /><span
+                    data-key="enableGuests"
+                    >Создать именные приглашения</span
+                  ></label
+                >
+                <div id="guests-fields" hidden>
+                  <label
+                    ><span data-key="guestList"
+                      >Имена гостей — каждое с новой строки</span
+                    ><textarea
+                      name="guestNames"
+                      rows="6"
+                      placeholder="Дильноза&#10;Азиз&#10;Фарход"
+                      maxlength="6000"
+                    ></textarea>
+                  </label>
+                  <p class="field-help" id="guest-total"></p>
+                </div>
+                <p class="field-help" data-key="guestsOptional">
+                  Можно оставить общее приглашение для всех гостей.
+                </p>
+              </section>
+              <section class="form-step" data-panel="3" hidden>
+                <h2 data-key="finishTitle">Последний штрих</h2>
+                <p class="form-intro" data-key="finishIntro">
+                  Оставьте два контакта. Администратор свяжется с вами для
+                  подтверждения и оплаты.
+                </p>
+                <label
+                  ><span>Telegram</span
+                  ><input
+                    name="contactTg"
+                    maxlength="33"
+                    placeholder="@username"
+                    autocomplete="off"
+                /></label>
+                <div class="field-row">
+                  <label
+                    ><span data-key="phone">Телефон</span
+                    ><input
+                      name="phone"
+                      type="tel"
+                      maxlength="20"
+                      placeholder="+998 90 123 45 67"
+                      autocomplete="tel" /></label
+                  ><label
+                    ><span data-key="extraContact">Дополнительный контакт</span
+                    ><input
+                      name="phone2"
+                      maxlength="40"
+                      placeholder="@username / +998…"
+                  /></label>
+                </div>
+                <div class="bill">
+                  <div>
+                    <span id="bill-template"></span
+                    ><b id="bill-template-price"></b>
+                  </div>
+                  <div id="bill-guests-row" hidden>
+                    <span data-key="personalLinks">Именные ссылки</span
+                    ><b id="bill-guests-price"></b>
+                  </div>
+                  <div class="bill-total">
+                    <span data-key="total">Итого</span><b id="bill-total"></b>
+                  </div>
+                </div>
+                <p class="field-help" data-key="paymentHint">
+                  После подтверждения оплаты вы получите готовую ссылку в
+                  Telegram.
+                </p>
+                <button
+                  type="button"
+                  id="full-preview"
+                  class="secondary full-width"
+                >
+                  <span data-key="fullPreview"
+                    >Проверить полное приглашение</span
+                  >
+                  ↗
+                </button>
+              </section>
+              <p id="form-error" class="form-error" role="alert" hidden></p>
+              <div class="form-actions">
+                <button type="button" id="prev-step" class="text-button">
+                  ← <span data-key="back">Назад</span></button
+                ><button type="submit" id="next-step" class="primary">
+                  <span data-key="continue">Продолжить</span><span>↗</span>
+                </button>
+              </div>
+            </form>
+          </div>
+          <aside class="editor-preview">
+            <div class="preview-caption">
+              <span class="status-dot"></span
+              ><span data-key="livePreview">Ваше приглашение</span
+              ><button
+                class="icon-button"
+                id="expand-preview"
+                aria-label="Открыть предпросмотр"
+              >
+                ↗
+              </button>
+            </div>
+            <div class="preview-frame-wrap">
+              <iframe id="live-frame" title="Предпросмотр приглашения"></iframe>
+            </div>
+            <p data-key="previewSample">
+              Предпросмотр композиции. Ваши фото и музыка — в полной версии.
+            </p>
+          </aside>
+        </div>
+      </section>
+      <section id="mine-view" class="mine-view" hidden>
+        <p class="eyebrow">NVATE · PERSONAL</p>
+        <h1 data-key="mine">Мои приглашения</h1>
+        <div id="mine-list"></div>
+      </section>
+    </main>
+    <footer class="footer">
+      <a href="/app/" class="footer-brand">nvate</a
+      ><span data-key="footer">Ваш день. Ваша история.</span
+      ><span>© <span id="year"></span> nvate</span>
+    </footer>
+    <dialog
+      id="preview-dialog"
+      aria-labelledby="preview-title"
+      class="preview-dialog"
+    >
+      <div class="dialog-toolbar">
+        <span id="preview-title"></span
+        ><button class="icon-button" id="close-preview" aria-label="Закрыть">
+          ×
+        </button>
       </div>
-      <button id="guests-toggle" type="button" class="switch" role="switch" aria-checked="false">
-        <span class="switch-txt"><b data-i18n="guestsSwTitle"></b><i id="guests-sw-sub" data-i18n="guestsSwOff"></i></span>
-        <span class="switch-track"><span class="switch-knob"></span></span>
+      <iframe id="preview-frame" title="Свадебное приглашение"></iframe>
+      <div class="dialog-footer">
+        <span data-key="openEnvelope">Коснитесь печати, чтобы открыть</span
+        ><button id="choose-preview" class="primary">
+          <span data-key="choose">Выбрать дизайн</span> ↗
+        </button>
+      </div>
+    </dialog>
+    <dialog
+      id="success-dialog"
+      aria-labelledby="success-title"
+      aria-describedby="success-copy"
+      class="success-dialog"
+    >
+      <span class="success-mark">✓</span>
+      <p class="eyebrow" data-key="received">ЗАЯВКА ПОЛУЧЕНА</p>
+      <h2 id="success-title" data-key="successTitle">
+        Начало прекрасной истории.
+      </h2>
+      <p id="success-copy"></p>
+      <button id="close-success" class="primary" data-key="backCollection">
+        К коллекции
       </button>
-
-      <div id="guests-body" hidden>
-        <div id="guest-list" class="guest-list"></div>
-        <div class="tally">
-          <span><b id="guest-n">0</b> <span data-i18n="guestsUnit"></span></span>
-          <b id="guest-sum">0</b>
-        </div>
-      </div>
-
-      <p class="blk-err" hidden></p>
-    </section>
-
-    <!-- 9 · Контакты и оплата -->
-    <section class="blk" data-step="contact" hidden>
-      <span class="knot knot--last"></span>
-      <p class="eyebrow"><b>09</b><span data-i18n="eContact"></span></p>
-      <h2 class="blk-title" data-i18n="tContact"></h2>
-      <p class="blk-lead" data-i18n="leadContact"></p>
-
-      <div class="field">
-        <label for="contact-tg" data-i18n="tgLbl"></label>
-        <input id="contact-tg" type="text" maxlength="40" autocomplete="off" placeholder="@username">
-      </div>
-      <div class="field">
-        <label for="phone" data-i18n="phoneLbl"></label>
-        <input id="phone" type="tel" maxlength="20" autocomplete="off" placeholder="+998 90 123 45 67">
-      </div>
-      <div class="field">
-        <label for="phone2" data-i18n="phone2Lbl"></label>
-        <input id="phone2" type="text" maxlength="40" autocomplete="off" placeholder="@username / +998 …">
-      </div>
-      <p class="hint" data-i18n="contactRule"></p>
-
-      <div class="bill">
-        <div id="bill-lines"></div>
-        <div class="bill-total"><span data-i18n="total"></span><b id="bill-total">0</b></div>
-      </div>
-      <p class="blk-err" hidden></p>
-      <button id="submit" type="button" class="btn btn--gold btn--block">
-        <span id="submit-label"></span>
-      </button>
-    </section>
-
-    <div class="studio-tail"></div>
-  </main>
-
-  <!-- ═══ Нижний док: нить с бусинами ═══ -->
-  <nav id="dock" aria-label="Steps">
-    <div class="dock-rail">
-      <div id="beads" class="beads"></div>
-    </div>
-  </nav>
-</div>
-
-<!-- ═══ Полноэкранная шторка ═══ -->
-<div id="sheet" hidden>
-  <div class="sheet-bar">
-    <button id="sheet-close" type="button" class="ghost-ic" aria-label="Close"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg></button>
-    <b id="sheet-title"></b>
-    <span class="sheet-pad"></span>
-  </div>
-  <iframe id="sheet-frame" title="Preview"></iframe>
-  <div class="sheet-foot">
-    <button id="sheet-act" type="button" class="btn btn--gold btn--pill" hidden></button>
-  </div>
-</div>
-
-<!-- ═══ Финал ═══ -->
-<div id="done" hidden>
-  <div id="sparks" aria-hidden="true"></div>
-  <div class="done-card">
-    <svg class="ring-mark ring-mark--sm" viewBox="0 0 120 120" aria-hidden="true">
-      <circle class="ring-mark__b" cx="60" cy="60" r="46"/>
-      <circle class="ring-mark__a" cx="60" cy="60" r="46"/>
-    </svg>
-    <h2 data-i18n="doneTitle"></h2>
-    <p data-i18n="doneText"></p>
-    <button id="done-mine" type="button" class="btn btn--gold btn--block"><span data-i18n="mineTitle"></span></button>
-    <button id="done-new" type="button" class="linkbtn" data-i18n="doneNew"></button>
-  </div>
-</div>
-
-<div id="toasts"></div>
-
-<script src="ui.js"></script>
-<script src="app.js"></script>
-</body>
+    </dialog>
+    <div id="toast" class="toast" role="status" hidden></div>
+    <noscript
+      ><p class="form-error">
+        Для настройки приглашения включите JavaScript. / Taklifnomani sozlash
+        uchun JavaScript’ni yoqing.
+      </p></noscript
+    >
+  </body>
 </html>

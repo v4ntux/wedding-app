@@ -54,6 +54,8 @@ export function createServer({ onNewApplication }) {
       map: req.query.map,
       lat: req.query.lat,
       lng: req.query.lng,
+      date: req.query.date,
+      time: req.query.time,
     });
     if (!html) return next();
     res.send(html);

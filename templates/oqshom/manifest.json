@@ -3,6 +3,17 @@
   "event": "wedding",
   "price": 179000,
   "minPhotos": 1,
-  "colors": ["#212C24", "#C2A660", "#E7D8B7"],
-  "order": 4
+  "colors": [
+    "#0f2820",
+    "#d6be82",
+    "#91a58c"
+  ],
+  "order": 4,
+  "tone": "dark",
+  "material": "NOCTURNE",
+  "previewImage": "/app/assets/midnight-garden.webp",
+  "description": {
+    "ru": "Магия вечернего сада",
+    "uz": "Oqshom bog‘i sehri"
+  }
 }
