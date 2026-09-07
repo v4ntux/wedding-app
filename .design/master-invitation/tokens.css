@@ -1,0 +1,134 @@
+/* Living Ivory: editorial botanical minimalism with tactile ceremony. */
+:root {
+  --color-bg-primary: #f1eee7;
+  --color-bg-secondary: #e6e0d5;
+  --color-bg-tertiary: #ddd5c7;
+  --color-bg-inverse: #4a1414;
+  --color-text-primary: #28251f;
+  --color-text-secondary: #655f55;
+  --color-text-tertiary: #827a6e;
+  --color-text-inverse: #f4eee3;
+  --color-text-link: #526047;
+  --color-border-primary: rgba(40, 37, 31, .28);
+  --color-border-secondary: rgba(40, 37, 31, .13);
+  --color-border-focus: #7e1c2b;
+  --color-accent-primary: #7e1c2b;
+  --color-accent-primary-hover: #651521;
+  --color-accent-primary-active: #521019;
+  --color-accent-secondary: #526047;
+  --color-metal: #b18c58;
+  --color-sage: #9aa78d;
+  --color-status-success: #47654d;
+  --color-status-warning: #9a6e2e;
+  --color-status-error: #8e2631;
+  --color-status-info: #566d78;
+  --color-surface-overlay: rgba(29, 18, 13, .72);
+
+  --space-0: 0;
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 12px;
+  --space-6: 16px;
+  --space-7: 24px;
+  --space-8: 32px;
+  --space-9: 48px;
+  --space-10: 64px;
+  --space-11: 96px;
+  --space-12: 128px;
+
+  --font-family-display: 'Cormorant Garamond', Georgia, serif;
+  --font-family-body: 'Manrope', sans-serif;
+  --font-family-mono: ui-monospace, monospace;
+  --font-size-xs: .6875rem;
+  --font-size-sm: .8125rem;
+  --font-size-base: 1rem;
+  --font-size-md: 1.125rem;
+  --font-size-lg: 1.375rem;
+  --font-size-xl: 1.875rem;
+  --font-size-2xl: 2.75rem;
+  --font-size-3xl: 4.5rem;
+  --font-size-4xl: clamp(4rem, 16vw, 8.5rem);
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --line-height-tight: .92;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.72;
+  --letter-spacing-tight: -.04em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide: .28em;
+
+  --max-width-content: 40ch;
+  --max-width-wide: 720px;
+  --max-width-page: 840px;
+  --border-radius-sm: 2px;
+  --border-radius-md: 4px;
+  --border-radius-lg: 8px;
+  --border-radius-full: 999px;
+  --shadow-sm: 0 8px 22px rgba(45, 30, 20, .10);
+  --shadow-md: 0 18px 55px rgba(45, 30, 20, .16);
+  --shadow-lg: 0 34px 90px rgba(45, 30, 20, .22);
+  --shadow-focus: 0 0 0 4px rgba(126, 28, 43, .24);
+
+  --duration-instant: 50ms;
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+  --duration-slower: 650ms;
+  --duration-ceremony: 2800ms;
+  --easing-default: cubic-bezier(.4, 0, .2, 1);
+  --easing-in: cubic-bezier(.5, 0, .8, .3);
+  --easing-out: cubic-bezier(.16, 1, .3, 1);
+
+  --breakpoint-sm: 375px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+}
+
+[data-theme='dark'] {
+  --color-bg-primary: #171711;
+  --color-bg-secondary: #202019;
+  --color-bg-tertiary: #29281f;
+  --color-bg-inverse: #e9e1d5;
+  --color-text-primary: #e8e1d5;
+  --color-text-secondary: #bbb3a6;
+  --color-text-tertiary: #938b80;
+  --color-text-inverse: #28251f;
+  --color-text-link: #a9b99b;
+  --color-border-primary: rgba(232, 225, 213, .28);
+  --color-border-secondary: rgba(232, 225, 213, .13);
+  --color-border-focus: #d37c87;
+  --color-accent-primary: #bd5968;
+  --color-accent-primary-hover: #cf6b79;
+  --color-accent-primary-active: #a94a58;
+  --color-accent-secondary: #91a184;
+  --color-metal: #c9a873;
+  --color-surface-overlay: rgba(0, 0, 0, .78);
+  --shadow-sm: 0 8px 22px rgba(0, 0, 0, .24);
+  --shadow-md: 0 18px 55px rgba(0, 0, 0, .34);
+  --shadow-lg: 0 34px 90px rgba(0, 0, 0, .46);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-bg-primary: #171711;
+    --color-bg-secondary: #202019;
+    --color-bg-tertiary: #29281f;
+    --color-text-primary: #e8e1d5;
+    --color-text-secondary: #bbb3a6;
+    --color-text-tertiary: #938b80;
+    --color-text-link: #a9b99b;
+    --color-border-primary: rgba(232, 225, 213, .28);
+    --color-border-secondary: rgba(232, 225, 213, .13);
+    --color-border-focus: #d37c87;
+    --color-accent-primary: #bd5968;
+    --color-accent-secondary: #91a184;
+    --color-metal: #c9a873;
+    --color-surface-overlay: rgba(0, 0, 0, .78);
+  }
+}

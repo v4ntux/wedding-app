@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 
-const DATA_DIR = path.resolve(process.cwd(), 'data');
+const DATA_DIR = path.resolve(process.env.NVATE_DATA_DIR || path.join(process.cwd(), 'data'));
 mkdirSync(DATA_DIR, { recursive: true });
 
 export const db = new DatabaseSync(path.join(DATA_DIR, 'wedding.db'));
@@ -47,6 +47,12 @@ db.exec(`
     paid_at TEXT
   );
 
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS guests (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     application_id INTEGER NOT NULL REFERENCES applications(id),
@@ -75,12 +81,34 @@ for (const [col, ddl] of [
   ['map_enabled', 'ALTER TABLE applications ADD COLUMN map_enabled INTEGER NOT NULL DEFAULT 1'],
   ['domain_enabled', 'ALTER TABLE applications ADD COLUMN domain_enabled INTEGER NOT NULL DEFAULT 0'],
   ['domain_price', 'ALTER TABLE applications ADD COLUMN domain_price INTEGER NOT NULL DEFAULT 0'],
+  ['extras', 'ALTER TABLE applications ADD COLUMN extras TEXT'],
+  ['submission_key', 'ALTER TABLE applications ADD COLUMN submission_key TEXT'],
 ]) {
   if (!appCols.includes(col)) db.exec(ddl);
 }
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS applications_submission_key ON applications(tg_user_id, submission_key) WHERE submission_key IS NOT NULL');
 
 const guestCols = db.prepare('PRAGMA table_info(guests)').all().map((c) => c.name);
 if (!guestCols.includes('sent')) db.exec('ALTER TABLE guests ADD COLUMN sent INTEGER NOT NULL DEFAULT 0');
+
+/* Настройки платформы: то, что админ меняет на ходу (цены). Значение — JSON,
+   поэтому новая настройка не требует миграции. */
+export function getSetting(key) {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+  if (!row) return null;
+  try {
+    return JSON.parse(row.value);
+  } catch {
+    return null;
+  }
+}
+
+export function setSetting(key, value) {
+  db.prepare(`INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now'))
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`)
+    .run(key, JSON.stringify(value));
+  return value;
+}
 
 export function insertApplication(a) {
   const res = db
@@ -88,8 +116,8 @@ export function insertApplication(a) {
       `INSERT INTO applications
         (tg_user_id, tg_username, phone, phone2, contact_tg, event_type, lang, groom_name, bride_name, wedding_date, wedding_time,
          address, lat, lng, map_enabled, music_type, music_value, music_start, music_end,
-         template_id, template_price, premium, premium_price, domain_enabled, domain_price, guest_names, photos, total_price, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')`
+         template_id, template_price, premium, premium_price, domain_enabled, domain_price, guest_names, photos, extras, submission_key, total_price, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')`
     )
     .run(
       a.tgUserId,
@@ -119,9 +147,16 @@ export function insertApplication(a) {
       a.domainPrice ?? 0,
       a.guestNames ? JSON.stringify(a.guestNames) : null,
       a.photos ? JSON.stringify(a.photos) : null,
+      a.extras && Object.keys(a.extras).length ? JSON.stringify(a.extras) : null,
+      a.submissionKey ?? null,
       a.totalPrice
     );
   return Number(res.lastInsertRowid);
+}
+
+export function getApplicationBySubmissionKey(tgUserId, submissionKey) {
+  return db.prepare('SELECT * FROM applications WHERE tg_user_id = ? AND submission_key = ?')
+    .get(tgUserId, submissionKey) ?? null;
 }
 
 export function getApplication(id) {
@@ -270,7 +305,7 @@ export function listRecentOrders(limit = 30) {
     paidAt: a.paid_at,
     confirmedBy: a.confirmed_by,
     confirmedByName: a.confirmed_by_name,
-    paymentProof: a.payment_proof ? `/uploads/${a.payment_proof}` : null,
+    paymentProof: a.payment_proof ? `/api/admin/proofs/${encodeURIComponent(a.payment_proof)}` : null,
     guests: db.prepare('SELECT name, slug, sent FROM guests WHERE application_id = ? ORDER BY id').all(a.id)
       .map((g) => ({ name: g.name, slug: g.slug, sent: Boolean(g.sent) })),
   }));

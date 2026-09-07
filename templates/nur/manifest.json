@@ -1,0 +1,13 @@
+{
+  "name": "Nur",
+  "event": "wedding",
+  "price": 179000,
+  "minPhotos": 2,
+  "colors": [
+    "#FDFAF3",
+    "#C39A52",
+    "#A8B0A2",
+    "#4A4132"
+  ],
+  "order": 3
+}

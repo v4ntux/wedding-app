@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f7f5f1">
+<title>{{groom}} &amp; {{bride}} — {{L.sub}}</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+{{{experienceCSS}}}
+{{{coreCSS}}}
+<style>
+/* Charos — белый мрамор и золото: галерейная строгость, арки и тонкая
+   золотая линия. Роскошь через пустое место, а не через декор. */
+:root{
+  --paper:#f7f5f1; --paper-2:#eceae4; --paper-3:#dedbd3;
+  --ink:#2f2f34; --muted:#7a7a82;
+  --accent:#b08c46; --accent-2:#9a9aa2;
+  --line:rgba(47,47,52,.16); --line-soft:rgba(47,47,52,.07);
+
+  --gold:#b08c46; --gold-hi:#eed9a0; --gold-lo:#7a5f24; --gold-rgb:176,140,70;
+  --stars-opacity:0;
+  --glass-edge:rgba(255,255,255,.9);
+  --glass-face:linear-gradient(158deg,rgba(255,255,255,.76),rgba(247,245,241,.5) 46%,rgba(222,219,211,.3));
+
+  --bg-veil:linear-gradient(180deg,rgba(247,245,241,.66),rgba(247,245,241,.82) 46%,rgba(247,245,241,.7));
+  --mote:rgba(238,217,160,.9);
+  --display:'Playfair Display',Georgia,serif;
+  --script:'Playfair Display',Georgia,serif;
+  --sans:'Inter',ui-sans-serif,system-ui,sans-serif;
+  --ev-sans:var(--sans); --ev-display:var(--display);
+}
+
+html{background:var(--paper)}
+body{background:
+  radial-gradient(120% 60% at 50% -8%,rgba(255,255,255,.95),transparent 58%),
+  radial-gradient(70% 44% at 6% 30%,rgba(226,224,218,.9),transparent 70%),
+  radial-gradient(70% 44% at 96% 76%,rgba(232,228,220,.9),transparent 70%),
+  linear-gradient(178deg,#fbfaf8 0%,#f5f3ef 52%,#eeece6 100%)}
+.inv{position:relative;z-index:1}
+.sec--solid{background:linear-gradient(180deg,rgba(247,245,241,.7),rgba(247,245,241,.86))}
+.sec--tint{background:linear-gradient(180deg,rgba(236,234,228,.62),rgba(247,245,241,.76))}
+.made{background:rgba(236,234,228,.94);border-top:1px solid var(--line-soft)}
+
+/* -- Титул ------------------------------------------------------------- */
+.hero{position:relative;display:grid;min-height:100svh;place-content:center;padding:clamp(90px,16vh,130px) 22px clamp(70px,12vh,100px);text-align:center;background:transparent}
+.hero__kicker{color:var(--accent-2);font:500 .6rem/1 var(--sans);letter-spacing:.42em;text-transform:uppercase}
+.hero__names{margin:.22em 0 .16em;font:400 clamp(3.2rem,16vw,6.2rem)/.96 var(--display);letter-spacing:-.02em;color:transparent}
+.hero__names i{display:block;margin:.04em 0;font:400 .46em/1 var(--script);font-style:italic}
+.hero__date{display:flex;align-items:center;justify-content:center;gap:clamp(12px,4vw,20px);margin-top:.6em;
+  color:var(--muted);font:500 .66rem/1 var(--sans);letter-spacing:.26em;text-transform:uppercase}
+.hero__date s{width:5px;height:5px;border-radius:50%;background:var(--accent);text-decoration:none;opacity:.8}
+.hero__scroll{position:absolute;bottom:clamp(22px,5vh,38px);left:50%;transform:translateX(-50%);
+  width:1px;height:46px;overflow:hidden;background:var(--line)}
+.hero__scroll:after{content:'';position:absolute;inset:0;background:var(--accent);animation:drip 3.6s var(--e-signature) infinite}
+@keyframes drip{0%{transform:translateY(-100%)}55%,100%{transform:translateY(100%)}}
+
+/* Мраморные жилки: тонкие полупрозрачные линии, едва заметно дышат. */
+.veins{position:fixed;inset:-10%;z-index:0;pointer-events:none;opacity:.5;
+  background:
+    repeating-linear-gradient(104deg,transparent 0 60px,rgba(120,118,128,.05) 60px 61px,transparent 61px 140px),
+    repeating-linear-gradient(-72deg,transparent 0 90px,rgba(150,146,138,.045) 90px 91px,transparent 91px 210px),
+    radial-gradient(50% 30% at 30% 20%,rgba(190,186,178,.16),transparent 70%);
+  filter:blur(.4px);animation:veinBreath 24s ease-in-out infinite alternate}
+@keyframes veinBreath{from{transform:translate3d(-.6%,0,0) scale(1)}to{transform:translate3d(.6%,-.4%,0) scale(1.015)}}
+
+/* Золотая арка за именами — единственный декоративный элемент темы. */
+.hero__arc{position:absolute;top:50%;left:50%;width:min(74vw,330px);height:min(98vw,440px);
+  transform:translate(-50%,-52%);pointer-events:none;
+  border:1px solid rgba(176,140,70,.5);border-bottom:0;border-radius:999px 999px 0 0;
+  clip-path:inset(0 0 12% 0);opacity:0;transition:opacity var(--t-epic) ease .45s,transform var(--t-epic) var(--e-settle) .45s}
+.hero.in .hero__arc{opacity:1;transform:translate(-50%,-52%) scale(1.02)}
+.hero__arc:after{content:'';position:absolute;left:50%;bottom:-1px;width:56%;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(176,140,70,.6),transparent);transform:translateX(-50%)}
+
+/* Заголовки — с золотой засечкой слева, как подпись на табличке в музее. */
+.h2{position:relative}
+.num:before,.num:after{background:var(--accent)}
+
+/* ── Галерея ─────────────────────────────────────────────────────────────
+   Всё выровнено по левому краю, как экспликации в музее: номер зала, тонкая
+   линия, подпись. Центрируется только титул. */
+.sec{text-align:left;padding-inline:clamp(22px,7vw,46px)}
+.wrap{width:min(100%,640px)}
+.num{justify-content:flex-start}
+.h2{margin-left:0}
+.lead{margin:0;max-width:38ch}
+.gold-rule{margin-inline:0;width:min(52%,220px)}
+.amp{display:inline;margin:0 .18em}
+
+/* Экспликация даты: слева крупная цифра, справа — подпись в две строки. */
+.charos-date{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:clamp(18px,5vw,30px);
+  padding:clamp(22px,6vw,32px) 0;border-block:1px solid var(--line)}
+.charos-day{color:var(--accent);font:400 clamp(4.6rem,20vw,7rem)/.86 var(--display);letter-spacing:-.04em}
+.charos-meta{display:grid;gap:8px}
+.charos-meta b{color:var(--ink);font:400 clamp(1.1rem,4.4vw,1.5rem)/1.2 var(--display)}
+.charos-meta span{color:var(--muted);font:400 .74rem/1.5 var(--sans);letter-spacing:.22em;text-transform:uppercase}
+
+/* Работа в раме: широкое паспарту и подпись под ней, а не поверх. */
+.shot{width:100%;border-radius:0;aspect-ratio:4/5;box-shadow:0 30px 70px -46px rgba(47,47,52,.6)}
+.shot:before{inset:10px;border-color:rgba(255,255,255,.7)}
+.shot__cap{position:static;margin-top:16px;color:var(--muted);text-shadow:none}
+.shot__cap span{color:var(--accent)}
+.shot__cap b{color:var(--ink);font-size:clamp(1.1rem,4.6vw,1.5rem)}
+.cd{text-align:center}
+.venue__name{margin-inline:0;text-align:left}
+.routes{justify-content:flex-start}
+
+.card{width:min(100%,620px);margin:0 auto}
+.cd-card .cd{width:100%}
+.mapbox{border-radius:18px}
+.mapbox iframe{filter:grayscale(.66) brightness(1.04) contrast(.94)}
+.shot{border-radius:20px}
+.shot img{filter:saturate(.8) contrast(1.04) brightness(1.02)}
+.routes a{border-color:var(--line);color:var(--ink);border-radius:999px;background:rgba(255,255,255,.7)}
+.cal td.on{color:var(--gold-hi)}
+
+@media (prefers-reduced-motion:reduce){
+  .hero__scroll:after,.veins{animation:none}
+}
+</style>
+</head>
+<body>
+{{{envelope}}}
+{{{livingBg}}}
+<div class="veins" aria-hidden="true"></div>
+<div class="progress" aria-hidden="true"></div>
+
+<main class="inv">
+
+  <section class="hero fx">
+    <div class="hero__arc" aria-hidden="true"></div>
+    <div data-parallax="0.05">
+      {{{monogram}}}
+      <div class="hero__kicker fx" style="--d:.14s">{{L.sub}}</div>
+      <h1 class="hero__names fx fx--rise gilt" style="--d:.22s">{{groom}}<i>&amp;</i>{{bride}}</h1>
+      <div class="hero__date fx" style="--d:.34s"><b>{{day}} {{monthName}} {{year}}</b><s></s><b>{{time}}</b></div>
+    </div>
+    <div class="hero__scroll" aria-hidden="true"></div>
+  </section>
+
+  <section class="sec sec--solid">
+    <div class="wrap">
+      <div class="num">01 · {{L.sub}}</div>
+      {{#if guestName}}
+        <div class="h2 fx" style="--d:.1s">{{L.greet}}</div>
+        <div class="h2 fx gilt" style="--d:.16s">{{guestName}}</div>
+        <div class="gold-rule" style="--d:.3s"></div>
+        <p class="lead words" style="--d:.34s">{{L.greetTail}}</p>
+      {{else}}
+        <div class="h2 fx" style="--d:.1s">{{groom}}<span class="amp">{{L.and}}</span>{{bride}}</div>
+        <div class="gold-rule" style="--d:.3s"></div>
+        <p class="lead words" style="--d:.34s">{{L.invite}}</p>
+      {{/if}}
+    </div>
+  </section>
+
+  {{#if photos.0}}
+  <section class="sec">
+    <div class="wrap">
+      <figure class="shot" data-parallax="0.04">
+        <img src="{{photos.0}}" alt="{{groom}} &amp; {{bride}}" loading="lazy">
+        <figcaption class="shot__cap"><span>02 · {{L.gallery}}</span><b>{{groom}} {{L.and}} {{bride}}</b></figcaption>
+      </figure>
+      <div class="gold-rule" style="--d:.2s"></div>
+      <p class="lead words" style="--d:.24s">{{L.emo}}</p>
+    </div>
+  </section>
+  {{/if}}
+
+  <section class="sec sec--tint">
+    <div class="wrap">
+      <div class="num">03 · {{L.when}}</div>
+      <div class="charos-date fx" style="--d:.12s">
+        <span class="charos-day">{{day}}</span>
+        <span class="charos-meta">
+          <b>{{monthName}} {{year}}</b>
+          <span>{{weekday}} · {{time}}</span>
+        </span>
+      </div>
+      <table class="cal fx" data-cal="{{dateIso}}" style="--d:.2s"><caption>{{monthName}} {{year}}</caption></table>
+    </div>
+  </section>
+
+  <section class="sec sec--solid">
+    <div class="wrap">
+      <div class="num">04 · {{L.until}}</div>
+      <div class="cd-card glass card fx" style="--d:.14s">
+        <div class="cd" style="--d:.2s">
+          <div><b id="cd">0</b><span>{{L.days}}</span></div>
+          <div><b id="ch">00</b><span>{{L.hours}}</span></div>
+          <div><b id="cm">00</b><span>{{L.min}}</span></div>
+          <div><b id="cs">00</b><span>{{L.sec}}</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec sec--tint">
+    <div class="wrap">
+      <div class="num">05 · {{L.where}}</div>
+      <div class="venue-card glass card fx" style="--d:.14s">
+        <h2 class="venue__name">{{address}}</h2>
+        <div>{{{map}}}</div>
+        {{#if gmaps}}
+        <div class="routes">
+          <a href="{{gmaps}}" target="_blank" rel="noopener">{{L.gmaps}}</a>
+          <a href="{{ymaps}}" target="_blank" rel="noopener">{{L.ymaps}}</a>
+        </div>
+        {{/if}}
+      </div>
+    </div>
+  </section>
+
+  {{#if photos.1}}
+  <section class="sec sec--solid">
+    <div class="wrap">
+      <figure class="shot shot--wide" data-parallax="0.05">
+        <img src="{{photos.1}}" alt="{{groom}} &amp; {{bride}}" loading="lazy">
+      </figure>
+    </div>
+  </section>
+  {{/if}}
+
+  <section class="sec sec--tint final">
+    <div class="wrap">
+      <div class="final-card glass card fx">
+        {{{monogramFilled}}}
+        <p class="final__quote gilt">{{L.final}}</p>
+        <div class="gold-rule" style="--d:.26s"></div>
+        <div class="final__sign">{{L.sign}} {{groom}} {{L.and}} {{bride}}</div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="made">{{L.made}}</footer>
+</main>
+
+<script>
+// Календарь месяца свадьбы: неделя с понедельника, день события обведён.
+(function(){
+  var el=document.querySelector('[data-cal]');if(!el)return;
+  var iso=(el.getAttribute('data-cal')||'').split('-').map(Number);
+  if(iso.length!==3||!iso[0])return;
+  var y=iso[0],m=iso[1]-1,day=iso[2];
+  var head=(document.documentElement.lang==='ru')
+    ? ['пн','вт','ср','чт','пт','сб','вс'] : ['du','se','ch','pa','ju','sh','ya'];
+  var first=(new Date(y,m,1).getDay()+6)%7, total=new Date(y,m+1,0).getDate();
+  var html='<thead><tr>'+head.map(function(d){return '<th scope="col">'+d+'</th>'}).join('')+'</tr></thead><tbody><tr>',i=0;
+  for(var k=0;k<first;k++)html+='<td></td>';
+  for(var d=1;d<=total;d++){
+    if((first+d-1)%7===0&&d>1)html+='</tr><tr>';
+    html+='<td'+(d===day?' class="on"':'')+'><span style="--i:'+(i++)+'">'+d+'</span></td>';
+  }
+  html+='</tr></tbody>';
+  el.insertAdjacentHTML('beforeend',html);
+})();
+</script>
+
+{{{audioWidget}}}
+{{{experienceScript}}}
+{{{countdown}}}
+</body>
+</html>

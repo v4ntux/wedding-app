@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#fdfaf3">
+<title>{{groom}} &amp; {{bride}} — {{L.sub}}</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+{{{experienceCSS}}}
+{{{coreCSS}}}
+<style>
+/* Nur — «свет». Утро в комнате с высоким окном: косые лучи, золотая пыль
+   в них и стеклянные карточки. Полная противоположность ночным темам. */
+:root{
+  --paper:#fdfaf3; --paper-2:#f5efe2; --paper-3:#e9e0cd;
+  --ink:#4a4132; --muted:#8a8070;
+  --accent:#c39a52; --accent-2:#a8b0a2;
+  --line:rgba(74,65,50,.16); --line-soft:rgba(74,65,50,.08);
+
+  --gold:#c39a52; --gold-hi:#eed9a6; --gold-lo:#8a6a30; --gold-rgb:195,154,82;
+  --stars-opacity:0;
+  /* Светлое стекло: молочная плёнка вместо ночной. */
+  --glass-edge:rgba(255,255,255,.9);
+  --glass-face:linear-gradient(158deg,rgba(255,255,255,.78),rgba(255,252,244,.5) 46%,rgba(233,224,205,.34));
+
+  --bg-veil:linear-gradient(180deg,rgba(253,250,243,.62),rgba(253,250,243,.8) 46%,rgba(253,250,243,.66));
+  --mote:rgba(255,236,196,.95);
+  --display:'Cormorant Garamond',Georgia,serif;
+  --script:'Cormorant Garamond',Georgia,serif;
+  --sans:'Jost',ui-sans-serif,system-ui,sans-serif;
+  --ev-sans:var(--sans); --ev-display:var(--display);
+}
+
+html{background:var(--paper)}
+body{background:
+  radial-gradient(120% 60% at 76% -6%,rgba(255,244,214,.9),transparent 62%),
+  radial-gradient(80% 50% at 4% 84%,rgba(233,238,230,.8),transparent 70%),
+  linear-gradient(178deg,#fffdf8 0%,#fbf6ea 52%,#f4eee0 100%)}
+.inv{position:relative;z-index:1}
+.sec--solid{background:linear-gradient(180deg,rgba(253,250,243,.66),rgba(253,250,243,.82))}
+.sec--tint{background:linear-gradient(180deg,rgba(245,239,226,.6),rgba(253,250,243,.7))}
+.made{background:rgba(244,238,224,.9);border-top:1px solid var(--line-soft)}
+.glass{box-shadow:0 26px 60px -40px rgba(94,80,54,.5),inset 0 1px 0 rgba(255,255,255,.95)}
+.gilt-dust{opacity:.34}
+
+/* Лучи из окна: три полосы света, очень медленно плывущие по комнате. */
+.sunbeams{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.sunbeams i{position:absolute;top:-30%;height:170%;width:var(--w,120px);
+  background:linear-gradient(180deg,rgba(255,238,186,.85),rgba(255,231,170,.34) 56%,transparent);
+  filter:blur(var(--b,18px));transform:rotate(14deg) translateX(var(--x,0));opacity:var(--o,.5);
+  animation:beamDrift var(--t,26s) ease-in-out var(--dl,0s) infinite alternate}
+.sunbeams i:nth-child(1){left:8%;--w:170px;--o:.75;--t:30s;--b:30px}
+.sunbeams i:nth-child(2){left:38%;--w:96px;--o:.6;--t:24s;--dl:-6s;--b:18px}
+.sunbeams i:nth-child(3){left:66%;--w:210px;--o:.5;--t:34s;--dl:-12s;--b:38px}
+@keyframes beamDrift{from{transform:rotate(14deg) translateX(-28px)}to{transform:rotate(11deg) translateX(34px)}}
+
+/* Пыль в луче: мелкие частицы, поднимающиеся против света. */
+.dust{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.dust i{position:absolute;left:var(--x);bottom:-6%;width:var(--s,3px);aspect-ratio:1;border-radius:50%;
+  background:rgba(255,238,196,.95);box-shadow:0 0 8px rgba(232,203,140,.7);opacity:0;
+  animation:dustRise var(--t,22s) linear var(--dl,0s) infinite}
+@keyframes dustRise{
+  0%{opacity:0;transform:translate3d(0,0,0)}
+  12%{opacity:var(--o,.7)}
+  88%{opacity:var(--o,.7)}
+  100%{opacity:0;transform:translate3d(var(--dx,24px),-108vh,0)}}
+
+/* -- Титул ------------------------------------------------------------- */
+.hero{position:relative;display:grid;min-height:100svh;place-content:center;padding:clamp(90px,16vh,130px) 22px clamp(70px,12vh,100px);text-align:center;background:transparent}
+.hero__kicker{color:var(--accent-2);font:400 .62rem/1 var(--sans);letter-spacing:.44em;text-transform:uppercase}
+.hero__names{margin:.2em 0 .18em;font:300 clamp(3.4rem,17vw,6.4rem)/.96 var(--display);letter-spacing:-.03em;color:transparent}
+.hero__names i{display:block;margin:.04em 0;font:300 .46em/1 var(--display);font-style:italic}
+.hero__date{display:flex;align-items:center;justify-content:center;gap:clamp(12px,4vw,20px);margin-top:.6em;
+  color:var(--muted);font:400 .68rem/1 var(--sans);letter-spacing:.26em;text-transform:uppercase}
+.hero__date s{width:5px;height:5px;border-radius:50%;background:var(--accent);text-decoration:none;opacity:.8}
+
+/* Оконная рама за именами: тонкая арка, прочерчивается вместе с титулом. */
+.hero__arch{position:absolute;top:50%;left:50%;width:min(72vw,340px);height:min(96vw,470px);
+  border:1px solid var(--line);border-radius:50% 50% 8px 8px/44% 44% 8px 8px;
+  transform:translate(-50%,-52%) scale(.94);opacity:0;pointer-events:none;
+  transition:opacity var(--t-epic) ease .4s,transform var(--t-epic) var(--e-settle) .4s}
+.hero.in .hero__arch{opacity:1;transform:translate(-50%,-52%) scale(1)}
+.hero__arch:after{content:'';position:absolute;inset:14px;border:1px solid var(--line-soft);border-radius:inherit}
+
+.hero__scroll{position:absolute;bottom:clamp(22px,5vh,38px);left:50%;transform:translateX(-50%);
+  width:1px;height:46px;overflow:hidden;background:var(--line)}
+.hero__scroll:after{content:'';position:absolute;inset:0;background:var(--accent);animation:drip 3.6s var(--e-signature) infinite}
+@keyframes drip{0%{transform:translateY(-100%)}55%,100%{transform:translateY(100%)}}
+
+/* ── Окно ────────────────────────────────────────────────────────────────
+   Узкая колонка и арочные формы: страница читается как свет, падающий в
+   высокое окно. Фотография тоже в арке. */
+.sec{padding-block:clamp(72px,16vw,120px)}
+.wrap{width:min(100%,540px)}
+.h2{font-size:clamp(1.9rem,7.6vw,2.8rem);letter-spacing:-.01em}
+.lead{max-width:30ch}
+.shot{width:min(82vw,380px);aspect-ratio:3/4;border-radius:999px 999px 18px 18px}
+.shot:before{inset:10px;border-radius:inherit;border-color:rgba(255,255,255,.9)}
+.shot__cap{display:none}
+
+/* Дата в арке — та же форма, что у окна в титуле. */
+.nur-date{position:relative;display:grid;place-items:center;gap:10px;width:min(76vw,320px);aspect-ratio:.78;
+  margin:0 auto;padding:26px 20px;border:1px solid var(--line);border-radius:999px 999px 20px 20px;
+  background:linear-gradient(180deg,rgba(255,255,255,.72),rgba(255,252,244,.4))}
+.nur-day{color:var(--accent);font:300 clamp(3.4rem,15vw,4.8rem)/1 var(--display)}
+.nur-month{color:var(--ink);font:400 .74rem/1 var(--sans);letter-spacing:.34em;text-transform:uppercase}
+.nur-time{color:var(--muted);font:400 .72rem/1 var(--sans);letter-spacing:.26em}
+
+.card{width:min(100%,620px);margin:0 auto}
+.cd-card .cd{width:100%}
+.mapbox{border-radius:18px}
+.mapbox iframe{filter:grayscale(.28) sepia(.14) brightness(1.02) contrast(.96)}
+.shot{border-radius:20px}
+.shot img{filter:saturate(.92) contrast(1.02) brightness(1.04)}
+.routes a{border-color:var(--line);color:var(--ink);border-radius:999px;background:rgba(255,255,255,.6)}
+.cal td.on{color:var(--accent)}
+.mono circle{stroke:var(--line)}
+
+@media (prefers-reduced-motion:reduce){
+  .sunbeams i,.dust i,.hero__scroll:after{animation:none}
+}
+</style>
+</head>
+<body>
+{{{envelope}}}
+{{{livingBg}}}
+<div class="sunbeams" aria-hidden="true"><i></i><i></i><i></i></div>
+<div class="dust" aria-hidden="true">
+  <i style="--x:12%;--s:3px;--t:24s;--dl:-3s;--o:.6;--dx:30px"></i>
+  <i style="--x:24%;--s:2px;--t:29s;--dl:-11s;--o:.45;--dx:-22px"></i>
+  <i style="--x:37%;--s:4px;--t:21s;--dl:-7s;--o:.7;--dx:18px"></i>
+  <i style="--x:49%;--s:2px;--t:33s;--dl:-16s;--o:.5;--dx:-30px"></i>
+  <i style="--x:61%;--s:3px;--t:26s;--dl:-2s;--o:.65;--dx:26px"></i>
+  <i style="--x:73%;--s:2px;--t:31s;--dl:-19s;--o:.4;--dx:-16px"></i>
+  <i style="--x:86%;--s:4px;--t:23s;--dl:-9s;--o:.62;--dx:22px"></i>
+  <i style="--x:94%;--s:2px;--t:28s;--dl:-14s;--o:.42;--dx:-24px"></i>
+</div>
+<div class="progress" aria-hidden="true"></div>
+
+<main class="inv">
+
+  <section class="hero fx">
+    <div class="hero__arch" aria-hidden="true"></div>
+    <div data-parallax="0.05">
+      {{{monogram}}}
+      <div class="hero__kicker fx" style="--d:.14s">{{L.sub}}</div>
+      <h1 class="hero__names fx fx--rise gilt" style="--d:.22s">{{groom}}<i>&amp;</i>{{bride}}</h1>
+      <div class="hero__date fx" style="--d:.34s"><b>{{day}} {{monthName}} {{year}}</b><s></s><b>{{time}}</b></div>
+    </div>
+    <div class="hero__scroll" aria-hidden="true"></div>
+  </section>
+
+  <section class="sec sec--solid">
+    <div class="wrap">
+      <div class="num">01 · {{L.sub}}</div>
+      {{#if guestName}}
+        <div class="h2 fx" style="--d:.1s">{{L.greet}}</div>
+        <div class="h2 fx gilt" style="--d:.16s">{{guestName}}</div>
+        <div class="gold-rule" style="--d:.3s"></div>
+        <p class="lead words" style="--d:.34s">{{L.greetTail}}</p>
+      {{else}}
+        <div class="h2 fx" style="--d:.1s">{{groom}}<span class="amp">{{L.and}}</span>{{bride}}</div>
+        <div class="gold-rule" style="--d:.3s"></div>
+        <p class="lead words" style="--d:.34s">{{L.invite}}</p>
+      {{/if}}
+    </div>
+  </section>
+
+  {{#if photos.0}}
+  <section class="sec">
+    <div class="wrap">
+      <figure class="shot" data-parallax="0.04">
+        <img src="{{photos.0}}" alt="{{groom}} &amp; {{bride}}" loading="lazy">
+        <figcaption class="shot__cap"><span>02 · {{L.gallery}}</span><b>{{groom}} {{L.and}} {{bride}}</b></figcaption>
+      </figure>
+      <div class="gold-rule" style="--d:.2s"></div>
+      <p class="lead words" style="--d:.24s">{{L.emo}}</p>
+    </div>
+  </section>
+  {{/if}}
+
+  <section class="sec sec--tint">
+    <div class="wrap">
+      <div class="num">03 · {{L.when}}</div>
+      <div class="nur-date fx" style="--d:.12s">
+        <span class="nur-day">{{day}}</span>
+        <span class="nur-month">{{monthName}} {{year}}</span>
+        <span class="nur-time">{{weekday}} · {{time}}</span>
+      </div>
+      <table class="cal fx" data-cal="{{dateIso}}" style="--d:.24s"><caption>{{monthName}} {{year}}</caption></table>
+    </div>
+  </section>
+
+  <section class="sec sec--solid">
+    <div class="wrap">
+      <div class="num">04 · {{L.until}}</div>
+      <div class="cd-card glass card fx" style="--d:.14s">
+        <div class="cd" style="--d:.2s">
+          <div><b id="cd">0</b><span>{{L.days}}</span></div>
+          <div><b id="ch">00</b><span>{{L.hours}}</span></div>
+          <div><b id="cm">00</b><span>{{L.min}}</span></div>
+          <div><b id="cs">00</b><span>{{L.sec}}</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec sec--tint">
+    <div class="wrap">
+      <div class="num">05 · {{L.where}}</div>
+      <div class="venue-card glass card fx" style="--d:.14s">
+        <h2 class="venue__name">{{address}}</h2>
+        <div>{{{map}}}</div>
+        {{#if gmaps}}
+        <div class="routes">
+          <a href="{{gmaps}}" target="_blank" rel="noopener">{{L.gmaps}}</a>
+          <a href="{{ymaps}}" target="_blank" rel="noopener">{{L.ymaps}}</a>
+        </div>
+        {{/if}}
+      </div>
+    </div>
+  </section>
+
+  {{#if photos.1}}
+  <section class="sec sec--solid">
+    <div class="wrap">
+      <figure class="shot shot--wide" data-parallax="0.05">
+        <img src="{{photos.1}}" alt="{{groom}} &amp; {{bride}}" loading="lazy">
+      </figure>
+    </div>
+  </section>
+  {{/if}}
+
+  <section class="sec sec--tint final">
+    <div class="wrap">
+      <div class="final-card glass card fx">
+        {{{monogramFilled}}}
+        <p class="final__quote gilt">{{L.final}}</p>
+        <div class="gold-rule" style="--d:.26s"></div>
+        <div class="final__sign">{{L.sign}} {{groom}} {{L.and}} {{bride}}</div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="made">{{L.made}}</footer>
+</main>
+
+<script>
+// Календарь месяца свадьбы: неделя с понедельника, день события обведён.
+(function(){
+  var el=document.querySelector('[data-cal]');if(!el)return;
+  var iso=(el.getAttribute('data-cal')||'').split('-').map(Number);
+  if(iso.length!==3||!iso[0])return;
+  var y=iso[0],m=iso[1]-1,day=iso[2];
+  var head=(document.documentElement.lang==='ru')
+    ? ['пн','вт','ср','чт','пт','сб','вс'] : ['du','se','ch','pa','ju','sh','ya'];
+  var first=(new Date(y,m,1).getDay()+6)%7, total=new Date(y,m+1,0).getDate();
+  var html='<thead><tr>'+head.map(function(d){return '<th scope="col">'+d+'</th>'}).join('')+'</tr></thead><tbody><tr>',i=0;
+  for(var k=0;k<first;k++)html+='<td></td>';
+  for(var d=1;d<=total;d++){
+    if((first+d-1)%7===0&&d>1)html+='</tr><tr>';
+    html+='<td'+(d===day?' class="on"':'')+'><span style="--i:'+(i++)+'">'+d+'</span></td>';
+  }
+  html+='</tr></tbody>';
+  el.insertAdjacentHTML('beforeend',html);
+})();
+</script>
+
+{{{audioWidget}}}
+{{{experienceScript}}}
+{{{countdown}}}
+</body>
+</html>

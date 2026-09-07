@@ -1,0 +1,13 @@
+{
+  "name": "Deco",
+  "event": "wedding",
+  "price": 229000,
+  "minPhotos": 1,
+  "colors": [
+    "#0A0A0D",
+    "#C9A55A",
+    "#F7E6B4",
+    "#F2ECDD"
+  ],
+  "order": 8
+}

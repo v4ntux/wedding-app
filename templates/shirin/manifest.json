@@ -1,0 +1,13 @@
+{
+  "name": "Shirin",
+  "event": "wedding",
+  "price": 179000,
+  "minPhotos": 2,
+  "colors": [
+    "#2A1409",
+    "#F0B077",
+    "#C2603A",
+    "#FDF1E2"
+  ],
+  "order": 7
+}

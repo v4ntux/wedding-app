@@ -3,6 +3,11 @@
   "event": "wedding",
   "price": 149000,
   "minPhotos": 1,
-  "colors": ["#F7F2E8", "#B08D4F", "#A54B3F"],
-  "order": 3
+  "colors": [
+    "#F7F2E8",
+    "#B08D4F",
+    "#A54B3F"
+  ],
+  "order": 90,
+  "listed": false
 }

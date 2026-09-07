@@ -44,6 +44,24 @@ export const EXTRACT_API_KEY = (process.env.EXTRACT_API_KEY ?? '').trim();
 // Шаблоны открыток живут в templates/<id>/ (см. src/templateStore.js) —
 // новый дизайн добавляется папкой, без правок кода.
 
+// Дополнительные функции заказа. Новая опция = строка здесь: форма, расчёт
+// цены, карточка админа и рендер подхватят её сами.
+export const ADDONS = [
+  {
+    id: 'domain',
+    price: 120_000,
+    listed: false,
+    uz: 'Shaxsiy domen (1 yil)',
+    ru: 'Свой домен на 1 год',
+    uzNote: 'ali-zebo.uz koʻrinishidagi manzil',
+    ruNote: 'Адрес вида ali-zebo.uz вместо общей ссылки',
+  },
+];
+
+export function findAddon(id) {
+  return ADDONS.find((a) => a.id === id) ?? null;
+}
+
 // Именные ссылки: цена за каждого гостя — добавляй сколько хочешь.
 export const GUEST_LINK_PRICE = 10_000;
 export const MAX_GUESTS = 100;

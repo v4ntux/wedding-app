@@ -1,0 +1,13 @@
+{
+  "name": "Gulzor",
+  "event": "wedding",
+  "price": 169000,
+  "minPhotos": 2,
+  "colors": [
+    "#0A1A12",
+    "#CFD88A",
+    "#8FB47F",
+    "#F0F5E8"
+  ],
+  "order": 4
+}

@@ -2,7 +2,8 @@ import crypto from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-export const UPLOADS_DIR = path.resolve(process.cwd(), 'data', 'uploads');
+const DATA_DIR = path.resolve(process.env.NVATE_DATA_DIR || path.join(process.cwd(), 'data'));
+export const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
 mkdirSync(UPLOADS_DIR, { recursive: true });
 
 // Тип определяем по сигнатуре файла, а не по заголовку клиента.

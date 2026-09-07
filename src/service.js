@@ -2,9 +2,11 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import * as db from './db.js';
 import { slugify, coupleSlugBase, uniqueSlug } from './slug.js';
-import { findMusicPreset, GUEST_LINK_PRICE, MAX_GUESTS, MAX_PHOTOS } from './config.js';
+import { findMusicPreset, MAX_GUESTS, MAX_PHOTOS } from './config.js';
+import { guestPrice, addonPrice, pricedAddons } from './pricing.js';
 import { findTemplate } from './templateStore.js';
 import { UPLOADS_DIR } from './upload.js';
+import { normalizeDesign } from './design.js';
 
 export class ValidationError extends Error {
   constructor(message, step = null) {
@@ -79,7 +81,17 @@ export function validateForm(form, { requirePhone = false } = {}) {
   if (!brideName) throw new ValidationError(uz ? 'Kelin ismini kiriting' : 'Укажите имя невесты', 'names');
 
   const weddingDate = cleanStr(form.weddingDate, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(weddingDate) || Number.isNaN(Date.parse(weddingDate))) {
+  const dateParts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(weddingDate);
+  const dateUtc = dateParts
+    ? new Date(Date.UTC(Number(dateParts[1]), Number(dateParts[2]) - 1, Number(dateParts[3])))
+    : null;
+  const validCalendarDate = Boolean(dateUtc)
+    && dateUtc.getUTCFullYear() === Number(dateParts[1])
+    && dateUtc.getUTCMonth() === Number(dateParts[2]) - 1
+    && dateUtc.getUTCDate() === Number(dateParts[3]);
+  const now = new Date();
+  const todayUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  if (!validCalendarDate || dateUtc.getTime() < todayUtc) {
     throw new ValidationError(uz ? 'Taqvimda sanani tanlang' : 'Выберите дату в календаре', 'datetime');
   }
   const weddingTime = cleanStr(form.weddingTime, 5);
@@ -101,7 +113,9 @@ export function validateForm(form, { requirePhone = false } = {}) {
   if (!address) throw new ValidationError(uz ? 'To‘yxona nomini kiriting' : 'Укажите название места', 'location');
 
   const template = findTemplate(form.templateId);
-  if (!template) throw new ValidationError(uz ? 'Shablonni tanlang' : 'Выберите шаблон', 'template');
+  if (!template || template.listed === false) {
+    throw new ValidationError(uz ? 'Shablonni tanlang' : 'Выберите шаблон', 'template');
+  }
 
   // Фотографии: только реально загруженные; минимум диктует выбранный шаблон.
   const rawPhotos = Array.isArray(form.photos) ? form.photos : [];
@@ -128,10 +142,19 @@ export function validateForm(form, { requirePhone = false } = {}) {
     throw new ValidationError(uz ? `Ko‘pi bilan ${MAX_GUESTS} ta mehmon` : `Максимум ${MAX_GUESTS} гостей`, 'guests');
   }
   const premium = guestNames.length > 0;
-  const premiumPrice = guestNames.length * GUEST_LINK_PRICE;
+  const premiumPrice = guestNames.length * guestPrice();
   if (!premium) guestNames = null;
-  const domainEnabled = false;
-  const domainPrice = 0;
+  // Дополнительные функции: клиент присылает список id, цена берётся из каталога,
+  // а не из запроса — подделать сумму нельзя.
+  const wanted = new Set(
+    (Array.isArray(form.addons) ? form.addons : []).map((id) => String(id)).slice(0, 20)
+  );
+  const chosen = pricedAddons().filter((a) => a.listed !== false && wanted.has(a.id));
+  const extras = Object.fromEntries(chosen.map((a) => [a.id, true]));
+  extras.design = normalizeDesign(form.design);
+  const addonsPrice = chosen.reduce((sum, a) => sum + a.price, 0);
+  const domainEnabled = Boolean(extras.domain);
+  const domainPrice = domainEnabled ? addonPrice('domain', 0) : 0;
 
   // Контакты: три поля (Telegram username, телефон, запасной — username ИЛИ номер).
   // Для отправки заявки достаточно любых ДВУХ заполненных.
@@ -163,12 +186,18 @@ export function validateForm(form, { requirePhone = false } = {}) {
     }
   }
 
+  const submissionKey = cleanStr(form.submissionKey, 64);
+  if (requirePhone && !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(submissionKey)) {
+    throw new ValidationError(uz ? 'Arizani qayta ochib yuboring' : 'Перезагрузите форму и отправьте снова', 'review');
+  }
+
   return {
     lang, groomName, brideName, weddingDate, weddingTime, address, lat, lng, mapEnabled,
     photos, musicType, musicValue, musicStart, musicEnd,
     template, premium, guestNames, premiumPrice, domainEnabled, domainPrice,
-    totalPrice: template.price + premiumPrice,
-    phone, phone2, contactTg,
+    extras, addonsPrice,
+    totalPrice: template.price + premiumPrice + addonsPrice,
+    phone, phone2, contactTg, submissionKey,
   };
 }
 
@@ -176,7 +205,10 @@ export function validateForm(form, { requirePhone = false } = {}) {
 export function submitApplication(form, tgUser) {
   const v = validateForm(form, { requirePhone: true });
 
-  const id = db.insertApplication({
+  const existing = db.getApplicationBySubmissionKey(tgUser.id, v.submissionKey);
+  if (existing) return { id: existing.id, app: existing, duplicate: true };
+
+  const application = {
     tgUserId: tgUser.id,
     tgUsername: tgUser.username ?? null,
     phone: v.phone,
@@ -202,10 +234,21 @@ export function submitApplication(form, tgUser) {
     premiumPrice: v.premiumPrice,
     domainEnabled: v.domainEnabled,
     domainPrice: v.domainPrice,
+    extras: v.extras,
     guestNames: v.guestNames,
     photos: v.photos,
     totalPrice: v.totalPrice,
-  });
+    submissionKey: v.submissionKey,
+  };
+
+  let id;
+  try {
+    id = db.insertApplication(application);
+  } catch (error) {
+    const concurrent = db.getApplicationBySubmissionKey(tgUser.id, v.submissionKey);
+    if (!concurrent) throw error;
+    return { id: concurrent.id, app: concurrent, duplicate: true };
+  }
 
   return { id, app: db.getApplication(id) };
 }
@@ -225,6 +268,7 @@ export function buildPreviewApp(form) {
     map_enabled: v.mapEnabled ? 1 : 0,
     domain_enabled: v.domainEnabled ? 1 : 0,
     domain_price: v.domainPrice,
+    extras: JSON.stringify(v.extras),
     music_type: v.musicType,
     music_value: v.musicValue,
     music_start: v.musicStart,
@@ -240,6 +284,11 @@ export function payApplication(id, meta = {}) {
   if (!app) throw new ValidationError(`Заявка #${id} не найдена`);
   if (app.status === 'paid') throw new ValidationError('Заявка уже оплачена');
   if (app.status === 'cancelled') throw new ValidationError('Заявка была отклонена');
+  // Дизайн могли снять с платформы, пока заявка ждала оплаты: подтвердить её
+  // значит выдать паре битую ссылку, поэтому останавливаемся заранее.
+  if (!findTemplate(app.template_id)) {
+    throw new ValidationError(`Дизайн «${app.template_id}» снят с платформы — заявку нельзя подтвердить, предложите паре выбрать другой`);
+  }
 
   const slug = uniqueSlug(coupleSlugBase(app.groom_name, app.bride_name), db.slugTaken);
   if (!db.markPaid(id, slug)) throw new ValidationError('Заявка уже обработана');

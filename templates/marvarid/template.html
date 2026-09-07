@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#fbf1ef">
+<title>{{groom}} &amp; {{bride}} — {{L.sub}}</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Italiana&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
+{{{experienceCSS}}}
+{{{coreCSS}}}
+<style>
+/* Marvarid — жемчуг: молочно-розовый перламутр, мягкие переливы и
+   лепестковая пыль. Самая нежная тема линейки. */
+:root{
+  --paper:#fbf1ef; --paper-2:#f5e4e2; --paper-3:#ecd3d2;
+  --ink:#5c3b44; --muted:#9d7c83;
+  --accent:#b76e7f; --accent-2:#c9a2a8;
+  --line:rgba(92,59,68,.16); --line-soft:rgba(92,59,68,.08);
+
+  --gold:#c98f7c; --gold-hi:#f4d3c4; --gold-lo:#8c5748; --gold-rgb:201,143,124;
+  --stars-opacity:0;
+  --glass-edge:rgba(255,255,255,.92);
+  --glass-face:linear-gradient(158deg,rgba(255,255,255,.8),rgba(251,235,236,.52) 46%,rgba(236,211,210,.34));
+
+  --bg-veil:linear-gradient(180deg,rgba(251,241,239,.6),rgba(251,241,239,.78) 46%,rgba(251,241,239,.64));
+  --mote:rgba(255,232,232,.95);
+  --display:'Italiana',Georgia,serif;
+  --script:'Italiana',Georgia,serif;
+  --sans:'Manrope',ui-sans-serif,system-ui,sans-serif;
+  --ev-sans:var(--sans); --ev-display:var(--display);
+}
+
+html{background:var(--paper)}
+body{background:
+  radial-gradient(120% 62% at 24% -8%,rgba(255,236,238,.95),transparent 60%),
+  radial-gradient(90% 52% at 92% 24%,rgba(240,228,255,.7),transparent 66%),
+  radial-gradient(80% 50% at 10% 92%,rgba(255,240,226,.8),transparent 70%),
+  linear-gradient(176deg,#fdf6f4 0%,#f9eeee 52%,#f3e4e6 100%)}
+.inv{position:relative;z-index:1}
+.sec--solid{background:linear-gradient(180deg,rgba(251,241,239,.66),rgba(251,241,239,.82))}
+.sec--tint{background:linear-gradient(180deg,rgba(245,228,226,.6),rgba(251,241,239,.72))}
+.made{background:rgba(244,228,228,.92);border-top:1px solid var(--line-soft)}
+
+/* -- Титул ------------------------------------------------------------- */
+.hero{position:relative;display:grid;min-height:100svh;place-content:center;padding:clamp(90px,16vh,130px) 22px clamp(70px,12vh,100px);text-align:center;background:transparent}
+.hero__kicker{color:var(--accent-2);font:500 .6rem/1 var(--sans);letter-spacing:.42em;text-transform:uppercase}
+.hero__names{margin:.22em 0 .16em;font:400 clamp(3.2rem,16vw,6.2rem)/.96 var(--display);letter-spacing:.02em;color:transparent}
+.hero__names i{display:block;margin:.04em 0;font:400 .46em/1 var(--script);font-style:italic}
+.hero__date{display:flex;align-items:center;justify-content:center;gap:clamp(12px,4vw,20px);margin-top:.6em;
+  color:var(--muted);font:500 .66rem/1 var(--sans);letter-spacing:.26em;text-transform:uppercase}
+.hero__date s{width:5px;height:5px;border-radius:50%;background:var(--accent);text-decoration:none;opacity:.8}
+.hero__scroll{position:absolute;bottom:clamp(22px,5vh,38px);left:50%;transform:translateX(-50%);
+  width:1px;height:46px;overflow:hidden;background:var(--line)}
+.hero__scroll:after{content:'';position:absolute;inset:0;background:var(--accent);animation:drip 3.6s var(--e-signature) infinite}
+@keyframes drip{0%{transform:translateY(-100%)}55%,100%{transform:translateY(100%)}}
+
+/* Перламутр: широкая радужная полоса очень медленно проходит по экрану. */
+.nacre{position:fixed;inset:-20%;z-index:0;pointer-events:none;opacity:.5;
+  background:conic-gradient(from 200deg at 50% 50%,
+    rgba(255,236,240,.9),rgba(236,240,255,.85),rgba(255,246,230,.9),
+    rgba(244,232,255,.8),rgba(255,236,240,.9));
+  filter:blur(60px);animation:nacreTurn 46s linear infinite}
+@keyframes nacreTurn{to{transform:rotate(360deg)}}
+
+/* Лепестковая пыль: мелкие лепестки, кружащие у самого низа кадра. */
+.petals{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.petal{position:absolute;top:-6%;left:var(--x);width:var(--s,12px);height:calc(var(--s,12px) * .74);
+  border-radius:100% 0 100% 0;background:linear-gradient(150deg,rgba(255,214,220,.95),rgba(233,190,196,.5));
+  opacity:0;animation:petalFall var(--t,24s) linear var(--dl,0s) infinite}
+@keyframes petalFall{
+  0%{opacity:0;transform:translate3d(0,0,0) rotate(0)}
+  10%{opacity:.85}
+  100%{opacity:0;transform:translate3d(var(--dx,50px),110vh,0) rotate(540deg)}}
+
+/* Титул в жемчужной раме: овал с мягким внутренним свечением. */
+.hero__pearl{position:absolute;top:50%;left:50%;width:min(78vw,360px);aspect-ratio:.78;
+  transform:translate(-50%,-52%);border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle at 38% 30%,rgba(255,255,255,.9),rgba(255,238,240,.4) 42%,transparent 68%);
+  box-shadow:inset 0 0 60px rgba(255,255,255,.8);opacity:0;transition:opacity var(--t-epic) ease .4s}
+.hero.in .hero__pearl{opacity:1}
+
+/* ── Шкатулка ────────────────────────────────────────────────────────────
+   Всё овальное и симметричное: фотография в медальоне, дата в жемчужном
+   кольце, тонкие подписи с широкой разрядкой. */
+.sec{padding-block:clamp(64px,14vw,110px)}
+.h2{font-size:clamp(1.7rem,7vw,2.6rem);letter-spacing:.04em}
+.lead{max-width:32ch;font-size:.96rem}
+
+/* Медальон: фото в овале с двойной обводкой. */
+.shot{width:min(78vw,340px);aspect-ratio:3/4;border-radius:50% 50% 48% 52%/42% 42% 58% 58%;
+  box-shadow:0 26px 60px -40px rgba(140,79,94,.6)}
+.shot:before{inset:9px;border-radius:inherit;border-color:rgba(255,255,255,.85)}
+.shot__cap{display:none}
+
+/* Дата в кольце. */
+.pearl-date{position:relative;display:grid;place-items:center;width:min(74vw,290px);aspect-ratio:1;margin:0 auto;
+  border-radius:50%;border:1px solid rgba(var(--gold-rgb),.42);
+  background:radial-gradient(circle at 40% 32%,rgba(255,255,255,.9),rgba(255,240,242,.5) 46%,transparent 72%)}
+.pearl-date:before{content:'';position:absolute;inset:12px;border-radius:50%;border:1px solid rgba(var(--gold-rgb),.2)}
+.pearl-in{display:grid;gap:7px;text-align:center}
+.pearl-day{color:var(--accent);font:400 clamp(3rem,13vw,4.2rem)/1 var(--display)}
+.pearl-month{color:var(--ink);font:500 .68rem/1 var(--sans);letter-spacing:.36em;text-transform:uppercase}
+.pearl-time{color:var(--muted);font:400 .68rem/1 var(--sans);letter-spacing:.28em}
+.cd b{font-size:clamp(2rem,9vw,3rem)}
+
+.card{width:min(100%,620px);margin:0 auto}
+.cd-card .cd{width:100%}
+.mapbox{border-radius:18px}
+.mapbox iframe{filter:grayscale(.2) sepia(.1) brightness(1.04) contrast(.94)}
+.shot{border-radius:20px}
+.shot img{filter:saturate(.94) contrast(1.01) brightness(1.05)}
+.routes a{border-color:var(--line);color:var(--ink);border-radius:999px;background:rgba(255,255,255,.66)}
+.cal td.on{color:var(--gold-hi)}
+
+@media (prefers-reduced-motion:reduce){
+  .hero__scroll:after,.nacre,.petal{animation:none}
+}
+</style>
+</head>
+<body>
+{{{envelope}}}
+{{{livingBg}}}
+<div class="nacre" aria-hidden="true"></div>
+<div class="petals" aria-hidden="true">
+  <i class="petal" style="--x:10%;--s:13px;--t:26s;--dl:-3s;--dx:48px"></i>
+  <i class="petal" style="--x:28%;--s:10px;--t:31s;--dl:-12s;--dx:-38px"></i>
+  <i class="petal" style="--x:45%;--s:15px;--t:23s;--dl:-7s;--dx:56px"></i>
+  <i class="petal" style="--x:63%;--s:11px;--t:29s;--dl:-18s;--dx:-44px"></i>
+  <i class="petal" style="--x:82%;--s:14px;--t:25s;--dl:-9s;--dx:40px"></i>
+</div>
+<div class="progress" aria-hidden="true"></div>
+
+<main class="inv">
+
+  <section class="hero fx">
+    <div class="hero__pearl" aria-hidden="true"></div>
+    <div data-parallax="0.05">
+      {{{monogram}}}
+      <div class="hero__kicker fx" style="--d:.14s">{{L.sub}}</div>
+      <h1 class="hero__names fx fx--rise gilt" style="--d:.22s">{{groom}}<i>&amp;</i>{{bride}}</h1>
+      <div class="hero__date fx" style="--d:.34s"><b>{{day}} {{monthName}} {{year}}</b><s></s><b>{{time}}</b></div>
+    </div>
+    <div class="hero__scroll" aria-hidden="true"></div>
+  </section>
+
+  <section class="sec sec--solid">
+    <div class="wrap">
+      <div class="num">01 · {{L.sub}}</div>
+      {{#if guestName}}
+        <div class="h2 fx" style="--d:.1s">{{L.greet}}</div>
+        <div class="h2 fx gilt" style="--d:.16s">{{guestName}}</div>
+        <div class="gold-rule" style="--d:.3s"></div>
+        <p class="lead words" style="--d:.34s">{{L.greetTail}}</p>
+      {{else}}
+        <div class="h2 fx" style="--d:.1s">{{groom}}<span class="amp">{{L.and}}</span>{{bride}}</div>
+        <div class="gold-rule" style="--d:.3s"></div>
+        <p class="lead words" style="--d:.34s">{{L.invite}}</p>
+      {{/if}}
+    </div>
+  </section>
+
+  {{#if photos.0}}
+  <section class="sec">
+    <div class="wrap">
+      <figure class="shot" data-parallax="0.04">
+        <img src="{{photos.0}}" alt="{{groom}} &amp; {{bride}}" loading="lazy">
+        <figcaption class="shot__cap"><span>02 · {{L.gallery}}</span><b>{{groom}} {{L.and}} {{bride}}</b></figcaption>
+      </figure>
+      <div class="gold-rule" style="--d:.2s"></div>
+      <p class="lead words" style="--d:.24s">{{L.emo}}</p>
+    </div>
+  </section>
+  {{/if}}
+
+  <section class="sec sec--tint">
+    <div class="wrap">
+      <div class="num">03 · {{L.when}}</div>
+      <div class="pearl-date fx" style="--d:.12s">
+        <div class="pearl-in">
+          <span class="pearl-day">{{day}}</span>
+          <span class="pearl-month">{{monthName}} {{year}}</span>
+          <span class="pearl-time">{{weekday}} · {{time}}</span>
+        </div>
+      </div>
+      <table class="cal fx" data-cal="{{dateIso}}" style="--d:.24s"><caption>{{monthName}} {{year}}</caption></table>
+    </div>
+  </section>
+
+  <section class="sec sec--solid">
+    <div class="wrap">
+      <div class="num">04 · {{L.until}}</div>
+      <div class="cd-card glass card fx" style="--d:.14s">
+        <div class="cd" style="--d:.2s">
+          <div><b id="cd">0</b><span>{{L.days}}</span></div>
+          <div><b id="ch">00</b><span>{{L.hours}}</span></div>
+          <div><b id="cm">00</b><span>{{L.min}}</span></div>
+          <div><b id="cs">00</b><span>{{L.sec}}</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec sec--tint">
+    <div class="wrap">
+      <div class="num">05 · {{L.where}}</div>
+      <div class="venue-card glass card fx" style="--d:.14s">
+        <h2 class="venue__name">{{address}}</h2>
+        <div>{{{map}}}</div>
+        {{#if gmaps}}
+        <div class="routes">
+          <a href="{{gmaps}}" target="_blank" rel="noopener">{{L.gmaps}}</a>
+          <a href="{{ymaps}}" target="_blank" rel="noopener">{{L.ymaps}}</a>
+        </div>
+        {{/if}}
+      </div>
+    </div>
+  </section>
+
+  {{#if photos.1}}
+  <section class="sec sec--solid">
+    <div class="wrap">
+      <figure class="shot shot--wide" data-parallax="0.05">
+        <img src="{{photos.1}}" alt="{{groom}} &amp; {{bride}}" loading="lazy">
+      </figure>
+    </div>
+  </section>
+  {{/if}}
+
+  <section class="sec sec--tint final">
+    <div class="wrap">
+      <div class="final-card glass card fx">
+        {{{monogramFilled}}}
+        <p class="final__quote gilt">{{L.final}}</p>
+        <div class="gold-rule" style="--d:.26s"></div>
+        <div class="final__sign">{{L.sign}} {{groom}} {{L.and}} {{bride}}</div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="made">{{L.made}}</footer>
+</main>
+
+<script>
+// Календарь месяца свадьбы: неделя с понедельника, день события обведён.
+(function(){
+  var el=document.querySelector('[data-cal]');if(!el)return;
+  var iso=(el.getAttribute('data-cal')||'').split('-').map(Number);
+  if(iso.length!==3||!iso[0])return;
+  var y=iso[0],m=iso[1]-1,day=iso[2];
+  var head=(document.documentElement.lang==='ru')
+    ? ['пн','вт','ср','чт','пт','сб','вс'] : ['du','se','ch','pa','ju','sh','ya'];
+  var first=(new Date(y,m,1).getDay()+6)%7, total=new Date(y,m+1,0).getDate();
+  var html='<thead><tr>'+head.map(function(d){return '<th scope="col">'+d+'</th>'}).join('')+'</tr></thead><tbody><tr>',i=0;
+  for(var k=0;k<first;k++)html+='<td></td>';
+  for(var d=1;d<=total;d++){
+    if((first+d-1)%7===0&&d>1)html+='</tr><tr>';
+    html+='<td'+(d===day?' class="on"':'')+'><span style="--i:'+(i++)+'">'+d+'</span></td>';
+  }
+  html+='</tr></tbody>';
+  el.insertAdjacentHTML('beforeend',html);
+})();
+</script>
+
+{{{audioWidget}}}
+{{{experienceScript}}}
+{{{countdown}}}
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "Charos",
+  "event": "wedding",
+  "price": 209000,
+  "minPhotos": 1,
+  "colors": [
+    "#F7F5F1",
+    "#B08C46",
+    "#2F2F34",
+    "#DEDBD3"
+  ],
+  "order": 6
+}

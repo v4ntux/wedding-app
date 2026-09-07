@@ -5,6 +5,8 @@
 import { readdirSync, readFileSync, existsSync, watch } from 'node:fs';
 import path from 'node:path';
 import { parseTemplate } from './templateEngine.js';
+import { STATIONERY } from './design.js';
+import { templatePrice } from './pricing.js';
 
 export const TEMPLATES_DIR = path.resolve(process.cwd(), 'templates');
 
@@ -31,11 +33,24 @@ function loadOne(id) {
   return {
     id,
     name,
+    description: { ru: STATIONERY[id]?.ru || '', uz: STATIONERY[id]?.uz || '' },
+    // Цвета для обложки в витрине студии: карточка выглядит как сама тема.
+    cover: {
+      paper: STATIONERY[id]?.paper || '#0d0c09',
+      ink: STATIONERY[id]?.ink || '#f7f1e7',
+      accent: STATIONERY[id]?.accent || '#c8aa6a',
+      envelope: STATIONERY[id]?.envelope || '#5b4630',
+    },
     event,
+    // Заводская цена из manifest.json; актуальную отдаёт withPrice().
+    basePrice: price,
     price,
     minPhotos: Number.isInteger(m.minPhotos) && m.minPhotos >= 0 ? m.minPhotos : 1,
     colors: Array.isArray(m.colors) ? m.colors.slice(0, 4).map(String) : [],
     order: Number.isFinite(Number(m.order)) ? Number(m.order) : 999,
+    // Скрытые legacy-шаблоны продолжают рендерить старые оплаченные ссылки,
+    // но больше не появляются в каталоге и не принимают новые заявки.
+    listed: m.listed !== false,
     demoUrl: `/demo/${id}`,
     // локализация поверх базовой (см. LOCALES в render.js): { uz: {...}, ru: {...} }
     strings: m.strings && typeof m.strings === 'object' ? m.strings : null,
@@ -65,12 +80,20 @@ function store() {
   return cache ?? load();
 }
 
+/* Актуальная цена: переопределение из админки поверх manifest.json.
+   Кэш шаблонов при этом не сбрасывается — цена подставляется на чтении. */
+function withPrice(tpl) {
+  if (!tpl) return tpl;
+  const price = templatePrice(tpl.id, tpl.basePrice);
+  return price === tpl.price ? tpl : { ...tpl, price };
+}
+
 export function allTemplates() {
-  return store().list;
+  return store().list.map(withPrice);
 }
 
 export function getTemplate(id) {
-  return store().byId.get(id) ?? null;
+  return withPrice(store().byId.get(id)) ?? null;
 }
 
 // Совместимо по форме с прежним findTemplate из config.js (id, name, price, minPhotos...).
@@ -80,17 +103,19 @@ export function findTemplate(id) {
 
 // Данные для /api/config и каталога на сайте (без дерева рендера).
 export function publicTemplates() {
-  return allTemplates().map(({ tree, strings, ...pub }) => pub);
+  return allTemplates()
+    .filter((t) => t.listed)
+    .map(({ tree, strings, listed, ...pub }) => pub);
 }
 
 // События с флагом активности — «скоро» в форме, пока нет шаблонов.
 export function publicEvents() {
-  const have = new Set(allTemplates().map((t) => t.event));
+  const have = new Set(allTemplates().filter((t) => t.listed).map((t) => t.event));
   return EVENTS.map((e) => ({ ...e, active: have.has(e.id) }));
 }
 
 // Горячая перезагрузка: правка/добавление шаблона подхватывается без рестарта.
-if (existsSync(TEMPLATES_DIR)) {
+if (existsSync(TEMPLATES_DIR) && process.env.NVATE_DISABLE_WATCH !== '1') {
   try {
     let timer = null;
     watch(TEMPLATES_DIR, { recursive: true }, () => {

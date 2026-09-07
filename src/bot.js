@@ -1,9 +1,10 @@
 import { Bot, InlineKeyboard } from 'grammy';
 import { writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { payApplication, cancelApplication, ValidationError, mapsLinks } from './service.js';
-import { findMusicPreset, SUPPORT_URL } from './config.js';
-import { findTemplate } from './templateStore.js';
+import { findMusicPreset, SUPPORT_URL, ADDONS, GUEST_LINK_PRICE, MAX_PHOTOS } from './config.js';
+import { findTemplate, publicTemplates } from './templateStore.js';
 import { markMainSent, markGuestSent, getApplication, listGuests } from './db.js';
 import { UPLOADS_DIR } from './upload.js';
 import { escapeHtml as esc } from './render.js';
@@ -14,6 +15,14 @@ function money(n) {
 
 function musicLine(app) {
   if (app.music_type === 'preset') return findMusicPreset(app.music_value)?.name ?? app.music_value;
+  if (app.music_type === 'itunes') {
+    try {
+      const value = JSON.parse(app.music_value ?? '{}');
+      return [value.name, value.artist].filter(Boolean).join(' — ') || 'трек из каталога';
+    } catch { return 'трек из каталога'; }
+  }
+  if (app.music_type === 'upload') return 'загруженный аудиофайл';
+  if (app.music_type === 'youtube') return app.music_value || 'YouTube';
   if (app.music_type === 'custom') return app.music_value;
   return 'без музыки';
 }
@@ -51,7 +60,14 @@ export function buildAdminText(app, { baseUrl, guests = [] } = {}) {
     const count = JSON.parse(app.guest_names ?? '[]').length;
     lines.push(`⭐ Именные приглашения: ${count} гостей (+${money(app.premium_price)})`);
   }
-  if (app.domain_enabled) lines.push(`🔗 Именной домен на 1 год (+${money(app.domain_price)})`);
+  // Дополнительные функции: подписи и цены берём из каталога, чтобы карточка
+  // админа не разъезжалась с формой при добавлении новой опции.
+  let extras = {};
+  try { extras = app.extras ? JSON.parse(app.extras) : {}; } catch { extras = {}; }
+  for (const addon of ADDONS) {
+    if (extras[addon.id]) lines.push(`✨ ${esc(addon.ru)} (+${money(addon.price)})`);
+  }
+  if (app.domain_enabled && !extras.domain) lines.push(`🔗 Именной домен на 1 год (+${money(app.domain_price)})`);
   lines.push(`💰 Итого: <b>${money(app.total_price)}</b>`);
   lines.push(`👤 От: ${app.tg_username ? '@' + esc(app.tg_username) : ''} (id ${app.tg_user_id})`);
   if (app.contact_tg) lines.push(`📨 Telegram: @${esc(app.contact_tg)}`);
@@ -156,18 +172,23 @@ export function createBot({ token, adminIds = [], baseUrl }) {
   bot.callbackQuery(/^faq:(uz|ru)$/, async (ctx) => {
     const uz = ctx.match[1] === 'uz';
     await ctx.answerCallbackQuery();
+    const prices = publicTemplates().map((template) => template.price);
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    const priceRange = minPrice === maxPrice ? money(minPrice) : `${money(minPrice)}–${money(maxPrice)}`;
+    const guestPrice = money(GUEST_LINK_PRICE);
     const text = uz
       ? '<b>❔ Ko‘p so‘raladigan savollar</b>\n\n' +
-        '💰 <b>Narx:</b> shablonga qarab 129 000–199 000 so‘m. Nomli havola — har bir mehmon uchun 9 900 so‘m.\n' +
+        `💰 <b>Narx:</b> shablonga qarab ${priceRange}. Nomli havola — har bir mehmon uchun ${guestPrice}.\n` +
         '🔗 <b>Havola:</b> to‘lovdan so‘ng shaxsiy havola beriladi va o‘chirilmaydi.\n' +
         '🎵 <b>Musiqa:</b> katalog, YouTube yoki o‘z faylingiz.\n' +
-        '📷 <b>Suratlar:</b> 1–6 ta.\n' +
+        `📷 <b>Suratlar:</b> 1–${MAX_PHOTOS} ta.\n` +
         '⏱ <b>Vaqt:</b> to‘ldirish ~5 daqiqa.'
       : '<b>❔ Частые вопросы</b>\n\n' +
-        '💰 <b>Цена:</b> 129 000–199 000 сум в зависимости от шаблона. Именная ссылка — 9 900 сум за гостя.\n' +
+        `💰 <b>Цена:</b> ${priceRange} в зависимости от шаблона. Именная ссылка — ${guestPrice} за гостя.\n` +
         '🔗 <b>Ссылка:</b> выдаётся после оплаты и не удаляется.\n' +
         '🎵 <b>Музыка:</b> каталог, YouTube или свой файл.\n' +
-        '📷 <b>Фото:</b> 1–6 шт.\n' +
+        `📷 <b>Фото:</b> 1–${MAX_PHOTOS} шт.\n` +
         '⏱ <b>Время:</b> заполнение ~5 минут.';
     await ctx.reply(text, { parse_mode: 'HTML', reply_markup: welcomeMenu(uz ? 'uz' : 'ru', ctx.from?.id) });
   });
@@ -232,7 +253,7 @@ export function createBot({ token, adminIds = [], baseUrl }) {
       const photo = ctx.message.photo[ctx.message.photo.length - 1];
       const f = await ctx.api.getFile(photo.file_id);
       const buf = Buffer.from(await (await fetch(`https://api.telegram.org/file/bot${token}/${f.file_path}`)).arrayBuffer());
-      const name = `proof-${id}-${Date.now()}.jpg`;
+      const name = `proof-${id}-${randomUUID()}.jpg`;
       writeFileSync(path.join(UPLOADS_DIR, name), buf);
       const adminName = ctx.from.username ? '@' + ctx.from.username : (ctx.from.first_name || String(adminId));
       const { app, guests } = payApplication(id, { adminId, adminName, proof: name });
@@ -256,16 +277,25 @@ export function createBot({ token, adminIds = [], baseUrl }) {
   // переписываем сообщение: прямым текстом, что эта ссылка уже отправлена.
   bot.callbackQuery(/^sent:(\d+):(.+)$/, async (ctx) => {
     const id = Number(ctx.match[1]);
-    const slug = ctx.match[2];
-    const isMain = slug === '_main';
-    if (isMain) markMainSent(id); else markGuestSent(id, slug);
+    const app = getApplication(id);
+    if (!app || Number(app.tg_user_id) !== Number(ctx.from?.id)) {
+      return ctx.answerCallbackQuery({ text: 'Bu havola sizga tegishli emas · Эта ссылка не ваша', show_alert: true });
+    }
+    const token = ctx.match[2];
+    const isMain = token === '_main' || token === 'm';
+    const guests = isMain ? [] : listGuests(id);
+    const guest = isMain
+      ? null
+      : /^g\d+$/.test(token)
+        ? guests.find((item) => Number(item.id) === Number(token.slice(1)))
+        : guests.find((item) => item.slug === token);
+    if (!isMain && !guest) return ctx.answerCallbackQuery({ text: 'Havola topilmadi · Ссылка не найдена', show_alert: true });
+    if (isMain) markMainSent(id); else markGuestSent(id, guest.slug);
     await ctx.answerCallbackQuery({ text: '✅' });
 
-    const app = getApplication(id);
-    if (!app) return;
     const uz = app.lang !== 'ru';
-    const link = isMain ? `${baseUrl}/${app.slug}` : `${baseUrl}/${app.slug}/${slug}`;
-    const guestName = isMain ? null : (listGuests(id).find((g) => g.slug === slug)?.name ?? '');
+    const link = isMain ? `${baseUrl}/${app.slug}` : `${baseUrl}/${app.slug}/${guest.slug}`;
+    const guestName = guest?.name ?? '';
 
     const text = isMain
       ? (uz
@@ -315,7 +345,7 @@ export function createBot({ token, adminIds = [], baseUrl }) {
         parse_mode: 'HTML', link_preview_options: { is_disabled: true },
         reply_markup: app.main_sent
           ? new InlineKeyboard().text('✅ Yuborildi · Отправлено', 'noop')
-          : shareBtn(`sent:${app.id}:_main`),
+          : shareBtn(`sent:${app.id}:m`),
       });
 
     if (guests.length) {
@@ -327,11 +357,15 @@ export function createBot({ token, adminIds = [], baseUrl }) {
         await api.sendMessage(app.tg_user_id,
           `<b>${esc(g.name)}</b>\n${glink}`, {
             parse_mode: 'HTML', link_preview_options: { is_disabled: true },
-            reply_markup: shareBtn(`sent:${app.id}:${g.slug}`),
+            reply_markup: shareBtn(`sent:${app.id}:g${g.id}`),
           });
       }
     }
   }
+
+  // Тем же сообщением пара получает ссылку, если оплату подтвердили из
+  // админ-панели, а не кнопкой в боте.
+  bot.notifyCouplePaid = (app, guests) => notifyCouplePaid(bot.api, app, guests);
 
   return bot;
 }

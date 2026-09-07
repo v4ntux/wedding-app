@@ -1,18 +1,39 @@
 import express from 'express';
+import http from 'node:http';
 import path from 'node:path';
 import { validateInitData } from './initData.js';
-import { submitApplication, buildPreviewApp, ValidationError } from './service.js';
+import { submitApplication, buildPreviewApp, payApplication, cancelApplication, ValidationError } from './service.js';
 import { renderInvitation, renderDemo, renderNotFound, withWatermark } from './render.js';
 import { saveUpload, UPLOADS_DIR } from './upload.js';
 import * as db from './db.js';
 import {
-  BOT_TOKEN, BOT_USERNAME, BASE_URL, DEV_NO_AUTH, isAdmin, GUEST_LINK_PRICE, MAX_GUESTS, MAX_PHOTOS,
-  YANDEX_MAPS_API_KEY, GOOGLE_MAPS_API_KEY, EXTRACT_API_URL, EXTRACT_API_KEY,
-} from './config.js';
-import { publicTemplates, publicEvents } from './templateStore.js';
+  BOT_TOKEN, BOT_USERNAME, BASE_URL, DEV_NO_AUTH, isAdmin, MAX_GUESTS, MAX_PHOTOS,
+  YANDEX_MAPS_API_KEY, GOOGLE_MAPS_API_KEY, EXTRACT_API_URL, EXTRACT_API_KEY } from './config.js';
+import { publicTemplates, publicEvents, allTemplates } from './templateStore.js';
+import { guestPrice, pricedAddons, pricingSnapshot, updatePricing } from './pricing.js';
 import { RESERVED_SLUGS } from './slug.js';
 
 const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
+
+function rateLimit({ windowMs, max }) {
+  const clients = new Map();
+  return (req, res, next) => {
+    const now = Date.now();
+    const key = req.ip || req.socket.remoteAddress || 'unknown';
+    let state = clients.get(key);
+    if (!state || state.resetAt <= now) state = { count: 0, resetAt: now + windowMs };
+    state.count += 1;
+    clients.set(key, state);
+    res.setHeader('RateLimit-Limit', String(max));
+    res.setHeader('RateLimit-Remaining', String(Math.max(0, max - state.count)));
+    res.setHeader('RateLimit-Reset', String(Math.ceil(state.resetAt / 1000)));
+    if (state.count > max) return res.status(429).json({ ok: false, error: 'too_many_requests' });
+    if (clients.size > 2000 && state.count === 1) {
+      for (const [client, value] of clients) if (value.resetAt <= now) clients.delete(client);
+    }
+    next();
+  };
+}
 
 function authUser(initData) {
   const user = validateInitData(initData, BOT_TOKEN);
@@ -31,17 +52,38 @@ function adminUser(initData) {
 }
 
 // onNewApplication(app) — уведомление админа; подставляется из index.js.
-export function createServer({ onNewApplication }) {
+export function createServer({ onNewApplication, onPaid } = {}) {
   const app = express();
   app.disable('x-powered-by');
+  app.set('trust proxy', 1);
+  app.use((_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
+    next();
+  });
+
+  const geoLimit = rateLimit({ windowMs: 60_000, max: 45 });
+  const musicLimit = rateLimit({ windowMs: 60_000, max: 30 });
+  const uploadLimit = rateLimit({ windowMs: 10 * 60_000, max: 24 });
+  const previewLimit = rateLimit({ windowMs: 60_000, max: 24 });
+  const applicationLimit = rateLimit({ windowMs: 10 * 60_000, max: 8 });
 
   // Продукт — только Telegram WebApp: корень ведёт прямо в форму.
   app.get('/', (_req, res) => res.redirect('/app/'));
   app.use('/app', express.static(path.join(PUBLIC_DIR, 'app')));
   app.use('/admin', express.static(path.join(PUBLIC_DIR, 'admin')));
   app.use('/demo', express.static(path.join(PUBLIC_DIR, 'demo')));
+  app.use('/assets', express.static(path.join(PUBLIC_DIR, 'assets')));
   app.use('/music', express.static(path.join(PUBLIC_DIR, 'music')));
-  app.use('/uploads', express.static(UPLOADS_DIR));
+  // Customer photos/music are public invitation assets. Payment proofs are not:
+  // block them before the generic static handler and expose them only to admins.
+  app.use('/uploads', (req, res, next) => {
+    const name = path.basename(req.path);
+    if (/^proof-\d+-(?:\d+|[0-9a-f-]{36})\.(?:jpe?g|png|webp)$/i.test(name)) return res.sendStatus(404);
+    next();
+  }, express.static(UPLOADS_DIR));
 
   // Демо шаблона: подставляются имена и язык из формы, поверх — водяная сетка.
   app.get('/demo/:templateId', (req, res, next) => {
@@ -54,6 +96,12 @@ export function createServer({ onNewApplication }) {
       map: req.query.map,
       lat: req.query.lat,
       lng: req.query.lng,
+      addons: req.query.addons,
+      design: { palette: req.query.palette, light: req.query.light, effect: req.query.effect, motion: req.query.motion, typography: req.query.typography },
+      date: req.query.date,
+      time: req.query.time,
+      photos: req.query.photos,
+      studio: req.query.studio === '1',
     });
     if (!html) return next();
     res.send(html);
@@ -65,7 +113,8 @@ export function createServer({ onNewApplication }) {
       templates: publicTemplates(),
       events: publicEvents(),
       botUrl: BOT_USERNAME ? `https://t.me/${BOT_USERNAME}` : null,
-      guestPrice: GUEST_LINK_PRICE,
+      guestPrice: guestPrice(),
+      addons: pricedAddons().filter((addon) => addon.listed !== false),
       maxGuests: MAX_GUESTS,
       maxPhotos: MAX_PHOTOS,
       populars: db.templatePopularity(),
@@ -81,6 +130,89 @@ export function createServer({ onNewApplication }) {
     const u = adminUser(req.get('x-init-data') ?? '');
     if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
     res.json({ ok: true, stats: db.adminStats(), templates: publicTemplates(), orders: db.listRecentOrders(30) });
+  });
+
+  // Всё, что нужно панели одним запросом: показатели, заявки, каталог, прайс.
+  app.get('/api/admin/overview', (req, res) => {
+    const u = adminUser(req.get('x-init-data') ?? '');
+    if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
+    const limit = Math.min(200, Math.max(10, Number(req.query.limit) || 60));
+    res.json({
+      ok: true,
+      admin: { id: u.id, username: u.username ?? null },
+      stats: db.adminStats(),
+      templates: publicTemplates(),
+      orders: db.listRecentOrders(limit),
+      pricing: pricingSnapshot(allTemplates()),
+    });
+  });
+
+  // Подтверждение оплаты из панели: та же операция, что и кнопкой в боте.
+  app.post('/api/admin/applications/:id/pay', express.json({ limit: '4kb' }), async (req, res) => {
+    const u = adminUser(req.get('x-init-data') ?? '');
+    if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(400).json({ ok: false, error: 'Некорректный номер заявки' });
+    try {
+      const { app: paid, guests } = payApplication(id, {
+        adminId: u.id,
+        adminName: u.username ?? String(u.id),
+        proof: null,
+      });
+      // Паре уходит ссылка — тем же сообщением, что и при подтверждении из бота.
+      if (onPaid) {
+        try {
+          await onPaid(paid, guests);
+        } catch (e) {
+          console.error('[server] не удалось уведомить пару:', e.message);
+        }
+      }
+      res.json({ ok: true, id: paid.id, slug: paid.slug, guests });
+    } catch (e) {
+      if (e instanceof ValidationError) return res.status(400).json({ ok: false, error: e.message });
+      console.error('[server] pay error:', e);
+      res.status(500).json({ ok: false, error: 'Внутренняя ошибка сервера' });
+    }
+  });
+
+  app.post('/api/admin/applications/:id/cancel', express.json({ limit: '4kb' }), (req, res) => {
+    const u = adminUser(req.get('x-init-data') ?? '');
+    if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(400).json({ ok: false, error: 'Некорректный номер заявки' });
+    try {
+      const cancelled = cancelApplication(id);
+      res.json({ ok: true, id: cancelled.id, status: cancelled.status });
+    } catch (e) {
+      if (e instanceof ValidationError) return res.status(400).json({ ok: false, error: e.message });
+      console.error('[server] cancel error:', e);
+      res.status(500).json({ ok: false, error: 'Внутренняя ошибка сервера' });
+    }
+  });
+
+  // Прайс: цены шаблонов, именной ссылки и допфункций. Пустое значение
+  // возвращает заводскую цену из manifest.json / config.js.
+  app.put('/api/admin/pricing', express.json({ limit: '16kb' }), (req, res) => {
+    const u = adminUser(req.get('x-init-data') ?? '');
+    if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
+    try {
+      updatePricing(req.body ?? {}, allTemplates().map((t) => t.id));
+      res.json({ ok: true, pricing: pricingSnapshot(allTemplates()) });
+    } catch (e) {
+      res.status(400).json({ ok: false, error: e.message || 'Не удалось сохранить цены' });
+    }
+  });
+
+  app.get('/api/admin/proofs/:filename', (req, res) => {
+    const u = adminUser(req.get('x-init-data') ?? '');
+    if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
+    const name = String(req.params.filename ?? '');
+    if (!/^proof-\d+-(?:\d+|[0-9a-f-]{36})\.(?:jpe?g|png|webp)$/i.test(name) || path.basename(name) !== name) {
+      return res.sendStatus(404);
+    }
+    return res.sendFile(path.join(UPLOADS_DIR, name), (error) => {
+      if (error && !res.headersSent) res.sendStatus(error.statusCode === 404 ? 404 : 500);
+    });
   });
 
   // Поиск мест. Цепочка провайдеров: Google Places (если есть ключ) → Photon →
@@ -161,7 +293,7 @@ export function createServer({ onNewApplication }) {
     });
   }
 
-  app.get('/api/geo/reverse', async (req, res) => {
+  app.get('/api/geo/reverse', geoLimit, async (req, res) => {
     const lat = Number(req.query.lat);
     const lng = Number(req.query.lng);
     const lang = req.query.lang === 'ru' ? 'ru' : 'uz';
@@ -187,7 +319,7 @@ export function createServer({ onNewApplication }) {
     }
   });
 
-  app.get('/api/geo', async (req, res) => {
+  app.get('/api/geo', geoLimit, async (req, res) => {
     const q = String(req.query.q ?? '').slice(0, 120).trim();
     if (q.length < 2) return res.json({ ok: true, results: [] });
     const lang = req.query.lang === 'ru' ? 'ru' : 'uz';
@@ -272,7 +404,7 @@ export function createServer({ onNewApplication }) {
   });
 
   // Каталог музыки: прокси к iTunes Search (30-сек превью, без ключей).
-  app.get('/api/music', async (req, res) => {
+  app.get('/api/music', musicLimit, async (req, res) => {
     const q = String(req.query.q ?? '').slice(0, 100).trim() || 'wedding instrumental piano';
     try {
       const r = await fetch(
@@ -296,7 +428,7 @@ export function createServer({ onNewApplication }) {
   });
 
   // Извлечение аудио из видео-ссылки (Instagram/TikTok/YouTube) через cobalt-совместимый API.
-  app.post('/api/extract', express.json({ limit: '4kb' }), async (req, res) => {
+  app.post('/api/extract', musicLimit, express.json({ limit: '4kb' }), async (req, res) => {
     const user = authUser(req.get('x-init-data') ?? req.body?.initData ?? '');
     if (!user) return res.status(401).json({ ok: false, error: 'Откройте форму через Telegram-бота' });
     if (!EXTRACT_API_URL) {
@@ -331,7 +463,7 @@ export function createServer({ onNewApplication }) {
   });
 
   // Загрузка фото и аудио: сырые байты, тип определяем по сигнатуре.
-  app.post('/api/upload', express.raw({ type: () => true, limit: '16mb' }), (req, res) => {
+  app.post('/api/upload', uploadLimit, express.raw({ type: () => true, limit: '16mb' }), (req, res) => {
     const user = authUser(req.get('x-init-data') ?? '');
     if (!user) return res.status(401).json({ ok: false, error: 'Откройте форму через Telegram-бота' });
     if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
@@ -343,7 +475,7 @@ export function createServer({ onNewApplication }) {
   });
 
   // Предпросмотр перед подтверждением: полная открытка с данными формы + водяная сетка.
-  app.post('/api/preview', express.json({ limit: '64kb' }), (req, res) => {
+  app.post('/api/preview', previewLimit, express.json({ limit: '64kb' }), (req, res) => {
     try {
       const { initData, form } = req.body ?? {};
       const user = authUser(initData);
@@ -359,7 +491,7 @@ export function createServer({ onNewApplication }) {
     }
   });
 
-  app.post('/api/applications', express.json({ limit: '64kb' }), async (req, res) => {
+  app.post('/api/applications', applicationLimit, express.json({ limit: '64kb' }), async (req, res) => {
     try {
       const { initData, form } = req.body ?? {};
       const user = authUser(initData);
@@ -417,5 +549,7 @@ export function createServer({ onNewApplication }) {
     res.status(500).json({ ok: false, error: 'Внутренняя ошибка сервера' });
   });
 
-  return app;
+  // Возвращаем http-сервер, а не голое приложение: тестам нужны address()
+  // и close(), а вызывающему коду достаточно привычного listen().
+  return http.createServer(app);
 }

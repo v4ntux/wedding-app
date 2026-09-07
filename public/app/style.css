@@ -1617,3 +1617,446 @@ body {
   .scene-wash { transition-duration:700ms; }
   .blk.is-done { transform: none; opacity: .88; }
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   Starlit Glass — 2026. Ночное золото + жидкое стекло.
+   Небо живое (sky.js), панели прозрачные, свет идёт от активного блока.
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Единый рецепт стекла: один набор токенов на всё приложение. */
+  --glass-blur: 26px;
+  --glass-sat: 1.7;
+  --glass-face: linear-gradient(158deg, rgba(255, 248, 232, .085), rgba(255, 240, 214, .028) 46%, rgba(6, 5, 3, .16));
+  --glass-edge: rgba(255, 248, 232, .16);
+  --glass-edge-lit: rgba(var(--scene-rgb), .5);
+  --glass-hi: inset 0 1px 0 rgba(255, 252, 244, .3);
+  --glass-shadow: 0 30px 70px -38px rgba(0, 0, 0, .96);
+  --glass-inner: inset 0 -22px 44px -34px rgba(0, 0, 0, .7);
+  --sheen: linear-gradient(122deg, rgba(255, 255, 255, .17) 0%, rgba(255, 255, 255, .05) 22%, transparent 46%);
+}
+
+/* Живое небо вместо статичной точечной сетки. */
+#sky {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: .92;
+  pointer-events: none;
+}
+
+#stage::after { display: none; }
+
+/* ── Панель-стекло: общая заготовка ── */
+.blk,
+#topbar,
+#dock,
+.overlay,
+.sheet-bar,
+.toast,
+.tpl,
+.personal-motion,
+.mapframe {
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+}
+
+.blk {
+  border: 1px solid var(--glass-edge);
+  border-radius: 26px;
+  background: var(--glass-face);
+  box-shadow: var(--glass-shadow), var(--glass-hi), var(--glass-inner);
+  /* Появление блока рисует JS (riseBlock) — здесь переходов на opacity и
+     transform быть не должно, иначе они спорят друг с другом и блок мигает. */
+  transition:
+    border-color 1200ms var(--ease-scene),
+    box-shadow 1200ms var(--ease-scene),
+    background 1200ms var(--ease-scene);
+}
+
+/* Блик по стеклу: тонкая косая подсветка, как на линзе. */
+.blk > * { position: relative; z-index: 1; }
+.blk::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  border: 0;
+  background: var(--sheen);
+  opacity: .5;
+  pointer-events: none;
+  transition: opacity 1200ms var(--ease-scene);
+}
+
+.blk.is-live {
+  border-color: var(--glass-edge-lit);
+  background:
+    linear-gradient(158deg, rgba(255, 249, 234, .125), rgba(var(--scene-rgb), .05) 44%, rgba(6, 5, 3, .18));
+  box-shadow:
+    var(--glass-shadow),
+    0 0 90px -46px rgba(var(--scene-rgb), .95),
+    inset 0 1px 0 rgba(255, 253, 246, .4),
+    var(--glass-inner);
+}
+.blk.is-live::after { opacity: .85; }
+.blk.is-done { opacity: .6; transform: scale(.982); }
+.blk.is-done::after { opacity: .22; }
+
+/* ── Стекло на панелях-шапках ── */
+#topbar {
+  border-bottom: 1px solid rgba(255, 248, 232, .1);
+  background: linear-gradient(180deg, rgba(6, 5, 3, .72), rgba(6, 5, 3, .34) 74%, rgba(6, 5, 3, .04));
+  box-shadow: 0 22px 46px -40px rgba(var(--scene-rgb), .6), inset 0 -1px 0 rgba(255, 250, 236, .05);
+}
+
+#dock {
+  border-top: 1px solid rgba(255, 248, 232, .12);
+  background: linear-gradient(180deg, rgba(8, 6, 4, .48), rgba(5, 4, 2, .82));
+  box-shadow: 0 -26px 54px -44px #000, var(--glass-hi);
+}
+
+.overlay { background: linear-gradient(168deg, rgba(14, 10, 5, .88), rgba(3, 3, 2, .94)); }
+.sheet-bar { background: rgba(8, 6, 4, .68); }
+.toast {
+  border-color: var(--glass-edge);
+  background: linear-gradient(150deg, rgba(28, 21, 10, .82), rgba(8, 6, 4, .86));
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .6), var(--glass-hi);
+}
+
+/* ── Мелкие элементы: стекло без собственного blur (дешевле для телефона) ── */
+.field input,
+.segs,
+.geo-list,
+.switch,
+.gst,
+.picked,
+.readycard,
+.plate,
+.tpl-toolbar,
+.inv,
+.hdrum-band,
+.shelf {
+  border-radius: 16px;
+  box-shadow: var(--glass-hi), inset 0 -12px 26px -22px rgba(0, 0, 0, .6);
+}
+
+.field input {
+  border-color: rgba(255, 248, 232, .18);
+  background: linear-gradient(160deg, rgba(255, 249, 234, .13), rgba(255, 240, 214, .045));
+  transition:
+    border-color 520ms var(--ease-silk),
+    background 520ms var(--ease-silk),
+    box-shadow 520ms var(--ease-silk);
+}
+.field input:focus {
+  border-color: rgba(var(--scene-rgb), .72);
+  background: linear-gradient(160deg, rgba(255, 251, 240, .2), rgba(var(--scene-rgb), .12));
+  box-shadow: var(--glass-hi), 0 0 0 4px rgba(var(--scene-rgb), .14), 0 0 42px -10px rgba(var(--scene-rgb), .4);
+}
+.field.filled input { border-color: rgba(var(--scene-rgb), .4); }
+
+.btn--ghost,
+.ghost-ic,
+.cal-arrow,
+.map-btn,
+.tpl-nav button,
+.trk-play,
+.geo-item,
+.tpl-demo {
+  border-color: rgba(255, 248, 232, .16);
+  background: linear-gradient(160deg, rgba(255, 249, 234, .1), rgba(255, 240, 214, .03));
+  box-shadow: var(--glass-hi);
+  transition:
+    color 420ms var(--ease-silk),
+    border-color 420ms var(--ease-silk),
+    background 420ms var(--ease-silk),
+    box-shadow 420ms var(--ease-silk),
+    transform 180ms var(--ease-silk);
+}
+
+.btn--ghost:active,
+.ghost-ic:active,
+.cal-arrow:active,
+.map-btn:active,
+.tpl-nav button:active,
+.trk-play:active { transform: scale(.94); }
+
+@media (hover: hover) {
+  .btn--ghost:hover,
+  .ghost-ic:hover,
+  .cal-arrow:hover,
+  .map-btn:hover,
+  .tpl-nav button:hover:not(:disabled),
+  .trk-play:hover,
+  .geo-item:hover {
+    color: var(--gold-hi);
+    border-color: rgba(var(--scene-rgb), .5);
+    background: linear-gradient(160deg, rgba(255, 251, 240, .16), rgba(var(--scene-rgb), .08));
+  }
+  .linkbtn:hover { color: var(--gold-hi); border-color: rgba(var(--scene-rgb), .5); }
+}
+
+/* Золотая кнопка: жидкий металл со стеклянной кромкой. */
+.btn--gold,
+.trk-pick,
+.tpl-take:not(.is-selected) {
+  border: 1px solid rgba(255, 250, 232, .34);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .62),
+    inset 0 -8px 18px -12px rgba(90, 52, 6, .7),
+    0 16px 34px -18px rgba(var(--scene-rgb), .9);
+}
+
+/* ── Плавность по умолчанию: любое переключение состояния «едет», а не прыгает ── */
+.bead i,
+.bead span,
+.cal-cell,
+.seg,
+.tpl-dots button::before,
+.switch-track,
+.switch-knob,
+.plate,
+.trk,
+.ph { transition-timing-function: var(--ease-silk); }
+
+.plate {
+  border-color: rgba(255, 248, 232, .18);
+  background: linear-gradient(150deg, rgba(255, 249, 234, .1), rgba(var(--scene-rgb), .07) 62%, rgba(6, 5, 3, .12));
+  transition: box-shadow 1200ms var(--ease-scene), border-color 1200ms var(--ease-scene), background 1200ms var(--ease-scene);
+}
+
+/* Стеклянная шторка предпросмотра. */
+#sheet { background: linear-gradient(180deg, rgba(6, 5, 3, .96), rgba(3, 3, 2, .99)); }
+.sheet-foot { background: linear-gradient(transparent, rgba(4, 3, 2, .82)); }
+
+/* Экран выбора языка — то же стекло, чтобы первый кадр задавал тон. */
+#lang-screen { -webkit-backdrop-filter: blur(28px) saturate(1.5); backdrop-filter: blur(28px) saturate(1.5); }
+
+/* Финальный экран. */
+#done { background: radial-gradient(105% 70% at 50% 8%, rgba(var(--scene-rgb), .22), transparent 62%), rgba(4, 3, 2, .93); -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px); }
+
+/* Небо и стекло на слабых устройствах: без размытия фон остаётся читаемым. */
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+  .blk { background: linear-gradient(158deg, rgba(24, 18, 9, .93), rgba(7, 6, 4, .95)); }
+  #topbar, #dock { background: rgba(6, 5, 3, .95); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #sky { opacity: .8; }
+}
+
+/* Отладочный переключатель: html[data-motion="full"] возвращает движение там,
+   где браузер жёстко репортит prefers-reduced-motion (стенды, автотесты). */
+html[data-motion='full'] * { animation-play-state: running !important; }
+html[data-motion='full'] #sky { opacity: .92; }
+
+/* Карточка шаблона — то же стекло, что и блоки: витрина не должна выпадать
+   из общей системы, иначе карусель выглядит вставленной из другого макета. */
+.tpl {
+  border-color: var(--glass-edge);
+  background: linear-gradient(158deg, rgba(255, 248, 232, .07), rgba(6, 5, 3, .5));
+  box-shadow: var(--glass-shadow), var(--glass-hi);
+}
+.tpl.is-focus { border-color: rgba(var(--scene-rgb), .42); }
+.tpl-info {
+  background: linear-gradient(158deg, rgba(255, 246, 224, .09), rgba(6, 5, 3, .58) 62%);
+  border-top: 1px solid rgba(255, 248, 232, .09);
+}
+.tpl-acts { background: linear-gradient(180deg, rgba(6, 5, 3, .5), rgba(4, 3, 2, .72)); }
+.tpl-toolbar {
+  border-color: var(--glass-edge);
+  background: linear-gradient(150deg, rgba(255, 249, 234, .09), rgba(6, 4, 2, .34));
+}
+.geo-list,
+.track-scroll,
+.mapframe,
+.segs {
+  border-color: rgba(255, 248, 232, .14);
+  background: linear-gradient(160deg, rgba(255, 249, 234, .07), rgba(6, 5, 3, .34));
+}
+.geo-item { background: transparent; box-shadow: none; }
+.readycard {
+  border-color: var(--glass-edge);
+  background:
+    radial-gradient(circle at 50% 6%, rgba(var(--scene-rgb), .14), transparent 52%),
+    linear-gradient(158deg, rgba(255, 248, 232, .09), rgba(6, 5, 3, .28));
+  box-shadow: var(--glass-hi), var(--glass-shadow);
+}
+
+/* Появление карточек в карусели: мягкий подъём вместо мгновенной отрисовки. */
+@keyframes tplIn { from { opacity: 0; transform: translateY(22px) scale(.97); } }
+.tpl { animation: tplIn 760ms var(--ease-silk) both; animation-delay: calc(var(--i, 0) * 90ms); }
+
+/* Пальцевые цели: всё, по чему нажимают, — не меньше 44 px. Точки карусели и
+   ячейки календаря остаются визуально мелкими, растёт только зона нажатия. */
+.brand { display: inline-flex; align-items: center; min-height: 44px; padding-right: 6px; }
+.cal-arrow, .map-btn { width: 46px; height: 46px; }
+.cal-cell { aspect-ratio: auto; min-height: 46px; }
+.linkbtn { min-height: 46px; }
+.tpl-dots { gap: 2px; }
+.tpl-dots button { width: 44px; height: 44px; }
+.hdrum-num { min-height: 44px; }
+
+/* ═══ Витрина дизайнов: сетка обложек ═══
+   Карточка показывает саму тему — её бумагу, чернила и золото. Живых превью
+   здесь нет: восемь работающих приглашений не тянет ни один телефон, а полный
+   пример открывается отдельной страницей по кнопке. */
+.tpl-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 22px 0 4px;
+}
+
+.tplc {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--glass-edge);
+  border-radius: 20px;
+  background: linear-gradient(158deg, rgba(255, 248, 232, .07), rgba(6, 5, 3, .42));
+  box-shadow: var(--glass-shadow), var(--glass-hi);
+  animation: tplIn 620ms var(--ease-silk) both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+  transition: border-color 520ms var(--ease-silk), box-shadow 520ms var(--ease-silk), transform 260ms var(--ease-silk);
+}
+.tplc.chosen {
+  border-color: rgba(var(--scene-rgb), .82);
+  box-shadow: var(--glass-shadow), 0 0 0 1px rgba(var(--scene-rgb), .3), 0 0 46px -26px rgba(var(--scene-rgb), .9);
+}
+.tplc-pick {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+}
+.tplc-pick:active { transform: scale(.985); }
+
+/* Обложка — миниатюрное приглашение в цветах темы. */
+.tplc-cover {
+  position: relative;
+  display: grid;
+  aspect-ratio: 3 / 4;
+  align-content: center;
+  justify-items: center;
+  gap: 7px;
+  padding: 14px 12px;
+  overflow: hidden;
+  color: var(--c-ink);
+  background:
+    radial-gradient(120% 62% at 50% -6%, color-mix(in srgb, var(--c-accent) 26%, transparent), transparent 62%),
+    var(--c-paper);
+  text-align: center;
+}
+.tplc-cover::before {
+  content: '';
+  position: absolute;
+  inset: 9px;
+  border: 1px solid color-mix(in srgb, var(--c-accent) 46%, transparent);
+  border-radius: 12px;
+  pointer-events: none;
+}
+.tplc-mono {
+  color: var(--c-accent);
+  font: 400 .62rem/1 var(--mono);
+  letter-spacing: .22em;
+}
+.tplc-names {
+  display: block;
+  max-width: 100%;
+  color: var(--c-ink);
+  font: 400 clamp(.95rem, 4.6vw, 1.2rem)/1.16 var(--display);
+  overflow-wrap: anywhere;
+}
+.tplc-names i { display: block; margin: 2px 0; color: var(--c-accent); font-style: italic; font-size: .74em; }
+.tplc-date { color: color-mix(in srgb, var(--c-ink) 74%, transparent); font: 300 .5rem/1 var(--mono); letter-spacing: .14em; }
+/* Сургучная точка — тот же жест, что и на настоящем конверте. */
+.tplc-seal {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 14px;
+  height: 14px;
+  border-radius: 47% 53% 51% 49% / 49% 47% 53% 51%;
+  background: radial-gradient(circle at 34% 30%, color-mix(in srgb, var(--c-accent) 76%, #fff), var(--c-env));
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .45);
+}
+
+.tplc-flag {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  padding: 5px 9px;
+  color: var(--ink);
+  border-radius: 999px;
+  background: linear-gradient(105deg, var(--gold), var(--gold-hi));
+  font: 500 .46rem/1 var(--mono);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.tplc-check {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  opacity: 0;
+  transform: scale(.7);
+  color: var(--ink);
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold-hi), var(--gold));
+  transition: opacity 420ms var(--ease-silk), transform 460ms var(--ease-silk);
+}
+.tplc-check svg { width: 16px; height: 16px; }
+.tplc.chosen .tplc-check { opacity: 1; transform: scale(1); }
+
+.tplc-info { display: grid; gap: 3px; padding: 12px 13px 10px; }
+.tplc-info b { color: var(--silk); font: 500 1.02rem/1.2 var(--display); }
+.tplc-info i { color: var(--gold-hi); font: 500 .74rem/1 var(--mono); font-style: normal; }
+.tplc-info em { color: var(--mute); font: 400 .66rem/1 var(--mono); font-style: normal; }
+
+.tplc-demo {
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 12px 12px;
+  color: var(--silk-2);
+  border: 1px solid rgba(255, 248, 232, .16);
+  border-radius: 999px;
+  background: linear-gradient(160deg, rgba(255, 249, 234, .09), rgba(255, 240, 214, .03));
+  font: 500 .68rem/1 var(--mono);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  transition: color 420ms var(--ease-silk), border-color 420ms var(--ease-silk), background 420ms var(--ease-silk);
+}
+.tplc-demo svg { width: 16px; height: 16px; }
+.tplc-demo:active { transform: scale(.97); }
+
+@media (hover: hover) {
+  .tplc:hover { transform: translateY(-2px); border-color: rgba(var(--scene-rgb), .48); }
+  .tplc-demo:hover { color: var(--gold-hi); border-color: rgba(var(--scene-rgb), .5); }
+}
+
+@media (min-width: 620px) {
+  .tpl-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* Пройденный блок гаснет коротким переходом: длинный слишком заметен, когда
+   пара быстро возвращается назад по нити. */
+.blk.is-done {
+  transition:
+    border-color 900ms var(--ease-scene),
+    box-shadow 900ms var(--ease-scene),
+    background 900ms var(--ease-scene),
+    opacity 420ms var(--ease-silk),
+    transform 420ms var(--ease-silk);
+}

@@ -3,9 +3,12 @@
 
 import { findMusicPreset } from './config.js';
 import { mapsLinks, youtubeId } from './service.js';
-import { getTemplate, allTemplates } from './templateStore.js';
+import { getTemplate } from './templateStore.js';
 import { renderTemplate, escapeHtml } from './templateEngine.js';
-import { GRAIN, experienceCSS, experienceScript, audioWidget, mapEmbed, countdownScript } from './blocks.js';
+import { GRAIN, audioWidget, mapEmbed, countdownScript } from './blocks.js';
+import { envelopeScene, envelopeExperienceCSS, envelopeExperienceScript, livingBackground, starfield } from './experience.js';
+import { coreCSS, monogram } from './theme.js';
+import { normalizeDesign, STATIONERY } from './design.js';
 
 export { escapeHtml };
 
@@ -29,6 +32,7 @@ const LOCALES = {
       until: 'To‘ygacha qoldi',
       final: 'Kelishingizni intiqlik bilan kutamiz!',
       made: 'nvate bilan yaratildi',
+      gallery: 'Biz haqimizda', when: 'Qachon', where: 'Qayerda',
     },
   },
   ru: {
@@ -48,6 +52,7 @@ const LOCALES = {
       until: 'До свадьбы осталось',
       final: 'С нетерпением ждём встречи с Вами!',
       made: 'Создано с nvate',
+      gallery: 'О нас', when: 'Когда', where: 'Где',
     },
   },
 };
@@ -62,6 +67,9 @@ export function buildData(app, guestName = null, tpl = null) {
   const lang = app.lang === 'ru' ? 'ru' : 'uz';
   const loc = LOCALES[lang];
   const L = { ...loc.L, ...(tpl?.strings?.[lang] ?? {}) };
+  Object.assign(L, lang === 'ru'
+    ? { openLetter:'Открыть приглашение', replay:'Вернуть конверт', scroll:'Ваша история начинается здесь', story:'Наша история', dateLabel:'Сохраните этот день', dress:'Дресс-код', calendar:'Добавить в календарь', close:'Закрыть', quote:'Один день. Одна любовь. Целая жизнь вместе.' }
+    : { openLetter:'Taklifnomani ochish', replay:'Konvertga qaytish', scroll:'Hikoyangiz shu yerdan boshlanadi', story:'Bizning hikoyamiz', dateLabel:'Bu kunni eslab qoling', dress:'Kiyim uslubi', calendar:'Taqvimga qo‘shish', close:'Yopish', quote:'Bir kun. Bir muhabbat. Bir umrlik baxt.' });
   const mapEnabled = app.map_enabled === undefined ? true : Boolean(Number(app.map_enabled));
   const links = mapEnabled ? mapsLinks(app.lat, app.lng) : { google: '', yandex: '' };
 
@@ -88,6 +96,19 @@ export function buildData(app, guestName = null, tpl = null) {
     music.end = Number(app.music_end) || 0;
   }
 
+  // Дополнительные функции заказа (дресс-код, свой домен и т.п.). Хранятся
+  // как JSON, чтобы новая опция не требовала миграции схемы.
+  let extras = {};
+  try {
+    const raw = app.extras;
+    if (raw) extras = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch {
+    extras = {};
+  }
+  if (!extras || typeof extras !== 'object') extras = {};
+  const design = normalizeDesign(extras.design);
+  const stationery = STATIONERY[tpl?.id] || STATIONERY.ivory;
+
   let photos = [];
   try {
     photos = JSON.parse(app.photos ?? '[]');
@@ -99,11 +120,15 @@ export function buildData(app, guestName = null, tpl = null) {
   const [y, m, d] = app.wedding_date.split('-').map(Number);
   const lat = Number(app.lat);
   const lng = Number(app.lng);
-  const targetIso = `${app.wedding_date}T${app.wedding_time}:00`;
+  const targetIso = `${app.wedding_date}T${app.wedding_time}:00+05:00`;
 
   return {
     lang,
     L,
+    design,
+    stationery,
+    effect: design.effect === 'signature' ? stationery.effect : design.effect,
+    styleVars: `--paper:${stationery.paper};--ink:${stationery.ink};--accent:${stationery.accent};--envelope:${stationery.envelope};--scene-position:${stationery.tile}`,
     groom: app.groom_name,
     bride: app.bride_name,
     groomInitial: firstChar(app.groom_name),
@@ -126,8 +151,27 @@ export function buildData(app, guestName = null, tpl = null) {
     photos,
     // Блоки движка — в шаблоне вставлять как {{{...}}}.
     grain: GRAIN,
-    experienceCSS: experienceCSS(),
-    experienceScript: experienceScript(),
+    envelope: envelopeScene({
+      theme: tpl?.id,
+      openHint: L.openHint,
+      groom: app.groom_name,
+      bride: app.bride_name,
+      groomInitial: firstChar(app.groom_name),
+      brideInitial: firstChar(app.bride_name),
+      sub: L.sub,
+      date: loc.fmt(d, loc.months[m - 1], y),
+      lang,
+      design,
+    }),
+    extras,
+    livingBg: livingBackground(),
+    starfield: starfield(),
+    starfieldDense: starfield(72, 3),
+    coreCSS: coreCSS(),
+    monogram: monogram(`${firstChar(app.groom_name)}${firstChar(app.bride_name)}`),
+    monogramFilled: monogram(`${firstChar(app.groom_name)}${firstChar(app.bride_name)}`, 'mono--filled'),
+    experienceCSS: envelopeExperienceCSS(),
+    experienceScript: envelopeExperienceScript(),
     audioWidget: audioWidget(music, lang),
     map: mapEmbed({ lat, lng, lang, address: app.address, enabled: mapEnabled }),
     countdown: countdownScript(targetIso),
@@ -135,13 +179,8 @@ export function buildData(app, guestName = null, tpl = null) {
 }
 
 export function renderInvitation(app, guestName = null) {
-  let tpl = getTemplate(app.template_id);
-  if (!tpl) {
-    // Шаблон могли удалить из templates/ — оплаченные страницы не должны падать.
-    tpl = allTemplates()[0];
-    if (!tpl) throw new Error('в templates/ нет ни одного шаблона');
-    console.warn(`[render] шаблон "${app.template_id}" не найден — рендерю "${tpl.id}"`);
-  }
+  const tpl = getTemplate(app.template_id);
+  if (!tpl) throw new Error(`шаблон "${app.template_id}" не найден`);
   return renderTemplate(tpl.tree, buildData(app, guestName, tpl));
 }
 
@@ -175,19 +214,36 @@ export function renderDemo(templateId, opts = {}) {
     music_type: 'none',
     music_value: null,
     template_id: templateId,
+    // Демо умеет показать заказ с подключёнными допфункциями: /demo/<id>?addons=dress
+    extras: JSON.stringify(Object.fromEntries(
+      String(opts.addons ?? '').split(',').map((s) => s.trim()).filter(Boolean).map((id) => [id, true])
+    )),
     photos: JSON.stringify(['/demo/sample1.svg', '/demo/sample2.svg']),
   };
   const html = renderInvitation(sample, null);
   if (opts.card) {
     const cardMode = `<style>
 html,body{width:100%;min-height:100%;overflow:hidden!important;scrollbar-width:none;scroll-behavior:auto!important;touch-action:none;user-select:none}
-body::-webkit-scrollbar{display:none}.envx,#mbtn{display:none!important}.paper{margin:0 auto!important;box-shadow:none!important}
+body::-webkit-scrollbar{display:none}.envx,.cinematic-intro,.envelope-scene,.ev-scene,#mbtn{display:none!important}
+/* Витрина в студии показывает сразу несколько карточек. Тяжёлые фоновые слои
+   (блюры, конические градиенты, частицы) в миниатюре не читаются, а рендерер
+   кладут — поэтому в режиме карточки они выключены. */
+.nacre,.veins,.sunbeams,.dust,.rays,.leaves,.petals,.stars,.gilt-dust,.sun,.haze,.living-bg,.motes{display:none!important}.paper{margin:0 auto!important;box-shadow:none!important}
 .fx{opacity:1!important;transform:none!important;filter:none!important;transition:none!important}
 iframe{pointer-events:none!important}
 </style><script>(function(){
 document.body.classList.remove('locked');
 document.querySelectorAll('.fx').forEach(function(x){x.classList.add('in')});
 document.querySelectorAll('audio').forEach(function(x){x.pause()});
+// Студия просит замереть, когда карточка уходит из фокуса карусели:
+// на телефоне одновременно живёт только один пример.
+addEventListener('message',function(e){
+  var d=e&&e.data;
+  if(!d||typeof d!=='object'||!d.nvate)return;
+  var stop=d.nvate==='pause';
+  if(document.getAnimations)document.getAnimations().forEach(function(a){try{stop?a.pause():a.play()}catch(_){}});
+  document.querySelectorAll('video').forEach(function(v){try{stop?v.pause():v.play()}catch(_){}});
+});
 function startPan(){
   var paper=document.querySelector('.paper')||document.body;
   var distance=Math.max(0,Math.ceil(paper.getBoundingClientRect().height-window.innerHeight));
@@ -211,7 +267,8 @@ function startPan(){
 }
 startPan();
 })();</script>`;
-    return html.replace('</body>', `${cardMode}</body>`);
+    const previewHtml = html.replace(/<body([^>]*)>/, '<body$1 data-card-preview>');
+    return previewHtml.replace('</body>', `${cardMode}</body>`);
   }
   return withWatermark(html);
 }

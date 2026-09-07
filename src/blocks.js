@@ -1,5 +1,6 @@
-// Блоки движка приглашений: конверт-переживание, музыка, карта, отсчёт.
-// Шаблоны из templates/ вставляют их как {{{experienceCSS}}}, {{{audioWidget}}} и т.д.
+// Блоки движка приглашений: музыка, карта, отсчёт, текстура бумаги.
+// Открытие (конверт) живёт отдельно — см. experience.js.
+// Шаблоны из templates/ вставляют их как {{{audioWidget}}}, {{{map}}} и т.д.
 // Все пользовательские значения экранируются здесь (в buildData данные сырые).
 
 import { escapeHtml } from './templateEngine.js';
@@ -7,105 +8,66 @@ import { escapeHtml } from './templateEngine.js';
 // Бумажное зерно: едва заметная текстура, накладывается поверх фона секций ({{{grain}}}).
 export const GRAIN = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E")`;
 
-// Геометрия конверта + reveal-переходы. Подключается до CSS шаблона.
-// Скин конверта задаёт каждый шаблон через CSS-переменные --env-*.
-export function experienceCSS() {
-  return `<style>
-body.locked{overflow:hidden;height:100dvh}
-.envx{position:fixed;inset:0;z-index:9000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;background:var(--envx-bg,#1a1a1a);transition:opacity .9s ease}
-.envx.gone{opacity:0;pointer-events:none}
-.env{position:relative;width:min(86vw,430px);aspect-ratio:1.45;perspective:1300px;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.env:focus-visible{outline:1px solid var(--env-hint,#ddd);outline-offset:10px}
-.env>div{position:absolute}
-.env-back{inset:0;z-index:1;background:var(--env-face,#333)}
-.env-paper{left:6%;right:6%;top:7%;bottom:9%;z-index:2;background:var(--env-paper,#f6f1e6);box-shadow:0 4px 18px rgba(0,0,0,.22);transition:transform 1.5s cubic-bezier(.23,.75,.3,1) .95s}
-.env-front{inset:0;z-index:3;background:var(--env-face,#333);clip-path:polygon(0 0,50% 47%,100% 0,100% 100%,0 100%);box-shadow:0 22px 60px rgba(0,0,0,.38)}
-.env-front:after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.14),rgba(255,255,255,.05) 55%,rgba(0,0,0,.1));clip-path:inherit}
-.env-flap{left:0;right:0;top:0;height:52%;z-index:4;background:var(--env-flap,var(--env-face,#333));clip-path:polygon(0 0,100% 0,50% 100%);transform-origin:top center;transition:transform 1.25s cubic-bezier(.45,.05,.2,1);backface-visibility:hidden}
-.env-flap:after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(0,0,0,.16));clip-path:inherit}
-.env-seal{left:50%;top:47%;width:76px;height:76px;z-index:5;transform:translate(-50%,-50%);border-radius:50%;display:flex;align-items:center;justify-content:center;transition:opacity .55s ease .4s;box-shadow:0 2px 8px rgba(0,0,0,.3),inset 0 1px 2px rgba(255,255,255,.35)}
-.envx.open .env-flap{transform:rotateX(180deg)}
-.envx.open .env-seal{opacity:0}
-.envx.open .env-paper{transform:translateY(-84%) scale(1.02)}
-.env-hint{font-size:.7rem;letter-spacing:3.5px;text-transform:uppercase;color:var(--env-hint,#ddd);animation:envhint 2.8s ease-in-out infinite}
-@keyframes envhint{0%,100%{opacity:.5}50%{opacity:1}}
-.fx{opacity:0;transform:translateY(26px);filter:blur(10px)}
-.fx.in{opacity:1;transform:none;filter:none;transition:opacity 1s cubic-bezier(.22,.61,.36,1),transform 1.15s cubic-bezier(.22,.61,.36,1),filter 1.15s ease;transition-delay:var(--d,0s)}
-#mbtn{position:fixed;right:16px;bottom:16px;z-index:8000;width:52px;height:52px;border-radius:50%;cursor:pointer;font-size:1.25rem;box-shadow:0 4px 14px rgba(0,0,0,.18)}
-#mbtn.on{animation:mpulse 2s ease-in-out infinite}
-@keyframes mpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
-@media (prefers-reduced-motion:reduce){
-.fx{opacity:1;transform:none;filter:none}
-.envx,.env-flap,.env-paper,.env-seal{transition:none!important}
-.env-hint,#mbtn.on{animation:none}
-}
-</style>`;
-}
-
-// Оркестровка: клик → створка → бумага → шелест (WebAudio) → музыка с фейдом →
-// оверлей исчезает → включаются reveal-наблюдатели. Требует разметку .envx/#env из шаблона.
-export function experienceScript() {
-  return `<script>(function(){
-var x=document.getElementById('envx'),env=document.getElementById('env');
-var rm=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
-function reveal(){
-  var els=[].slice.call(document.querySelectorAll('.fx'));
-  if(rm||!('IntersectionObserver' in window)){els.forEach(function(e){e.classList.add('in')});return}
-  var io=new IntersectionObserver(function(en){en.forEach(function(t){if(t.isIntersecting){t.target.classList.add('in');io.unobserve(t.target)}})},{threshold:.12,rootMargin:'0px 0px -8% 0px'});
-  els.forEach(function(e){io.observe(e)});
-}
-function sfx(){try{var C=window.AudioContext||window.webkitAudioContext;if(!C)return;
-var c=new C(),n=Math.floor(c.sampleRate*.8),b=c.createBuffer(1,n,c.sampleRate),d=b.getChannelData(0),i;
-for(i=0;i<n;i++){d[i]=(Math.random()*2-1)*Math.pow(1-i/n,2)}
-var s=c.createBufferSource();s.buffer=b;
-var f=c.createBiquadFilter();f.type='bandpass';f.frequency.value=1400;f.Q.value=.7;
-var g=c.createGain();g.gain.setValueAtTime(0,c.currentTime);
-g.gain.linearRampToValueAtTime(.05,c.currentTime+.12);
-g.gain.exponentialRampToValueAtTime(.001,c.currentTime+.75);
-s.connect(f);f.connect(g);g.connect(c.destination);s.start()}catch(e){}}
-if(!x){reveal();return}
-document.body.classList.add('locked');
-var opened=false;
-function open(){if(opened)return;opened=true;x.classList.add('open');
-if(!rm)sfx();
-setTimeout(function(){if(window.__music)window.__music.start()},rm?50:1250);
-setTimeout(function(){x.classList.add('gone')},rm?50:2550);
-setTimeout(function(){x.style.display='none';document.body.classList.remove('locked');reveal()},rm?400:3450);}
-env.addEventListener('click',open);
-env.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();open()}});
-})();</script>`;
-}
-
-// Музыка: скрытый <audio> + плавающая кнопка с векторной иконкой. Старт — из experienceScript
+// Музыка: скрытый <audio> + плавающая кнопка с векторной иконкой. Старт — из experience.js
 // через window.__music.start() с нарастанием громкости ~2.5s.
 const MUSIC_ICON = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>';
+
+/* Кнопка музыки и регулятор громкости — одна разметка на оба режима. */
+function player(musicLabel, volumeLabel) {
+  return `<div id="mplayer"><input id="mvol" type="range" min="0" max="100" step="1" value="70" aria-label="${volumeLabel}">`
+    + `<button id="mbtn" aria-label="${musicLabel}">${MUSIC_ICON}</button></div>`;
+}
 
 export function audioWidget(music, lang = 'uz') {
   if (!music) return '';
   const musicLabel = lang === 'ru' ? 'Музыка' : 'Musiqa';
+  const volumeLabel = lang === 'ru' ? 'Громкость' : 'Ovoz balandligi';
   const start = Number(music.start) || 0;
   const end = Number(music.end) || 0;
   if (music.youtubeId) {
     const src = `https://www.youtube.com/embed/${music.youtubeId}?autoplay=1&start=${start}${end > start ? '&end=' + end : ''}&loop=1&playlist=${music.youtubeId}`;
-    return `<button id="mbtn" aria-label="${musicLabel}">${MUSIC_ICON}</button><div id="ytbox" style="position:fixed;width:1px;height:1px;overflow:hidden;opacity:0;bottom:0;right:0"></div>
-<script>(function(){var on=false,b=document.getElementById('mbtn'),x=document.getElementById('ytbox');
-function play(){x.innerHTML='<iframe src="${src}" allow="autoplay" width="1" height="1"></iframe>';b.classList.add('on');on=true}
-function stop(){x.innerHTML='';b.classList.remove('on');on=false}
+    return `${player(musicLabel, volumeLabel)}<div id="ytbox" style="position:fixed;width:1px;height:1px;overflow:hidden;opacity:0;bottom:0;right:0"></div>
+<script>(function(){var on=false,b=document.getElementById('mbtn'),x=document.getElementById('ytbox'),
+box=document.getElementById('mplayer'),vol=document.getElementById('mvol'),hide=null,frame=null;
+var saved=Number(localStorage.getItem('nv_volume'));
+var level=Number.isFinite(saved)&&saved>=0&&saved<=100?saved:70;
+vol.value=level;paint();
+function paint(){vol.style.setProperty('--vol',vol.value+'%')}
+function send(cmd,args){try{frame&&frame.contentWindow&&frame.contentWindow.postMessage(JSON.stringify({event:'command',func:cmd,args:args||[]}),'*')}catch(e){}}
+function showVol(){box.classList.add('vol-open');clearTimeout(hide);hide=setTimeout(function(){box.classList.remove('vol-open')},5000)}
+function play(){x.innerHTML='<iframe id="ytframe" src="${src}&enablejsapi=1" allow="autoplay" width="1" height="1"></iframe>';
+frame=document.getElementById('ytframe');b.classList.add('on');on=true;
+setTimeout(function(){send('setVolume',[Number(vol.value)])},1200);showVol()}
+function stop(){x.innerHTML='';frame=null;b.classList.remove('on');on=false;box.classList.remove('vol-open')}
 b.addEventListener('click',function(e){e.stopPropagation();on?stop():play()});
+vol.addEventListener('input',function(){paint();send('setVolume',[Number(vol.value)]);
+try{localStorage.setItem('nv_volume',vol.value)}catch(e){}showVol()});
+vol.addEventListener('click',function(e){e.stopPropagation()});
 window.__music={start:function(){if(!on)play()}};
 })();</script>`;
   }
   if (!music.playable) return '';
-  return `<audio id="bgm" preload="auto" src="${escapeHtml(music.url)}"></audio><button id="mbtn" aria-label="${musicLabel}">${MUSIC_ICON}</button>
-<script>(function(){var a=document.getElementById('bgm'),b=document.getElementById('mbtn'),s=${start},e=${end},tm=null;
+  return `<audio id="bgm" preload="auto" src="${escapeHtml(music.url)}"></audio>${player(musicLabel, volumeLabel)}
+<script>(function(){var a=document.getElementById('bgm'),b=document.getElementById('mbtn'),
+box=document.getElementById('mplayer'),vol=document.getElementById('mvol'),s=${start},e=${end},tm=null,hide=null;
+// Громкость гостя запоминается: второй раз подбирать её не придётся.
+var saved=Number(localStorage.getItem('nv_volume'));
+var level=Number.isFinite(saved)&&saved>=0&&saved<=100?saved:70;
+vol.value=level;paint();
+function paint(){vol.style.setProperty('--vol',vol.value+'%')}
+function target(){return Number(vol.value)/100}
 if(e>s){a.addEventListener('timeupdate',function(){if(a.currentTime>=e){a.currentTime=s;a.play()}})}else{a.loop=true}
 function fade(to,ms){if(tm)clearInterval(tm);var f0=a.volume,t0=Date.now();
-tm=setInterval(function(){var k=Math.min(1,(Date.now()-t0)/ms);a.volume=f0+(to-f0)*k;if(k>=1){clearInterval(tm);tm=null}},50)}
+tm=setInterval(function(){var k=Math.min(1,(Date.now()-t0)/ms);a.volume=Math.max(0,Math.min(1,f0+(to-f0)*k));if(k>=1){clearInterval(tm);tm=null}},50)}
+function showVol(){box.classList.add('vol-open');clearTimeout(hide);hide=setTimeout(function(){box.classList.remove('vol-open')},5000)}
 function play(ms){if(s&&a.currentTime<s)a.currentTime=s;a.volume=0;
-a.play().then(function(){b.classList.add('on');fade(1,ms)}).catch(function(){})}
+a.play().then(function(){b.classList.add('on');fade(target(),ms);showVol()}).catch(function(){})}
 window.__music={start:function(){play(2500)}};
 b.addEventListener('click',function(ev){ev.stopPropagation();
-if(a.paused){play(600)}else{a.pause();b.classList.remove('on')}});
+if(a.paused){play(600)}else{a.pause();b.classList.remove('on');box.classList.remove('vol-open')}});
+vol.addEventListener('input',function(){paint();if(tm){clearInterval(tm);tm=null}a.volume=target();
+try{localStorage.setItem('nv_volume',vol.value)}catch(e2){}showVol()});
+vol.addEventListener('click',function(ev){ev.stopPropagation()});
 })();</script>`;
 }
 
@@ -138,10 +100,52 @@ referrerpolicy="no-referrer-when-downgrade" title="${mapTitle}" aria-label="${es
 }
 
 // Живой отсчёт до события: пишет в элементы #cd #ch #cm #cs.
+// Отсчёт с перекидными цифрами: разряд меняется — старая цифра уходит вверх,
+// новая приходит снизу. Двигаются только изменившиеся разряды, поэтому секунды
+// «тикают», а дни стоят на месте.
 export function countdownScript(targetIso) {
-  return `<script>(function(){var t=new Date('${targetIso}').getTime();
-function p(n){return n<10?'0'+n:''+n}function g(i){return document.getElementById(i)}
-function tick(){var x=Math.max(0,t-Date.now());g('cd').textContent=Math.floor(x/864e5);
-g('ch').textContent=p(Math.floor(x/36e5)%24);g('cm').textContent=p(Math.floor(x/6e4)%60);
-g('cs').textContent=p(Math.floor(x/1e3)%60)}tick();setInterval(tick,1000)})();</script>`;
+  return `<style>
+.roll{position:relative;display:inline-flex;overflow:hidden;height:1em;vertical-align:baseline;line-height:1;font:inherit;letter-spacing:inherit}
+.roll u{position:relative;display:block;text-decoration:none;transition:transform .52s cubic-bezier(.22,.61,.36,1),opacity .52s ease}
+.roll u.out{position:absolute;transform:translateY(-100%);opacity:0}
+.roll u.in{animation:rollIn .52s cubic-bezier(.22,.61,.36,1) both}
+@keyframes rollIn{from{transform:translateY(100%);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.roll u{transition:none}.roll u.in{animation:none}}
+</style><script>(function(){
+var t=new Date('${targetIso}').getTime(),ids=['cd','ch','cm','cs'],cells={};
+function p(n){return n<10?'0'+n:''+n}
+ids.forEach(function(id){
+  var el=document.getElementById(id);if(!el)return;
+  el.textContent='';
+  cells[id]={host:el,digits:[]};
+});
+// Каждый разряд — отдельный барабан: при смене «10» на «09» едет только последняя цифра.
+function setValue(id,str){
+  var c=cells[id];if(!c)return;
+  var chars=String(str).split('');
+  while(c.digits.length>chars.length){c.host.removeChild(c.digits.pop().box)}
+  chars.forEach(function(ch,i){
+    var d=c.digits[i];
+    if(!d){
+      var box=document.createElement('span');box.className='roll';
+      var u=document.createElement('u');u.textContent=ch;box.appendChild(u);
+      c.host.appendChild(box);c.digits[i]={box:box,cur:u,val:ch};return;
+    }
+    if(d.val===ch)return;
+    var next=document.createElement('u');next.textContent=ch;next.className='in';
+    var prev=d.cur;prev.classList.add('out');
+    d.box.appendChild(next);
+    setTimeout(function(){if(prev.parentNode)prev.parentNode.removeChild(prev)},560);
+    d.cur=next;d.val=ch;
+  });
+}
+function tick(){
+  var x=Math.max(0,t-Date.now());
+  setValue('cd',Math.floor(x/864e5));
+  setValue('ch',p(Math.floor(x/36e5)%24));
+  setValue('cm',p(Math.floor(x/6e4)%60));
+  setValue('cs',p(Math.floor(x/1e3)%60));
+}
+tick();setInterval(tick,1000);
+})();</script>`;
 }

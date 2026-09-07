@@ -8,7 +8,8 @@
   },
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "test": "node --test --test-force-exit --test-concurrency=1 test/platform.test.js"
   },
   "dependencies": {
     "express": "^4.21.2",

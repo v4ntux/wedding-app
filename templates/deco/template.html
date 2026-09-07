@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0d">
+<title>{{groom}} &amp; {{bride}} — {{L.sub}}</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+{{{experienceCSS}}}
+{{{coreCSS}}}
+<style>
+/* Deco — ар-деко: чёрный лак, золотые лучи веером, строгая симметрия.
+   Двадцатые годы: геометрия вместо цветов. */
+:root{
+  --paper:#0a0a0d; --paper-2:#111116; --paper-3:#1b1b22;
+  --ink:#f2ecdd; --muted:#a49b86;
+  --accent:#c9a55a; --accent-2:#8c8474;
+  --line:rgba(201,165,90,.3); --line-soft:rgba(201,165,90,.12);
+
+  --gold:#c9a55a; --gold-hi:#f7e6b4; --gold-lo:#6f5423; --gold-rgb:201,165,90;
+  --star:#fff3cf;
+  --stars-opacity:.55;
+  --glass-edge:rgba(247,230,180,.22);
+  --glass-face:linear-gradient(158deg,rgba(247,230,180,.1),rgba(201,165,90,.05) 46%,rgba(6,6,9,.34));
+
+  --bg-veil:linear-gradient(180deg,rgba(10,10,13,.94),rgba(10,10,13,.88) 46%,rgba(10,10,13,.97));
+  --mote:rgba(247,230,180,.9);
+  --display:'Cinzel',Georgia,serif;
+  --script:'Cinzel',Georgia,serif;
+  --sans:'Jost',ui-sans-serif,system-ui,sans-serif;
+  --ev-sans:var(--sans); --ev-display:var(--display);
+}
+
+html{background:var(--paper)}
+body{background:
+  radial-gradient(120% 56% at 50% -8%,rgba(201,165,90,.22),transparent 56%),
+  radial-gradient(70% 40% at 8% 66%,rgba(48,44,62,.6),transparent 70%),
+  linear-gradient(180deg,#131318 0%,#0a0a0d 56%,#040406 100%)}
+.inv{position:relative;z-index:1}
+.sec--solid{background:linear-gradient(180deg,rgba(10,10,13,.62),rgba(10,10,13,.78))}
+.sec--tint{background:linear-gradient(180deg,rgba(17,17,22,.56),rgba(6,6,9,.72))}
+.made{background:rgba(6,6,9,.9);border-top:1px solid var(--line-soft)}
+
+/* -- Титул ------------------------------------------------------------- */
+.hero{position:relative;display:grid;min-height:100svh;place-content:center;padding:clamp(90px,16vh,130px) 22px clamp(70px,12vh,100px);text-align:center;background:transparent}
+.hero__kicker{color:var(--accent-2);font:500 .6rem/1 var(--sans);letter-spacing:.42em;text-transform:uppercase}
+.hero__names{margin:.22em 0 .16em;font:400 clamp(3.2rem,16vw,6.2rem)/.96 var(--display);letter-spacing:.04em;color:transparent}
+.hero__names i{display:block;margin:.04em 0;font:400 .46em/1 var(--script);font-style:italic}
+.hero__date{display:flex;align-items:center;justify-content:center;gap:clamp(12px,4vw,20px);margin-top:.6em;
+  color:var(--muted);font:500 .66rem/1 var(--sans);letter-spacing:.26em;text-transform:uppercase}
+.hero__date s{width:5px;height:5px;border-radius:50%;background:var(--accent);text-decoration:none;opacity:.8}
+.hero__scroll{position:absolute;bottom:clamp(22px,5vh,38px);left:50%;transform:translateX(-50%);
+  width:1px;height:46px;overflow:hidden;background:var(--line)}
+.hero__scroll:after{content:'';position:absolute;inset:0;background:var(--accent);animation:drip 3.6s var(--e-signature) infinite}
+@keyframes drip{0%{transform:translateY(-100%)}55%,100%{transform:translateY(100%)}}
+
+/* Веер лучей: золотые линии расходятся из верхней точки и медленно
+   поворачиваются — фирменный жест ар-деко. */
+.rays{position:fixed;top:-40vh;left:50%;z-index:0;width:180vw;aspect-ratio:1;
+  transform:translateX(-50%);pointer-events:none;opacity:.32;
+  background:repeating-conic-gradient(from 0deg at 50% 50%,
+    rgba(201,165,90,.22) 0deg 1.2deg,transparent 1.2deg 9deg);
+  mask-image:radial-gradient(closest-side,#000 30%,transparent 74%);
+  animation:rayTurn 90s linear infinite}
+@keyframes rayTurn{to{transform:translateX(-50%) rotate(360deg)}}
+
+/* Ступенчатая рама титула — зиккурат, собранный из трёх линий. */
+.hero__deco{position:absolute;top:50%;left:50%;width:min(80vw,360px);height:min(104vw,480px);
+  transform:translate(-50%,-52%);pointer-events:none;opacity:0;
+  transition:opacity var(--t-epic) ease .45s}
+.hero.in .hero__deco{opacity:1}
+.hero__deco i{position:absolute;left:50%;transform:translateX(-50%);border:1px solid rgba(201,165,90,.45)}
+.hero__deco i:nth-child(1){top:0;width:100%;height:100%}
+.hero__deco i:nth-child(2){top:5%;width:88%;height:90%;border-color:rgba(201,165,90,.26)}
+.hero__deco i:nth-child(3){top:10%;width:76%;height:80%;border-color:rgba(201,165,90,.14)}
+
+/* Цифры отсчёта в ар-деко — с золотой подложкой-ступенькой. */
+.cd b{text-shadow:0 0 26px rgba(201,165,90,.28)}
+.num{letter-spacing:.4em}
+
+/* ── Афиша ───────────────────────────────────────────────────────────────
+   Секции идут как строки театральной программы: тонкая линейка, номер,
+   заголовок капслоком. Дата — в ромбе, как на билете. */
+.sec{padding-inline:clamp(18px,6vw,34px)}
+.num{justify-content:center;letter-spacing:.42em;font-size:.52rem}
+.h2{text-transform:uppercase;letter-spacing:.06em;font-size:clamp(1.5rem,6.4vw,2.3rem)}
+.lead{max-width:30ch;font-size:clamp(.92rem,3.5vw,1rem);letter-spacing:.02em}
+
+/* Дата в ромбе — центральный жест темы. */
+.deco-date{position:relative;display:grid;place-items:center;width:min(78vw,300px);aspect-ratio:1;margin:0 auto;
+  border:1px solid rgba(var(--gold-rgb),.5);transform:rotate(45deg)}
+.deco-date:before{content:'';position:absolute;inset:9px;border:1px solid rgba(var(--gold-rgb),.22)}
+.deco-date-in{transform:rotate(-45deg);text-align:center;display:grid;gap:6px}
+.deco-day{color:var(--gold-hi);font:400 clamp(3.4rem,15vw,5rem)/1 var(--display);letter-spacing:.02em}
+.deco-month{color:var(--ink);font:400 .74rem/1 var(--sans);letter-spacing:.42em;text-transform:uppercase}
+.deco-time{color:var(--muted);font:400 .72rem/1 var(--sans);letter-spacing:.3em}
+
+/* Программа вечера: строки с точками-отбивками, как в старой афише. */
+.deco-run{display:grid;gap:0;width:min(100%,440px);margin:34px auto 0;text-align:left}
+.deco-run div{display:flex;align-items:baseline;gap:10px;padding:13px 0;border-bottom:1px solid var(--line-soft)}
+.deco-run div:last-child{border-bottom:0}
+.deco-run b{color:var(--gold-hi);font:400 .96rem/1 var(--display);letter-spacing:.06em;min-width:58px}
+.deco-run span{flex:1;color:var(--ink);font:300 .84rem/1.4 var(--sans);letter-spacing:.14em;text-transform:uppercase}
+
+/* Фотография в ступенчатой арке. */
+.shot{border-radius:0;clip-path:polygon(0 18%,12% 18%,12% 8%,88% 8%,88% 18%,100% 18%,100% 100%,0 100%)}
+.cd b{font-family:var(--display)}
+
+.card{width:min(100%,620px);margin:0 auto}
+.cd-card .cd{width:100%}
+.mapbox{border-radius:18px}
+.mapbox iframe{filter:grayscale(.8) sepia(.16) brightness(.56) contrast(1.12)}
+.shot{border-radius:20px}
+.shot img{filter:saturate(.62) contrast(1.12) brightness(.86)}
+.routes a{border-color:var(--line);color:var(--ink);border-radius:999px;background:linear-gradient(160deg,rgba(247,230,180,.1),rgba(201,165,90,.04))}
+.cal td.on{color:var(--gold-hi)}
+
+@media (prefers-reduced-motion:reduce){
+  .hero__scroll:after,.rays{animation:none}
+}
+</style>
+</head>
+<body>
+{{{envelope}}}
+{{{livingBg}}}
+{{{starfield}}}
+<div class="rays" aria-hidden="true"></div>
+<div class="progress" aria-hidden="true"></div>
+
+<main class="inv">
+
+  <section class="hero fx">
+    <div class="hero__deco" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div data-parallax="0.05">
+      {{{monogram}}}
+      <div class="hero__kicker fx" style="--d:.14s">{{L.sub}}</div>
+      <h1 class="hero__names fx fx--rise gilt" style="--d:.22s">{{groom}}<i>&amp;</i>{{bride}}</h1>
+      <div class="hero__date fx" style="--d:.34s"><b>{{day}} {{monthName}} {{year}}</b><s></s><b>{{time}}</b></div>
+    </div>
+    <div class="hero__scroll" aria-hidden="true"></div>
+  </section>
+
+  <section class="sec sec--solid">
+    <div class="wrap">
+      <div class="num">01 · {{L.sub}}</div>
+      {{#if guestName}}
+        <div class="h2 fx" style="--d:.1s">{{L.greet}}</div>
+        <div class="h2 fx gilt" style="--d:.16s">{{guestName}}</div>
+        <div class="gold-rule" style="--d:.3s"></div>
+        <p class="lead words" style="--d:.34s">{{L.greetTail}}</p>
+      {{else}}
+        <div class="h2 fx" style="--d:.1s">{{groom}}<span class="amp">{{L.and}}</span>{{bride}}</div>
+        <div class="gold-rule" style="--d:.3s"></div>
+        <p class="lead words" style="--d:.34s">{{L.invite}}</p>
+      {{/if}}
+    </div>
+  </section>
+
+  {{#if photos.0}}
+  <section class="sec">
+    <div class="wrap">
+      <figure class="shot" data-parallax="0.04">
+        <img src="{{photos.0}}" alt="{{groom}} &amp; {{bride}}" loading="lazy">
+        <figcaption class="shot__cap"><span>02 · {{L.gallery}}</span><b>{{groom}} {{L.and}} {{bride}}</b></figcaption>
+      </figure>
+      <div class="gold-rule" style="--d:.2s"></div>
+      <p class="lead words" style="--d:.24s">{{L.emo}}</p>
+    </div>
+  </section>
+  {{/if}}
+
+  <section class="sec sec--tint">
+    <div class="wrap">
+      <div class="num">03 · {{L.when}}</div>
+      <div class="deco-date fx" style="--d:.12s">
+        <div class="deco-date-in">
+          <span class="deco-day">{{day}}</span>
+          <span class="deco-month">{{monthName}} {{year}}</span>
+          <span class="deco-time">{{weekday}} · {{time}}</span>
+        </div>
+      </div>
+      <div class="deco-run fx" style="--d:.22s">
+        <div><b>{{time}}</b><span>{{L.sub}}</span></div>
+        <div><b>&nbsp;</b><span>{{address}}</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec sec--solid">
+    <div class="wrap">
+      <div class="num">04 · {{L.until}}</div>
+      <div class="cd-card glass card fx" style="--d:.14s">
+        <div class="cd" style="--d:.2s">
+          <div><b id="cd">0</b><span>{{L.days}}</span></div>
+          <div><b id="ch">00</b><span>{{L.hours}}</span></div>
+          <div><b id="cm">00</b><span>{{L.min}}</span></div>
+          <div><b id="cs">00</b><span>{{L.sec}}</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec sec--tint">
+    <div class="wrap">
+      <div class="num">05 · {{L.where}}</div>
+      <div class="venue-card glass card fx" style="--d:.14s">
+        <h2 class="venue__name">{{address}}</h2>
+        <div>{{{map}}}</div>
+        {{#if gmaps}}
+        <div class="routes">
+          <a href="{{gmaps}}" target="_blank" rel="noopener">{{L.gmaps}}</a>
+          <a href="{{ymaps}}" target="_blank" rel="noopener">{{L.ymaps}}</a>
+        </div>
+        {{/if}}
+      </div>
+    </div>
+  </section>
+
+  {{#if photos.1}}
+  <section class="sec sec--solid">
+    <div class="wrap">
+      <figure class="shot shot--wide" data-parallax="0.05">
+        <img src="{{photos.1}}" alt="{{groom}} &amp; {{bride}}" loading="lazy">
+      </figure>
+    </div>
+  </section>
+  {{/if}}
+
+  <section class="sec sec--tint final">
+    <div class="wrap">
+      <div class="final-card glass card fx">
+        {{{monogramFilled}}}
+        <p class="final__quote gilt">{{L.final}}</p>
+        <div class="gold-rule" style="--d:.26s"></div>
+        <div class="final__sign">{{L.sign}} {{groom}} {{L.and}} {{bride}}</div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="made">{{L.made}}</footer>
+</main>
+
+<script>
+// Календарь месяца свадьбы: неделя с понедельника, день события обведён.
+(function(){
+  var el=document.querySelector('[data-cal]');if(!el)return;
+  var iso=(el.getAttribute('data-cal')||'').split('-').map(Number);
+  if(iso.length!==3||!iso[0])return;
+  var y=iso[0],m=iso[1]-1,day=iso[2];
+  var head=(document.documentElement.lang==='ru')
+    ? ['пн','вт','ср','чт','пт','сб','вс'] : ['du','se','ch','pa','ju','sh','ya'];
+  var first=(new Date(y,m,1).getDay()+6)%7, total=new Date(y,m+1,0).getDate();
+  var html='<thead><tr>'+head.map(function(d){return '<th scope="col">'+d+'</th>'}).join('')+'</tr></thead><tbody><tr>',i=0;
+  for(var k=0;k<first;k++)html+='<td></td>';
+  for(var d=1;d<=total;d++){
+    if((first+d-1)%7===0&&d>1)html+='</tr><tr>';
+    html+='<td'+(d===day?' class="on"':'')+'><span style="--i:'+(i++)+'">'+d+'</span></td>';
+  }
+  html+='</tr></tbody>';
+  el.insertAdjacentHTML('beforeend',html);
+})();
+</script>
+
+{{{audioWidget}}}
+{{{experienceScript}}}
+{{{countdown}}}
+</body>
+</html>

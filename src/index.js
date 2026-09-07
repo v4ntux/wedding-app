@@ -18,6 +18,14 @@ if (BOT_TOKEN) {
 }
 
 const server = createServer({
+  // Оплату подтвердили в админ-панели — пара получает ссылку так же, как из бота.
+  onPaid: async (application, guests) => {
+    if (!bot) {
+      console.warn('[index] бот не запущен — пара не получила ссылку');
+      return;
+    }
+    await bot.notifyCouplePaid(application, guests);
+  },
   onNewApplication: async (application) => {
     if (!bot) {
       console.warn('[index] бот не запущен — заявка сохранена без уведомления админа');

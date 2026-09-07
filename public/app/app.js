@@ -27,6 +27,7 @@ const state = {
   previewHtml: '',
   seenInvite: false,
   sending: false,
+  submissionKey: null,   // ключ идемпотентности заявки, живёт вместе с черновиком
 };
 
 const DRAFT = 'nv_draft_v4';
@@ -43,6 +44,7 @@ const saveDraft = debounce(() => {
       music: state.music, guestsOn: state.guestsOn, guests: state.guests,
       contactTg: $('contact-tg').value, phone: $('phone').value, phone2: $('phone2').value,
       open: state.open, seenInvite: state.seenInvite,
+      submissionKey: state.submissionKey,
     }));
   } catch (_) { /* переполненное хранилище не критично */ }
 }, 400);
@@ -67,6 +69,7 @@ function restoreDraft() {
   state.lng = Number.isFinite(d.lng) ? d.lng : null;
   state.mapOn = d.v >= 5 ? Boolean(d.mapOn) : false;
   state.templateId = d.templateId || null;
+  state.submissionKey = typeof d.submissionKey === 'string' ? d.submissionKey : null;
   state.photos = (d.photos || []).map((name) => ({ name, url: '/uploads/' + name, uploading: false }));
   state.music = d.music || null;
   state.guestsOn = Boolean(d.guestsOn);
@@ -106,6 +109,7 @@ const I18N = {
     leadReady: 'Taklifnomangiz yig‘ildi. Uni to‘liq ko‘rib chiqing.',
     seeInvite: 'Qayta ko‘rish',
     readyHint: 'Namuna o‘zi ochiladi. Oxirigacha suring — u sokin yopilib, studiyaga qaytaradi.',
+    readyNext: 'Davom etish →',
     eGuests: 'Qo‘shimcha', tGuests: 'Ismli taklifnomalar',
     guestsSwTitle: 'Har bir mehmonga alohida havola',
     guestsSwOff: 'O‘chirilgan', guestsSwOn: 'Yoqilgan',
@@ -174,6 +178,7 @@ const I18N = {
     leadReady: 'Приглашение собрано. Посмотрите его целиком.',
     seeInvite: 'Посмотреть ещё раз',
     readyHint: 'Образец откроется сам. Долистайте до конца — он мягко закроется и вернёт вас в студию.',
+    readyNext: 'Продолжить →',
     eGuests: 'Дополнительно', tGuests: 'Именные приглашения',
     guestsSwTitle: 'Персональная ссылка каждому гостю',
     guestsSwOff: 'Выключено', guestsSwOn: 'Включено',
@@ -249,8 +254,6 @@ function applyI18n() {
   $('map-out').setAttribute('aria-label', t('zoomOutAria'));
   $('photo-input').setAttribute('aria-label', t('photoUploadAria'));
   $('sheet-frame').setAttribute('title', t('previewAria'));
-  $('tpl-prev').setAttribute('aria-label', t('tplPrevAria'));
-  $('tpl-next').setAttribute('aria-label', t('tplNextAria'));
   $('sw-uz').classList.toggle('on', LANG === 'uz');
   $('sw-ru').classList.toggle('on', LANG === 'ru');
   document.querySelector('.langsw')?.classList.toggle('at-ru', LANG === 'ru');
@@ -292,31 +295,55 @@ const stepIdx = (id) => STEPS.findIndex((s) => s.id === id);
 /* Fill → 2s wait → slow camera to the next block's top → whole card rises. */
 let revealRun = 0;
 let mainScrollRun = 0;
+/* Заполнил поле → полсекунды на «подумать» → камера едет к следующему блоку,
+   и блок поднимается одновременно с ней. Никаких пауз между этапами. */
 const FLOW = Object.freeze({
-  settle: 2000,
-  beforeScroll: 160,
-  scrollMin: 2200,
-  scrollMax: 3800,
-  pauseAfterScroll: 400,
-  reveal: 1000,
-  rise: 120,
+  settle: 500,
+  beforeScroll: 60,
+  scrollMin: 900,
+  scrollMax: 1600,
+  pauseAfterScroll: 0,
+  reveal: 520,
+  rise: 96,
   topGap: 12,
 });
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/* Ждём кадр отрисовки, но не дольше 120 мс: в свёрнутой вкладке кадров нет,
+   и без страховки поток студии остановился бы до возвращения пользователя. */
+const nextFrame = () => new Promise((resolve) => {
+  let done = false;
+  const finish = () => { if (done) return; done = true; resolve(); };
+  requestAnimationFrame(finish);
+  setTimeout(finish, 120);
+});
 
 function easeOut(k) {
   return 1 - (1 - k) * (1 - k) * (1 - k);
 }
 
+/* Свёрнутая вкладка останавливает requestAnimationFrame: без страховки поток
+   студии замер бы навсегда: блок так и остался бы невидимым. Поэтому у каждой
+   анимации есть таймер, который дорисовывает последний кадр и отпускает поток. */
 function playMotion(duration, draw) {
   return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(guard);
+      draw(1);
+      resolve();
+    };
     const t0 = performance.now();
     const tick = (now) => {
+      if (done) return;
       const k = Math.min(1, (now - t0) / duration);
       draw(k);
       if (k < 1) requestAnimationFrame(tick);
-      else resolve();
+      else finish();
     };
+    const guard = setTimeout(finish, duration + 600);
     requestAnimationFrame(tick);
   });
 }
@@ -355,16 +382,27 @@ function slotTop(el) {
     : y;
 }
 
+/* Девять ночей: фон меняет оттенок неба от блока к блоку, а золото остаётся
+   золотом — меняется лишь его температура (шампань → янтарь → мёд). */
 const SCENES = [
-  { rgb: '214,168,74', theme: '#160f04', bg: 'radial-gradient(92% 70% at 18% 9%,rgba(255,225,142,.48),transparent 48%),radial-gradient(70% 62% at 92% 28%,rgba(173,82,16,.28),transparent 62%),linear-gradient(145deg,#2b1905 0%,#100b04 52%,#050403 100%)' },
-  { rgb: '221,172,117', theme: '#150c08', bg: 'radial-gradient(82% 70% at 76% 5%,rgba(255,221,184,.42),transparent 51%),radial-gradient(64% 62% at 4% 68%,rgba(133,55,52,.3),transparent 70%),linear-gradient(158deg,#2a1510 0%,#100907 61%,#040303 100%)' },
-  { rgb: '174,169,101', theme: '#101007', bg: 'radial-gradient(90% 68% at 24% 2%,rgba(225,223,151,.38),transparent 53%),radial-gradient(66% 68% at 98% 66%,rgba(57,84,55,.28),transparent 70%),linear-gradient(150deg,#1c2113 0%,#0a0d08 61%,#030403 100%)' },
-  { rgb: '193,126,112', theme: '#140a0b', bg: 'radial-gradient(82% 70% at 12% 14%,rgba(239,182,164,.34),transparent 55%),radial-gradient(62% 60% at 92% 66%,rgba(104,31,55,.3),transparent 68%),linear-gradient(145deg,#271014 0%,#0d0709 63%,#030203 100%)' },
-  { rgb: '230,184,83', theme: '#160e02', bg: 'radial-gradient(70% 86% at 78% 7%,rgba(255,218,117,.46),transparent 49%),radial-gradient(72% 60% at 8% 78%,rgba(139,70,14,.24),transparent 70%),linear-gradient(152deg,#2b1703 0%,#0d0903 58%,#030302 100%)' },
-  { rgb: '193,183,146', theme: '#100e0a', bg: 'radial-gradient(88% 65% at 42% 0%,rgba(244,232,196,.37),transparent 53%),radial-gradient(58% 66% at 96% 64%,rgba(91,84,69,.28),transparent 72%),linear-gradient(168deg,#211d14 0%,#0a0907 61%,#030302 100%)' },
-  { rgb: '246,204,111', theme: '#120b02', bg: 'radial-gradient(78% 68% at 56% 6%,rgba(255,222,130,.52),transparent 47%),radial-gradient(70% 54% at 4% 82%,rgba(148,72,12,.23),transparent 69%),linear-gradient(156deg,#291604 0%,#0b0703 58%,#020202 100%)' },
-  { rgb: '202,151,104', theme: '#120b08', bg: 'radial-gradient(82% 70% at 15% 9%,rgba(239,202,167,.38),transparent 51%),radial-gradient(62% 64% at 90% 72%,rgba(100,50,67,.27),transparent 70%),linear-gradient(142deg,#241511 0%,#0a0707 64%,#020202 100%)' },
-  { rgb: '168,178,113', theme: '#0d1007', bg: 'radial-gradient(84% 68% at 82% 5%,rgba(221,229,158,.4),transparent 51%),radial-gradient(64% 70% at 5% 65%,rgba(45,78,57,.27),transparent 71%),linear-gradient(160deg,#182014 0%,#080b07 62%,#020302 100%)' },
+  // 01 Имена — полночь и тёплый свет
+  { rgb: '236,201,132', theme: '#05040a', bg: 'radial-gradient(120% 78% at 50% -12%,rgba(255,231,168,.3),transparent 58%),radial-gradient(80% 60% at 12% 82%,rgba(58,44,96,.34),transparent 72%),linear-gradient(178deg,#0a0812 0%,#070610 46%,#030205 100%)' },
+  // 02 Дата — сапфировая ночь
+  { rgb: '228,196,141', theme: '#04060f', bg: 'radial-gradient(115% 74% at 68% -10%,rgba(255,226,170,.26),transparent 56%),radial-gradient(86% 64% at 6% 74%,rgba(28,58,116,.4),transparent 72%),linear-gradient(172deg,#060b18 0%,#050813 50%,#020306 100%)' },
+  // 03 Место — изумрудная ночь
+  { rgb: '223,196,133', theme: '#040a09', bg: 'radial-gradient(118% 76% at 28% -12%,rgba(255,233,178,.25),transparent 56%),radial-gradient(84% 62% at 92% 74%,rgba(20,74,66,.38),transparent 72%),linear-gradient(176deg,#04110f 0%,#040c0b 50%,#020504 100%)' },
+  // 04 Музыка — аметистовая ночь
+  { rgb: '232,192,152', theme: '#08050f', bg: 'radial-gradient(116% 74% at 76% -8%,rgba(255,224,186,.26),transparent 55%),radial-gradient(82% 62% at 8% 78%,rgba(74,38,104,.38),transparent 71%),linear-gradient(174deg,#0d0818 0%,#080512 50%,#030206 100%)' },
+  // 05 Шаблон — шампанское золото (витрина)
+  { rgb: '247,216,152', theme: '#0a0703', bg: 'radial-gradient(120% 82% at 50% -14%,rgba(255,226,150,.4),transparent 56%),radial-gradient(78% 58% at 92% 78%,rgba(120,72,18,.34),transparent 70%),linear-gradient(170deg,#130d04 0%,#0a0703 52%,#030202 100%)' },
+  // 06 Фотографии — тёплый графит
+  { rgb: '226,197,150', theme: '#070605', bg: 'radial-gradient(114% 72% at 36% -10%,rgba(255,236,196,.24),transparent 56%),radial-gradient(80% 60% at 96% 72%,rgba(66,54,42,.4),transparent 72%),linear-gradient(175deg,#0e0c09 0%,#080706 52%,#030302 100%)' },
+  // 07 Готово — кульминация, золотой рассвет над ночью
+  { rgb: '252,222,157', theme: '#0b0702', bg: 'radial-gradient(124% 86% at 50% -16%,rgba(255,222,138,.5),transparent 54%),radial-gradient(76% 58% at 6% 80%,rgba(138,80,14,.32),transparent 70%),linear-gradient(168deg,#160e03 0%,#0b0702 54%,#020201 100%)' },
+  // 08 Гости — тёплая роза
+  { rgb: '238,197,157', theme: '#0a0407', bg: 'radial-gradient(116% 76% at 62% -10%,rgba(255,226,190,.28),transparent 56%),radial-gradient(80% 60% at 10% 76%,rgba(104,32,58,.36),transparent 71%),linear-gradient(174deg,#140710 0%,#0b040a 52%,#030203 100%)' },
+  // 09 Контакты — королевский синий, финальная нота
+  { rgb: '244,212,150', theme: '#03060e', bg: 'radial-gradient(120% 80% at 44% -12%,rgba(255,229,166,.3),transparent 56%),radial-gradient(84% 62% at 94% 76%,rgba(24,52,110,.42),transparent 72%),linear-gradient(172deg,#050a17 0%,#040711 52%,#020204 100%)' },
 ];
 let sceneIndex = -1;
 
@@ -390,6 +428,7 @@ function setScene(i = state.open, instant = false) {
     next.classList.remove('is-instant');
     root.classList.remove('scene-instant');
   });
+  window.Sky?.setTone(red, green, blue);
   sceneIndex = index;
   document.body.dataset.scene = String(index);
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', scene.theme);
@@ -420,39 +459,25 @@ function softScrollTo(top, duration = FLOW.scrollMax) {
   const delta = top - from;
   if (Math.abs(delta) < 8) return Promise.resolve(true);
   return new Promise((resolve) => {
+    let done = false;
+    const finish = (ok) => {
+      if (done) return;
+      done = true;
+      clearTimeout(guard);
+      if (ok) window.scrollTo(0, top);
+      resolve(ok);
+    };
     const startedAt = performance.now();
     const frame = (now) => {
-      if (run !== mainScrollRun) { resolve(false); return; }
+      if (done) return;
+      if (run !== mainScrollRun) { finish(false); return; }
       const k = Math.min(1, (now - startedAt) / duration);
       window.scrollTo(0, from + delta * easeInOut(k));
-      if (k < 1) requestAnimationFrame(frame); else resolve(true);
+      if (k < 1) requestAnimationFrame(frame); else finish(true);
     };
-    requestAnimationFrame(frame);
-  });
-}
-
-function softScrollRailTo(card, duration = 760) {
-  const rail = $('tpl-rail');
-  if (!rail || !card) return Promise.resolve();
-  const from = rail.scrollLeft;
-  const target = Math.max(0, Math.min(rail.scrollWidth - rail.clientWidth,
-    card.offsetLeft - (rail.clientWidth - card.offsetWidth) / 2));
-  const delta = target - from;
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    rail.scrollLeft = target;
-    return Promise.resolve();
-  }
-  if (Math.abs(delta) < 3) {
-    rail.scrollLeft = target;
-    return Promise.resolve();
-  }
-  return new Promise((resolve) => {
-    const startedAt = performance.now();
-    const frame = (now) => {
-      const k = Math.min(1, (now - startedAt) / duration);
-      rail.scrollLeft = from + delta * easeInOut(k);
-      if (k < 1) requestAnimationFrame(frame); else resolve();
-    };
+    // Та же страховка, что и в playMotion: свёрнутая вкладка не должна
+    // подвешивать переход к следующему блоку.
+    const guard = setTimeout(() => finish(run === mainScrollRun), duration + 600);
     requestAnimationFrame(frame);
   });
 }
@@ -531,16 +556,16 @@ function unlock(i) {
   (async () => {
     await wait(FLOW.beforeScroll);
     if (run !== revealRun) return;
-    await new Promise((resolve) => requestAnimationFrame(resolve));
+    await nextFrame();
     if (run !== revealRun) return;
     setScene(i);
-    await cameraTo(i);
-    if (run !== revealRun) return;
-    await wait(FLOW.pauseAfterScroll);
-    if (run !== revealRun) return;
     haptic.ok();
     pulseLiveBead();
+    // Камера и подъём блока идут одновременно: пара видит движение сразу,
+    // а не ждёт, пока страница доедет.
+    const camera = cameraTo(i);
     await riseBlock(blk(i));
+    await camera;
     if (run === revealRun && state.open === i) activateStep(i);
   })();
 }
@@ -1221,152 +1246,17 @@ const rankedTemplates = () => {
 const selectedTpl = () => templates().find((x) => x.id === state.templateId) || null;
 const requiredPhotos = () => Math.max(1, selectedTpl()?.minPhotos ?? 1);
 const filledPhotos = () => state.photos.filter((p) => p.name).length;
-let templateMotionObserver = null;
-let templateFocusIndex = 0;
-
-function paintTemplateTakeButton(button, chosen) {
-  if (!button) return;
-  button.classList.toggle('is-selected', chosen);
-  button.setAttribute('aria-pressed', String(chosen));
-  button.replaceChildren(
-    svgIcon(chosen ? 'check' : 'add'),
-    h('span', {}, chosen ? t('taken') : t('take')),
-  );
+/* Кнопка открытия конверта в чужом документе: у новых тем это
+   [data-envelope-trigger], у старых оплаченных ссылок — #env. */
+function openEnvelopeIn(doc) {
+  if (!doc) return;
+  const trigger = doc.querySelector('[data-envelope-trigger]') || doc.getElementById('env');
+  trigger?.click();
 }
 
-function updateTemplateNavigation(index = templateFocusIndex) {
-  const rail = $('tpl-rail');
-  const cards = rail ? [...rail.children] : [];
-  const total = cards.length;
-  templateFocusIndex = total ? Math.max(0, Math.min(total - 1, index)) : 0;
-  $('tpl-current').textContent = String(total ? templateFocusIndex + 1 : 0).padStart(2, '0');
-  $('tpl-total').textContent = String(total).padStart(2, '0');
-  $('tpl-prev').disabled = !total || templateFocusIndex === 0;
-  $('tpl-next').disabled = !total || templateFocusIndex === total - 1;
-  cards.forEach((card, cardIndex) => card.classList.toggle('is-focus', cardIndex === templateFocusIndex));
-  [...$('tpl-dots').children].forEach((dot, dotIndex) => {
-    dot.classList.toggle('on', dotIndex === templateFocusIndex);
-    dot.classList.toggle('is-selected', cards[dotIndex]?.classList.contains('chosen'));
-    if (dotIndex === templateFocusIndex) dot.setAttribute('aria-current', 'true');
-    else dot.removeAttribute('aria-current');
-  });
-}
-
-function focusTemplate(index, feedback = false) {
-  const cards = [...$('tpl-rail').children];
-  if (!cards.length) return;
-  const targetIndex = Math.max(0, Math.min(cards.length - 1, index));
-  if (feedback) haptic.tap();
-  updateTemplateNavigation(targetIndex);
-  softScrollRailTo(cards[targetIndex]);
-}
-
-function observeTemplateMotion(card) {
-  const live = card.querySelector('.tpl-live');
-  if (!live) return;
-  if (!('IntersectionObserver' in window)) {
-    live.dataset.seenAt = String(Date.now());
-    live.src = live.dataset.src;
-    return;
-  }
-  templateMotionObserver.observe(card);
-}
-
-function renderTemplates() {
-  const rail = $('tpl-rail');
-  if (!rail) return;
-  templateMotionObserver?.disconnect();
-  templateMotionObserver = 'IntersectionObserver' in window
-    ? new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (!entry.isIntersecting) return;
-        const frame = entry.target.querySelector('.tpl-live');
-        if (frame && !frame.getAttribute('src')) {
-          frame.dataset.seenAt = String(Date.now());
-          frame.src = frame.dataset.src;
-        }
-        templateMotionObserver?.unobserve(entry.target);
-      });
-    }, { threshold: .08, rootMargin: '0px 0px -2% 0px' })
-    : null;
-  rail.innerHTML = '';
-  const pops = state.config?.populars || {};
-  const ordered = rankedTemplates();
-  const bestPopularity = Math.max(0, ...ordered.map((tpl) => Number(pops[tpl.id]) || 0));
-  for (const tpl of ordered) {
-    const colors = tpl.colors?.length ? tpl.colors : ['#191713', '#C8AA6A', '#65776E'];
-    const bands = h('div', { class: 'tpl-bands' });
-    bands.style.background =
-      `linear-gradient(160deg, ${colors[0]} 0%, ${colors[1] || colors[0]} 52%, ${colors[2] || colors[1] || colors[0]} 100%)`;
-
-    const demoQuery = new URLSearchParams({
-      groom: $('groom').value.trim(), bride: $('bride').value.trim(), lang: LANG, card: '1',
-      address: $('address').value.trim(), map: state.mapOn ? '1' : '0',
-      lat: Number.isFinite(state.lat) ? String(state.lat) : '',
-      lng: Number.isFinite(state.lng) ? String(state.lng) : '',
-    });
-    const live = h('iframe', {
-      class: 'tpl-live', dataset: { src: `/demo/${tpl.id}?${demoQuery}` }, title: `${tpl.name} ${t('live')}`,
-      loading: 'lazy', tabindex: '-1', 'aria-hidden': 'true',
-    });
-    const palette = h('span', { class: 'tpl-palette', 'aria-hidden': 'true' },
-      colors.slice(0, 4).map((color) => {
-        const dot = h('i');
-        dot.style.background = color;
-        return dot;
-      }));
-    const isPopular = bestPopularity > 0 && (Number(pops[tpl.id]) || 0) === bestPopularity;
-    const takeButton = h('button', {
-      type: 'button',
-      class: `tpl-take${tpl.id === state.templateId ? ' is-selected' : ''}`,
-      'aria-pressed': String(tpl.id === state.templateId),
-    }, svgIcon(tpl.id === state.templateId ? 'check' : 'add'),
-    h('span', {}, tpl.id === state.templateId ? t('taken') : t('take')));
-    const card = h('article', {
-      class: `tpl${tpl.id === state.templateId ? ' chosen' : ''}`,
-      dataset: { id: tpl.id },
-      'aria-label': tpl.name,
-    },
-      h('div', { class: 'tpl-art' },
-        bands,
-        live,
-        h('div', { class: 'tpl-veil' }),
-        h('span', { class: 'tpl-live-badge' }, t('live')),
-        isPopular ? h('span', { class: 'tpl-popular' }, t('popular')) : null,
-        h('span', { class: 'tpl-selected-mark' }, svgIcon('check')),
-        h('button', { type: 'button', class: 'tpl-art-open', 'aria-label': `${t('demo')}: ${tpl.name}` },
-          h('span', { class: 'tpl-art-open-cue' }, svgIcon('eye'), h('span', {}, t('demo'))))),
-      h('div', { class: 'tpl-info' },
-        h('div', { class: 'tpl-meta' },
-          h('h3', {}, tpl.name),
-          h('p', { class: 'tpl-price' }, money(tpl.price))),
-        h('div', { class: 'tpl-facts' },
-          h('span', { class: 'tpl-need' }, svgIcon('image'), t('tplPhotos', tpl.minPhotos)),
-          palette,
-          pops[tpl.id] ? h('span', { class: 'tpl-views' }, `×${pops[tpl.id]}`) : null)),
-      h('div', { class: 'tpl-acts' }, takeButton));
-
-    card.querySelector('.tpl-art-open').addEventListener('click', () => openDemo(tpl));
-    card.querySelector('.tpl-take').addEventListener('click', () => takeTpl(tpl));
-    rail.appendChild(card);
-    observeTemplateMotion(card);
-  }
-  const selectedIndex = ordered.findIndex((tpl) => tpl.id === state.templateId);
-  templateFocusIndex = selectedIndex >= 0 ? selectedIndex : Math.min(templateFocusIndex, Math.max(0, ordered.length - 1));
-  renderDots();
-}
-
-function renderDots() {
-  const box = $('tpl-dots');
-  box.innerHTML = '';
-  rankedTemplates().forEach((tpl, index) => {
-    const dot = h('button', { type: 'button', 'aria-label': tpl.name });
-    dot.addEventListener('click', () => focusTemplate(index, true));
-    box.appendChild(dot);
-  });
-  updateTemplateNavigation(templateFocusIndex);
-}
-
+/* Пример дизайна открывается отдельной страницей /demo/<id> — ровно тем же
+   адресом, что получит гость. Внутри Telegram ссылку открывает клиент,
+   в обычном браузере (platform === 'unknown') нужна вкладка. */
 function openDemo(tpl) {
   haptic.tap();
   const q = new URLSearchParams({
@@ -1375,26 +1265,75 @@ function openDemo(tpl) {
     lat: Number.isFinite(state.lat) ? String(state.lat) : '',
     lng: Number.isFinite(state.lng) ? String(state.lng) : '',
   });
-  $('sheet-title').textContent = tpl.name;
-  sheet.open({ src: `/demo/${tpl.id}?${q}` });
-  const frame = $('sheet-frame');
-  frame.onload = () => {
-    const w = frame.contentWindow;
-    const d = frame.contentDocument;
-    if (!w || !d) return;
-    setTimeout(() => d.getElementById('env')?.click(), 360);
-    let closing = false;
-    const onScroll = async () => {
-      const el = d.scrollingElement || d.documentElement;
-      if (closing || el.scrollTop + w.innerHeight < el.scrollHeight - 54) return;
-      closing = true;
-      w.removeEventListener('scroll', onScroll);
-      $('sheet').classList.add('finishing');
-      await wait(620);
-      await sheet.close({ gentle: true });
-    };
-    w.addEventListener('scroll', onScroll, { passive: true });
-  };
+  const url = `${location.origin}/demo/${tpl.id}?${q}`;
+  const inTelegram = Boolean(tg?.platform && tg.platform !== 'unknown');
+  if (inTelegram && typeof tg.openLink === 'function') {
+    try { tg.openLink(url); return; } catch (_) { /* падаем во вкладку */ }
+  }
+  window.open(url, '_blank', 'noopener');
+}
+
+/* Витрина дизайнов — сетка обложек. Каждая карточка выглядит как сама тема:
+   её бумага, чернила и золото. Живых превью в сетке нет: восемь работающих
+   приглашений не тянет ни один телефон, а пример открывается отдельной
+   страницей по кнопке. */
+function templateCover(tpl) {
+  const cover = tpl.cover || {};
+  const groom = $('groom').value.trim() || (LANG === 'ru' ? 'Жених' : 'Kuyov');
+  const bride = $('bride').value.trim() || (LANG === 'ru' ? 'Невеста' : 'Kelin');
+  const initials = `${[...groom][0] ?? ''} · ${[...bride][0] ?? ''}`;
+  const date = state.dateIso
+    ? (() => { const [y, m, d] = state.dateIso.split('-'); return `${d}.${m}.${y}`; })()
+    : '00.00.0000';
+
+  const art = h('span', { class: 'tplc-cover' },
+    h('span', { class: 'tplc-mono' }, initials),
+    h('span', { class: 'tplc-names' }, groom, h('i', {}, '&'), bride),
+    h('span', { class: 'tplc-date' }, date),
+    h('span', { class: 'tplc-seal' }));
+  art.style.setProperty('--c-paper', cover.paper || '#0d0c09');
+  art.style.setProperty('--c-ink', cover.ink || '#f7f1e7');
+  art.style.setProperty('--c-accent', cover.accent || '#c8aa6a');
+  art.style.setProperty('--c-env', cover.envelope || '#5b4630');
+  return art;
+}
+
+function renderTemplates() {
+  const grid = $('tpl-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  const pops = state.config?.populars || {};
+  const ordered = rankedTemplates();
+  const bestPopularity = Math.max(0, ...ordered.map((tpl) => Number(pops[tpl.id]) || 0));
+
+  ordered.forEach((tpl, index) => {
+    const chosen = tpl.id === state.templateId;
+    const isPopular = bestPopularity > 0 && Number(pops[tpl.id] || 0) === bestPopularity;
+
+    const pick = h('button', {
+      type: 'button',
+      class: 'tplc-pick',
+      'aria-label': `${t('take')}: ${tpl.name}`,
+      'aria-pressed': chosen ? 'true' : 'false',
+    },
+      templateCover(tpl),
+      isPopular ? h('span', { class: 'tplc-flag' }, t('popular')) : null,
+      h('span', { class: 'tplc-check' }, svgIcon('check')),
+      h('span', { class: 'tplc-info' },
+        h('b', {}, tpl.name),
+        h('i', {}, money(tpl.price)),
+        h('em', {}, t('tplPhotos', tpl.minPhotos))));
+
+    const demo = h('button', { type: 'button', class: 'tplc-demo' },
+      svgIcon('eye'), h('span', {}, t('demo')));
+
+    pick.addEventListener('click', () => takeTpl(tpl));
+    demo.addEventListener('click', (event) => { event.stopPropagation(); openDemo(tpl); });
+
+    const card = h('div', { class: `tplc${chosen ? ' chosen' : ''}`, dataset: { id: tpl.id } }, pick, demo);
+    card.style.setProperty('--i', String(index));
+    grid.appendChild(card);
+  });
 }
 
 function takeTpl(tpl) {
@@ -1406,16 +1345,12 @@ function takeTpl(tpl) {
   state.previewHtml = '';
   state.seenInvite = false;
   saveDraft();
-  document.querySelectorAll('.tpl').forEach((card) => {
-    const chosen = card.dataset.id === tpl.id;
-    card.classList.toggle('chosen', chosen);
-    const button = card.querySelector('.tpl-take');
-    paintTemplateTakeButton(button, chosen);
+  document.querySelectorAll('.tplc').forEach((card) => {
+    const isChosen = card.dataset.id === tpl.id;
+    card.classList.toggle('chosen', isChosen);
+    card.querySelector('.tplc-pick')?.setAttribute('aria-pressed', isChosen ? 'true' : 'false');
   });
-  templateFocusIndex = Math.max(0, rankedTemplates().findIndex((item) => item.id === tpl.id));
-  renderDots();
   renderPhotos();
-  focusTemplate(templateFocusIndex);
   autoAdvance(720);
 }
 
@@ -1500,6 +1435,7 @@ function renderReady() {
   }
   if (tpl) parts.push(tpl.name);
   $('ready-meta').textContent = parts.join('  ·  ');
+  $('ready-next').hidden = !state.seenInvite || state.open > stepIdx('ready');
 }
 
 async function loadPreview() {
@@ -1546,7 +1482,7 @@ async function openInvite({ auto = false } = {}) {
     const w = frame.contentWindow;
     const d = frame.contentDocument;
     if (!w || !d) return;
-    setTimeout(() => d.getElementById('env')?.click(), auto ? 250 : 325);
+    setTimeout(() => openEnvelopeIn(d), auto ? 250 : 325);
     const onScroll = () => {
       const el = d.scrollingElement || d.documentElement;
       if (el.scrollTop + w.innerHeight >= el.scrollHeight - 60) {
@@ -1568,7 +1504,8 @@ async function finishInvite() {
   await new Promise((resolve) => setTimeout(resolve, 700));
   await sheet.close({ gentle: true });
   closingInvite = false;
-  if (firstCompletion && state.open === stepIdx('ready')) unlock(stepIdx('guests'));
+  if (state.open === stepIdx('ready')) unlock(stepIdx('guests'));
+  else if (firstCompletion) renderReady();
 }
 
 /* ════ 08 · Гости ════ */
@@ -1981,8 +1918,27 @@ function contactsFilled() {
     .filter(Boolean).length;
 }
 
+/* Идемпотентность отправки: один черновик — один ключ. Повторный тап по
+   «Оплатить» (или отправка после разрыва связи) не создаст вторую заявку. */
+function submissionKey() {
+  if (state.submissionKey) return state.submissionKey;
+  let key = '';
+  try {
+    key = crypto.randomUUID();
+  } catch (_) {
+    key = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = Math.random() * 16 | 0;
+      return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+  }
+  state.submissionKey = key;
+  saveDraft();
+  return key;
+}
+
 function collectForm() {
   return {
+    submissionKey: submissionKey(),
     lang: LANG,
     groomName: $('groom').value.trim(),
     brideName: $('bride').value.trim(),
@@ -2025,8 +1981,10 @@ async function submit() {
       return;
     }
     clearDraft();
+    state.submissionKey = null;   // следующая заявка получит собственный ключ
     haptic.ok();
     sparks();
+    window.Sky?.flare(5);
     $('done').hidden = false;
     try { tg?.BackButton?.hide(); } catch (_) { /* — */ }
   } catch (_) {
@@ -2161,22 +2119,6 @@ function wire() {
     if (state.open === stepIdx('music')) autoAdvance(720);
   });
 
-  $('tpl-rail').addEventListener('scroll', debounce(() => {
-    const rail = $('tpl-rail');
-    const mid = rail.scrollLeft + rail.clientWidth / 2;
-    const cards = [...rail.children];
-    if (!cards.length) return;
-    let near = 0;
-    cards.forEach((c, i) => {
-      const d = Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid);
-      const best = Math.abs(cards[near].offsetLeft + cards[near].offsetWidth / 2 - mid);
-      if (d < best) near = i;
-    });
-    updateTemplateNavigation(near);
-  }, 90));
-  $('tpl-prev').addEventListener('click', () => focusTemplate(templateFocusIndex - 1, true));
-  $('tpl-next').addEventListener('click', () => focusTemplate(templateFocusIndex + 1, true));
-
   $('photo-input').addEventListener('change', (e) => {
     uploadPhotos([...e.target.files]);
     e.target.value = '';
@@ -2199,6 +2141,7 @@ function wire() {
   $('submit').addEventListener('click', submit);
 
   $('sheet-close').addEventListener('click', () => sheet.close());
+  $('ready-next').addEventListener('click', () => { haptic.tap(); unlock(stepIdx('guests')); });
   $('done-mine').addEventListener('click', () => { $('done').hidden = true; $('mine').hidden = false; loadMine(); });
   $('done-new').addEventListener('click', () => location.reload());
 
@@ -2239,9 +2182,18 @@ async function start() {
   if (started) return;
   started = true;
   await loadConfig();
-  restoreDraft();
+  const restored = restoreDraft();
   const testingTemplates = location.hostname === 'localhost' && new URLSearchParams(location.search).has('__template_test');
-  state.open = testingTemplates ? stepIdx('template') : 0;
+  // Возврат к черновику: продолжаем с того места, где пара остановилась, но не
+  // дальше первого незаполненного шага — иначе можно попасть на «оплату»
+  // с пустой датой, если черновик пришёл из старой версии.
+  let resume = 0;
+  if (restored) {
+    let reachable = 0;
+    while (reachable < STEPS.length - 1 && STEPS[reachable].check()) reachable += 1;
+    resume = Math.max(0, Math.min(state.open, reachable));
+  }
+  state.open = testingTemplates ? stepIdx('template') : resume;
   if (state.templateId && state.photos.length > requiredPhotos()) state.photos = state.photos.slice(0, requiredPhotos());
   setScene(state.open, true);
   applyI18n();
@@ -2253,17 +2205,22 @@ async function start() {
     $('music-pick').hidden = true;
     $('music-picked').hidden = false;
   }
-  renderBlocks(testingTemplates ? -1 : 0);
+  const resuming = !testingTemplates && state.open > 0;
+  renderBlocks(testingTemplates || resuming ? -1 : 0);
   renderMapChoice();
   setupServiceMotions();
   updateBill();
-  if (testingTemplates) {
+  if (testingTemplates || resuming) {
+    // Всё пройденное уже на экране: не проигрываем вход заново, просто
+    // подводим камеру к активному блоку.
+    prepareStep(state.open);
     await cameraTo(state.open);
     document.body.classList.remove('studio-entering');
+    activateStep(state.open);
     return;
   }
-  await new Promise((resolve) => requestAnimationFrame(resolve));
-  await new Promise((resolve) => requestAnimationFrame(resolve));
+  await nextFrame();
+  await nextFrame();
   pulseLiveBead();
   await riseBlock(blk(0));
   document.body.classList.remove('studio-entering');

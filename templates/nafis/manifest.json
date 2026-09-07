@@ -1,0 +1,13 @@
+{
+  "name": "Nafis",
+  "event": "wedding",
+  "price": 189000,
+  "minPhotos": 2,
+  "colors": [
+    "#3A1622",
+    "#8C2F43",
+    "#E7D3B8"
+  ],
+  "order": 1,
+  "listed": true
+}

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2a1409">
+<title>{{groom}} &amp; {{bride}} — {{L.sub}}</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+{{{experienceCSS}}}
+{{{coreCSS}}}
+<style>
+/* Shirin — закат: солнце садится за горизонт, воздух густой и тёплый.
+   Терракота, персик и длинные мягкие тени. */
+:root{
+  --paper:#2a1409; --paper-2:#3a1d0c; --paper-3:#4d2811;
+  --ink:#fdf1e2; --muted:#d3ab8c;
+  --accent:#efa07a; --accent-2:#c2603a;
+  --line:rgba(239,160,122,.28); --line-soft:rgba(239,160,122,.12);
+
+  --gold:#f0b077; --gold-hi:#ffe0bd; --gold-lo:#8c4423; --gold-rgb:240,176,119;
+  --star:#ffe6cc;
+  --stars-opacity:.5;
+  --glass-edge:rgba(255,232,210,.24);
+  --glass-face:linear-gradient(158deg,rgba(255,238,220,.12),rgba(240,176,119,.06) 46%,rgba(30,12,5,.3));
+
+  --bg-veil:linear-gradient(180deg,rgba(42,20,9,.9),rgba(42,20,9,.82) 46%,rgba(42,20,9,.94));
+  --mote:rgba(255,224,189,.92);
+  --display:'Fraunces',Georgia,serif;
+  --script:'Fraunces',Georgia,serif;
+  --sans:'DM Sans',ui-sans-serif,system-ui,sans-serif;
+  --ev-sans:var(--sans); --ev-display:var(--display);
+}
+
+html{background:var(--paper)}
+body{background:
+  radial-gradient(120% 50% at 50% 104%,rgba(255,168,94,.6),transparent 62%),
+  radial-gradient(100% 44% at 50% 96%,rgba(226,106,52,.5),transparent 58%),
+  radial-gradient(80% 46% at 16% 8%,rgba(96,40,72,.5),transparent 68%),
+  linear-gradient(178deg,#22132a 0%,#3a1a0f 46%,#2a1409 78%,#160902 100%)}
+.inv{position:relative;z-index:1}
+.sec--solid{background:linear-gradient(180deg,rgba(42,20,9,.5),rgba(42,20,9,.68))}
+.sec--tint{background:linear-gradient(180deg,rgba(58,29,12,.5),rgba(30,13,6,.68))}
+.made{background:rgba(22,9,3,.88);border-top:1px solid var(--line-soft)}
+
+/* -- Титул ------------------------------------------------------------- */
+.hero{position:relative;display:grid;min-height:100svh;place-content:center;padding:clamp(90px,16vh,130px) 22px clamp(70px,12vh,100px);text-align:center;background:transparent}
+.hero__kicker{color:var(--accent-2);font:500 .6rem/1 var(--sans);letter-spacing:.42em;text-transform:uppercase}
+.hero__names{margin:.22em 0 .16em;font:300 clamp(3.2rem,16vw,6.2rem)/.96 var(--display);letter-spacing:-.02em;color:transparent}
+.hero__names i{display:block;margin:.04em 0;font:400 .46em/1 var(--script);font-style:italic}
+.hero__date{display:flex;align-items:center;justify-content:center;gap:clamp(12px,4vw,20px);margin-top:.6em;
+  color:var(--muted);font:500 .66rem/1 var(--sans);letter-spacing:.26em;text-transform:uppercase}
+.hero__date s{width:5px;height:5px;border-radius:50%;background:var(--accent);text-decoration:none;opacity:.8}
+.hero__scroll{position:absolute;bottom:clamp(22px,5vh,38px);left:50%;transform:translateX(-50%);
+  width:1px;height:46px;overflow:hidden;background:var(--line)}
+.hero__scroll:after{content:'';position:absolute;inset:0;background:var(--accent);animation:drip 3.6s var(--e-signature) infinite}
+@keyframes drip{0%{transform:translateY(-100%)}55%,100%{transform:translateY(100%)}}
+
+/* Солнце у горизонта: медленно опускается и разгорается. */
+.sun{position:fixed;left:50%;bottom:-12vh;z-index:0;width:min(104vw,540px);aspect-ratio:1;
+  transform:translateX(-50%);pointer-events:none;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,226,170,1),rgba(255,150,72,.72) 40%,rgba(214,86,38,.28) 62%,transparent 74%);
+  filter:blur(4px);animation:sunSet 38s ease-in-out infinite alternate}
+@keyframes sunSet{from{transform:translateX(-50%) translateY(4vh) scale(.96);opacity:.8}
+  to{transform:translateX(-50%) translateY(-2vh) scale(1.04);opacity:1}}
+
+/* Марево: горячий воздух над горизонтом, чуть колышется. */
+.haze{position:fixed;inset:auto 0 0 0;height:52vh;z-index:0;pointer-events:none;
+  background:linear-gradient(0deg,rgba(255,168,94,.34),rgba(255,140,70,.12) 38%,transparent 76%);
+  animation:hazeWave 16s ease-in-out infinite alternate}
+@keyframes hazeWave{from{transform:translateY(2%) scaleY(1)}to{transform:translateY(-2%) scaleY(1.05)}}
+
+/* Титул стоит на линии горизонта — она прочерчивается при появлении. */
+.hero__horizon{position:absolute;left:50%;bottom:22%;width:min(84vw,420px);height:1px;
+  transform:translateX(-50%) scaleX(0);transform-origin:center;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent);
+  box-shadow:0 0 24px rgba(240,176,119,.6);
+  transition:transform var(--t-epic) var(--e-signature) .5s}
+.hero.in .hero__horizon{transform:translateX(-50%) scaleX(1)}
+
+/* ── Панорама ────────────────────────────────────────────────────────────
+   Секции — широкие полосы во всю ширину экрана, фотографии без полей,
+   дата лежит на линии горизонта. */
+.sec{padding-inline:0}
+.wrap{width:min(100%,640px);padding-inline:clamp(20px,6vw,34px)}
+.shot{width:100vw;max-width:none;margin-left:50%;transform:translateX(-50%);border-radius:0;aspect-ratio:3/2}
+.shot--wide{aspect-ratio:16/10}
+
+/* Дата на горизонте: число слева, время справа, между ними — линия. */
+.shirin-date{display:grid;gap:14px;width:100%;padding:clamp(26px,7vw,40px) 0}
+.shirin-line{display:flex;align-items:center;gap:14px}
+.shirin-line:before,.shirin-line:after{content:'';flex:1;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(var(--gold-rgb),.6),transparent)}
+.shirin-day{color:var(--gold-hi);font:300 clamp(3.6rem,16vw,5.6rem)/1 var(--display);letter-spacing:-.03em}
+.shirin-sub{display:flex;justify-content:space-between;gap:16px;color:var(--muted);
+  font:400 .72rem/1 var(--sans);letter-spacing:.24em;text-transform:uppercase}
+.cal{margin-top:8px}
+
+.card{width:min(100%,620px);margin:0 auto}
+.cd-card .cd{width:100%}
+.mapbox{border-radius:18px}
+.mapbox iframe{filter:grayscale(.3) sepia(.4) brightness(.7) contrast(1.02)}
+.shot{border-radius:20px}
+.shot img{filter:saturate(1.02) contrast(1.02) brightness(.94) sepia(.08)}
+.routes a{border-color:var(--line);color:var(--ink);border-radius:999px;background:linear-gradient(160deg,rgba(255,238,220,.1),rgba(240,176,119,.05))}
+.cal td.on{color:var(--gold-hi)}
+
+@media (prefers-reduced-motion:reduce){
+  .hero__scroll:after,.sun,.haze{animation:none}
+}
+</style>
+</head>
+<body>
+{{{envelope}}}
+{{{livingBg}}}
+{{{starfield}}}
+<div class="sun" aria-hidden="true"></div>
+<div class="haze" aria-hidden="true"></div>
+<div class="progress" aria-hidden="true"></div>
+
+<main class="inv">
+
+  <section class="hero fx">
+    <div class="hero__horizon" aria-hidden="true"></div>
+    <div data-parallax="0.05">
+      {{{monogram}}}
+      <div class="hero__kicker fx" style="--d:.14s">{{L.sub}}</div>
+      <h1 class="hero__names fx fx--rise gilt" style="--d:.22s">{{groom}}<i>&amp;</i>{{bride}}</h1>
+      <div class="hero__date fx" style="--d:.34s"><b>{{day}} {{monthName}} {{year}}</b><s></s><b>{{time}}</b></div>
+    </div>
+    <div class="hero__scroll" aria-hidden="true"></div>
+  </section>
+
+  <section class="sec sec--solid">
+    <div class="wrap">
+      <div class="num">01 · {{L.sub}}</div>
+      {{#if guestName}}
+        <div class="h2 fx" style="--d:.1s">{{L.greet}}</div>
+        <div class="h2 fx gilt" style="--d:.16s">{{guestName}}</div>
+        <div class="gold-rule" style="--d:.3s"></div>
+        <p class="lead words" style="--d:.34s">{{L.greetTail}}</p>
+      {{else}}
+        <div class="h2 fx" style="--d:.1s">{{groom}}<span class="amp">{{L.and}}</span>{{bride}}</div>
+        <div class="gold-rule" style="--d:.3s"></div>
+        <p class="lead words" style="--d:.34s">{{L.invite}}</p>
+      {{/if}}
+    </div>
+  </section>
+
+  {{#if photos.0}}
+  <section class="sec">
+    <div class="wrap">
+      <figure class="shot" data-parallax="0.04">
+        <img src="{{photos.0}}" alt="{{groom}} &amp; {{bride}}" loading="lazy">
+        <figcaption class="shot__cap"><span>02 · {{L.gallery}}</span><b>{{groom}} {{L.and}} {{bride}}</b></figcaption>
+      </figure>
+      <div class="gold-rule" style="--d:.2s"></div>
+      <p class="lead words" style="--d:.24s">{{L.emo}}</p>
+    </div>
+  </section>
+  {{/if}}
+
+  <section class="sec sec--tint">
+    <div class="wrap">
+      <div class="num">03 · {{L.when}}</div>
+      <div class="shirin-date fx" style="--d:.12s">
+        <div class="shirin-line"><span class="shirin-day gilt">{{day}}</span></div>
+        <div class="shirin-sub"><span>{{monthName}} {{year}}</span><span>{{weekday}} · {{time}}</span></div>
+        <table class="cal" data-cal="{{dateIso}}"><caption>{{monthName}} {{year}}</caption></table>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec sec--solid">
+    <div class="wrap">
+      <div class="num">04 · {{L.until}}</div>
+      <div class="cd-card glass card fx" style="--d:.14s">
+        <div class="cd" style="--d:.2s">
+          <div><b id="cd">0</b><span>{{L.days}}</span></div>
+          <div><b id="ch">00</b><span>{{L.hours}}</span></div>
+          <div><b id="cm">00</b><span>{{L.min}}</span></div>
+          <div><b id="cs">00</b><span>{{L.sec}}</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec sec--tint">
+    <div class="wrap">
+      <div class="num">05 · {{L.where}}</div>
+      <div class="venue-card glass card fx" style="--d:.14s">
+        <h2 class="venue__name">{{address}}</h2>
+        <div>{{{map}}}</div>
+        {{#if gmaps}}
+        <div class="routes">
+          <a href="{{gmaps}}" target="_blank" rel="noopener">{{L.gmaps}}</a>
+          <a href="{{ymaps}}" target="_blank" rel="noopener">{{L.ymaps}}</a>
+        </div>
+        {{/if}}
+      </div>
+    </div>
+  </section>
+
+  {{#if photos.1}}
+  <section class="sec sec--solid">
+    <div class="wrap">
+      <figure class="shot shot--wide" data-parallax="0.05">
+        <img src="{{photos.1}}" alt="{{groom}} &amp; {{bride}}" loading="lazy">
+      </figure>
+    </div>
+  </section>
+  {{/if}}
+
+  <section class="sec sec--tint final">
+    <div class="wrap">
+      <div class="final-card glass card fx">
+        {{{monogramFilled}}}
+        <p class="final__quote gilt">{{L.final}}</p>
+        <div class="gold-rule" style="--d:.26s"></div>
+        <div class="final__sign">{{L.sign}} {{groom}} {{L.and}} {{bride}}</div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="made">{{L.made}}</footer>
+</main>
+
+<script>
+// Календарь месяца свадьбы: неделя с понедельника, день события обведён.
+(function(){
+  var el=document.querySelector('[data-cal]');if(!el)return;
+  var iso=(el.getAttribute('data-cal')||'').split('-').map(Number);
+  if(iso.length!==3||!iso[0])return;
+  var y=iso[0],m=iso[1]-1,day=iso[2];
+  var head=(document.documentElement.lang==='ru')
+    ? ['пн','вт','ср','чт','пт','сб','вс'] : ['du','se','ch','pa','ju','sh','ya'];
+  var first=(new Date(y,m,1).getDay()+6)%7, total=new Date(y,m+1,0).getDate();
+  var html='<thead><tr>'+head.map(function(d){return '<th scope="col">'+d+'</th>'}).join('')+'</tr></thead><tbody><tr>',i=0;
+  for(var k=0;k<first;k++)html+='<td></td>';
+  for(var d=1;d<=total;d++){
+    if((first+d-1)%7===0&&d>1)html+='</tr><tr>';
+    html+='<td'+(d===day?' class="on"':'')+'><span style="--i:'+(i++)+'">'+d+'</span></td>';
+  }
+  html+='</tr></tbody>';
+  el.insertAdjacentHTML('beforeend',html);
+})();
+</script>
+
+{{{audioWidget}}}
+{{{experienceScript}}}
+{{{countdown}}}
+</body>
+</html>

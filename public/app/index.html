@@ -16,6 +16,7 @@
 <div id="stage" aria-hidden="true">
   <div id="scene-a" class="scene-wash is-on"></div>
   <div id="scene-b" class="scene-wash"></div>
+  <canvas id="sky"></canvas>
   <div id="bloom"></div>
   <div id="ikat"></div>
   <div id="grain"></div>
@@ -204,28 +205,13 @@
     </section>
 
     <!-- 5 · Шаблон -->
-    <section class="blk blk--bleed" data-step="template" hidden>
+    <section class="blk" data-step="template" hidden>
       <span class="knot"></span>
       <p class="eyebrow"><b>05</b><span data-i18n="eTpl"></span></p>
       <h2 class="blk-title" data-i18n="tTpl"></h2>
       <p class="blk-lead" data-i18n="leadTpl"></p>
 
-      <div class="tpl-toolbar">
-        <p class="tpl-position" aria-live="polite">
-          <span id="tpl-current">01</span><i>/</i><span id="tpl-total">00</span>
-        </p>
-        <p class="tpl-swipe" data-i18n="tplSwipe"></p>
-        <div class="tpl-nav">
-          <button id="tpl-prev" type="button" aria-label="Previous template">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
-          </button>
-          <button id="tpl-next" type="button" aria-label="Next template">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
-          </button>
-        </div>
-      </div>
-      <div id="tpl-rail" class="tpl-rail"></div>
-      <div id="tpl-dots" class="tpl-dots" aria-label="Templates"></div>
+      <div id="tpl-grid" class="tpl-grid"></div>
       <p class="blk-err" hidden></p>
     </section>
 
@@ -257,6 +243,9 @@
         <span id="ready-meta"></span>
         <button id="ready-open" type="button" class="btn btn--gold btn--block">
           <span data-i18n="seeInvite"></span>
+        </button>
+        <button id="ready-next" type="button" class="btn btn--ghost btn--block" hidden>
+          <span data-i18n="readyNext"></span>
         </button>
         <p class="readycard-hint" data-i18n="readyHint"></p>
       </div>
@@ -423,6 +412,7 @@
 <div id="toasts"></div>
 
 <script src="ui.js"></script>
+<script src="sky.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

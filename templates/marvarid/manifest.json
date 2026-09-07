@@ -1,0 +1,13 @@
+{
+  "name": "Marvarid",
+  "event": "wedding",
+  "price": 189000,
+  "minPhotos": 2,
+  "colors": [
+    "#FBF1EF",
+    "#C98F7C",
+    "#B76E7F",
+    "#5C3B44"
+  ],
+  "order": 5
+}

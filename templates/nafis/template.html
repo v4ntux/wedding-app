@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0c0508">
+<title>{{groom}} &amp; {{bride}} — {{L.sub}}</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Italianno&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
+{{{experienceCSS}}}
+{{{coreCSS}}}
+<style>
+/* Nafis - винный велюр: тёплая бумага, вишнёвый акцент, паспарту у титула. */
+:root{
+  --paper:#0c0508; --paper-2:#150810; --paper-3:#23101a;
+  --ink:#f9ecdf; --muted:#b8a0a4;
+  --accent:#e2bd85; --accent-2:#b2707d;
+  --line:rgba(226,189,133,.28); --line-soft:rgba(226,189,133,.12);
+
+  --gold:#e2bd85; --gold-hi:#fff2d4; --gold-lo:#7f4a2c; --gold-rgb:226,189,133;
+  --star:#ffeedd;
+  --stars-opacity:.82;
+  --glass-edge:rgba(255,243,228,.2);
+  --glass-face:linear-gradient(158deg,rgba(255,246,236,.1),rgba(226,189,133,.05) 46%,rgba(12,5,8,.3));
+
+  --bg-veil:linear-gradient(180deg,rgba(12,5,8,.94),rgba(12,5,8,.86) 46%,rgba(12,5,8,.96));
+  --mote:rgba(255,224,198,.92);
+  --display:'Cormorant Garamond',Georgia,serif;
+  --script:'Italianno',cursive;
+  --sans:'Manrope',ui-sans-serif,system-ui,sans-serif;
+  --ev-sans:var(--sans); --ev-display:var(--display);
+}
+
+/* Ночь под всем документом: секции полупрозрачные, звёзды видно насквозь. */
+html{background:var(--paper)}
+body{background:
+  radial-gradient(120% 62% at 50% -8%,rgba(226,189,133,.2),transparent 58%),
+  radial-gradient(96% 58% at 88% 34%,rgba(122,26,50,.55),transparent 68%),
+  radial-gradient(80% 52% at 6% 84%,rgba(74,14,32,.5),transparent 72%),
+  linear-gradient(176deg,#1d0a13 0%,#10060a 52%,#050203 100%)}
+.inv{position:relative;z-index:1}
+.sec--solid{background:linear-gradient(180deg,rgba(12,5,8,.6),rgba(12,5,8,.74))}
+.sec--tint{background:linear-gradient(180deg,rgba(21,8,16,.52),rgba(9,4,6,.68))}
+.made{background:rgba(3,2,2,.84);border-top:1px solid var(--line-soft)}
+.hero{background:transparent}
+.card{width:min(100%,620px);margin:0 auto}
+.cd-card .cd{width:100%}
+.mapbox{border-radius:18px}
+.mapbox iframe{filter:grayscale(.5) sepia(.24) brightness(.6) contrast(1.06)}
+.shot{border-radius:20px}
+.shot img{filter:saturate(.82) contrast(1.05) brightness(.86)}
+.routes a{border-color:var(--line);color:var(--ink);border-radius:999px;
+  background:linear-gradient(160deg,rgba(255,248,232,.09),rgba(255,240,214,.03))}
+.cal td.on{color:var(--gold-hi)}
+.hero__names{color:transparent}
+
+/* ── Разворот ────────────────────────────────────────────────────────────
+   Журнальная подача: фотография во всю ширину с наложенным заголовком,
+   крупная выносная цитата, дата набрана в строку как колонтитул. */
+.sec{padding-inline:clamp(20px,6vw,38px)}
+.shot{width:100vw;max-width:none;margin-left:50%;transform:translateX(-50%);border-radius:0;aspect-ratio:4/5}
+.shot__cap{right:clamp(22px,7vw,44px);left:clamp(22px,7vw,44px);bottom:clamp(22px,7vw,40px)}
+.shot__cap b{font-size:clamp(1.8rem,8vw,3rem)}
+.lead{max-width:34ch;font-size:clamp(1rem,4vw,1.14rem)}
+
+/* Колонтитул с датой: одна строка, разделённая тонкими линиями. */
+.nafis-date{display:grid;gap:12px;padding:clamp(24px,6vw,36px) 0;border-block:1px solid var(--line)}
+.nafis-row{display:flex;align-items:baseline;justify-content:space-between;gap:14px}
+.nafis-row b{color:var(--gold-hi);font:400 clamp(2.6rem,12vw,4rem)/1 var(--display);letter-spacing:-.02em}
+.nafis-row span{color:var(--muted);font:400 .72rem/1.4 var(--sans);letter-spacing:.24em;text-transform:uppercase;text-align:right}
+
+/* -- Титул ------------------------------------------------------------- */
+.hero{position:relative;display:grid;min-height:100svh;place-content:center;padding:clamp(90px,16vh,130px) 22px clamp(70px,12vh,100px);text-align:center}
+.hero__kicker{color:var(--accent-2);font:500 .6rem/1 var(--sans);letter-spacing:.42em;text-transform:uppercase}
+.hero__names{margin:.22em 0 .16em;color:var(--ink);font:300 clamp(3.4rem,17vw,6.6rem)/.94 var(--display);letter-spacing:-.035em}
+.hero__names i{display:block;margin:.02em 0;color:var(--accent);font:400 .52em/1 var(--script)}
+.hero__date{display:flex;align-items:center;justify-content:center;gap:clamp(12px,4vw,20px);margin-top:.5em;
+  color:var(--muted);font:500 .68rem/1 var(--sans);letter-spacing:.26em;text-transform:uppercase}
+.hero__date b{font-weight:500}
+.hero__date s{width:5px;height:5px;border-radius:50%;background:var(--accent);text-decoration:none;opacity:.75}
+.hero__scroll{position:absolute;bottom:clamp(22px,5vh,38px);left:50%;transform:translateX(-50%);
+  width:1px;height:46px;overflow:hidden;background:var(--line)}
+.hero__scroll:after{content:'';position:absolute;inset:0;background:var(--accent);animation:drip 2.8s var(--e-signature) infinite}
+@keyframes drip{0%{transform:translateY(-100%)}55%,100%{transform:translateY(100%)}}
+/* Бархат: свет ложится на ворс полосами и медленно перекатывается. */
+.hero__velvet{position:absolute;inset:0;pointer-events:none;opacity:.55;
+  background:
+    repeating-linear-gradient(102deg,transparent 0 22px,rgba(255,214,196,.035) 22px 44px),
+    radial-gradient(72% 48% at 50% 42%,rgba(158,42,72,.34),transparent 68%);
+  mask-image:radial-gradient(78% 60% at 50% 46%,#000,transparent 78%);
+  animation:velvetShift 16s ease-in-out infinite alternate}
+@keyframes velvetShift{from{transform:translate3d(-1.5%,0,0)}to{transform:translate3d(1.5%,1%,0)}}
+/* Паспарту становится золотым — рамка дорогого багета. */
+.hero__frame:before,.hero__frame:after{border-color:rgba(var(--gold-rgb),.5)}
+@media (prefers-reduced-motion:reduce){.hero__velvet{animation:none}}
+
+@media (prefers-reduced-motion:reduce){.hero__scroll:after{animation:none}}
+
+/* Паспарту: рамка обводит имена двумя встречными штрихами. */
+.hero__frame{position:relative;padding:clamp(34px,9vw,54px) clamp(22px,7vw,44px)}
+.hero__frame:before,.hero__frame:after{content:'';position:absolute;inset:0;border:1px solid var(--line);pointer-events:none;
+  transform:scaleX(0);transition:transform var(--t-epic) var(--e-signature) .5s}
+.hero__frame:before{transform-origin:left;border-bottom:0}
+.hero__frame:after{transform-origin:right;border-top:0;transition-delay:.62s}
+.hero.in .hero__frame:before,.hero.in .hero__frame:after{transform:scaleX(1)}
+</style>
+</head>
+<body>
+{{{envelope}}}
+{{{livingBg}}}
+{{{starfieldDense}}}
+<div class="progress" aria-hidden="true"></div>
+
+<main class="inv">
+
+  <section class="hero fx">
+    <div class="hero__velvet" aria-hidden="true"></div>
+    <div class="hero__frame"><div data-parallax="0.06">
+      {{{monogram}}}
+      <div class="hero__kicker fx" style="--d:.14s">{{L.sub}}</div>
+      <h1 class="hero__names fx fx--rise gilt" style="--d:.22s">{{groom}}<i>&amp;</i>{{bride}}</h1>
+      <div class="hero__date fx" style="--d:.34s"><b>{{day}} {{monthName}} {{year}}</b><s></s><b>{{time}}</b></div>
+    </div>
+    </div>
+    <div class="hero__scroll" aria-hidden="true"></div>
+  </section>
+
+  <section class="sec sec--solid">
+    <div class="wrap">
+      <div class="num">01 · {{L.sub}}</div>
+      {{#if guestName}}
+        <div class="h2 fx" style="--d:.1s">{{L.greet}}</div>
+        <div class="h2 fx gilt" style="--d:.16s">{{guestName}}</div>
+        <div class="gold-rule" style="--d:.3s"></div>
+        <p class="lead words" style="--d:.34s">{{L.greetTail}}</p>
+      {{else}}
+        <div class="h2 fx" style="--d:.1s">{{groom}}<span class="amp">{{L.and}}</span>{{bride}}</div>
+        <div class="gold-rule" style="--d:.3s"></div>
+        <p class="lead words" style="--d:.34s">{{L.invite}}</p>
+      {{/if}}
+    </div>
+  </section>
+
+  {{#if photos.0}}
+  <section class="sec">
+    <div class="wrap">
+      <figure class="shot" data-parallax="0.04">
+        <img src="{{photos.0}}" alt="{{groom}} &amp; {{bride}}" loading="lazy">
+        <figcaption class="shot__cap"><span>02 · {{L.gallery}}</span><b>{{groom}} {{L.and}} {{bride}}</b></figcaption>
+      </figure>
+      <div class="gold-rule" style="--d:.2s"></div>
+      <p class="lead words" style="--d:.24s">{{L.emo}}</p>
+    </div>
+  </section>
+  {{/if}}
+
+  <section class="sec sec--tint">
+    <div class="wrap">
+      <div class="num">03 · {{L.when}}</div>
+      <div class="nafis-date fx" style="--d:.12s">
+        <div class="nafis-row"><b>{{day}} {{monthName}}</b><span>{{year}}<br>{{weekday}} · {{time}}</span></div>
+        <table class="cal" data-cal="{{dateIso}}"><caption>{{monthName}} {{year}}</caption></table>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec sec--solid">
+    <div class="wrap">
+      <div class="num">04 · {{L.until}}</div>
+      <div class="cd-card glass card fx" style="--d:.14s">
+      <div class="cd" style="--d:.2s">
+        <div><b id="cd">0</b><span>{{L.days}}</span></div>
+        <div><b id="ch">00</b><span>{{L.hours}}</span></div>
+        <div><b id="cm">00</b><span>{{L.min}}</span></div>
+        <div><b id="cs">00</b><span>{{L.sec}}</span></div>
+      </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec sec--tint">
+    <div class="wrap">
+      <div class="num">05 · {{L.where}}</div>
+      <div class="venue-card glass card fx" style="--d:.14s">
+        <h2 class="venue__name">{{address}}</h2>
+        <div>{{{map}}}</div>
+        {{#if gmaps}}
+        <div class="routes">
+          <a href="{{gmaps}}" target="_blank" rel="noopener">{{L.gmaps}}</a>
+          <a href="{{ymaps}}" target="_blank" rel="noopener">{{L.ymaps}}</a>
+        </div>
+        {{/if}}
+      </div>
+    </div>
+  </section>
+
+  {{#if photos.1}}
+  <section class="sec sec--solid">
+    <div class="wrap">
+      <figure class="shot shot--wide" data-parallax="0.05">
+        <img src="{{photos.1}}" alt="{{groom}} &amp; {{bride}}" loading="lazy">
+      </figure>
+    </div>
+  </section>
+  {{/if}}
+
+  <section class="sec sec--tint final">
+    <div class="wrap">
+      <div class="final-card glass card fx">
+        {{{monogramFilled}}}
+        <p class="final__quote gilt">{{L.final}}</p>
+        <div class="gold-rule" style="--d:.26s"></div>
+        <div class="final__sign">{{L.sign}} {{groom}} {{L.and}} {{bride}}</div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="made">{{L.made}}</footer>
+</main>
+
+<script>
+// Календарь месяца свадьбы: неделя с понедельника, день события обведён.
+(function(){
+  var el=document.querySelector('[data-cal]');if(!el)return;
+  var iso=(el.getAttribute('data-cal')||'').split('-').map(Number);
+  if(iso.length!==3||!iso[0])return;
+  var y=iso[0],m=iso[1]-1,day=iso[2];
+  var head=(document.documentElement.lang==='ru')
+    ? ['пн','вт','ср','чт','пт','сб','вс'] : ['du','se','ch','pa','ju','sh','ya'];
+  var first=(new Date(y,m,1).getDay()+6)%7, total=new Date(y,m+1,0).getDate();
+  var html='<thead><tr>'+head.map(function(d){return '<th scope="col">'+d+'</th>'}).join('')+'</tr></thead><tbody><tr>',i=0;
+  for(var k=0;k<first;k++)html+='<td></td>';
+  for(var d=1;d<=total;d++){
+    if((first+d-1)%7===0&&d>1)html+='</tr><tr>';
+    html+='<td'+(d===day?' class="on"':'')+'><span style="--i:'+(i++)+'">'+d+'</span></td>';
+  }
+  html+='</tr></tbody>';
+  el.insertAdjacentHTML('beforeend',html);
+})();
+</script>
+
+{{{audioWidget}}}
+{{{experienceScript}}}
+{{{countdown}}}
+</body>
+</html>

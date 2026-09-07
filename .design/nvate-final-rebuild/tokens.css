@@ -1,0 +1,225 @@
+/*
+ * nvate Final Platform
+ * Philosophy: Tactile Ceremony / Golden Thread Atelier
+ * Planning source of truth. Studio consumes the dark atelier tokens; invitation
+ * templates consume the paper and envelope theme scopes.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Semantic paper palette */
+  --color-bg-primary: #eee6d8;
+  --color-bg-secondary: #fbf7ef;
+  --color-bg-tertiary: #e1d4c1;
+  --color-bg-inverse: #080705;
+  --color-text-primary: #2f3d35;
+  --color-text-secondary: #626a63;
+  --color-text-tertiary: #7c817b;
+  --color-text-inverse: #f7f0e3;
+  --color-text-link: #765147;
+  --color-border-primary: rgba(47, 61, 53, 0.28);
+  --color-border-secondary: rgba(47, 61, 53, 0.14);
+  --color-border-focus: #8f5f58;
+  --color-accent-primary: #9c6264;
+  --color-accent-primary-hover: #885255;
+  --color-accent-primary-active: #6e4144;
+  --color-accent-secondary: #718773;
+  --color-status-success: #4f7859;
+  --color-status-warning: #9d6928;
+  --color-status-error: #a64852;
+  --color-status-info: #4f7188;
+  --color-surface-overlay: rgba(17, 13, 9, 0.68);
+
+  /* Shared typography. Templates may replace only --font-family-display. */
+  --font-family-display: 'Cormorant Garamond', Georgia, serif;
+  --font-family-body: 'Manrope', 'Segoe UI', sans-serif;
+  --font-family-studio-display: 'Bodoni Moda', Georgia, serif;
+  --font-family-studio-body: 'Golos Text', 'Segoe UI', sans-serif;
+  --font-family-mono: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-md: 1.125rem;
+  --font-size-lg: 1.375rem;
+  --font-size-xl: 1.75rem;
+  --font-size-2xl: clamp(2.25rem, 6vw, 3.25rem);
+  --font-size-3xl: clamp(3rem, 10vw, 5rem);
+  --font-size-4xl: clamp(4rem, 16vw, 7.5rem);
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --line-height-tight: 1.05;
+  --line-height-normal: 1.55;
+  --line-height-relaxed: 1.72;
+  --letter-spacing-tight: -0.04em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide: 0.18em;
+
+  /* Eight-pixel editorial rhythm with fine paper adjustments. */
+  --space-0: 0;
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 12px;
+  --space-6: 16px;
+  --space-7: 24px;
+  --space-8: 32px;
+  --space-9: 48px;
+  --space-10: 64px;
+  --space-11: 96px;
+  --space-12: 128px;
+
+  --max-width-reading: 42rem;
+  --max-width-paper: 52rem;
+  --max-width-studio: 38.75rem;
+  --max-width-wide: 70rem;
+  --max-width-page: 90rem;
+  --border-radius-sm: 3px;
+  --border-radius-md: 10px;
+  --border-radius-lg: 20px;
+  --border-radius-full: 999px;
+  --shadow-sm: 0 8px 24px rgba(58, 43, 30, 0.12);
+  --shadow-md: 0 20px 56px rgba(58, 43, 30, 0.18);
+  --shadow-lg: 0 38px 92px rgba(46, 32, 21, 0.28);
+  --shadow-paper: 0 24px 80px rgba(55, 38, 24, 0.2);
+  --shadow-focus: 0 0 0 3px rgba(143, 95, 88, 0.36);
+
+  --duration-instant: 50ms;
+  --duration-fast: 160ms;
+  --duration-normal: 280ms;
+  --duration-slow: 480ms;
+  --duration-slower: 720ms;
+  --duration-studio-scene: 1400ms;
+  --duration-envelope: 2860ms;
+  --easing-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --easing-in: cubic-bezier(0.44, 0, 0.86, 0.36);
+  --easing-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --easing-paper: cubic-bezier(0.22, 0.78, 0.22, 1);
+  --easing-hinge: cubic-bezier(0.42, 0, 0.18, 1);
+
+  --breakpoint-sm: 375px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+
+  /* Default/Bahor envelope material */
+  --envelope-stage-bg: #e6ddcf;
+  --envelope-stage-ink: #6f4d49;
+  --envelope-card-ink: #6f4d49;
+  --envelope-paper: #f5eee1;
+  --envelope-paper-hi: #fffaf0;
+  --envelope-paper-low: #dfd2bf;
+  --envelope-lining: #c5d0bd;
+  --envelope-seal: #8e3f48;
+  --envelope-seal-hi: #b86870;
+  --envelope-metal: #b5935f;
+  --envelope-shadow: rgba(62, 43, 31, 0.34);
+  --envelope-flower-a: #ddb8b2;
+  --envelope-flower-b: #f4e4dd;
+  --envelope-leaf: #70866f;
+}
+
+/* Studio is intentionally dark even when the operating system is light. */
+[data-surface='studio'],
+[data-theme='dark'] {
+  color-scheme: dark;
+  --color-bg-primary: #050403;
+  --color-bg-secondary: #0c0905;
+  --color-bg-tertiary: #171006;
+  --color-bg-inverse: #fff8e9;
+  --color-text-primary: #fff8e9;
+  --color-text-secondary: #e3d7c0;
+  --color-text-tertiary: #b2a68f;
+  --color-text-inverse: #160d02;
+  --color-text-link: #e4c476;
+  --color-border-primary: rgba(215, 178, 88, 0.34);
+  --color-border-secondary: rgba(215, 178, 88, 0.15);
+  --color-border-focus: #f1dca8;
+  --color-accent-primary: #d7a83f;
+  --color-accent-primary-hover: #e6bd61;
+  --color-accent-primary-active: #b88724;
+  --color-accent-secondary: #65776e;
+  --color-surface-overlay: rgba(0, 0, 0, 0.82);
+  --shadow-sm: 0 8px 28px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 24px 64px rgba(0, 0, 0, 0.46);
+  --shadow-lg: 0 48px 120px rgba(0, 0, 0, 0.62);
+  --shadow-focus: 0 0 0 3px rgba(241, 220, 168, 0.38);
+}
+
+[data-envelope-theme='oqshom'] {
+  color-scheme: dark;
+  --envelope-stage-bg: #07130d;
+  --envelope-stage-ink: #e4d1a4;
+  --envelope-card-ink: #e9dbba;
+  --envelope-paper: #173223;
+  --envelope-paper-hi: #264a36;
+  --envelope-paper-low: #0b1d13;
+  --envelope-lining: #c3a764;
+  --envelope-seal: #6d1f28;
+  --envelope-seal-hi: #963b44;
+  --envelope-metal: #d4b870;
+  --envelope-shadow: rgba(0, 0, 0, 0.62);
+  --envelope-flower-a: #7f2630;
+  --envelope-flower-b: #d6c08a;
+  --envelope-leaf: #244d36;
+  --font-family-display: Forum, Georgia, serif;
+}
+
+[data-envelope-theme='nafis'] {
+  --envelope-stage-bg: #4b1726;
+  --envelope-stage-ink: #f1ddc5;
+  --envelope-card-ink: #6c2c3b;
+  --envelope-paper: #f3e9dc;
+  --envelope-paper-hi: #fff9ee;
+  --envelope-paper-low: #d9c7b4;
+  --envelope-lining: #72263a;
+  --envelope-seal: #6b1f35;
+  --envelope-seal-hi: #a84d62;
+  --envelope-metal: #c7a673;
+  --envelope-shadow: rgba(28, 5, 14, 0.6);
+  --envelope-flower-a: #d5a2ac;
+  --envelope-flower-b: #f4ddd8;
+  --envelope-leaf: #6f7863;
+}
+
+[data-envelope-theme='ipak'] {
+  --envelope-stage-bg: #d9d0bb;
+  --envelope-stage-ink: #263f35;
+  --envelope-card-ink: #263f35;
+  --envelope-paper: #e8dfcb;
+  --envelope-paper-hi: #f8f0dc;
+  --envelope-paper-low: #c9baa0;
+  --envelope-lining: #174b3d;
+  --envelope-seal: #873d2d;
+  --envelope-seal-hi: #b55e47;
+  --envelope-metal: #b68b45;
+  --envelope-shadow: rgba(32, 43, 34, 0.42);
+  --envelope-flower-a: #9a4939;
+  --envelope-flower-b: #d9a85d;
+  --envelope-leaf: #2d6652;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']):not([data-envelope-theme='bahor']):not([data-envelope-theme='nafis']):not([data-envelope-theme='ipak']) {
+    color-scheme: dark;
+    --color-bg-primary: #0c130f;
+    --color-bg-secondary: #151d18;
+    --color-text-primary: #eee6d8;
+    --color-text-secondary: #bdc4bc;
+    --color-border-primary: rgba(226, 207, 160, 0.32);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 1ms;
+    --duration-normal: 1ms;
+    --duration-slow: 1ms;
+    --duration-slower: 1ms;
+    --duration-studio-scene: 1ms;
+  }
+}
