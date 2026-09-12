@@ -1,4 +1,4 @@
-/* global ymaps, UI */
+/* global UI, NvMap */
 /* nvate studio — одна вертикальная нить. Кнопки «продолжить» нет: как только блок
    заполнен верно, следующий сам медленно проявляется и подъезжает к экрану.
    Секции: состояние · словарь · нить и док · блоки · демо · отправка · старт. */
@@ -18,7 +18,8 @@ const state = {
   timeConfirmed: false,
   lat: null,
   lng: null,
-  mapOn: false,
+  venueId: null,      // id тойхоны из каталога, если выбрали её
+  venues: [],
   templateId: null,
   photos: [],           // { name, url, uploading }
   music: null,          // { type, value, name, artist, playUrl }
@@ -40,12 +41,12 @@ const saveDraft = debounce(() => {
       v: 5,
       groom: $('groom').value, bride: $('bride').value,
       dateIso: state.dateIso, time: state.time, timeConfirmed: state.timeConfirmed,
-      lat: state.lat, lng: state.lng, mapOn: state.mapOn, address: $('address').value,
+      lat: state.lat, lng: state.lng, venueId: state.venueId, address: $('address').value,
       templateId: state.templateId,
       photos: state.photos.filter((p) => p.name).map((p) => p.name),
       music: state.music, musicStart: state.musicStart, musicEnd: state.musicEnd,
       guestsOn: state.guestsOn, guests: state.guests,
-      contactTg: $('contact-tg').value, phone: $('phone').value, phone2: $('phone2').value,
+      phone: $('phone').value,
       open: state.open, seenInvite: state.seenInvite,
       submissionKey: state.submissionKey,
     }));
@@ -62,15 +63,13 @@ function restoreDraft() {
   $('groom').value = d.groom || '';
   $('bride').value = d.bride || '';
   $('address').value = d.address || '';
-  $('contact-tg').value = d.contactTg || '';
   $('phone').value = d.phone || '';
-  $('phone2').value = d.phone2 || '';
   state.dateIso = d.dateIso || null;
   state.time = /^(1[5-9]|2[0-2]):(00|15|30|45)$/.test(d.time) ? d.time : '17:00';
   state.timeConfirmed = Boolean(d.timeConfirmed);
   state.lat = Number.isFinite(d.lat) ? d.lat : null;
   state.lng = Number.isFinite(d.lng) ? d.lng : null;
-  state.mapOn = d.v >= 5 ? Boolean(d.mapOn) : false;
+  state.venueId = typeof d.venueId === 'string' ? d.venueId : null;
   state.templateId = d.templateId || null;
   state.submissionKey = typeof d.submissionKey === 'string' ? d.submissionKey : null;
   state.photos = (d.photos || []).map((name) => ({ name, url: '/uploads/' + name, uploading: false }));
@@ -93,11 +92,16 @@ const I18N = {
     eDate: 'Qachon', tDate: 'To‘y sanasi', timeLbl: 'Boshlanish vaqti',
     timePrompt: 'Vaqt barabanini suring — tanlangan vaqt shu yerda paydo bo‘ladi.',
     eVenue: 'Qayerda', tVenue: 'To‘yxona', address: 'To‘yxona nomi',
-    seekLbl: 'Xaritada joyni qidirish', seekPlace: 'Masalan: Mang‘it to‘yxona',
+    leadVenue: 'To‘yxonani ro‘yxatdan tanlang. Sizniki yo‘q bo‘lsa — nomini o‘zingiz yozing.',
+    seekLbl: 'To‘yxonani qidirish', seekPlace: 'Nomi yoki mo‘ljal',
+    venueOwn: 'Mening joyim ro‘yxatda yo‘q',
+    venueEmpty: 'Bunday joy ro‘yxatda yo‘q — nomini o‘zingiz yozing',
+    venueSeats: (n) => `${n} o‘rin`,
+    venueKind: { toyxona: 'To‘yxona', restoran: 'Restoran', kafe: 'Kafe', bog: 'Bog‘' },
+    geoHead: 'Umumiy xaritadan topildi',
+    mapPick: 'Joyni ko‘rsatish uchun xaritada bosing',
     mapHint: 'Nuqtani aniqlashtirish uchun xaritada bosing',
-    mapHintFallback: 'Joyni yuqoridan qidiring va natijani tanlang — Yandex xarita shu nuqtani ko‘rsatadi.',
     linkLbl: 'Musiqa havolasi',
-    mapSwTitle: 'Jonli xarita qo‘shish', mapSwOff: 'Shart emas', mapSwOn: 'Xarita yoqilgan',
     change: 'O‘zgartirish',
     guestPh: 'Ism yozing…',
     eMusic: 'Ovoz', tMusic: 'Musiqa', msTop: 'Mashhur', msMine: 'Mening musiqam',
@@ -105,9 +109,12 @@ const I18N = {
     add: 'Qo‘shish', uploadMusic: 'Fayl yuklash', lookDone: 'Ko‘rib chiqdim',
     linkHint: 'YouTube havolasi yoki to‘g‘ridan-to‘g‘ri mp3 havolasi.',
     linkPh: 'https://…',
-    trimTitle: 'Qaysi parcha yangraydi', trimHint: 'boshlanish va tugashni suring',
-    trimFromAria: 'Parcha boshlanishi', trimToAria: 'Parcha tugashi',
-    trimStopAria: 'Eshitishni to‘xtatish',
+    trimTitle: 'Qayerdan boshlansin',
+    trimSet: 'Shu yerdan boshlansin',
+    trimListen: 'Tinglang va kerakli joyda tugmani bosing',
+    trimFrom: (time) => `${time} dan oxirigacha yangraydi`,
+    trimReset: 'Boshidan',
+    trimTip: (time, uses) => `Ko‘pincha ${time} dan boshlashadi · ${uses} juft`,
     eTpl: 'Dizayn', tTpl: 'Taklifnoma uslubi',
     leadTpl: 'Tanlash uchun uslubga bosing. Burchakdagi ko‘zcha to‘liq namunani ochadi.',
     tplPhotos: (n) => `${n} ta surat`,
@@ -120,21 +127,21 @@ const I18N = {
     eGuests: 'Qo‘shimcha', tGuests: 'Ismli taklifnomalar',
     guestsSwTitle: 'Har bir mehmonga alohida havola',
     guestsSwOff: 'O‘chirilgan', guestsSwOn: 'Yoqilgan',
-    personalPreview: 'Shaxsiy taklif', personalGuest: 'Hurmatli Aziz aka',
-    personalTagline: 'Har bir mehmon uchun — shaxsiy taklifnoma.',
+    gHow1t: 'Ismlar ro‘yxati', gHow1: 'Mehmonlar ismini yozasiz — har biri alohida qatorga.',
+    gHow2t: 'Har kimga o‘z havolasi', gHow2: 'Taklifnoma ochilganda mehmon o‘z ismini ko‘radi.',
+    gHow3t: 'Havolalarni botdan olasiz', gHow3: 'To‘lovdan keyin tayyor havolalar ro‘yxati botga keladi.',
     guestAdd: 'Ism qo‘shish', guestsUnit: 'ta ism',
     wmTitle: 'Namuna himoyalangan',
     wmText: 'Ustidagi «nVate» to‘ri va nusxa olish cheklovi faqat namunada. To‘lovdan so‘ng to‘r olib tashlanadi va sizga toza havola beriladi.',
     total: 'Jami',
     eContact: 'Aloqa', tContact: 'Siz bilan qanday bog‘lanamiz',
-    leadContact: 'To‘lovni tasdiqlash uchun kamida 2 ta maydonni to‘ldiring.',
-    tgLbl: 'Telegram username', phoneLbl: 'Telefon raqam', phone2Lbl: 'Qo‘shimcha aloqa',
-    contactRule: 'Username yoki raqam — ikkitasi yetarli.',
+    leadContact: 'Telegram’ingiz bizda bor. Faqat raqamingizni yozing.',
+    phoneLbl: 'Telefon raqam',
+    contactRule: 'To‘lovni tasdiqlash uchun shu raqamga qo‘ng‘iroq qilamiz.',
     mineTitle: 'Mening taklifnomalarim',
     mineAria: 'Mening taklifnomalarimni ochish', closeAria: 'Yopish', stepsAria: 'Studio bosqichlari',
     prevMonthAria: 'Oldingi oy', nextMonthAria: 'Keyingi oy', hoursAria: 'Soatlar', minutesAria: 'Daqiqalar',
     musicSearchAria: 'Musiqa qidirish', playAria: 'Eshitish', pauseAria: 'To‘xtatish',
-    zoomInAria: 'Xaritani yaqinlashtirish', zoomOutAria: 'Xaritani uzoqlashtirish',
     photoUploadAria: 'Surat yuklash', photoRemoveAria: 'Suratni o‘chirish', previewAria: 'Taklifnoma namunasi',
     doneTitle: 'Qabul qilindi', doneNew: 'Yangi taklifnoma',
     doneText: 'To‘lov tasdiqlangach, botga toza havolangiz keladi. Odatda bu 10 daqiqagacha vaqt oladi.',
@@ -147,12 +154,14 @@ const I18N = {
     photoOf: (i, n) => `${i} / ${n}`,
     sum: 'so‘m',
     eNames_: 'Ikkala ismni ham yozing', eDate_: 'Taqvimdan sanani tanlang',
-    eVenue_: 'To‘yxona nomini yozing, xarita yoqilgan bo‘lsa nuqtani ham belgilang', eTpl_: 'Uslubni tanlang',
+    eVenue_: 'To‘yxonani tanlang yoki nomini yozing', eTpl_: 'Uslubni tanlang',
     ePhoto_: (n) => `Yana surat kerak: ${n} ta`,
     eGuest_: 'Bo‘sh ismlarni to‘ldiring yoki o‘chiring',
-    eContact_: 'Kamida 2 ta aloqa maydonini to‘ldiring',
+    eContact_: 'Telefon raqamingizni yozing',
     eNet: 'Aloqa yo‘q. Qayta urinib ko‘ring', eNoFound: 'Hech narsa topilmadi',
-    eUpload: 'Fayl yuklanmadi', eBig: 'Fayl juda katta (16 МБ gacha)',
+    eUpload: 'Fayl yuklanmadi. Yana urinib ko‘ring', eBig: 'Fayl juda katta',
+    eTooMany: 'Juda ko‘p urinish. Bir necha daqiqadan so‘ng qayta urining',
+    eFormat: 'Bu format qo‘llab-quvvatlanmaydi — JPG, PNG yoki HEIC yuboring',
     eLink: 'Havola tanilmadi',
     noGeo: 'Joylashuv aniqlanmadi', copied: 'Nusxa olindi',
     nextUp: 'Keyingi bosqich ochildi',
@@ -164,11 +173,16 @@ const I18N = {
     eDate: 'Когда', tDate: 'Дата свадьбы', timeLbl: 'Время начала',
     timePrompt: 'Прокрутите барабан — выбранное время появится здесь.',
     eVenue: 'Где', tVenue: 'Место', address: 'Название тойхоны',
-    seekLbl: 'Поиск места на карте', seekPlace: 'Например: тойхона в Мангите',
+    leadVenue: 'Выберите тойхону из списка. Вашей нет — впишите название сами.',
+    seekLbl: 'Поиск тойхоны', seekPlace: 'Название или ориентир',
+    venueOwn: 'Моего места нет в списке',
+    venueEmpty: 'Такого места в списке нет — впишите название сами',
+    venueSeats: (n) => `${n} мест`,
+    venueKind: { toyxona: 'Тойхона', restoran: 'Ресторан', kafe: 'Кафе', bog: 'Сад' },
+    geoHead: 'Найдено на общей карте',
+    mapPick: 'Нажмите на карту, чтобы поставить точку',
     mapHint: 'Нажмите на карту, чтобы уточнить точку',
-    mapHintFallback: 'Найдите место выше и выберите результат — Яндекс Карты покажут эту точку.',
     linkLbl: 'Ссылка на музыку',
-    mapSwTitle: 'Добавить живую карту', mapSwOff: 'Необязательно', mapSwOn: 'Карта включена',
     change: 'Изменить',
     guestPh: 'Впишите имя…',
     eMusic: 'Звук', tMusic: 'Музыка', msTop: 'Популярное', msMine: 'Моя музыка',
@@ -176,9 +190,12 @@ const I18N = {
     add: 'Добавить', uploadMusic: 'Загрузить файл', lookDone: 'Посмотрел',
     linkHint: 'Ссылка на YouTube или прямая ссылка на mp3.',
     linkPh: 'https://…',
-    trimTitle: 'Какой отрывок играет', trimHint: 'двигайте начало и конец',
-    trimFromAria: 'Начало отрывка', trimToAria: 'Конец отрывка',
-    trimStopAria: 'Остановить прослушивание',
+    trimTitle: 'Откуда начинать',
+    trimSet: 'Начать отсюда',
+    trimListen: 'Слушайте и нажмите, когда музыка станет нужной',
+    trimFrom: (time) => `Играет с ${time} и до конца`,
+    trimReset: 'Сначала',
+    trimTip: (time, uses) => `Чаще всего начинают с ${time} · ${uses} пар`,
     eTpl: 'Дизайн', tTpl: 'Стиль приглашения',
     leadTpl: 'Нажмите на стиль, чтобы выбрать. Глазок в углу открывает полный пример.',
     tplPhotos: (n) => `${n} фото`,
@@ -191,21 +208,21 @@ const I18N = {
     eGuests: 'Дополнительно', tGuests: 'Именные приглашения',
     guestsSwTitle: 'Персональная ссылка каждому гостю',
     guestsSwOff: 'Выключено', guestsSwOn: 'Включено',
-    personalPreview: 'Личное приглашение', personalGuest: 'Дорогой Азиз',
-    personalTagline: 'Каждому гостю — персональное приглашение.',
+    gHow1t: 'Список имён', gHow1: 'Вписываете гостей — каждого отдельной строкой.',
+    gHow2t: 'Каждому своя ссылка', gHow2: 'Гость открывает приглашение и видит своё имя.',
+    gHow3t: 'Ссылки придут в бот', gHow3: 'После оплаты бот пришлёт готовый список ссылок.',
     guestAdd: 'Добавить имя', guestsUnit: 'имён',
     wmTitle: 'Образец защищён',
     wmText: 'Сетка «nVate» поверх и запрет копирования — только в образце. После оплаты сетка снимается, и вы получаете чистую ссылку.',
     total: 'Итого',
     eContact: 'Контакты', tContact: 'Как с вами связаться',
-    leadContact: 'Для подтверждения оплаты заполните минимум 2 поля.',
-    tgLbl: 'Telegram username', phoneLbl: 'Номер телефона', phone2Lbl: 'Запасной контакт',
-    contactRule: 'Username или номер — достаточно двух.',
+    leadContact: 'Ваш Telegram у нас уже есть. Оставьте только номер.',
+    phoneLbl: 'Номер телефона',
+    contactRule: 'По этому номеру мы свяжемся, чтобы подтвердить оплату.',
     mineTitle: 'Мои приглашения',
     mineAria: 'Открыть мои приглашения', closeAria: 'Закрыть', stepsAria: 'Этапы студии',
     prevMonthAria: 'Предыдущий месяц', nextMonthAria: 'Следующий месяц', hoursAria: 'Часы', minutesAria: 'Минуты',
     musicSearchAria: 'Поиск музыки', playAria: 'Прослушать', pauseAria: 'Пауза',
-    zoomInAria: 'Приблизить карту', zoomOutAria: 'Отдалить карту',
     photoUploadAria: 'Загрузить фотографию', photoRemoveAria: 'Удалить фотографию', previewAria: 'Предпросмотр приглашения',
     doneTitle: 'Заявка принята', doneNew: 'Новое приглашение',
     doneText: 'После подтверждения оплаты чистая ссылка придёт в бот. Обычно это занимает до 10 минут.',
@@ -218,12 +235,14 @@ const I18N = {
     photoOf: (i, n) => `${i} / ${n}`,
     sum: 'сум',
     eNames_: 'Впишите оба имени', eDate_: 'Выберите дату в календаре',
-    eVenue_: 'Укажите название места; если карта включена — отметьте точку', eTpl_: 'Выберите стиль',
+    eVenue_: 'Выберите тойхону или впишите название', eTpl_: 'Выберите стиль',
     ePhoto_: (n) => `Добавьте ещё ${n} фото`,
     eGuest_: 'Заполните или удалите пустые имена',
-    eContact_: 'Заполните минимум 2 поля контактов',
+    eContact_: 'Впишите номер телефона',
     eNet: 'Нет связи. Попробуйте ещё раз', eNoFound: 'Ничего не найдено',
-    eUpload: 'Файл не загрузился', eBig: 'Файл слишком большой (до 16 МБ)',
+    eUpload: 'Файл не загрузился. Попробуйте ещё раз', eBig: 'Файл слишком большой',
+    eTooMany: 'Слишком много попыток. Повторите через несколько минут',
+    eFormat: 'Формат не поддерживается — пришлите JPG, PNG или HEIC',
     eLink: 'Ссылка не распознана',
     noGeo: 'Не удалось определить геопозицию', copied: 'Скопировано',
     nextUp: 'Следующий шаг открыт',
@@ -247,6 +266,7 @@ function applyI18n() {
     if (v.includes('<')) el.innerHTML = v; else el.textContent = v;
   }
   $('geo-q').placeholder = t('seekPlace');
+  $('geo-q').setAttribute('aria-label', t('seekLbl'));
   $('music-q').placeholder = t('seekMusic');
   $('music-link').placeholder = t('linkPh');
   $('submit-label').textContent = t('pay');
@@ -259,8 +279,6 @@ function applyI18n() {
   $('hour-drum').setAttribute('aria-label', t('hoursAria'));
   $('min-drum').setAttribute('aria-label', t('minutesAria'));
   $('music-q').setAttribute('aria-label', t('musicSearchAria'));
-  $('map-in').setAttribute('aria-label', t('zoomInAria'));
-  $('map-out').setAttribute('aria-label', t('zoomOutAria'));
   $('photo-input').setAttribute('aria-label', t('photoUploadAria'));
   $('sheet-frame').setAttribute('title', t('previewAria'));
   $('sw-uz').classList.toggle('on', LANG === 'uz');
@@ -273,6 +291,7 @@ function applyI18n() {
   renderPhotos();
   renderGuests();
   if (trimDuration) paintTrim();
+  renderVenues($('geo-q').value);
   renderMapChoice();
   renderReady();
 }
@@ -289,9 +308,10 @@ function setLang(lang) {
 const STEPS = [
   { id: 'names', auto: true, check: () => $('groom').value.trim() && $('bride').value.trim() },
   { id: 'datetime', auto: true, check: () => Boolean(state.dateIso) && state.timeConfirmed },
-  { id: 'location', auto: true, check: () => Boolean($('address').value.trim())
-      && (!state.mapOn || (Number.isFinite(state.lat) && Number.isFinite(state.lng))) },
-  { id: 'music', auto: true, check: () => true },
+  { id: 'location', auto: true, check: () => Boolean($('address').value.trim()) },
+  // Музыку подбирают долго: слушают, отмечают начало, меняют трек. Камера
+  // отсюда не уезжает — следующий блок просто появляется снизу и ждёт.
+  { id: 'music', auto: true, quiet: true, check: () => true },
   { id: 'template', auto: true, check: () => Boolean(state.templateId) },
   { id: 'photos', auto: true, check: () => filledPhotos() >= requiredPhotos() },
   { id: 'ready', auto: false, check: () => state.seenInvite },
@@ -584,7 +604,7 @@ async function riseBlock(el) {
   el.classList.add('is-live');
 }
 
-function unlock(i) {
+function unlock(i, { quiet = false } = {}) {
   if (i >= STEPS.length || i <= state.open) return;
   dropKeyboard();
   const run = ++revealRun;
@@ -601,8 +621,9 @@ function unlock(i) {
     haptic.ok();
     pulseLiveBead();
     // Камера и подъём блока идут одновременно: пара видит движение сразу,
-    // а не ждёт, пока страница доедет.
-    const camera = cameraTo(i);
+    // а не ждёт, пока страница доедет. Тихий переход камеру не трогает:
+    // блок вырастает снизу, а страница остаётся там, где её оставили.
+    const camera = quiet ? Promise.resolve() : cameraTo(i);
     await riseBlock(blk(i));
     await camera;
     if (run === revealRun && state.open === i) activateStep(i);
@@ -622,7 +643,7 @@ function autoAdvance(delay = FLOW.settle) {
   advTimer = setTimeout(() => {
     if (i !== state.open || !step.check()) return;
     clearErr(i);
-    unlock(i + 1);
+    unlock(i + 1, { quiet: step.quiet === true });
   }, Math.max(FLOW.settle, Number(delay) || 0));
 }
 
@@ -640,6 +661,7 @@ function prepareStep(i) {
 
 function activateStep(i) {
   const id = STEPS[i].id;
+  if (id === 'datetime') startDrift(); else stopDrift();
   if (id === 'ready') {
     clearTimeout(autoPreviewTimer);
     if (!state.seenInvite) {
@@ -648,17 +670,7 @@ function activateStep(i) {
       }, 1250);
     }
   }
-  if (id === 'guests') {
-    requestAnimationFrame(() => {
-      const motion = $('personal-motion');
-      if (!motion || !motion.offsetWidth) return;
-      personalMotionVisible = true;
-      motion.classList.add('is-visible');
-      layoutPersonalMotion();
-      startPersonalMotion();
-    });
-    autoAdvance(11800);
-  }
+  if (id === 'guests') autoAdvance(2600);
 }
 
 function onEnterStep(i) {
@@ -803,6 +815,64 @@ function buildClock() {
   blk(stepIdx('datetime'))?.classList.toggle('needs-time', Boolean(state.dateIso) && !state.timeConfirmed);
 }
 
+/* Барабан выглядит как обычная строка цифр, и пары его просто не замечали:
+   ждали, что время где-то введётся. Поэтому, пока время не выбрано, барабан
+   медленно едет сам — как бегущая строка. Движение объясняет устройство
+   лучше любой подписи. Первое касание останавливает показ насовсем. */
+const driftStops = [];
+
+function stopDrift() {
+  while (driftStops.length) driftStops.pop()();
+}
+
+function driftDrum(track) {
+  let raf = 0;
+  let last = 0;
+  let dir = 1;
+  let live = false;
+
+  const halt = () => {
+    live = false;
+    cancelAnimationFrame(raf);
+    raf = 0;
+  };
+
+  const frame = (now) => {
+    if (!live) return;
+    if (state.timeConfirmed) { halt(); return; }
+    const step = last ? Math.min(0.05, (now - last) / 1000) : 0;
+    last = now;
+    const limit = track.scrollWidth - track.clientWidth;
+    if (limit <= 1) { raf = requestAnimationFrame(frame); return; }
+    // 24 пикселя в секунду: видно, что едет, и цифры успеваешь прочитать.
+    track.scrollLeft += dir * step * 24;
+    if (track.scrollLeft >= limit - .5) dir = -1;
+    if (track.scrollLeft <= .5) dir = 1;
+    raf = requestAnimationFrame(frame);
+  };
+
+  for (const event of ['pointerdown', 'wheel', 'keydown', 'touchstart']) {
+    track.addEventListener(event, stopDrift, { passive: true });
+  }
+
+  return {
+    start() { if (live || state.timeConfirmed) return; live = true; last = 0; raf = requestAnimationFrame(frame); },
+    halt,
+  };
+}
+
+/* Показ заводим, только когда блок с датой на экране: крутить барабан в
+   свёрнутом блоке — зря жечь батарею. */
+function startDrift() {
+  if (state.timeConfirmed) return;
+  stopDrift();
+  for (const track of document.querySelectorAll('.hdrum-track')) {
+    const drift = driftDrum(track);
+    driftStops.push(drift.halt);
+    setTimeout(drift.start, 700);
+  }
+}
+
 function buildDrum(track, values, part, readoutId) {
   track.innerHTML = '';
   let userTouched = false;
@@ -814,6 +884,7 @@ function buildDrum(track, values, part, readoutId) {
     parts[part] = v;
     state.time = parts.join(':');
     state.timeConfirmed = true;
+    stopDrift();
     $('time-prompt').hidden = true;
     blk(stepIdx('datetime'))?.classList.remove('needs-time');
     if (changed) bump(readoutId);
@@ -897,131 +968,227 @@ function bump(id) {
   el.classList.add('tick');
 }
 
-/* ════ 03 · Локация ════ */
+/* ════ 03 · Локация ════
+   Ни Яндекс, ни Google не знают тойхоны Мангита: искать их на общей карте
+   бесполезно. Справочник мы ведём сами, и карта здесь тоже своя (map.js) —
+   чужой виджет приносил линейку, компас и «моё местоположение», которые паре
+   не нужны ни разу, а убрать их из чужого iframe нельзя. Сначала поиск —
+   название тойхоны знают наизусть; карта под ним показывает все места сразу. */
 
 const MANGIT_CENTER = [42.116169, 60.0625143];
-let ymap = null;
-let mark = null;
-let mapAsked = false;
-let mapFallback = null;
+let venueMap = null;
 
-function renderMapChoice() {
-  const toggle = $('map-toggle');
-  const tools = $('map-tools');
-  if (!toggle || !tools) return;
-  toggle.setAttribute('aria-checked', String(state.mapOn));
-  $('map-sw-sub').textContent = state.mapOn ? t('mapSwOn') : t('mapSwOff');
-  tools.hidden = !state.mapOn;
-  if (state.mapOn) {
-    if (mapFallback) document.querySelector('.map-hint').textContent = t('mapHintFallback');
-    ensureMap();
-    requestAnimationFrame(() => ymap?.container?.fitToViewport?.());
+const cityCenter = () => {
+  const city = state.config?.city;
+  return Number.isFinite(city?.lat) ? [city.lat, city.lng] : MANGIT_CENTER;
+};
+const cityZoom = () => Number(state.config?.city?.zoom) || 14;
+const venues = () => state.venues || [];
+const chosenVenue = () => venues().find((v) => v.id === state.venueId) || null;
+const manualOpen = () => !$('venue-manual').hidden;
+const placed = () => Number.isFinite(state.lat) && Number.isFinite(state.lng);
+
+/* ── Каталог ── */
+
+function venueSubtitle(venue) {
+  const parts = [t('venueKind')[venue.kind] || t('venueKind').toyxona];
+  if (venue.seats) parts.push(t('venueSeats', venue.seats));
+  if (venue.address) parts.push(venue.address);
+  return parts.join(' · ');
+}
+
+function venueCard(venue) {
+  const card = h('button', { type: 'button', class: 'venue', dataset: { id: venue.id } },
+    h('span', { class: 'venue-mark' }, [...venue.name][0] || '·'),
+    h('span', { class: 'venue-copy' },
+      h('b', {}, venue.name),
+      h('span', {}, venueSubtitle(venue))));
+  card.addEventListener('click', () => pickVenue(venue));
+  return card;
+}
+
+function renderVenues(query = '') {
+  const box = $('venue-list');
+  if (!box) return;
+  const q = query.trim().toLowerCase();
+  const list = venues().filter((venue) => !q
+    || venue.name.toLowerCase().includes(q)
+    || venue.address.toLowerCase().includes(q));
+  box.innerHTML = '';
+  if (!venues().length) { box.hidden = true; return; }
+  box.hidden = false;
+  if (!list.length) {
+    box.appendChild(h('p', { class: 'venue-empty' }, t('venueEmpty')));
   } else {
-    $('geo-list').hidden = true;
+    list.slice(0, 40).forEach((venue) => box.appendChild(venueCard(venue)));
+  }
+  // Карта показывает ровно то, что осталось в списке после поиска.
+  paintVenueMarks(list);
+}
+
+async function loadVenues() {
+  try {
+    const response = await fetch('/api/venues');
+    const data = await response.json();
+    state.venues = Array.isArray(data.venues) ? data.venues : [];
+  } catch (_) {
+    state.venues = [];
+  }
+  renderVenues($('geo-q')?.value || '');
+  if (venues().length && !placed()) venueMap?.fit(venues());
+  // Каталог приезжает уже после первой отрисовки блока. Пока пара ничего не
+  // выбрала, возвращаем шаг в то состояние, которое отвечает пришедшему
+  // списку: есть места — показываем их, пусто — сразу даём вписать своё.
+  if (state.venueId || $('address').value.trim()) { renderVenueChoice(); return; }
+  if (venues().length) {
+    $('venue-manual').hidden = true;
+    $('venue-chosen').hidden = true;
+    $('venue-pick').hidden = false;
+    $('venue-body').hidden = false;
+    paintMapNote();
+  } else {
+    openManual({ quiet: true });
   }
 }
 
-function toggleMap() {
-  state.mapOn = !state.mapOn;
-  haptic.tap();
-  renderMapChoice();
+function pickVenue(venue) {
+  haptic.ok();
+  state.venueId = venue.id;
+  $('address').value = venue.name;
+  $('address').dataset.manual = '1';
+  markFilled($('address'));
+  $('geo-list').hidden = true;
+  setPoint(venue.lat, venue.lng);
+  venueMap?.setView(venue.lat, venue.lng, 17);
+  renderVenueChoice();
   clearErr(stepIdx('location'));
   saveDraft();
-  if (!state.mapOn) autoAdvance(760);
+  autoAdvance(640);
+}
+
+/* Место вне каталога: название пальцем, точка — тапом по карте. */
+function openManual({ quiet = false } = {}) {
+  state.venueId = null;
+  $('venue-pick').hidden = true;
+  $('venue-body').hidden = true;
+  $('venue-chosen').hidden = true;
+  $('venue-manual').hidden = false;
+  paintVenueMarks([]);
+  paintMapNote();
+  if (!quiet) {
+    haptic.tap();
+    requestAnimationFrame(() => $('address').focus({ preventScroll: true }));
+  }
+}
+
+function reopenVenues() {
+  haptic.tap();
+  state.venueId = null;
+  state.lat = NaN;
+  state.lng = NaN;
+  $('address').value = '';
+  $('address').dataset.manual = '';
+  markFilled($('address'));
+  $('geo-q').value = '';
+  $('geo-list').hidden = true;
+  $('venue-chosen').hidden = true;
+  $('venue-manual').hidden = true;
+  $('venue-pick').hidden = false;
+  $('venue-body').hidden = false;
+  venueMap?.clearMark();
+  renderVenues();
+  if (venues().length) venueMap?.fit(venues());
+  else venueMap?.setView(cityCenter()[0], cityCenter()[1], cityZoom());
+  paintMapNote();
+  saveDraft();
+}
+
+/* Три состояния блока: выбираем из каталога, выбрали, вписываем своё. */
+function renderVenueChoice() {
+  const venue = chosenVenue();
+  if (venue) {
+    $('venue-pick').hidden = true;
+    $('venue-body').hidden = true;
+    $('venue-manual').hidden = true;
+    $('venue-chosen').hidden = false;
+    $('venue-name').textContent = venue.name;
+    $('venue-meta').textContent = venueSubtitle(venue);
+  } else {
+    $('venue-chosen').hidden = true;
+    if ($('address').value.trim() || !venues().length) {
+      $('venue-pick').hidden = true;
+      $('venue-body').hidden = true;
+      $('venue-manual').hidden = false;
+    }
+  }
+  paintMapNote();
+}
+
+/* Режим карты и подсказка следуют за состоянием блока: ткнуть пальцем можно
+   только тогда, когда место вписывают руками — у тойхоны из каталога точка
+   уже есть, и случайно сбить её тапом нельзя. */
+function paintMapNote() {
+  const note = $('map-note');
+  if (!note) return;
+  const manual = manualOpen();
+  venueMap?.setPick(manual);
+  if (manual && !placed()) { note.textContent = t('mapPick'); note.hidden = false; return; }
+  note.hidden = true;
+}
+
+/* ── Карта ── */
+
+function renderMapChoice() {
+  ensureMap();
+  venueMap?.invalidate();
+  renderVenueChoice();
 }
 
 function ensureMap() {
-  if (ymap) {
-    requestAnimationFrame(() => ymap.container.fitToViewport());
-    return;
-  }
-  if (mapAsked) return;
-  mapAsked = true;
-  const key = state.config?.yandexMapsKey || '';
-  if (!key) {
-    renderYandexWidget();
-    return;
-  }
-  const script = document.createElement('script');
-  const lang = 'ru_RU';
-  script.src = `https://api-maps.yandex.ru/2.1/?lang=${lang}${key ? `&apikey=${encodeURIComponent(key)}` : ''}`;
-  script.async = true;
-  script.onload = () => {
-    if (!window.ymaps) { mapAsked = false; toast(t('eNet'), 'err'); return; }
-    window.ymaps.ready(initMap);
-  };
-  script.onerror = () => { mapAsked = false; toast(t('eNet'), 'err'); };
-  document.head.appendChild(script);
+  if (venueMap || !window.NvMap || !$('map')) return;
+  const [lat, lng] = cityCenter();
+  venueMap = NvMap.create($('map'), {
+    lat: placed() ? state.lat : lat,
+    lng: placed() ? state.lng : lng,
+    zoom: placed() ? 17 : cityZoom(),
+    tiles: state.config?.mapTiles,
+    pick: manualOpen(),
+    onPin: (pin) => {
+      const venue = venues().find((v) => v.id === pin.id);
+      if (venue) pickVenue(venue);
+    },
+    // Тап по карте ставит точку — но только когда место вписывают руками:
+    // у выбранной из каталога тойхоны координата уже есть.
+    onPick: ({ lat: plat, lng: plng }) => {
+      if (!manualOpen()) return;
+      haptic.tap();
+      setPoint(plat, plng);
+      reverseName(plat, plng);
+      autoAdvance(720);
+    },
+  });
+  paintVenueMarks();
+  if (placed()) venueMap.setMark(state.lat, state.lng);
 }
 
-function renderYandexWidget(lat = state.lat, lng = state.lng, zoom = Number.isFinite(state.lat) ? 16 : 13) {
-  const point = Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : MANGIT_CENTER;
-  const map = $('map');
-  map.innerHTML = '';
-  const marker = Number.isFinite(lat) && Number.isFinite(lng) ? `&pt=${lng},${lat},pm2rdm` : '';
-  const frame = document.createElement('iframe');
-  frame.className = 'yandex-widget';
-  frame.title = t('seekLbl');
-  frame.loading = 'lazy';
-  frame.referrerPolicy = 'no-referrer-when-downgrade';
-  frame.src = `https://yandex.ru/map-widget/v1/?ll=${point[1]}%2C${point[0]}&z=${zoom}&l=map${marker}`;
-  map.appendChild(frame);
-  mapFallback = frame;
-  document.querySelector('.map-hint').textContent = t('mapHintFallback');
-  $('map-in').parentElement.hidden = true;
-}
-
-function initMap() {
-  if (ymap || !window.ymaps) return;
-  mapFallback = null;
-  $('map').innerHTML = '';
-  document.querySelector('.map-hint').textContent = t('mapHint');
-  $('map-in').parentElement.hidden = false;
-  const c = Number.isFinite(state.lat) ? [state.lat, state.lng] : MANGIT_CENTER;
-  ymap = new ymaps.Map('map', {
-    center: c,
-    zoom: Number.isFinite(state.lat) ? 16 : 13,
-    controls: [],
-  }, {
-    suppressMapOpenBlock: true,
-    yandexMapDisablePoiInteractivity: true,
-  });
-  ymap.behaviors.disable('dblClickZoom');
-
-  // Точку ставит тап по карте: центр экрана ничего не выбирает сам.
-  ymap.events.add('click', (e) => {
-    const [lat, lng] = e.get('coords');
-    haptic.tap();
-    setPoint(lat, lng);
-    reverseName(lat, lng);
-    autoAdvance(720);
-  });
-  if (Number.isFinite(state.lat)) setPoint(state.lat, state.lng);
-  requestAnimationFrame(() => ymap?.container?.fitToViewport?.());
+/* Все тойхоны каталога на карте сразу: тап по метке выбирает место. */
+function paintVenueMarks(list = venues()) {
+  venueMap?.setPins(list.map((venue) => ({
+    id: venue.id,
+    lat: venue.lat,
+    lng: venue.lng,
+    label: venue.name,
+    active: venue.id === state.venueId,
+  })));
 }
 
 function setPoint(lat, lng) {
-  state.lat = lat; state.lng = lng;
-  clearErr(2);
+  state.lat = lat;
+  state.lng = lng;
+  clearErr(stepIdx('location'));
   saveDraft();
-  if (!ymap) {
-    if (mapFallback) renderYandexWidget(lat, lng, 16);
-    return;
-  }
-  if (mark) { mark.geometry.setCoordinates([lat, lng]); return; }
-  mark = new ymaps.Placemark([lat, lng], {}, {
-    preset: 'islands#circleIcon',
-    iconColor: '#d7a83f',
-    draggable: true,
-  });
-  ymap.geoObjects.add(mark);
-  mark.events.add('dragend', () => {
-    const [dlat, dlng] = mark.geometry.getCoordinates();
-    state.lat = dlat; state.lng = dlng;
-    saveDraft();
-    reverseName(dlat, dlng);
-    autoAdvance(720);
-  });
+  venueMap?.setMark(lat, lng);
+  paintMapNote();
 }
 
 const reverseName = debounce(async (lat, lng) => {
@@ -1039,23 +1206,22 @@ const reverseName = debounce(async (lat, lng) => {
   } catch (_) { /* геокодер может молчать — адрес необязателен */ }
 }, 700);
 
-function flyTo(lat, lng, zoom = 17) {
-  setPoint(lat, lng);
-  if (ymap) ymap.setCenter([lat, lng], zoom, { duration: 1200, timingFunction: 'ease-in-out' });
-}
+/* ── Поиск по общей карте: запасной путь для мест вне каталога ── */
 
 let geoSeq = 0;
 
 function geoLocalScore(place) {
   const text = `${place.name || ''} ${place.desc || ''}`.toLowerCase();
   const named = /mang|mańǵ|amud|ámiwd/.test(text) ? 1000 : /qaraqal|karakal/.test(text) ? 350 : 0;
-  const distance = Math.hypot((place.lat - MANGIT_CENTER[0]) * 111, (place.lng - MANGIT_CENTER[1]) * 82);
+  const centre = cityCenter();
+  const distance = Math.hypot((place.lat - centre[0]) * 111, (place.lng - centre[1]) * 82);
   return named - distance;
 }
 
 async function seekPlace() {
   const q = $('geo-q').value.trim();
-  if (q.length < 2) { $('geo-list').hidden = true; return; }
+  renderVenues(q);
+  if (q.length < 3) { $('geo-list').hidden = true; return; }
   const seq = ++geoSeq;
   $('geo-spin').hidden = false;
   try {
@@ -1071,10 +1237,10 @@ async function seekPlace() {
         return true;
       })
       .sort((a, b) => geoLocalScore(b) - geoLocalScore(a))
-      .slice(0, 8);
+      .slice(0, 5);
     showGeo(merged);
   } catch (_) {
-    if (seq === geoSeq) toast(t('eNet'), 'err');
+    if (seq === geoSeq) $('geo-list').hidden = true;
   } finally {
     if (seq === geoSeq) $('geo-spin').hidden = true;
   }
@@ -1085,21 +1251,25 @@ const seekPlaceSoon = debounce(seekPlace, 500);
 function showGeo(list) {
   const box = $('geo-list');
   box.innerHTML = '';
-  if (!list.length) {
-    box.appendChild(h('p', { class: 'geo-empty' }, t('eNoFound')));
-    box.hidden = false;
-    return;
-  }
-  list.forEach((r, i) => {
+  if (!list.length) { box.hidden = true; return; }
+  box.appendChild(h('p', { class: 'geo-head' }, t('geoHead')));
+  list.forEach((place) => {
     const item = h('button', { type: 'button', class: 'geo-item' },
-      h('b', {}, r.name || r.desc), r.desc ? h('span', {}, r.desc) : null);
+      h('b', {}, place.name || place.desc), place.desc ? h('span', {}, place.desc) : null);
     item.addEventListener('click', () => {
       haptic.tap();
-      flyTo(r.lat, r.lng);
-      $('address').value = (r.name || r.desc || '').slice(0, 140);
+      state.venueId = null;
+      $('address').value = (place.name || place.desc || '').slice(0, 140);
       $('address').dataset.manual = '1';
       markFilled($('address'));
       box.hidden = true;
+      $('venue-pick').hidden = true;
+      $('venue-body').hidden = true;
+      $('venue-chosen').hidden = true;
+      $('venue-manual').hidden = false;
+      paintMapNote();
+      setPoint(place.lat, place.lng);
+      venueMap?.setView(place.lat, place.lng, 17);
       saveDraft();
       autoAdvance(530);
     });
@@ -1235,9 +1405,7 @@ function setMusic(music) {
   $('music-picked').hidden = false;
   openTrim();
   saveDraft();
-  // Пока пара подбирает отрывок, следующий блок ждёт: каждое движение ручки
-  // отодвигает переход (см. holdMusicStep).
-  autoAdvance(trimmable() ? 4200 : 430);
+  autoAdvance(620);
 }
 
 function reopenMusic() {
@@ -1283,27 +1451,28 @@ async function uploadMusicFile(file) {
   }
 }
 
-/* ════ 04b · Отрывок: где начать и где закончить ════
-   Ни одного поля ввода: две ручки на волне и секунды под ними. Отпустил
-   ручку — оттуда и заиграло, пять секунд на проверку. Дальше музыка гаснет
-   сама или раньше — по прозрачной кнопке поверх волны. */
+/* ════ 04b · Откуда играть ════
 
-const PREVIEW_MS = 5000;
-const MIN_SPAN = 3;          // отрывок короче трёх секунд не имеет смысла
-const WAVE_BARS = 96;
+   Прошлая версия просила прицелиться иглой в двухпиксельную полоску — на
+   телефоне это спорт, а не выбор. Здесь всё наоборот: пара слушает трек и
+   нажимает «Начать отсюда» в тот момент, когда музыка стала правильной. Ухо
+   решает, палец только подтверждает.
 
-let trimPeaks = null;        // реальные пики трека, если файл удалось разобрать
+   Полоса под кнопкой — и ход воспроизведения, и перемотка: тап переносит
+   иглу, куда показали. Конца у отрывка нет: дальше трек идёт до конца. */
+
 let trimDuration = 0;
-let trimDrag = null;         // 'a' | 'b' — какую ручку ведём
-let previewTimer = null;
-let trimToken = 0;           // отменяет ответы по уже неактуальному треку
+let trimPlaying = false;
+let trimAt = 0;               // где сейчас звучит, секунды
+let trimSeek = false;         // палец ведёт по полосе
+let trimToken = 0;            // отменяет ответы по уже неактуальному треку
 
 const clockText = (sec) => {
   const s = Math.max(0, Math.round(sec));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
-const trimEnd = () => (Number.isFinite(state.musicEnd) ? state.musicEnd : trimDuration);
 const trimmable = () => Boolean(state.music?.playUrl);
+const trimStart = () => Math.max(0, Math.min(state.musicStart || 0, Math.max(0, trimDuration - 1)));
 
 /* Длительность берём у самого <audio>: декодировать файл для этого не нужно. */
 function audioDuration(url) {
@@ -1323,129 +1492,47 @@ function audioDuration(url) {
   });
 }
 
-/* Пики строим сами из файла. Чужой домен без CORS разобрать не даст — тогда
-   волны не будет вовсе: вместо неё рисуем линейку секунд, а не выдуманную
-   картинку чужого трека. */
-async function loadPeaks(url) {
-  const Ctx = window.AudioContext || window.webkitAudioContext;
-  if (!Ctx) return null;
-  let ctx = null;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const raw = await res.arrayBuffer();
-    if (raw.byteLength > 12 * 1024 * 1024) return null;   // на телефоне это уже дорого
-    ctx = new Ctx();
-    const decoded = await ctx.decodeAudioData(raw);
-    const data = decoded.getChannelData(0);
-    const per = Math.floor(data.length / WAVE_BARS) || 1;
-    const peaks = new Float32Array(WAVE_BARS);
-    let loudest = 0;
-    for (let i = 0; i < WAVE_BARS; i += 1) {
-      const from = i * per;
-      let power = 0;
-      let taken = 0;
-      // Каждый 32-й отсчёт: на глаз разницы нет, а работы в 32 раза меньше.
-      for (let j = 0; j < per; j += 32) {
-        const v = data[from + j] || 0;
-        power += v * v;
-        taken += 1;
-      }
-      peaks[i] = taken ? Math.sqrt(power / taken) : 0;
-      if (peaks[i] > loudest) loudest = peaks[i];
-    }
-    if (!loudest) return null;
-    for (let i = 0; i < WAVE_BARS; i += 1) peaks[i] = Math.min(1, peaks[i] / loudest);
-    return peaks;
-  } catch (_) {
-    return null;
-  } finally {
-    try { await ctx?.close(); } catch (_) { /* — */ }
-  }
-}
-
-function drawTrim() {
-  const canvas = $('trim-canvas');
-  if (!canvas?.getContext) return;
-  const w = canvas.clientWidth;
-  const hgt = canvas.clientHeight;
-  if (!w || !hgt) return;
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  canvas.width = Math.round(w * dpr);
-  canvas.height = Math.round(hgt * dpr);
-  const ctx = canvas.getContext('2d');
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, w, hgt);
-
-  const from = state.musicStart || 0;
-  const to = trimEnd();
-  const mid = hgt / 2;
-  const lit = 'rgba(241,221,176,.9)';
-  const dim = 'rgba(241,221,176,.2)';
-
-  if (trimPeaks) {
-    const step = w / trimPeaks.length;
-    const bar = Math.max(1.5, step - 1.6);
-    for (let i = 0; i < trimPeaks.length; i += 1) {
-      const at = ((i + .5) / trimPeaks.length) * trimDuration;
-      const tall = Math.max(2, trimPeaks[i] * (hgt - 6));
-      ctx.fillStyle = at >= from && at <= to ? lit : dim;
-      ctx.fillRect(i * step + (step - bar) / 2, mid - tall / 2, bar, tall);
-    }
-    return;
-  }
-
-  // Линейка: тонкие штрихи по секундам, высокие — каждые пять.
-  const seconds = Math.max(1, Math.round(trimDuration));
-  const step = w / seconds;
-  for (let s = 0; s <= seconds; s += 1) {
-    const five = s % 5 === 0;
-    const tall = five ? hgt * .52 : hgt * .24;
-    ctx.fillStyle = s >= from && s <= to ? lit : dim;
-    ctx.fillRect(Math.min(w - 1.4, s * step), mid - tall / 2, 1.4, tall);
-  }
-}
-
-function paintGrip(grip, sec, label) {
-  grip.setAttribute('aria-valuemin', '0');
-  grip.setAttribute('aria-valuemax', String(Math.round(trimDuration)));
-  grip.setAttribute('aria-valuenow', String(Math.round(sec)));
-  grip.setAttribute('aria-valuetext', clockText(sec));
-  grip.setAttribute('aria-label', label);
-}
+/* ── Отрисовка ── */
 
 function paintTrim() {
   if (!trimDuration) return;
-  const from = Math.max(0, Math.min(state.musicStart || 0, trimDuration - MIN_SPAN));
-  const to = Math.max(from + MIN_SPAN, Math.min(trimEnd(), trimDuration));
-  state.musicStart = from;
-  state.musicEnd = to;
-  const left = (from / trimDuration) * 100;
-  const right = (to / trimDuration) * 100;
+  const start = trimStart();
+  state.musicStart = start;
+  state.musicEnd = null;                       // играем до конца трека
 
-  $('trim-window').style.left = `${left}%`;
-  $('trim-window').style.right = `${100 - right}%`;
-  $('trim-shade-a').style.width = `${left}%`;
-  $('trim-shade-b').style.width = `${100 - right}%`;
-  $('trim-a').style.left = `${left}%`;
-  $('trim-b').style.left = `${right}%`;
-  $('trim-from').textContent = clockText(from);
-  $('trim-to').textContent = clockText(to);
-  $('trim-len').textContent = clockText(to - from);
-  paintGrip($('trim-a'), from, t('trimFromAria'));
-  paintGrip($('trim-b'), to, t('trimToAria'));
-  drawTrim();
+  const pct = (sec) => `${Math.max(0, Math.min(100, (sec / trimDuration) * 100))}%`;
+  $('trim-from').textContent = clockText(start);
+  $('trim-clock').textContent = clockText(trimAt);
+  $('trim-flag').style.left = pct(start);
+  $('trim-head').style.left = pct(trimAt);
+  $('trim-done').style.width = pct(trimAt);
+  $('trim-kept').style.left = pct(start);
+
+  const line = $('trim-line');
+  line.setAttribute('aria-valuemin', '0');
+  line.setAttribute('aria-valuemax', String(Math.round(trimDuration)));
+  line.setAttribute('aria-valuenow', String(Math.round(trimAt)));
+  line.setAttribute('aria-valuetext', clockText(trimAt));
+
+  $('music-trim').classList.toggle('is-playing', trimPlaying);
+  $('music-trim').classList.toggle('is-set', start > 0);
+  $('trim-state').textContent = start > 0
+    ? t('trimFrom', clockText(start))
+    : t('trimListen');
+  $('trim-play').setAttribute('aria-label', trimPlaying ? t('pauseAria') : t('playAria'));
+  $('trim-reset').hidden = start <= 0;
 }
 
-/* Показываем отрывок только там, где его слышно: у ссылки на YouTube нет ни
-   волны, ни длительности, и гадать мы не будем. */
+/* Показываем дорожку только там, где её слышно: у ссылки на YouTube нет ни
+   длительности, ни звука, и гадать мы не будем. */
 async function openTrim() {
   const box = $('music-trim');
   if (!box) return;
   const token = ++trimToken;
-  stopPreview();
-  trimPeaks = null;
+  stopTrim();
   trimDuration = 0;
+  trimAt = 0;
+  hideCutTip();
   const url = state.music?.playUrl;
   if (!url) { box.hidden = true; return; }
 
@@ -1453,7 +1540,7 @@ async function openTrim() {
   box.classList.add('is-loading');
   const duration = await audioDuration(url);
   if (token !== trimToken) return;
-  if (!Number.isFinite(duration) || duration < MIN_SPAN + 1) {
+  if (!Number.isFinite(duration) || duration < 4) {
     box.hidden = true;
     box.classList.remove('is-loading');
     return;
@@ -1461,159 +1548,184 @@ async function openTrim() {
 
   trimDuration = duration;
   if (!Number.isFinite(state.musicStart)) state.musicStart = 0;
-  if (!Number.isFinite(state.musicEnd)) state.musicEnd = Math.round(duration);
+  state.musicEnd = null;
+  trimAt = trimStart();
   box.classList.remove('is-loading');
   paintTrim();
-
-  const peaks = await loadPeaks(url);
-  if (token !== trimToken) return;
-  trimPeaks = peaks;
-  drawTrim();
+  loadCutTip(token);
 }
 
 function closeTrim() {
   trimToken += 1;
-  stopPreview();
-  trimPeaks = null;
+  stopTrim();
   trimDuration = 0;
+  trimAt = 0;
+  hideCutTip();
   const box = $('music-trim');
-  if (box) { box.hidden = true; box.classList.remove('is-loading'); }
+  if (box) { box.hidden = true; box.classList.remove('is-loading', 'is-playing', 'is-set'); }
 }
 
-function secAt(clientX) {
-  const rect = $('trim-wave').getBoundingClientRect();
-  if (!rect.width) return 0;
-  const k = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-  return k * trimDuration;
-}
+/* ── Звук ── */
 
-function moveGrip(sec) {
-  if (trimDrag === 'a') state.musicStart = Math.min(Math.max(0, sec), trimEnd() - MIN_SPAN);
-  else state.musicEnd = Math.max(Math.min(trimDuration, sec), (state.musicStart || 0) + MIN_SPAN);
+function onTrimTime() {
+  if (trimSeek) return;
+  trimAt = player.currentTime;
   paintTrim();
 }
 
-/* Прослушивание: играем ровно выбранный отрывок и не дольше пяти секунд.
-   Тянули конец — слушаем подход к обрыву, чтобы слышно было, где музыка смолкнет. */
-function previewGrip(which) {
-  if (which === 'a') previewFrom(state.musicStart || 0);
-  else previewFrom(Math.max(state.musicStart || 0, trimEnd() - PREVIEW_MS / 1000));
+function onTrimEnd() {
+  trimPlaying = false;
+  trimAt = trimStart();
+  paintTrim();
 }
 
-function onPreviewTick() {
-  if (player.currentTime >= trimEnd()) stopPreview();
-}
-
-function previewFrom(sec) {
+function playTrim(from = trimAt) {
   const url = state.music?.playUrl;
   if (!url) return;
-  clearTimeout(previewTimer);
-  player.removeEventListener('timeupdate', onPreviewTick);
   playingUrl = null;
   activeTrackUrl = null;
   refreshPlayUI();
 
   const go = () => {
-    try { player.currentTime = Math.max(0, sec); } catch (_) { /* поток ещё не готов */ }
+    try { player.currentTime = Math.max(0, Math.min(from, trimDuration - .2)); } catch (_) { /* поток ещё не готов */ }
     player.play().then(() => {
-      player.addEventListener('timeupdate', onPreviewTick);
-      previewTimer = setTimeout(stopPreview, PREVIEW_MS);
-      showTrimStop(true);
-    }).catch(() => { showTrimStop(false); });
+      trimPlaying = true;
+      paintTrim();
+    }).catch(() => { trimPlaying = false; paintTrim(); });
   };
 
+  player.addEventListener('timeupdate', onTrimTime);
+  player.addEventListener('ended', onTrimEnd);
   if (player.src.includes(url) && player.readyState >= 1) { go(); return; }
   player.src = url;
   player.addEventListener('loadedmetadata', go, { once: true });
 }
 
-function stopPreview() {
-  clearTimeout(previewTimer);
-  previewTimer = null;
-  player.removeEventListener('timeupdate', onPreviewTick);
+function stopTrim() {
+  player.removeEventListener('timeupdate', onTrimTime);
+  player.removeEventListener('ended', onTrimEnd);
   if (!player.paused) player.pause();
-  showTrimStop(false);
+  trimPlaying = false;
+  if (trimDuration) paintTrim();
 }
 
-/* Кнопка живёт ровно столько, сколько играет музыка: кольцо показывает,
-   сколько осталось до того, как она смолкнет сама. */
-function showTrimStop(on) {
-  const btn = $('trim-stop');
-  if (!btn) return;
-  btn.setAttribute('aria-label', t('trimStopAria'));
-  btn.hidden = !on;
-  btn.classList.remove('is-counting');
-  if (!on) return;
-  void btn.offsetWidth;
-  btn.classList.add('is-counting');
+function toggleTrimPlay() {
+  haptic.tap();
+  if (trimPlaying) { stopTrim(); return; }
+  playTrim(trimAt >= trimDuration - .3 ? trimStart() : trimAt);
 }
 
-/* Настраивают отрывок — переход к следующему блоку ждёт. */
-function holdMusicStep() {
-  if (state.open === stepIdx('music')) autoAdvance(4200);
-}
-
-function commitTrim(which) {
-  trimDrag = null;
-  state.musicStart = Math.round(state.musicStart || 0);
-  state.musicEnd = Math.round(trimEnd());
+/* Главное действие: то, что сейчас звучит, и становится началом. */
+function markStart(sec = trimAt) {
+  state.musicStart = Math.max(0, Math.round(Math.min(sec, trimDuration - 1)));
+  haptic.ok();
   paintTrim();
   saveDraft();
-  previewGrip(which);
-  holdMusicStep();
+}
+
+function resetStart() {
+  haptic.tap();
+  state.musicStart = 0;
+  trimAt = 0;
+  paintTrim();
+  saveDraft();
+  if (trimPlaying) playTrim(0);
+}
+
+/* ── Перемотка по полосе ── */
+
+function secAt(clientX) {
+  const rect = $('trim-line').getBoundingClientRect();
+  if (!rect.width) return 0;
+  const k = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  return k * trimDuration;
+}
+
+/* ── Подсказка: откуда этот трек запускают другие пары ── */
+
+function hideCutTip() {
+  const tip = $('trim-tip');
+  if (tip) { tip.hidden = true; tip.onclick = null; }
+}
+
+async function loadCutTip(token) {
+  const tip = $('trim-tip');
+  const music = state.music;
+  if (!tip || !music || music.type === 'upload') return;
+  const query = new URLSearchParams({ type: music.type });
+  if (music.type === 'itunes') {
+    query.set('name', music.value?.name ?? '');
+    query.set('artist', music.value?.artist ?? '');
+    query.set('url', music.value?.url ?? '');
+  } else {
+    query.set('url', String(music.value ?? ''));
+  }
+  let cut = null;
+  try {
+    const response = await fetch(`/api/music/cut?${query}`);
+    cut = (await response.json()).cut;
+  } catch (_) { return; }
+  if (token !== trimToken || !cut || !Number.isFinite(cut.start)) return;
+  if (cut.start >= trimDuration - 1) return;
+
+  tip.textContent = t('trimTip', clockText(cut.start), cut.uses);
+  tip.hidden = false;
+  tip.onclick = () => {
+    markStart(cut.start);
+    trimAt = cut.start;
+    playTrim(cut.start);
+  };
 }
 
 function wireTrim() {
-  ['trim-a', 'trim-b'].forEach((id) => {
-    const grip = $(id);
-    const which = id === 'trim-a' ? 'a' : 'b';
+  $('trim-play').addEventListener('click', toggleTrimPlay);
+  $('trim-set').addEventListener('click', () => markStart());
+  $('trim-reset').addEventListener('click', resetStart);
 
-    grip.addEventListener('pointerdown', (event) => {
-      if (!trimDuration) return;
-      event.preventDefault();
-      trimDrag = which;
-      grip.classList.add('is-drag');
-      grip.setPointerCapture?.(event.pointerId);
-      stopPreview();
-    });
-    grip.addEventListener('pointermove', (event) => {
-      if (trimDrag !== which) return;
-      moveGrip(secAt(event.clientX));
-    });
+  const line = $('trim-line');
 
-    const release = () => {
-      if (trimDrag !== which) return;
-      grip.classList.remove('is-drag');
-      haptic.tap();
-      commitTrim(which);
-    };
-    grip.addEventListener('pointerup', release);
-    grip.addEventListener('pointercancel', release);
+  const moveTo = (clientX) => {
+    trimAt = secAt(clientX);
+    paintTrim();
+  };
 
-    grip.addEventListener('keydown', (event) => {
-      if (!trimDuration) return;
-      const step = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0;
-      if (!step) return;
-      event.preventDefault();
-      trimDrag = which;
-      moveGrip((which === 'a' ? state.musicStart || 0 : trimEnd()) + step);
-      commitTrim(which);
-    });
+  line.addEventListener('pointerdown', (event) => {
+    if (!trimDuration) return;
+    event.preventDefault();
+    trimSeek = true;
+    line.setPointerCapture?.(event.pointerId);
+    line.classList.add('is-seeking');
+    moveTo(event.clientX);
   });
-
-  // Тап по волне подтягивает ближнюю ручку — не нужно ловить её пальцем.
-  $('trim-wave').addEventListener('pointerdown', (event) => {
-    if (!trimDuration || event.target.closest('.trim-grip, .trim-stop')) return;
-    const sec = secAt(event.clientX);
-    const which = Math.abs(sec - (state.musicStart || 0)) <= Math.abs(sec - trimEnd()) ? 'a' : 'b';
-    trimDrag = which;
-    moveGrip(sec);
-    commitTrim(which);
+  line.addEventListener('pointermove', (event) => {
+    if (!trimSeek) return;
+    moveTo(event.clientX);
   });
+  const release = () => {
+    if (!trimSeek) return;
+    trimSeek = false;
+    line.classList.remove('is-seeking');
+    haptic.tap();
+    // Отпустили — оттуда и звучит: слышно ровно то место, куда показали.
+    playTrim(trimAt);
+  };
+  line.addEventListener('pointerup', release);
+  line.addEventListener('pointercancel', release);
 
-  $('trim-stop').addEventListener('click', () => { haptic.tap(); stopPreview(); });
-
-  window.addEventListener('resize', debounce(() => { if (trimDuration) drawTrim(); }, 200), { passive: true });
+  line.addEventListener('keydown', (event) => {
+    if (!trimDuration) return;
+    const step = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0;
+    if (step) {
+      event.preventDefault();
+      trimAt = Math.max(0, Math.min(trimDuration, trimAt + step));
+      paintTrim();
+      return;
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      markStart();
+    }
+  });
 }
 
 /* ════ 05 · Шаблоны ════ */
@@ -1641,7 +1753,7 @@ function openDemo(tpl) {
   haptic.tap();
   const q = new URLSearchParams({
     groom: $('groom').value.trim(), bride: $('bride').value.trim(), lang: LANG,
-    address: $('address').value.trim(), map: state.mapOn ? '1' : '0',
+    address: $('address').value.trim(), map: placed() ? '1' : '0',
     lat: Number.isFinite(state.lat) ? String(state.lat) : '',
     lng: Number.isFinite(state.lng) ? String(state.lng) : '',
   });
@@ -1776,25 +1888,89 @@ function renderPhotos() {
   }
 }
 
+/* Телефон отдаёт фото так, как ему удобно: iPhone — HEIC, который сервер не
+   понимает, Android — кадр на 20 мегапикселей, который не долетает по мобильной
+   сети. Поэтому перед отправкой мы сами перекладываем снимок в JPEG нужного
+   размера. Браузер уже умеет декодировать всё, что снял его же телефон, —
+   декодируем и пересобираем. Не вышло — отправляем оригинал как есть. */
+const PHOTO_EDGE = 2000;
+const PHOTO_QUALITY = .86;
+
+async function shrinkPhoto(file) {
+  if (!('createImageBitmap' in window) || file.type === 'image/gif') return file;
+  let bitmap = null;
+  try {
+    bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, PHOTO_EDGE / Math.max(bitmap.width, bitmap.height));
+    const w = Math.round(bitmap.width * scale);
+    const h = Math.round(bitmap.height * scale);
+    // Уже JPEG нужного размера — второй прогон только съест качество.
+    if (scale === 1 && file.type === 'image/jpeg' && file.size <= 4 * 1024 * 1024) return file;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', PHOTO_QUALITY));
+    return blob && blob.size ? blob : file;
+  } catch (_) {
+    return file;
+  } finally {
+    bitmap?.close?.();
+  }
+}
+
+/* Что именно не получилось — важно: «файл не загрузился» на упёршемся лимите
+   отправляет пару жать кнопку снова и снова. */
+function uploadError(status, payload) {
+  if (status === 429) return t('eTooMany');
+  if (status === 401) return payload?.error || t('eUpload');
+  if (status === 400) return t('eFormat');
+  return t('eUpload');
+}
+
+async function sendPhoto(body) {
+  const response = await fetch('/api/upload', {
+    method: 'POST', headers: { 'x-init-data': tg ? tg.initData : '' }, body,
+  });
+  let payload = null;
+  try { payload = await response.json(); } catch (_) { /* пустой ответ шлюза */ }
+  if (!response.ok || !payload?.ok || payload.kind !== 'image') {
+    const error = new Error('upload-failed');
+    error.text = uploadError(response.status, payload);
+    error.retriable = !response.ok && response.status !== 400 && response.status !== 429;
+    throw error;
+  }
+  return payload;
+}
+
 async function uploadPhotos(files) {
   const max = requiredPhotos();
   for (const file of files) {
     if (state.photos.length >= max) break;
-    if (file.size > 16 * 1024 * 1024) { toast(t('eBig'), 'err'); continue; }
-    const slot = { name: null, url: URL.createObjectURL(file), uploading: true };
+    if (file.size > 40 * 1024 * 1024) { toast(t('eBig'), 'err'); continue; }
+    const preview = URL.createObjectURL(file);
+    const slot = { name: null, url: preview, uploading: true };
     state.photos.push(slot);
     renderPhotos();
     try {
-      const r = await fetch('/api/upload', {
-        method: 'POST', headers: { 'x-init-data': tg ? tg.initData : '' }, body: file,
-      });
-      const j = await r.json();
-      if (!r.ok || !j.ok || j.kind !== 'image') throw new Error('bad');
-      slot.name = j.file;
+      const body = await shrinkPhoto(file);
+      if (body.size > 16 * 1024 * 1024) throw Object.assign(new Error('big'), { text: t('eBig') });
+      let payload;
+      try {
+        payload = await sendPhoto(body);
+      } catch (error) {
+        // Обрыв мобильной сети — обычное дело: молча пробуем второй раз.
+        if (!error.retriable) throw error;
+        payload = await sendPhoto(body);
+      }
+      slot.name = payload.file;
       slot.uploading = false;
-    } catch (_) {
+    } catch (error) {
       state.photos = state.photos.filter((p) => p !== slot);
-      toast(t('eUpload'), 'err');
+      URL.revokeObjectURL(preview);
+      toast(error?.text || t('eUpload'), 'err');
     }
     renderPhotos();
     saveDraft();
@@ -1895,316 +2071,13 @@ async function finishInvite() {
 
 const guestPrice = () => state.config?.guestPrice ?? 10000;
 const cleanGuests = () => (state.guestsOn ? state.guests.map((g) => g.trim()).filter(Boolean) : []);
-let serviceMotionReady = false;
-let personalPhase = 0;
-let personalMotionRun = 0;
-let personalMotionVisible = false;
-let personalMotionTimers = [];
-
-const PM_DEMOS = {
-  uz: [
-    { prefix: 'Hurmatli', name: 'Aziz aka', slug: 'Aziz' },
-    { prefix: 'Hurmatli', name: 'Dilnoza opa', slug: 'Dilnoza' },
-    { prefix: 'Hurmatli', name: 'Farxod uka', slug: 'Farxod' },
-  ],
-  ru: [
-    { prefix: 'Дорогой', name: 'Aziz aka', slug: 'Aziz' },
-    { prefix: 'Дорогая', name: 'Dilnoza opa', slug: 'Dilnoza' },
-    { prefix: 'Дорогой', name: 'Farxod uka', slug: 'Farxod' },
-  ],
-};
-
-function schedulePersonalMotion(callback, delay, run = personalMotionRun) {
-  const timer = setTimeout(() => {
-    personalMotionTimers = personalMotionTimers.filter((item) => item !== timer);
-    if (run === personalMotionRun) callback();
-  }, delay);
-  personalMotionTimers.push(timer);
-  return timer;
-}
-
-function stopPersonalMotion() {
-  personalMotionRun += 1;
-  personalMotionTimers.forEach(clearTimeout);
-  personalMotionTimers = [];
-  document.querySelectorAll('.pm-traveler').forEach((dot) => dot.classList.remove('is-traveling'));
-}
-
-function renderPersonalChars(element, value) {
-  if (!element) return;
-  element.classList.remove('is-deleting');
-  element.replaceChildren(...Array.from(value).map((char, index) => {
-    const letter = document.createElement('span');
-    letter.className = 'pm-char';
-    letter.style.setProperty('--pm-i', index);
-    letter.textContent = char;
-    return letter;
-  }));
-  element.style.setProperty('--pm-count', value.length);
-}
-
-function setPersonalInvitation(index, animate = false, run = personalMotionRun) {
-  const demos = PM_DEMOS[LANG || 'uz'];
-  const demo = demos[index % demos.length];
-  const prefix = $('pm-prefix');
-  const name = $('pm-name');
-  const link = $('pm-link');
-  if (!prefix || !name || !link) return;
-
-  personalPhase = index % demos.length;
-  const commit = () => {
-    prefix.textContent = demo.prefix;
-    renderPersonalChars(name, demo.name);
-    renderPersonalChars(link, `nVate.uz/~~~/${demo.slug}`);
-    if (animate && prefix.animate) {
-      prefix.animate([
-        { opacity: 0, filter: 'blur(4px)', transform: 'translateY(4px)' },
-        { opacity: 1, filter: 'blur(0)', transform: 'translateY(0)' },
-      ], { duration: 460, easing: 'cubic-bezier(.32, 0, .18, 1)', fill: 'both' });
-    }
-  };
-
-  if (!animate || matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    commit();
-    return;
-  }
-
-  name.classList.add('is-deleting');
-  link.classList.add('is-deleting');
-  if (prefix.animate) {
-    prefix.animate([
-      { opacity: 1, filter: 'blur(0)', transform: 'translateY(0)' },
-      { opacity: 0, filter: 'blur(4px)', transform: 'translateY(-4px)' },
-    ], { duration: 330, easing: 'cubic-bezier(.55, 0, .78, .39)', fill: 'both' });
-  }
-  schedulePersonalMotion(commit, 650, run);
-}
-
-function pointAt(element, edge, rootRect) {
-  const rect = element.getBoundingClientRect();
-  const point = { x: rect.left - rootRect.left + rect.width / 2, y: rect.top - rootRect.top + rect.height / 2 };
-  if (edge === 'left') point.x = rect.left - rootRect.left;
-  if (edge === 'right') point.x = rect.right - rootRect.left;
-  if (edge === 'top') point.y = rect.top - rootRect.top;
-  if (edge === 'bottom') point.y = rect.bottom - rootRect.top;
-  return point;
-}
-
-function personalCurve(from, to, vertical) {
-  const f = (value) => Math.round(value * 10) / 10;
-  if (vertical) {
-    const bend = from.y + (to.y - from.y) * .52;
-    return `M${f(from.x)} ${f(from.y)}C${f(from.x)} ${f(bend)} ${f(to.x)} ${f(bend)} ${f(to.x)} ${f(to.y)}`;
-  }
-  const bend = from.x + (to.x - from.x) * .52;
-  return `M${f(from.x)} ${f(from.y)}C${f(bend)} ${f(from.y)} ${f(bend)} ${f(to.y)} ${f(to.x)} ${f(to.y)}`;
-}
-
-function layoutPersonalMotion() {
-  const motion = $('personal-motion');
-  const svg = $('pm-wires');
-  const origin = $('pm-origin');
-  const card = $('pm-card');
-  if (!motion || !svg || !origin || !card || !motion.offsetWidth) return;
-
-  const rootRect = motion.getBoundingClientRect();
-  const vertical = motion.clientWidth < 620;
-  svg.setAttribute('viewBox', `0 0 ${rootRect.width} ${rootRect.height}`);
-
-  const originPoint = pointAt(origin, vertical ? 'bottom' : 'right', rootRect);
-  const cardIn = pointAt(card, vertical ? 'top' : 'left', rootRect);
-  const cardOut = pointAt(card, vertical ? 'bottom' : 'right', rootRect);
-  $('pm-path-in').setAttribute('d', personalCurve(originPoint, cardIn, vertical));
-
-  for (let index = 0; index < 3; index += 1) {
-    const person = $(`pm-person-${index}`);
-    const destination = pointAt(person, vertical ? 'top' : 'left', rootRect);
-    $('pm-path-' + index).setAttribute('d', personalCurve(cardOut, destination, vertical));
-  }
-}
-
-function travelPersonalPath(path, dot, duration, run = personalMotionRun, onDone) {
-  if (!path || !dot || run !== personalMotionRun) return;
-  if (!path.getAttribute('d')) layoutPersonalMotion();
-  if (!path.getAttribute('d')) return;
-  const length = path.getTotalLength();
-  const started = performance.now();
-  dot.classList.add('is-traveling');
-
-  const frame = (now) => {
-    if (run !== personalMotionRun) {
-      dot.classList.remove('is-traveling');
-      return;
-    }
-    const elapsed = Math.min(1, (now - started) / duration);
-    const eased = 1 - Math.pow(1 - elapsed, 3.1);
-    const point = path.getPointAtLength(length * eased);
-    dot.setAttribute('cx', point.x);
-    dot.setAttribute('cy', point.y);
-    if (elapsed < 1) requestAnimationFrame(frame);
-    else {
-      dot.classList.remove('is-traveling');
-      onDone?.();
-    }
-  };
-  requestAnimationFrame(frame);
-}
-
-function pulsePersonalElement(element, duration = 850, run = personalMotionRun) {
-  if (!element) return;
-  element.classList.remove('is-pulsing', 'is-arriving');
-  void element.offsetWidth;
-  element.classList.add(element.classList.contains('pm-person') ? 'is-arriving' : 'is-pulsing');
-  schedulePersonalMotion(() => element.classList.remove('is-pulsing', 'is-arriving'), duration, run);
-}
-
-function drawPersonalPath(key, duration, run = personalMotionRun, onDone) {
-  const path = $(`pm-path-${key}`);
-  const dot = $(`pm-light-${key}`);
-  if (!path || !dot) return;
-  path.classList.remove('is-complete', 'is-drawing');
-  path.style.setProperty('--pm-draw', `${duration}ms`);
-  void path.getBoundingClientRect();
-  path.classList.add('is-drawing');
-  travelPersonalPath(path, dot, duration, run);
-  schedulePersonalMotion(() => {
-    path.classList.remove('is-drawing');
-    path.classList.add('is-complete');
-    onDone?.();
-  }, duration, run);
-}
-
-function connectPersonalGuest(index, run = personalMotionRun) {
-  drawPersonalPath(String(index), 820, run, () => {
-    document.querySelectorAll('.pm-person').forEach((person) => person.classList.remove('is-current'));
-    const person = $(`pm-person-${index}`);
-    person?.classList.add('is-connected', 'is-current');
-    pulsePersonalElement(person, 850, run);
-  });
-}
-
-function paintPersonalMotion() {
-  setPersonalInvitation(personalPhase, false);
-  requestAnimationFrame(layoutPersonalMotion);
-}
-
-function startPersonalMotion() {
-  const motion = $('personal-motion');
-  if (!motion || !personalMotionVisible || document.hidden) return;
-  stopPersonalMotion();
-  const run = personalMotionRun;
-  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const paths = ['in', '0', '1', '2'].map((key) => $(`pm-path-${key}`)).filter(Boolean);
-  const people = [0, 1, 2].map((index) => $(`pm-person-${index}`)).filter(Boolean);
-
-  motion.dataset.scene = 'intro';
-  motion.classList.remove('is-brand-visible', 'is-card-visible', 'is-final', 'is-resetting');
-  paths.forEach((path) => path.classList.remove('is-drawing', 'is-complete'));
-  people.forEach((person) => person.classList.remove('is-connected', 'is-current', 'is-arriving'));
-  setPersonalInvitation(0, false, run);
-  layoutPersonalMotion();
-
-  schedulePersonalMotion(() => {
-    motion.dataset.scene = 'brand';
-    motion.classList.add('is-brand-visible');
-  }, 280, run);
-
-  schedulePersonalMotion(() => drawPersonalPath('in', 900, run, () => {
-    motion.dataset.scene = 'invitation';
-    motion.classList.add('is-card-visible');
-    pulsePersonalElement($('pm-card'), 760, run);
-  }), 950, run);
-
-  schedulePersonalMotion(() => connectPersonalGuest(0, run), 2700, run);
-  schedulePersonalMotion(() => setPersonalInvitation(1, true, run), 3850, run);
-  schedulePersonalMotion(() => connectPersonalGuest(1, run), 5450, run);
-  schedulePersonalMotion(() => setPersonalInvitation(2, true, run), 6550, run);
-  schedulePersonalMotion(() => connectPersonalGuest(2, run), 8150, run);
-
-  schedulePersonalMotion(() => {
-    motion.dataset.scene = 'final';
-    motion.classList.add('is-final');
-    people.forEach((person) => person.classList.remove('is-current'));
-  }, 9400, run);
-
-  if (!reducedMotion) {
-    schedulePersonalMotion(() => {
-      pulsePersonalElement($('pm-origin'), 800, run);
-      travelPersonalPath($('pm-path-in'), $('pm-light-in'), 720, run, () => {
-        [0, 1, 2].forEach((index) => {
-          travelPersonalPath($(`pm-path-${index}`), $(`pm-light-${index}`), 820, run, () => {
-            pulsePersonalElement($(`pm-person-${index}`), 850, run);
-          });
-        });
-      });
-    }, 9800, run);
-
-    schedulePersonalMotion(() => motion.classList.add('is-resetting'), 12100, run);
-    schedulePersonalMotion(startPersonalMotion, 12850, run);
-  }
-}
-
-function setupServiceMotions() {
-  if (serviceMotionReady) return;
-  serviceMotionReady = true;
-  const targets = [$('personal-motion')].filter(Boolean);
-  const resizeObserver = 'ResizeObserver' in window ? new ResizeObserver(layoutPersonalMotion) : null;
-  targets.forEach((target) => resizeObserver?.observe(target));
-  window.addEventListener('resize', layoutPersonalMotion, { passive: true });
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) stopPersonalMotion();
-    else if (personalMotionVisible) startPersonalMotion();
-  });
-  const setPersonalVisibility = (visible) => {
-    const motion = $('personal-motion');
-    if (!motion) return;
-    const changed = visible !== personalMotionVisible;
-    personalMotionVisible = visible;
-    motion.classList.toggle('is-visible', visible);
-    if (!changed) return;
-    if (visible) {
-      layoutPersonalMotion();
-      startPersonalMotion();
-    } else stopPersonalMotion();
-  };
-
-  if ('IntersectionObserver' in window) {
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => setPersonalVisibility(entry.isIntersecting));
-    }, { threshold: .24 });
-    targets.forEach((target) => observer.observe(target));
-    return;
-  }
-
-  let visibilityFrame = 0;
-  const checkPersonalVisibility = () => {
-    visibilityFrame = 0;
-    const motion = $('personal-motion');
-    if (!motion || !motion.offsetWidth) {
-      setPersonalVisibility(false);
-      return;
-    }
-    const rect = motion.getBoundingClientRect();
-    const visible = rect.bottom > 0 && rect.top < innerHeight && rect.right > 0 && rect.left < innerWidth;
-    setPersonalVisibility(visible);
-  };
-  const queuePersonalVisibilityCheck = () => {
-    if (!visibilityFrame) visibilityFrame = requestAnimationFrame(checkPersonalVisibility);
-  };
-  window.addEventListener('scroll', queuePersonalVisibilityCheck, { passive: true });
-  window.addEventListener('resize', queuePersonalVisibilityCheck, { passive: true });
-  queuePersonalVisibilityCheck();
-}
-
 /* Кнопки «добавить» нет: в конце списка всегда ждёт пустое поле.
    Начал печатать — снизу сразу появляется следующее. Пустые не считаются. */
 function renderGuests(focusIdx = -1) {
   const sw = $('guests-toggle');
   sw.setAttribute('aria-checked', String(state.guestsOn));
-  $('personal-motion')?.classList.toggle('is-on', state.guestsOn);
   $('guests-sw-sub').textContent = state.guestsOn ? t('guestsSwOn') : t('guestsSwOff');
   $('guests-body').hidden = !state.guestsOn;
-  paintPersonalMotion();
 
   if (state.guests.length === 0 || state.guests[state.guests.length - 1].trim()) state.guests.push('');
 
@@ -2297,9 +2170,9 @@ function jumpTo(stepId, msg) {
   scrollToBlock(i);
 }
 
+// Телефон — единственное, чего бот о паре не знает.
 function contactsFilled() {
-  return [$('contact-tg').value.trim().replace(/^@/, ''), $('phone').value.trim(), $('phone2').value.trim()]
-    .filter(Boolean).length;
+  return /\d{7}/.test($('phone').value.replace(/\D/g, ''));
 }
 
 /* Идемпотентность отправки: один черновик — один ключ. Повторный тап по
@@ -2328,26 +2201,24 @@ function collectForm() {
     brideName: $('bride').value.trim(),
     weddingDate: state.dateIso,
     weddingTime: state.time,
-    mapEnabled: state.mapOn,
-    lat: state.mapOn ? state.lat : null,
-    lng: state.mapOn ? state.lng : null,
+    mapEnabled: placed(),
+    lat: placed() ? state.lat : null,
+    lng: placed() ? state.lng : null,
     address: $('address').value.trim(),
     photos: state.photos.filter((p) => p.name).slice(0, requiredPhotos()).map((p) => p.name),
     musicType: state.music?.type ?? 'none',
     musicValue: state.music?.value ?? null,
     musicStart: trimmable() ? state.musicStart ?? null : null,
-    musicEnd: trimmable() ? state.musicEnd ?? null : null,
+    musicEnd: null,
     templateId: state.templateId,
     guestNames: cleanGuests(),
-    contactTg: $('contact-tg').value.trim(),
     phone: $('phone').value.trim(),
-    phone2: $('phone2').value.trim(),
   };
 }
 
 async function submit() {
   if (state.sending) return;
-  if (contactsFilled() < 2) { showErr(8, t('eContact_')); return; }
+  if (!contactsFilled()) { showErr(8, t('eContact_')); return; }
   clearErr(8);
   state.sending = true;
   const btn = $('submit');
@@ -2506,14 +2377,10 @@ function wire() {
 
   $('geo-q').addEventListener('input', seekPlaceSoon);
   $('geo-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); seekPlace(); } });
-  $('map-toggle').addEventListener('click', toggleMap);
-  $('map-in').addEventListener('click', () => {
-    if (ymap) ymap.setZoom(Math.min(19, ymap.getZoom() + 1), { duration: 900 });
-  });
-  $('map-out').addEventListener('click', () => {
-    if (ymap) ymap.setZoom(Math.max(0, ymap.getZoom() - 1), { duration: 900 });
-  });
+  $('venue-own').addEventListener('click', () => openManual());
+  $('venue-change').addEventListener('click', reopenVenues);
   $('address').addEventListener('input', () => {
+    state.venueId = null;
     $('address').dataset.manual = '1';
     markFilled($('address'));
     clearErr(stepIdx('location'));
@@ -2569,9 +2436,7 @@ function wire() {
     saveDraft();
   });
 
-  for (const id of ['contact-tg', 'phone', 'phone2']) {
-    $(id).addEventListener('input', () => { markFilled($(id)); clearErr(8); saveDraft(); });
-  }
+  $('phone').addEventListener('input', () => { markFilled($('phone')); clearErr(8); saveDraft(); });
   $('submit').addEventListener('click', submit);
 
   $('sheet-close').addEventListener('click', () => sheet.close());
@@ -2632,7 +2497,7 @@ async function start() {
   setScene(state.open, true);
   applyI18n();
   paintPlate();
-  for (const id of ['groom', 'bride', 'address', 'contact-tg', 'phone', 'phone2']) markFilled($(id));
+  for (const id of ['groom', 'bride', 'address', 'phone']) markFilled($(id));
   if (state.music) {
     $('picked-name').textContent = state.music.name;
     $('picked-artist').textContent = state.music.artist || '';
@@ -2643,7 +2508,7 @@ async function start() {
   const resuming = !testingTemplates && state.open > 0;
   renderBlocks(testingTemplates || resuming ? -1 : 0);
   renderMapChoice();
-  setupServiceMotions();
+  loadVenues();
   updateBill();
   if (testingTemplates || resuming) {
     // Всё пройденное уже на экране: не проигрываем вход заново, просто

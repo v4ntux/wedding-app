@@ -69,11 +69,17 @@ window.UI = (function () {
   }
 
   /* ── Полноэкранная шторка предпросмотра (live-демо и настоящий превью) ── */
+  // Закрытие идёт полторы секунды. За это время до него успевают дотянуться
+  // сразу несколько рук: «долистал до конца», крестик и системная кнопка
+  // «назад». Раньше каждая запускала свою анимацию, и шторка закрывалась
+  // дважды подряд. Теперь закрытие одно: повторный вызов ждёт тот же исход.
+  let closing = null;
   const sheet = {
     open({ src = null, srcdoc = null, actionLabel = null, onAction = null }) {
       const s = $('sheet');
       const f = $('sheet-frame');
       const act = $('sheet-act');
+      closing = null;
       // Сбрасываем обработчик прошлого открытия: иначе слушатель «долистал до конца»
       // из финального демо срабатывал бы и на превью шаблона.
       f.onload = null;
@@ -95,18 +101,25 @@ window.UI = (function () {
     },
     close({ gentle = false } = {}) {
       const s = $('sheet');
+      if (closing) return closing;
+      if (s.hidden) return Promise.resolve();
       if (gentle) s.classList.add('closing-slow');
       else s.classList.remove('in');
       const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
       const delay = reduced ? 20 : gentle ? 1500 : 1400;
-      return new Promise((resolve) => setTimeout(() => {
+      closing = new Promise((resolve) => setTimeout(() => {
           s.hidden = true;
           s.classList.remove('in', 'finishing', 'closing-slow');
           const f = $('sheet-frame');
+          // Сначала снимаем обработчик: about:blank тоже вызывает onload, и
+          // слушатель прошлого показа успевал сработать по пустой странице.
+          f.onload = null;
           f.removeAttribute('srcdoc');
           f.src = 'about:blank';
+          closing = null;
           resolve();
         }, delay));
+      return closing;
     },
   };
 

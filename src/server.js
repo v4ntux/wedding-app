@@ -2,15 +2,16 @@ import express from 'express';
 import http from 'node:http';
 import path from 'node:path';
 import { validateInitData } from './initData.js';
-import { submitApplication, buildPreviewApp, payApplication, cancelApplication, ValidationError } from './service.js';
+import { submitApplication, buildPreviewApp, payApplication, cancelApplication, musicKey, ValidationError } from './service.js';
 import { renderInvitation, renderDemo, renderNotFound, withWatermark } from './render.js';
 import { saveUpload, UPLOADS_DIR } from './upload.js';
 import * as db from './db.js';
 import {
   BOT_TOKEN, BOT_USERNAME, BASE_URL, DEV_NO_AUTH, isAdmin, MAX_GUESTS, MAX_PHOTOS,
-  YANDEX_MAPS_API_KEY, GOOGLE_MAPS_API_KEY, EXTRACT_API_URL, EXTRACT_API_KEY } from './config.js';
+  GOOGLE_MAPS_API_KEY, MAP_TILES, EXTRACT_API_URL, EXTRACT_API_KEY } from './config.js';
 import { publicTemplates, publicEvents, allTemplates } from './templateStore.js';
 import { guestPrice, pricedAddons, pricingSnapshot, updatePricing } from './pricing.js';
+import { publicVenues, allVenues, saveVenues, cityCenter } from './venues.js';
 import { RESERVED_SLUGS } from './slug.js';
 
 const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
@@ -66,14 +67,20 @@ export function createServer({ onNewApplication, onPaid } = {}) {
 
   const geoLimit = rateLimit({ windowMs: 60_000, max: 45 });
   const musicLimit = rateLimit({ windowMs: 60_000, max: 30 });
-  const uploadLimit = rateLimit({ windowMs: 10 * 60_000, max: 24 });
+  const uploadLimit = rateLimit({ windowMs: 10 * 60_000, max: 60 });
   const previewLimit = rateLimit({ windowMs: 60_000, max: 24 });
   const applicationLimit = rateLimit({ windowMs: 10 * 60_000, max: 8 });
 
   // Продукт — только Telegram WebApp: корень ведёт прямо в форму.
   app.get('/', (_req, res) => res.redirect('/app/'));
-  app.use('/app', express.static(path.join(PUBLIC_DIR, 'app')));
-  app.use('/admin', express.static(path.join(PUBLIC_DIR, 'admin')));
+  /* Студия и админка — код без сборки и без хешей в именах. Без явного запрета
+     браузер держит их по эвристике кеширования: после выката пара открывает
+     WebApp и получает вчерашний app.js вперемешку с сегодняшней разметкой.
+     no-cache не запрещает кеш, а требует сверяться с сервером — ETag тут же
+     отдаёт 304, когда ничего не менялось. */
+  const freshStatic = { etag: true, setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache') };
+  app.use('/app', express.static(path.join(PUBLIC_DIR, 'app'), freshStatic));
+  app.use('/admin', express.static(path.join(PUBLIC_DIR, 'admin'), freshStatic));
   app.use('/demo', express.static(path.join(PUBLIC_DIR, 'demo')));
   app.use('/assets', express.static(path.join(PUBLIC_DIR, 'assets')));
   app.use('/music', express.static(path.join(PUBLIC_DIR, 'music')));
@@ -119,7 +126,8 @@ export function createServer({ onNewApplication, onPaid } = {}) {
       maxPhotos: MAX_PHOTOS,
       populars: db.templatePopularity(),
       topTracks: db.topMusic(3),
-      yandexMapsKey: YANDEX_MAPS_API_KEY,
+      city: cityCenter(),
+      mapTiles: MAP_TILES,
       googleGeoEnabled: Boolean(GOOGLE_MAPS_API_KEY),
       extractEnabled: Boolean(EXTRACT_API_URL),
     });
@@ -200,6 +208,25 @@ export function createServer({ onNewApplication, onPaid } = {}) {
       res.json({ ok: true, pricing: pricingSnapshot(allTemplates()) });
     } catch (e) {
       res.status(400).json({ ok: false, error: e.message || 'Не удалось сохранить цены' });
+    }
+  });
+
+  // Справочник тойхон: читает каталог целиком (вместе с черновиками) и
+  // сохраняет его обратно одной записью — список короткий, склеивать нечего.
+  app.get('/api/admin/venues', (req, res) => {
+    const u = adminUser(req.get('x-init-data') ?? '');
+    if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
+    res.json({ ok: true, city: cityCenter(), venues: allVenues(), mapTiles: MAP_TILES });
+  });
+
+  app.put('/api/admin/venues', express.json({ limit: '128kb' }), (req, res) => {
+    const u = adminUser(req.get('x-init-data') ?? '');
+    if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
+    try {
+      const venues = saveVenues(req.body?.venues ?? []);
+      res.json({ ok: true, venues });
+    } catch (e) {
+      res.status(400).json({ ok: false, error: e.message || 'Не удалось сохранить каталог' });
     }
   });
 
@@ -292,6 +319,13 @@ export function createServer({ onNewApplication, onPaid } = {}) {
       };
     });
   }
+
+  // Тойхоны Мангита: свой справочник вместо пустой карты — поисковики этих
+  // мест не знают. Пары видят только опубликованные записи.
+  app.get('/api/venues', (_req, res) => {
+    res.set('Cache-Control', 'no-cache');
+    res.json({ ok: true, city: cityCenter(), venues: publicVenues() });
+  });
 
   app.get('/api/geo/reverse', geoLimit, async (req, res) => {
     const lat = Number(req.query.lat);
@@ -425,6 +459,20 @@ export function createServer({ onNewApplication, onPaid } = {}) {
       console.error('[server] music search failed:', e.message);
       res.json({ ok: true, tracks: [] });
     }
+  });
+
+  /* Откуда этот трек обычно запускают. Пара услышит подсказку раньше, чем
+     начнёт искать нужный такт пальцем. Молчим, пока пар меньше двух: одна
+     чужая обрезка — это не рекомендация. */
+  app.get('/api/music/cut', musicLimit, (req, res) => {
+    const type = String(req.query.type ?? '');
+    const url = String(req.query.url ?? '').slice(0, 400);
+    const form = type === 'itunes'
+      ? { musicType: 'itunes', musicValue: { name: String(req.query.name ?? '').slice(0, 120), artist: String(req.query.artist ?? '').slice(0, 120), url } }
+      : { musicType: type, musicValue: url };
+    const key = musicKey(form);
+    res.set('Cache-Control', 'public, max-age=300');
+    res.json({ ok: true, cut: key ? db.popularCut(key) : null });
   });
 
   // Извлечение аудио из видео-ссылки (Instagram/TikTok/YouTube) через cobalt-совместимый API.

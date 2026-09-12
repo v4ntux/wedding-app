@@ -343,11 +343,50 @@ function reveal(){
     });
     w.innerHTML=html;
   });
+  // Имена пары — по буквам. Разбираем только текстовые узлы: внутри строки
+  // живёт разделитель (<i>&amp;</i>, <span class="amp">), и ломать его нельзя.
+  [].forEach.call(document.querySelectorAll('.hero__names,.letters'),function(box){
+    // Золотую надпись не трогаем: её цвет — фон родителя, подрезанный по
+    // глифам, и отдельной букве его не отдать. У неё свой выход (.gilt.in).
+    if(box.dataset.split||box.classList.contains('gilt'))return;box.dataset.split='1';
+    box.classList.add('letters');
+    var n=0;
+    (function walk(node){
+      [].slice.call(node.childNodes).forEach(function(kid){
+        if(kid.nodeType===3){
+          var frag=document.createDocumentFragment();
+          kid.nodeValue.split('').forEach(function(ch){
+            var s=document.createElement('span');
+            s.textContent=ch;s.style.setProperty('--i',n++);
+            frag.appendChild(s);
+          });
+          node.replaceChild(frag,kid);
+          return;
+        }
+        if(kid.nodeType===1)walk(kid);
+      });
+    })(box);
+  });
+
+  /* Каждый элемент секции приходит своим чередом. Тема задаёт --d там, где
+     порядок важен ей самой; всем остальным раздаём лесенку здесь, иначе
+     содержимое сыплется на экран одним куском. 80 мс на шаг: заметно, что
+     элементы приходят по очереди, и при этом секция собирается меньше чем
+     за секунду. */
+  [].forEach.call(document.querySelectorAll('.sec,.hero'),function(sec){
+    var kids=[].slice.call(sec.querySelectorAll('.fx,.rule,.gold-rule,.glass,.words,.letters,.num,.mono,.shot,.cd,.cal'));
+    var step=0;
+    kids.forEach(function(el){
+      if(el.style.getPropertyValue('--d'))return;      // тема уже решила за нас
+      el.style.setProperty('--d',(step++*0.08).toFixed(3)+'s');
+    });
+  });
+
   // Индексы для каскадов: ячейки отсчёта и числа календаря.
   [].forEach.call(document.querySelectorAll('.cd'),function(g){
     [].forEach.call(g.children,function(c,i){c.style.setProperty('--i',i)});
   });
-  var els=[].slice.call(document.querySelectorAll('.fx,.rule,.gold-rule,.glass,.words,.num,.mono,.shot,.cd,.cal'));
+  var els=[].slice.call(document.querySelectorAll('.fx,.rule,.gold-rule,.glass,.words,.letters,.num,.mono,.shot,.cd,.cal'));
   if(rm||!('IntersectionObserver' in window)){els.forEach(function(e){e.classList.add('in')});return}
   var io=new IntersectionObserver(function(en){en.forEach(function(t){if(t.isIntersecting){t.target.classList.add('in');io.unobserve(t.target)}})},{threshold:.1,rootMargin:'0px 0px -6% 0px'});
   els.forEach(function(e){io.observe(e)});

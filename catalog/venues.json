@@ -1,0 +1,19 @@
+{
+  "city": {
+    "name": "Mang‘it",
+    "nameRu": "Мангит",
+    "lat": 42.116169,
+    "lng": 60.0625143,
+    "zoom": 14
+  },
+  "venues": [
+    { "id": "navroz",    "name": "Navro‘z",      "kind": "toyxona",  "address": "Mang‘it, Amudaryo tumani", "lat": 42.1178, "lng": 60.0601, "seats": 300, "phone": "", "draft": true },
+    { "id": "sharq",     "name": "Sharq",        "kind": "toyxona",  "address": "Mang‘it, Amudaryo tumani", "lat": 42.1149, "lng": 60.0668, "seats": 400, "phone": "", "draft": true },
+    { "id": "zilola",    "name": "Zilola",       "kind": "toyxona",  "address": "Mang‘it, Amudaryo tumani", "lat": 42.1195, "lng": 60.0659, "seats": 250, "phone": "", "draft": true },
+    { "id": "bahor",     "name": "Bahor",        "kind": "restoran", "address": "Mang‘it, Amudaryo tumani", "lat": 42.1131, "lng": 60.0592, "seats": 180, "phone": "", "draft": true },
+    { "id": "oq-saroy",  "name": "Oq saroy",     "kind": "toyxona",  "address": "Mang‘it, Amudaryo tumani", "lat": 42.1207, "lng": 60.0614, "seats": 500, "phone": "", "draft": true },
+    { "id": "gulistan",  "name": "Guliston",     "kind": "bog",      "address": "Mang‘it, Amudaryo tumani", "lat": 42.1120, "lng": 60.0700, "seats": 350, "phone": "", "draft": true },
+    { "id": "dilshod",   "name": "Dilshod",      "kind": "restoran", "address": "Mang‘it, Amudaryo tumani", "lat": 42.1165, "lng": 60.0548, "seats": 150, "phone": "", "draft": true },
+    { "id": "amudaryo",  "name": "Amudaryo",     "kind": "toyxona",  "address": "Mang‘it, Amudaryo tumani", "lat": 42.1096, "lng": 60.0637, "seats": 450, "phone": "", "draft": true }
+  ]
+}

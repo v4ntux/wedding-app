@@ -6,6 +6,7 @@
 <title>nvate · admin</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="/app/map.css">
 <link href="https://fonts.googleapis.com/css2?family=Prata&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -103,6 +104,34 @@ body{background:
 .head h1 i{color:var(--gold)}
 
 /* ── Вкладки и управление ───────────────────────────────────────────── */
+.vn-mapwrap{position:relative;margin:14px 0 12px}
+.vn-map{position:relative;height:320px;overflow:hidden;border:1px solid var(--line);border-radius:16px}
+.vn-map.is-picking{box-shadow:inset 0 0 0 2px var(--gold)}
+.vn-tip{position:absolute;z-index:7;left:10px;right:10px;top:10px;margin:0;padding:10px 13px;
+  font-size:.78rem;line-height:1.4;color:#fff;border-radius:10px;background:rgba(12,10,6,.9);
+  box-shadow:0 6px 20px rgba(0,0,0,.4)}
+.vn-bar{display:flex;gap:8px;margin-bottom:12px}
+.vn-bar button{flex:1;min-height:46px;border:1px solid var(--line);border-radius:999px;background:transparent;
+  color:inherit;font:inherit;cursor:pointer}
+.vn-bar button.on{color:#170f02;border-color:transparent;background:linear-gradient(112deg,var(--lilac-d),var(--gold))}
+.vn-new{display:grid;gap:8px;padding:14px;margin-bottom:12px;border:1px solid var(--gold);border-radius:14px}
+.vn-new .coords{font-size:.76rem;color:var(--soft)}
+.vn-new-act{display:flex;gap:8px}
+.vn-new-act button{flex:1;min-height:44px;border-radius:999px;border:1px solid var(--line);background:transparent;color:inherit;font:inherit;cursor:pointer}
+.vn-new-act button.ok{color:#170f02;border-color:transparent;background:linear-gradient(112deg,var(--lilac-d),var(--gold))}
+.vn{display:grid;gap:8px;padding:13px;margin-bottom:10px;border:1px solid var(--line);border-radius:14px}
+.vn.is-target{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,162,39,.16)}
+.vn-move{min-height:38px;padding:0 14px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--soft);cursor:pointer}
+.vn.draft{border-style:dashed;opacity:.86}
+.vn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.vn input,.vn select{width:100%;min-height:42px;padding:9px 11px;border:1px solid var(--line);border-radius:10px;
+  background:transparent;color:inherit;font:inherit}
+.vn-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.vn-foot label{display:flex;flex:1;min-width:0;align-items:center;gap:9px;font-size:.78rem;line-height:1.35;color:var(--soft)}
+.vn-foot label input{flex:0 0 18px;width:18px;height:18px;margin:0}
+.vn-del{min-height:38px;padding:0 14px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--soft)}
+.vn-add{width:100%;min-height:46px;margin-bottom:14px;border:1px dashed var(--line);border-radius:14px;
+  background:transparent;color:inherit;font:inherit}
 .tabs{display:flex;gap:6px;margin:18px 0 4px;padding:4px;border:1px solid var(--line);border-radius:999px;
   background:linear-gradient(158deg,rgba(255,248,232,.07),rgba(5,4,8,.2))}
 .tabs button{flex:1;min-height:42px;border:0;border-radius:999px;background:transparent;color:var(--soft);
@@ -146,10 +175,12 @@ body{background:
     <button data-tab="overview"></button>
     <button data-tab="orders"></button>
     <button data-tab="pricing"></button>
+    <button data-tab="venues"></button>
   </div>
   <div id="content"><div class="empty">…</div></div>
 </div>
 
+<script src="/app/map.js"></script>
 <script type="module">
 'use strict';
 import { escapeHtml as esc } from './sanitize.js';
@@ -162,7 +193,7 @@ const initData = () => (tg ? tg.initData : '');
 const I18N = {
   uz: {
     refresh:'↻ Yangilash', sum:'so‘m',
-    tabOverview:'Ko‘rsatkichlar', tabOrders:'Arizalar', tabPricing:'Narxlar',
+    tabOverview:'Ko‘rsatkichlar', tabOrders:'Arizalar', tabPricing:'Narxlar', tabVenues:'To‘yxonalar',
     kAll:'Jami arizalar', kPaid:'To‘langan', kNew:'Kutilmoqda', kCancel:'Rad etilgan',
     kRev:'Tushum', kConv:'Konversiya', kAvg:'O‘rtacha chek', kGuests:'Nomli havolalar', kGuestRev:'Ulardan tushum',
     hTpl:'Shablonlar', hDays:'So‘nggi kunlar', hMusic:'Top musiqa', hOrders:'Buyurtmalar',
@@ -182,10 +213,22 @@ const I18N = {
     guestLink:'Nomli havola (1 mehmon)', save:'Saqlash', saved:'Saqlandi ✓',
     factory:'zavod narxi', priceNote:'Bo‘sh maydon — zavod narxiga qaytaradi. Narx faqat yangi arizalarga ta’sir qiladi.',
     contacts:'Aloqa',
+    vnTitle:'To‘yxonalar katalogi',
+    vnNote:'Mang‘it to‘yxonalari Yandex va Google xaritalarida yo‘q, shuning uchun ro‘yxatni o‘zimiz yuritamiz. Qoralama yozuvlar juftlarga ko‘rinmaydi: nomi va nuqtasini tekshiring va qoralamani oching.',
+    vnName:'Nomi', vnKind:'Turi', vnAddr:'Mo‘ljal', vnSeats:'O‘rin', vnPhone:'Telefon',
+    vnLat:'Kenglik (lat)', vnLng:'Uzunlik (lng)', vnDraft:'Qoralama — juftlarga ko‘rinmaydi',
+    vnAdd:'+ To‘yxona qo‘shish', vnDel:'O‘chirish',
+    vnEmpty:'Katalog bo‘sh. To‘yxona qo‘shing — u juftlarning xaritasida paydo bo‘ladi.',
+    vnKinds:{ toyxona:'To‘yxona', restoran:'Restoran', kafe:'Kafe', bog:'Bog‘' },
+    vnHowto:'Nuqtani xaritadan oling — koordinatalarni qo‘lda yozish shart emas.',
+    vnAddTip:'To‘yxona turgan joyni xaritada bosing',
+    vnMoveTip:'Yangi nuqtani xaritada bosing',
+    vnNew:'Yangi to‘yxona', vnOk:'Tasdiqlash', vnCancel:'Bekor qilish',
+    vnMove:'Nuqtani ko‘chirish', vnNoName:'Avval nomini yozing',
   },
   ru: {
     refresh:'↻ Обновить', sum:'сум',
-    tabOverview:'Показатели', tabOrders:'Заявки', tabPricing:'Цены',
+    tabOverview:'Показатели', tabOrders:'Заявки', tabPricing:'Цены', tabVenues:'Тойхоны',
     kAll:'Всего заявок', kPaid:'Оплачено', kNew:'Ожидают', kCancel:'Отклонено',
     kRev:'Выручка', kConv:'Конверсия', kAvg:'Средний чек', kGuests:'Именных ссылок', kGuestRev:'Из них выручка',
     hTpl:'Шаблоны', hDays:'Последние дни', hMusic:'Топ музыки', hOrders:'Заказы',
@@ -205,6 +248,18 @@ const I18N = {
     guestLink:'Именная ссылка (1 гость)', save:'Сохранить', saved:'Сохранено ✓',
     factory:'заводская', priceNote:'Пустое поле возвращает заводскую цену. Новая цена применяется к новым заявкам — уже созданные заказы сохраняют свою сумму.',
     contacts:'Контакты',
+    vnTitle:'Каталог тойхон',
+    vnNote:'Тойхон Мангита нет ни в Яндексе, ни в Google — справочник ведём сами. Черновики парам не показываются: проверьте название и точку, затем снимите черновик.',
+    vnName:'Название', vnKind:'Тип', vnAddr:'Ориентир', vnSeats:'Мест', vnPhone:'Телефон',
+    vnLat:'Широта (lat)', vnLng:'Долгота (lng)', vnDraft:'Черновик — парам не виден',
+    vnAdd:'+ Добавить тойхону', vnDel:'Удалить',
+    vnEmpty:'Каталог пуст. Добавьте тойхону — она появится на карте у пар.',
+    vnKinds:{ toyxona:'Тойхона', restoran:'Ресторан', kafe:'Кафе', bog:'Сад' },
+    vnHowto:'Точку берите прямо с карты — вписывать координаты руками не нужно.',
+    vnAddTip:'Нажмите на карте место, где стоит тойхона',
+    vnMoveTip:'Нажмите на карте новую точку',
+    vnNew:'Новая тойхона', vnOk:'Подтвердить', vnCancel:'Отмена',
+    vnMove:'Переставить точку', vnNoName:'Сначала впишите название',
   },
 };
 let LANG = localStorage.getItem('nv_admin_lang') || 'uz';
@@ -335,14 +390,212 @@ function renderPricing(){
   return h;
 }
 
+/* Справочник тойхон. Каждая запись — карточка с полями; сохраняем весь
+   список одной кнопкой: он короткий, склеивать правки построчно незачем. */
+function venueCard(v, i){
+  const kinds = t('vnKinds');
+  const options = Object.keys(kinds)
+    .map(k=>`<option value="${esc(k)}"${k===v.kind?' selected':''}>${esc(kinds[k])}</option>`).join('');
+  return `<div class="vn${v.draft?' draft':''}" data-vn="${i}">
+    <div class="vn-row">
+      <input data-f="name" value="${esc(v.name)}" placeholder="${esc(t('vnName'))}" aria-label="${esc(t('vnName'))}">
+      <select data-f="kind" aria-label="${esc(t('vnKind'))}">${options}</select>
+    </div>
+    <input data-f="address" value="${esc(v.address)}" placeholder="${esc(t('vnAddr'))}" aria-label="${esc(t('vnAddr'))}">
+    <div class="vn-row">
+      <input data-f="lat" inputmode="decimal" value="${esc(v.lat)}" placeholder="${esc(t('vnLat'))}" aria-label="${esc(t('vnLat'))}">
+      <input data-f="lng" inputmode="decimal" value="${esc(v.lng)}" placeholder="${esc(t('vnLng'))}" aria-label="${esc(t('vnLng'))}">
+    </div>
+    <div class="vn-row">
+      <input data-f="seats" inputmode="numeric" value="${esc(v.seats||'')}" placeholder="${esc(t('vnSeats'))}" aria-label="${esc(t('vnSeats'))}">
+      <input data-f="phone" value="${esc(v.phone)}" placeholder="${esc(t('vnPhone'))}" aria-label="${esc(t('vnPhone'))}">
+    </div>
+    <div class="vn-foot">
+      <label><input type="checkbox" data-f="draft"${v.draft?' checked':''}> ${esc(t('vnDraft'))}</label>
+      <button class="vn-move" data-vn-move="${i}">${esc(t('vnMove'))}</button>
+      <button class="vn-del" data-vn-del="${i}">${esc(t('vnDel'))}</button>
+    </div>
+  </div>`;
+}
+
+function renderVenues(){
+  const list = DATA?.venues || [];
+  let h = `<h2>${esc(t('vnTitle'))}</h2>`;
+  h += `<p class="note">${esc(t('vnNote'))}</p>`;
+  h += `<div class="vn-mapwrap"><div class="vn-map" id="vn-map"></div><p class="vn-tip" id="vn-tip" hidden></p></div>`;
+  h += `<button class="vn-add" id="vn-add">${esc(t('vnAdd'))}</button>`;
+  h += `<div id="vn-new-slot"></div>`;
+  h += list.length ? list.map(venueCard).join('') : `<div class="empty">${esc(t('vnEmpty'))}</div>`;
+  h += `<div class="price-save"><button class="act act--pay" id="vn-save">${esc(t('save'))}</button><span class="saved" id="vn-saved" hidden>${esc(t('saved'))}</span></div>`;
+  h += `<p class="note">${esc(t('vnHowto'))}</p>`;
+  return h;
+}
+
+/* ── Карта справочника ────────────────────────────────────────────────────
+   Координаты руками не пишут: админ нажимает на карту, подписывает точку и
+   подтверждает. Карта своя (map.js) — та же, что у пар в студии. */
+
+let vnMap = null;          // экземпляр карты текущей отрисовки
+let vnMode = null;         // null | 'add' | {move: index}
+let vnDraft = null;        // черновик новой точки до подтверждения
+
+function vnPins(){
+  return (DATA?.venues || []).map((v, i) => ({
+    id: String(i), lat: Number(v.lat), lng: Number(v.lng), label: v.name || '—',
+    active: vnMode && vnMode.move === i,
+  })).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+}
+
+function vnTip(text){
+  const tip = $('vn-tip');
+  if (!tip) return;
+  tip.hidden = !text;
+  tip.textContent = text || '';
+}
+
+function vnPaintMap(){
+  if (!vnMap) return;
+  vnMap.setPins(vnPins());
+  if (vnDraft) vnMap.setMark(vnDraft.lat, vnDraft.lng); else vnMap.clearMark();
+}
+
+function vnSetMode(mode){
+  vnMode = mode;
+  const box = $('vn-map');
+  if (box) box.classList.toggle('is-picking', Boolean(mode));
+  vnMap?.setPick(Boolean(mode));
+  vnTip(!mode ? '' : mode === 'add' ? t('vnAddTip') : t('vnMoveTip'));
+  vnPaintMap();
+}
+
+function vnNewCard(){
+  const kinds = t('vnKinds');
+  const options = Object.keys(kinds).map(k=>`<option value="${esc(k)}">${esc(kinds[k])}</option>`).join('');
+  return `<div class="vn-new" id="vn-new">
+    <b>${esc(t('vnNew'))}</b>
+    <input data-n="name" placeholder="${esc(t('vnName'))}" aria-label="${esc(t('vnName'))}">
+    <div class="vn-row">
+      <select data-n="kind" aria-label="${esc(t('vnKind'))}">${options}</select>
+      <input data-n="seats" inputmode="numeric" placeholder="${esc(t('vnSeats'))}" aria-label="${esc(t('vnSeats'))}">
+    </div>
+    <input data-n="address" placeholder="${esc(t('vnAddr'))}" aria-label="${esc(t('vnAddr'))}">
+    <input data-n="phone" placeholder="${esc(t('vnPhone'))}" aria-label="${esc(t('vnPhone'))}">
+    <span class="coords">${esc(vnDraft.lat.toFixed(5))}, ${esc(vnDraft.lng.toFixed(5))}</span>
+    <div class="vn-new-act">
+      <button id="vn-new-cancel">${esc(t('vnCancel'))}</button>
+      <button class="ok" id="vn-new-ok">${esc(t('vnOk'))}</button>
+    </div>
+  </div>`;
+}
+
+function vnShowDraft(){
+  const slot = $('vn-new-slot');
+  if (!slot) return;
+  slot.innerHTML = vnDraft ? vnNewCard() : '';
+  if (vnDraft) slot.querySelector('[data-n="name"]')?.focus();
+}
+
+function vnMountMap(){
+  const box = $('vn-map');
+  if (!box || !window.NvMap) return;
+  const city = DATA?.city || {};
+  vnMap = NvMap.create(box, {
+    lat: Number(city.lat) || 42.116169,
+    lng: Number(city.lng) || 60.0625143,
+    zoom: Number(city.zoom) || 14,
+    tiles: DATA?.mapTiles || undefined,
+    onPin: (pin) => {
+      const card = document.querySelector(`[data-vn="${pin.id}"]`);
+      if (!card) return;
+      document.querySelectorAll('.vn.is-target').forEach(el=>el.classList.remove('is-target'));
+      card.classList.add('is-target');
+      card.scrollIntoView({ block:'center', behavior:'smooth' });
+    },
+    onPick: ({ lat, lng }) => {
+      if (vnMode === 'add'){
+        vnDraft = { lat, lng };
+        vnShowDraft();
+        vnPaintMap();
+        return;
+      }
+      if (vnMode && Number.isInteger(vnMode.move)){
+        const card = document.querySelector(`[data-vn="${vnMode.move}"]`);
+        if (card){
+          card.querySelector('[data-f="lat"]').value = lat.toFixed(6);
+          card.querySelector('[data-f="lng"]').value = lng.toFixed(6);
+        }
+        DATA.venues = collectVenues();
+        vnSetMode(null);
+        render();
+      }
+    },
+  });
+  const pins = vnPins();
+  if (pins.length) vnMap.fit(pins);
+  vnPaintMap();
+}
+
+const TAB_LABEL = { overview:'tabOverview', orders:'tabOrders', pricing:'tabPricing', venues:'tabVenues' };
+
 function render(){
   if (!DATA) return;
   document.querySelectorAll('#tabs button').forEach(b=>{
     b.classList.toggle('on', b.dataset.tab===TAB);
-    b.textContent = t(b.dataset.tab==='overview'?'tabOverview':b.dataset.tab==='orders'?'tabOrders':'tabPricing');
+    b.textContent = t(TAB_LABEL[b.dataset.tab] || 'tabOverview');
   });
-  $('content').innerHTML = TAB==='orders' ? renderOrders() : TAB==='pricing' ? renderPricing() : renderOverview();
+  $('content').innerHTML = TAB==='orders' ? renderOrders()
+    : TAB==='pricing' ? renderPricing()
+    : TAB==='venues' ? renderVenues()
+    : renderOverview();
   if (TAB==='orders') loadProofs();
+  if (TAB==='venues'){
+    vnMap = null;
+    vnMountMap();
+    vnShowDraft();
+    vnSetMode(vnMode);
+  }
+}
+
+// Правки собираем из полей в момент сохранения: следить за каждым вводом
+// незачем, а верстка не перерисовывается под пальцем.
+function collectVenues(){
+  return [...document.querySelectorAll('[data-vn]')].map(card=>{
+    const get = (f)=>card.querySelector(`[data-f="${f}"]`);
+    return {
+      id: (DATA.venues[Number(card.dataset.vn)] || {}).id || '',
+      name: get('name').value,
+      kind: get('kind').value,
+      address: get('address').value,
+      lat: Number(get('lat').value.replace(',', '.')),
+      lng: Number(get('lng').value.replace(',', '.')),
+      seats: Number(get('seats').value) || 0,
+      phone: get('phone').value,
+      draft: get('draft').checked,
+    };
+  });
+}
+
+async function saveVenues(){
+  const button = $('vn-save');
+  button.disabled = true;
+  try {
+    const res = await fetch('/api/admin/venues', {
+      method:'PUT',
+      headers:{ 'Content-Type':'application/json', 'X-Init-Data': initData() },
+      body: JSON.stringify({ venues: collectVenues() }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || 'error');
+    DATA.venues = data.venues;
+    render();
+    const saved = $('vn-saved');
+    if (saved) { saved.hidden = false; setTimeout(()=>{ const el=$('vn-saved'); if (el) el.hidden = true; }, 2600); }
+  } catch(e){
+    alert(e.message || t('loadErr'));
+  } finally {
+    const el = $('vn-save');
+    if (el) el.disabled = false;
+  }
 }
 
 async function loadProofs(){
@@ -368,7 +621,14 @@ async function load(){
     if (res.status===403){ $('content').innerHTML = `<div class="err-screen"><div class="big">🔒</div>${t('forbidden')}</div>`; return; }
     const data = await res.json();
     if (!res.ok || !data.ok) throw new Error();
-    DATA = data; render();
+    DATA = data;
+    try {
+      const catalog = await (await fetch('/api/admin/venues', { headers:{ 'X-Init-Data': initData() } })).json();
+      DATA.venues = catalog.ok ? catalog.venues : [];
+      DATA.city = catalog.city || null;
+      DATA.mapTiles = catalog.mapTiles || null;
+    } catch (_) { DATA.venues = []; }
+    render();
   } catch(e){ $('content').innerHTML = `<div class="err-screen"><div class="big">📡</div>${t('loadErr')}</div>`; }
 }
 
@@ -429,7 +689,52 @@ document.addEventListener('click', (e)=>{
   if (pay){ act(pay.dataset.pay, 'pay'); return; }
   const cancel = e.target.closest('[data-cancel]');
   if (cancel){ act(cancel.dataset.cancel, 'cancel'); return; }
-  if (e.target.closest('#price-save')) savePricing();
+  if (e.target.closest('#price-save')) { savePricing(); return; }
+  const del = e.target.closest('[data-vn-del]');
+  if (del){
+    const edited = collectVenues();
+    edited.splice(Number(del.dataset.vnDel), 1);
+    DATA.venues = edited;
+    vnMode = null;
+    render();
+    return;
+  }
+  if (e.target.closest('#vn-add')){
+    DATA.venues = collectVenues();
+    vnDraft = null;
+    vnShowDraft();
+    vnSetMode(vnMode === 'add' ? null : 'add');
+    return;
+  }
+  const move = e.target.closest('[data-vn-move]');
+  if (move){
+    DATA.venues = collectVenues();
+    vnSetMode({ move: Number(move.dataset.vnMove) });
+    document.querySelector('.vn-mapwrap')?.scrollIntoView({ block:'center', behavior:'smooth' });
+    return;
+  }
+  if (e.target.closest('#vn-new-cancel')){
+    vnDraft = null;
+    vnShowDraft();
+    vnSetMode(null);
+    return;
+  }
+  if (e.target.closest('#vn-new-ok')){
+    const card = $('vn-new');
+    const get = (n)=>card.querySelector(`[data-n="${n}"]`).value;
+    if (!get('name').trim()){ alert(t('vnNoName')); return; }
+    DATA.venues = [...collectVenues(), {
+      id:'', name:get('name'), kind:get('kind'), address:get('address'),
+      lat:vnDraft.lat, lng:vnDraft.lng, seats:Number(get('seats'))||0,
+      phone:get('phone'), draft:false,
+    }];
+    vnDraft = null;
+    vnSetMode(null);
+    render();
+    saveVenues();
+    return;
+  }
+  if (e.target.closest('#vn-save')) saveVenues();
 });
 
 function applyLang(){

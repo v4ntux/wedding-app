@@ -68,6 +68,17 @@ function validateCut(form) {
   return { musicStart: start, musicEnd: end };
 }
 
+/* Канонический ключ трека — ровно та строка, что лежит в music_value.
+   Нужен, чтобы спросить у базы, откуда этот трек обычно запускают. */
+export function musicKey(form) {
+  try {
+    const { musicType, musicValue } = validateMusic(form);
+    return musicType === 'none' || musicType === 'upload' ? null : musicValue;
+  } catch (_) {
+    return null;
+  }
+}
+
 // Полная валидация формы. Возвращает чистые данные; бросает ValidationError со step.
 export function validateForm(form, { requirePhone = false } = {}) {
   if (!form || typeof form !== 'object') throw new ValidationError('Пустая форма');
@@ -156,34 +167,26 @@ export function validateForm(form, { requirePhone = false } = {}) {
   const domainEnabled = Boolean(extras.domain);
   const domainPrice = domainEnabled ? addonPrice('domain', 0) : 0;
 
-  // Контакты: три поля (Telegram username, телефон, запасной — username ИЛИ номер).
-  // Для отправки заявки достаточно любых ДВУХ заполненных.
-  let phone = cleanStr(form.phone, 20) || null;
-  let phone2 = cleanStr(form.phone2, 40) || null; // запасной контакт: @username или номер
-  let contactTg = cleanStr(form.contactTg, 40).replace(/^@/, '') || null;
+  /* Контакты: у пары спрашиваем только номер телефона. Telegram (id и
+     username) приходит из initData самого бота — переписывать его руками
+     значило бы просить человека продиктовать то, что мы уже знаем.
+     Поля phone2 и contactTg остались ради заявок, созданных до этой версии:
+     форма их больше не шлёт, но старые записи обязаны открываться. */
+  const phone = cleanStr(form.phone, 20) || null;
+  const phone2 = cleanStr(form.phone2, 40) || null;
+  const contactTg = cleanStr(form.contactTg, 40).replace(/^@/, '') || null;
 
   const PHONE_RE = /^\+?[\d\s()-]{7,20}$/;
-  const USER_RE = /^[A-Za-z0-9_]{4,32}$/;
 
-  if (contactTg && !USER_RE.test(contactTg)) {
-    throw new ValidationError(uz ? 'Telegram username noto‘g‘ri (masalan: @aziz_uz)' : 'Некорректный Telegram username (например: @aziz_uz)', 'review');
-  }
-  if (phone && !PHONE_RE.test(phone)) {
+  if (phone && (!PHONE_RE.test(phone) || phone.replace(/\D/g, '').length < 7)) {
     throw new ValidationError(uz ? 'Telefon raqami noto‘g‘ri' : 'Некорректный номер телефона', 'review');
   }
-  // Запасное поле принимает и username, и номер.
-  if (phone2 && !PHONE_RE.test(phone2) && !USER_RE.test(phone2.replace(/^@/, ''))) {
-    throw new ValidationError(uz ? 'Qo‘shimcha kontakt noto‘g‘ri (username yoki raqam)' : 'Некорректный доп. контакт (username или номер)', 'review');
-  }
 
-  if (requirePhone) {
-    const filled = [contactTg, phone, phone2].filter(Boolean).length;
-    if (filled < 2) {
-      throw new ValidationError(
-        uz ? 'Kamida 2 ta aloqa maydonini to‘ldiring' : 'Заполните минимум 2 поля контактов',
-        'review'
-      );
-    }
+  if (requirePhone && !phone) {
+    throw new ValidationError(
+      uz ? 'Telefon raqamingizni yozing' : 'Впишите номер телефона',
+      'review'
+    );
   }
 
   const submissionKey = cleanStr(form.submissionKey, 64);

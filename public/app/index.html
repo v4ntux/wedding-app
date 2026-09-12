@@ -8,6 +8,7 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;500;600&family=Golos+Text:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="map.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -29,9 +30,42 @@
 <!-- ═══ Первый вход: язык ═══ -->
 <div id="lang-screen">
   <div class="lang-inner">
-    <svg class="ring-mark" viewBox="0 0 120 120" aria-hidden="true">
-      <circle class="ring-mark__b" cx="60" cy="60" r="46"/>
-      <circle class="ring-mark__a" cx="60" cy="60" r="46"/>
+    <!-- Знак студии: два обручальных кольца сцепляются на глазах, по металлу
+         идёт блик, в точках пересечения вспыхивают искры. -->
+    <svg class="mark" viewBox="0 0 168 168" role="img" aria-label="nvate">
+      <defs>
+        <linearGradient id="mk-gold" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#7d5f2b"/>
+          <stop offset=".38" stop-color="#f4e2b6"/>
+          <stop offset=".62" stop-color="#c9a227"/>
+          <stop offset="1" stop-color="#8b6a30"/>
+        </linearGradient>
+        <linearGradient id="mk-gold-2" x1="1" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#8b6a30"/>
+          <stop offset=".42" stop-color="#f7ead0"/>
+          <stop offset=".7" stop-color="#c9a227"/>
+          <stop offset="1" stop-color="#6f5324"/>
+        </linearGradient>
+        <filter id="mk-soft" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="2.6" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      <circle class="mk-halo" cx="84" cy="84" r="66"/>
+      <circle class="mk-sweep" cx="84" cy="84" r="66"/>
+
+      <g class="mk-rings" filter="url(#mk-soft)">
+        <circle class="mk-ring mk-ring--a" cx="68" cy="86" r="33"/>
+        <circle class="mk-ring mk-ring--b" cx="100" cy="86" r="33"/>
+      </g>
+
+      <g class="mk-sparks">
+        <circle class="mk-spark" cx="84" cy="57" r="2.1"/>
+        <circle class="mk-spark" cx="84" cy="115" r="1.7"/>
+        <circle class="mk-spark" cx="128" cy="72" r="1.4"/>
+        <circle class="mk-spark" cx="41" cy="99" r="1.5"/>
+      </g>
     </svg>
     <h1 class="wordmark">nvate</h1>
     <p class="lang-lead">Taklifnoma studiyasi<br><span>Студия приглашений</span></p>
@@ -130,31 +164,40 @@
       <p class="eyebrow"><b>03</b><span data-i18n="eVenue"></span></p>
       <h2 class="blk-title" data-i18n="tVenue"></h2>
 
-      <div class="field">
-        <label for="address" data-i18n="address"></label>
-        <input id="address" type="text" maxlength="140" autocomplete="off" enterkeyhint="done">
-      </div>
+      <p class="blk-lead" id="venue-lead" data-i18n="leadVenue"></p>
 
-      <button id="map-toggle" type="button" class="switch map-switch" role="switch" aria-checked="false">
-        <span class="switch-txt"><b data-i18n="mapSwTitle"></b><i id="map-sw-sub" data-i18n="mapSwOff"></i></span>
-        <span class="switch-track"><span class="switch-knob"></span></span>
-      </button>
-
-      <div id="map-tools" class="map-tools" hidden>
-        <div class="field">
-          <label for="geo-q" data-i18n="seekLbl"></label>
-          <input id="geo-q" type="search" autocomplete="off" spellcheck="false" enterkeyhint="search">
+      <!-- Сначала поиск: название знают наизусть, искать его по карте незачем. -->
+      <div id="venue-pick">
+        <div class="field field--tight">
+          <input id="geo-q" type="search" autocomplete="off" spellcheck="false" enterkeyhint="search" aria-label="Venue search">
           <span id="geo-spin" class="field-spin" hidden></span>
         </div>
-        <div id="geo-list" class="geo-list" hidden></div>
+      </div>
 
-        <p class="map-hint" data-i18n="mapHint"></p>
-        <div class="mapframe">
-          <div id="map"></div>
-          <div class="map-zoom">
-            <button id="map-in" type="button" class="map-btn" aria-label="Zoom in"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg></button>
-            <button id="map-out" type="button" class="map-btn" aria-label="Zoom out"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h12"/></svg></button>
-          </div>
+      <!-- Потом карта: своя, с метками каталога и ровно двумя кнопками. -->
+      <div class="mapframe">
+        <div id="map"></div>
+        <p id="map-note" class="map-note" hidden></p>
+      </div>
+
+      <div id="venue-body">
+        <div id="venue-list" class="venue-list"></div>
+        <div id="geo-list" class="geo-list" hidden></div>
+        <button id="venue-own" type="button" class="linkbtn" data-i18n="venueOwn"></button>
+      </div>
+
+      <!-- Выбранное место: карточка вместо списка. -->
+      <div id="venue-chosen" class="picked picked--venue" hidden>
+        <span class="picked-note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg></span>
+        <div class="picked-info"><b id="venue-name"></b><span id="venue-meta"></span></div>
+        <button id="venue-change" type="button" class="btn btn--ghost btn--tiny" data-i18n="change"></button>
+      </div>
+
+      <!-- Своё место: название пальцем, точка — тапом по карте. -->
+      <div id="venue-manual" class="venue-manual" hidden>
+        <div class="field">
+          <label for="address" data-i18n="address"></label>
+          <input id="address" type="text" maxlength="140" autocomplete="off" enterkeyhint="done">
         </div>
       </div>
       <p class="blk-err" hidden></p>
@@ -202,34 +245,40 @@
         <button id="music-change" type="button" class="btn btn--ghost btn--tiny" data-i18n="change"></button>
       </div>
 
-      <!-- Отрывок: где начать и где закончить. Отпустил ручку — оттуда играет -->
+      <!-- Слушай и отметь: ухо решает, палец подтверждает. -->
       <div id="music-trim" class="trim" hidden>
         <p class="trim-head">
           <span data-i18n="trimTitle"></span>
-          <b id="trim-len">0:00</b>
+          <b id="trim-from">0:00</b>
         </p>
 
-        <div id="trim-wave" class="trim-wave">
-          <canvas id="trim-canvas" class="trim-canvas" aria-hidden="true"></canvas>
-          <span id="trim-shade-a" class="trim-shade" aria-hidden="true"></span>
-          <span id="trim-shade-b" class="trim-shade trim-shade--b" aria-hidden="true"></span>
-          <span id="trim-window" class="trim-window" aria-hidden="true"></span>
-
-          <div id="trim-a" class="trim-grip" role="slider" tabindex="0"
-               aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="0:00"><i></i></div>
-          <div id="trim-b" class="trim-grip trim-grip--b" role="slider" tabindex="0"
-               aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="0:00"><i></i></div>
-
-          <button id="trim-stop" type="button" class="trim-stop" hidden>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7v10M15 7v10"/></svg>
+        <div class="trim-deck">
+          <button id="trim-play" type="button" class="trim-play">
+            <svg class="ic-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
+            <svg class="ic-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12M16 6v12"/></svg>
           </button>
+
+          <div id="trim-line" class="trim-line" role="slider" tabindex="0"
+               aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="0:00">
+            <span id="trim-kept" class="trim-kept" aria-hidden="true"></span>
+            <span id="trim-done" class="trim-done" aria-hidden="true"></span>
+            <span id="trim-flag" class="trim-flag" aria-hidden="true"></span>
+            <span id="trim-head" class="trim-headdot" aria-hidden="true"></span>
+          </div>
+
+          <b id="trim-clock" class="trim-clock">0:00</b>
         </div>
 
+        <button id="trim-set" type="button" class="trim-set">
+          <span data-i18n="trimSet"></span>
+        </button>
+
         <p class="trim-foot">
-          <b id="trim-from">0:00</b>
-          <i data-i18n="trimHint"></i>
-          <b id="trim-to">0:00</b>
+          <i id="trim-state"></i>
+          <button id="trim-reset" type="button" class="trim-reset" data-i18n="trimReset" hidden></button>
         </p>
+
+        <button id="trim-tip" type="button" class="trim-tip" hidden></button>
       </div>
       <p class="blk-err" hidden></p>
     </section>
@@ -255,7 +304,7 @@
       <p id="photo-lead" class="blk-lead"></p>
 
       <div id="photo-grid" class="photo-grid"></div>
-      <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+      <input id="photo-input" type="file" accept="image/*" multiple hidden>
       <p class="blk-err" hidden></p>
     </section>
 
@@ -295,66 +344,13 @@
       <p class="eyebrow"><b>08</b><span data-i18n="eGuests"></span></p>
       <h2 class="blk-title" data-i18n="tGuests"></h2>
 
-      <div id="personal-motion" class="personal-motion" data-scene="idle" role="img" aria-label="nVate creates a personalized invitation for every guest">
-        <div class="pm-atmosphere" aria-hidden="true">
-          <span class="pm-ray pm-ray--one"></span>
-          <span class="pm-ray pm-ray--two"></span>
-          <span class="pm-dust"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
-        </div>
+      <!-- Что это такое — тремя строками. Анимация здесь ничего не объясняла. -->
+      <ul class="howto">
+        <li><b data-i18n="gHow1t"></b><span data-i18n="gHow1"></span></li>
+        <li><b data-i18n="gHow2t"></b><span data-i18n="gHow2"></span></li>
+        <li><b data-i18n="gHow3t"></b><span data-i18n="gHow3"></span></li>
+      </ul>
 
-        <div id="pm-origin" class="pm-origin">
-          <span class="pm-origin-mark">nV</span>
-          <b>nVate</b>
-          <small>PERSONAL</small>
-        </div>
-
-        <svg id="pm-wires" class="pm-wires" aria-hidden="true">
-          <defs>
-            <linearGradient id="pm-gold-line" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0" stop-color="#81632f"/>
-              <stop offset=".52" stop-color="#f5e3b7"/>
-              <stop offset="1" stop-color="#b38a45"/>
-            </linearGradient>
-            <filter id="pm-line-glow" x="-30%" y="-30%" width="160%" height="160%">
-              <feGaussianBlur stdDeviation="2" result="blur"/>
-              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-            </filter>
-          </defs>
-          <path id="pm-path-in" class="pm-wire pm-wire--in" pathLength="1"/>
-          <path id="pm-path-0" class="pm-wire pm-wire--branch" pathLength="1"/>
-          <path id="pm-path-1" class="pm-wire pm-wire--branch" pathLength="1"/>
-          <path id="pm-path-2" class="pm-wire pm-wire--branch" pathLength="1"/>
-          <circle id="pm-light-in" class="pm-traveler" r="3"/>
-          <circle id="pm-light-0" class="pm-traveler" r="3"/>
-          <circle id="pm-light-1" class="pm-traveler" r="3"/>
-          <circle id="pm-light-2" class="pm-traveler" r="3"/>
-        </svg>
-
-        <div id="pm-card" class="pm-card">
-          <span class="pm-card-rule" aria-hidden="true"></span>
-          <small data-i18n="personalPreview"></small>
-          <p class="pm-salutation"><span id="pm-prefix">Hurmatli</span> <b id="pm-name">Aziz aka</b></p>
-          <span id="pm-link" class="pm-link">nVate.uz/~~~/Aziz</span>
-          <span class="pm-card-seal" aria-hidden="true">nV</span>
-        </div>
-
-        <div class="pm-people">
-          <div id="pm-person-0" class="pm-person">
-            <span class="pm-person-monogram">A</span>
-            <span class="pm-person-copy"><b>Aziz aka</b><small>01</small></span>
-          </div>
-          <div id="pm-person-1" class="pm-person">
-            <span class="pm-person-monogram">D</span>
-            <span class="pm-person-copy"><b>Dilnoza opa</b><small>02</small></span>
-          </div>
-          <div id="pm-person-2" class="pm-person">
-            <span class="pm-person-monogram">F</span>
-            <span class="pm-person-copy"><b>Farxod uka</b><small>03</small></span>
-          </div>
-        </div>
-
-        <p class="pm-tagline" data-i18n="personalTagline">Har bir mehmon uchun — shaxsiy taklifnoma.</p>
-      </div>
       <button id="guests-toggle" type="button" class="switch" role="switch" aria-checked="false">
         <span class="switch-txt"><b data-i18n="guestsSwTitle"></b><i id="guests-sw-sub" data-i18n="guestsSwOff"></i></span>
         <span class="switch-track"><span class="switch-knob"></span></span>
@@ -378,17 +374,11 @@
       <h2 class="blk-title" data-i18n="tContact"></h2>
       <p class="blk-lead" data-i18n="leadContact"></p>
 
-      <div class="field">
-        <label for="contact-tg" data-i18n="tgLbl"></label>
-        <input id="contact-tg" type="text" maxlength="40" autocomplete="off" enterkeyhint="done" placeholder="@username">
-      </div>
+      <!-- Telegram у нас уже есть: бот знает и id, и username. Спрашиваем
+           только то, чего он не знает, — номер телефона. -->
       <div class="field">
         <label for="phone" data-i18n="phoneLbl"></label>
-        <input id="phone" type="tel" maxlength="20" autocomplete="off" enterkeyhint="done" placeholder="+998 90 123 45 67">
-      </div>
-      <div class="field">
-        <label for="phone2" data-i18n="phone2Lbl"></label>
-        <input id="phone2" type="text" maxlength="40" autocomplete="off" enterkeyhint="done" placeholder="@username / +998 …">
+        <input id="phone" type="tel" maxlength="20" autocomplete="tel" enterkeyhint="done" placeholder="+998 90 123 45 67">
       </div>
       <p class="hint" data-i18n="contactRule"></p>
 
@@ -444,6 +434,7 @@
 <div id="toasts"></div>
 
 <script src="ui.js"></script>
+<script src="map.js"></script>
 <script src="sky.js"></script>
 <script src="app.js"></script>
 </body>

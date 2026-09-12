@@ -200,6 +200,27 @@ export function topMusic(limit = 3) {
   return out;
 }
 
+/* Откуда пары запускают этот самый трек. Один и тот же куплет нравится многим,
+   поэтому популярную точку старта мы предлагаем следующей паре — вместо того,
+   чтобы каждый раз искать её пальцем заново. Считаем по пятисекундным корзинам
+   (совпадение до кадра ничего не значит), а предлагаем самую раннюю секунду из
+   корзины: начать чуть раньше не страшно, начать позже — значит срезать фразу. */
+export function popularCut(musicValue, { minUses = 2 } = {}) {
+  if (!musicValue) return null;
+  const row = db
+    .prepare(
+      `SELECT CAST(MIN(music_start) AS INTEGER) AS start, COUNT(*) AS c
+         FROM applications
+        WHERE music_value = ? AND music_start IS NOT NULL AND music_start > 0
+        GROUP BY CAST(music_start / 5 AS INTEGER)
+        ORDER BY c DESC, start ASC
+        LIMIT 1`
+    )
+    .get(musicValue);
+  if (!row || Number(row.c) < minUses) return null;
+  return { start: Number(row.start), uses: Number(row.c) };
+}
+
 // Атомарно: сработает только если заявка ещё в статусе 'new' (защита от двойного клика).
 export function markPaid(id, slug) {
   const res = db

@@ -102,25 +102,23 @@ referrerpolicy="no-referrer-when-downgrade" title="${mapTitle}" aria-label="${es
 }
 
 // Живой отсчёт до события: пишет в элементы #cd #ch #cm #cs.
-// Отсчёт с перекидными цифрами: разряд меняется — старая цифра уходит вверх,
-// новая приходит снизу. Двигаются только изменившиеся разряды, поэтому секунды
-// «тикают», а дни стоят на месте.
+// Барабан из двух ячеек: видимая и следующая. Смена разряда — один сдвиг
+// ленты на высоту строки, после которого лента молча возвращается на место.
+// Ни одна ячейка не появляется и не исчезает: старая цифра не может остаться
+// висеть поверх новой, а элементы не пересоздаются каждую секунду.
 export function countdownScript(targetIso) {
   return `<style>
-/* Барабан на весь разряд, а не на отдельную цифру. Ширину задаёт само число,
-   поэтому широкие цифры антиквы (Cinzel, Italiana) никогда не срезаются по
-   бокам, а единственное, что может двигаться, — это вертикаль внутри окна
-   высотой в одну строку. Окно закрыто overflow, и уходящая цифра физически не
-   может выехать на соседний разряд. */
-.roll{position:relative;display:block;overflow:hidden;height:1.12em;font:inherit;
+/* Окно высотой ровно в строку: всё, что выезжает, обрезается им, а не
+   соседним разрядом. Ширину задаёт само число, поэтому широкие цифры антиквы
+   (Cinzel, Italiana) не срезаются по бокам. */
+.roll{display:block;overflow:hidden;height:1.12em;font:inherit;
   font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+.roll-strip{display:block;will-change:transform;transform:translate3d(0,0,0)}
+.roll-strip.go{transition:transform .46s cubic-bezier(.33,1,.68,1)}
+.roll-strip.go{transform:translate3d(0,-1.12em,0)}
 .roll u{display:block;height:1.12em;line-height:1.12;text-decoration:none;font:inherit;
-  font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;
-  transition:transform .5s cubic-bezier(.22,.61,.36,1),opacity .5s ease}
-.roll u.out{position:absolute;inset:0;transform:translateY(-100%);opacity:0}
-.roll u.in{animation:rollIn .5s cubic-bezier(.22,.61,.36,1) both}
-@keyframes rollIn{from{transform:translateY(100%);opacity:0}to{transform:none;opacity:1}}
-@media (prefers-reduced-motion:reduce){.roll u{transition:none}.roll u.in{animation:none}}
+  font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+@media (prefers-reduced-motion:reduce){.roll-strip.go{transition:none}}
 </style><script>(function(){
 var t=new Date('${targetIso}').getTime(),ids=['cd','ch','cm','cs'],cells={};
 function p(n){return n<10?'0'+n:''+n}
@@ -128,22 +126,44 @@ ids.forEach(function(id){
   var el=document.getElementById(id);if(!el)return;
   el.textContent='';
   var box=document.createElement('span');box.className='roll';
-  var u=document.createElement('u');box.appendChild(u);
-  el.appendChild(box);
-  cells[id]={box:box,cur:u,val:null};
+  var strip=document.createElement('span');strip.className='roll-strip';
+  var cur=document.createElement('u'),next=document.createElement('u');
+  strip.appendChild(cur);strip.appendChild(next);box.appendChild(strip);el.appendChild(box);
+  cells[id]={strip:strip,cur:cur,next:next,val:null,busy:false,queued:null};
 });
-// Разряд меняется целиком: старое число уходит вверх, новое приходит снизу.
-// Ширина разряда при этом не пересчитывается по цифрам, поэтому колонки стоят.
+// Лента едет вверх ровно на одну строку. По окончании — снимаем переход,
+// переносим значение в верхнюю ячейку и возвращаем ленту в ноль: следующий
+// разряд стартует с той же точки, поэтому дрожания на стыке не возникает.
+var calm=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function roll(c,val){
+  if(calm){c.cur.textContent=val;return}
+  if(c.busy){c.queued=val;return}
+  c.next.textContent=val;c.busy=true;
+  var done=function(){
+    c.strip.removeEventListener('transitionend',done);
+    clearTimeout(guard);
+    c.strip.classList.remove('go');
+    c.cur.textContent=val;
+    c.busy=false;
+    var q=c.queued;c.queued=null;
+    if(q!==null&&q!==val)roll(c,q);
+  };
+  var guard=setTimeout(done,560);
+  c.strip.addEventListener('transitionend',done);
+  // Считываем размер — этим браузер фиксирует нынешнее положение ленты. Без
+  // такой засечки запись цифры и сдвиг сольются в один пересчёт стиля и
+  // перехода не будет вовсе. requestAnimationFrame тут не годится: в свёрнутой
+  // вкладке кадров нет, и разряд замирал бы на полпути.
+  void c.strip.offsetHeight;
+  c.strip.classList.add('go');
+}
 function setValue(id,str){
   var c=cells[id];if(!c)return;
   var val=String(str);
   if(c.val===val)return;
-  if(c.val===null){c.cur.textContent=val;c.val=val;return}
-  var next=document.createElement('u');next.textContent=val;next.className='in';
-  var prev=c.cur;prev.classList.add('out');
-  c.box.appendChild(next);
-  setTimeout(function(){if(prev.parentNode)prev.parentNode.removeChild(prev)},560);
-  c.cur=next;c.val=val;
+  var first=c.val===null;c.val=val;
+  if(first){c.cur.textContent=val;return}
+  roll(c,val);
 }
 function tick(){
   var x=Math.max(0,t-Date.now());
@@ -153,7 +173,21 @@ function tick(){
   setValue('ch',p(Math.floor(x/36e5)%24));
   setValue('cm',p(Math.floor(x/6e4)%60));
   setValue('cs',p(Math.floor(x/1e3)%60));
+  return x;
 }
-tick();setInterval(tick,1000);
+// setInterval за час набегает на полсекунды и цифры начинают прыгать через
+// одну. Считаем до ближайшей смены секунды и просыпаемся ровно на ней.
+var timer=null;
+function loop(){
+  var left=tick();
+  var wait=left>0?(left%1000||1000):60000;
+  timer=setTimeout(loop,wait+16);
+}
+loop();
+// Вкладку свернули — таймеры замирают. Вернулись: пересчитываем сразу.
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden)return;
+  clearTimeout(timer);loop();
+});
 })();</script>`;
 }

@@ -95,6 +95,15 @@ body{min-width:320px;overflow-x:hidden;background:transparent;color:var(--ink,#2
 .rule--x{width:var(--w,120px);height:1px;transform:scaleX(0);transform-origin:center}
 .rule--x.in{transform:scaleX(1)}
 
+/* Имена пары — единственное место, где стоит разбирать строку до букв:
+   это заголовок всей страницы, и он собирается из ничего на глазах. Каждая
+   буква приходит со своей задержкой, из мягкой расфокусировки в резкость. */
+.letters span{display:inline-block;white-space:pre;opacity:0;
+  transform:translateY(.32em) scale(.94);filter:blur(7px)}
+.letters.in span{opacity:1;transform:none;filter:blur(0);
+  transition:opacity .62s ease,transform .95s var(--e-enter),filter .7s ease;
+  transition-delay:calc(var(--d,0s) + var(--i,0)*.042s)}
+
 /* Текст проявляется по словам — каскад 55 мс, суммарно в пределах полусекунды. */
 .words span{display:inline-block;opacity:0;transform:translateY(.4em)}
 .words.in span{opacity:1;transform:none;
@@ -265,6 +274,12 @@ body{min-width:320px;overflow-x:hidden;background:transparent;color:var(--ink,#2
   background:linear-gradient(100deg,transparent,rgba(255,247,224,.16),transparent);
   transform:skewX(-14deg);opacity:0}
 .glass.in:after{animation:glassSweep 2.6s var(--e-signature) .5s 1 both}
+/* Карточка не просто проявляется — она ложится на страницу: чуть отклонена
+   к зрителю и выравнивается. Поворот крошечный, но глазу видно вес. */
+.card.fx{transform:translateY(34px) perspective(900px) rotateX(5deg);transform-origin:50% 0}
+.card.fx.in{transform:none;
+  transition:opacity var(--t-slow) ease var(--d,0s),
+             transform 1.35s var(--e-settle) var(--d,0s)}
 @keyframes glassSweep{0%{left:-60%;opacity:0}18%{opacity:.9}100%{left:120%;opacity:0}}
 .glass--tight{padding:clamp(20px,5vw,30px)}
 
@@ -273,7 +288,17 @@ body{min-width:320px;overflow-x:hidden;background:transparent;color:var(--ink,#2
    каждую золотую строку бесконечно. */
 .gilt{background:linear-gradient(112deg,var(--gold-lo,#8a6a2f) 0%,var(--gold,#d9b874) 30%,
   var(--gold-hi,#fff0c8) 50%,var(--gold,#d9b874) 70%,var(--gold-lo,#8a6a2f) 100%);
+  background-size:100% 100%;background-position:0 0;
   -webkit-background-clip:text;background-clip:text;color:transparent}
+/* Золото по буквам не разложить: цвет даёт фон родителя, подрезанный по
+   глифам, и прозрачность отдельной буквы его не тронет. Поэтому имена
+   оживают иначе — по надписи один раз проливается металл: широкий градиент
+   проезжает от края к центру и там замирает. Одиночный проход, не петля. */
+.gilt.in{animation:giltPour 1.9s var(--e-signature) calc(var(--d,0s) + .1s) both}
+@keyframes giltPour{
+  from{background-size:260% 100%;background-position:118% 0}
+  to{background-size:100% 100%;background-position:0 0}
+}
 
 /* Золотая линия-разделитель с сиянием по центру. */
 .gold-rule{width:min(78%,320px);height:1px;margin:clamp(26px,6vw,38px) auto;
@@ -281,6 +306,12 @@ body{min-width:320px;overflow-x:hidden;background:transparent;color:var(--ink,#2
   box-shadow:0 0 18px rgba(var(--gold-rgb,214,178,110),.4);
   transform:scaleX(0);transform-origin:center}
 .gold-rule.in{transform:scaleX(1);transition:transform var(--t-epic) var(--e-signature) var(--d,0s)}
+/* По прочерченной линии один раз проходит блик — как свет по натянутой нити. */
+.gold-rule{position:relative;overflow:hidden}
+.gold-rule:after{content:'';position:absolute;inset:0;transform:translateX(-120%);
+  background:linear-gradient(90deg,transparent,rgba(255,248,225,.95),transparent)}
+.gold-rule.in:after{animation:ruleGlint 1.5s var(--e-signature) calc(var(--d,0s) + .55s) both}
+@keyframes ruleGlint{to{transform:translateX(120%)}}
 
 @media (prefers-reduced-motion:reduce){
   .stars i,.stars u,.gilt-dust{animation:none!important}
@@ -302,10 +333,11 @@ body{min-width:320px;overflow-x:hidden;background:transparent;color:var(--ink,#2
 @media(min-width:820px){.sec{padding-block:clamp(120px,13vw,180px)}}
 
 @media (prefers-reduced-motion:reduce){
-  .fx,.words span,.cd>div,.cal td span,.mono b,.shot{opacity:1!important;transform:none!important;filter:none!important}
+  .fx,.words span,.letters span,.cd>div,.cal td span,.mono b,.shot{opacity:1!important;transform:none!important;filter:none!important}
+  .gold-rule.in:after{animation:none;opacity:0}
   .rule,.mono circle{transform:none!important;stroke-dashoffset:0!important}
   .shot img{transform:none!important}
-  .mono.in{animation:none}
+  .mono.in,.gilt.in{animation:none}
   .num:before,.num:after{width:18px}
   .cal td.on:before{transform:translate(-50%,-50%)!important;opacity:1!important}
 }

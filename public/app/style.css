@@ -241,12 +241,6 @@ svg {
 .lang-inner {
   width: min(100%, 350px);
   text-align: center;
-  animation: gateIn var(--motion-scene) var(--ease-scene) both;
-}
-
-@keyframes gateIn {
-  from { opacity: 0; transform: translateY(28px); }
-  to { opacity: 1; transform: none; }
 }
 
 .ring-mark {
@@ -268,8 +262,108 @@ svg {
   filter: drop-shadow(0 0 7px rgba(var(--gold-rgb), .36));
 }
 
-#lang-screen .ring-mark__a {
-  animation: ringDraw 1730ms var(--ease-scene) .17s forwards;
+/* ═══ Знак студии ═══
+   Кольцо-таймер на входе ничего не значило: просто круг, который куда-то
+   бежит. Здесь вместо него — два обручальных кольца, и они собираются на
+   глазах: сначала проявляется ореол, потом одно за другим прорисовываются
+   кольца, по металлу проходит блик, а в точках, где кольца сцепились,
+   вспыхивают искры. Всё движется по отдельности и в своём темпе. */
+
+.mark {
+  display: block;
+  width: clamp(112px, 34vw, 138px);
+  height: clamp(112px, 34vw, 138px);
+  margin: 0 auto;
+  overflow: visible;
+  animation: markFloat 7.5s var(--ease-silk) 2.4s infinite alternate;
+}
+.mark circle { fill: none; }
+
+/* Ореол — тонкая окружность вокруг знака. */
+.mk-halo {
+  stroke: rgba(255, 246, 231, .11);
+  stroke-width: 1;
+  stroke-dasharray: 415;
+  stroke-dashoffset: 415;
+  animation: markDraw 1500ms var(--ease-scene) 120ms forwards;
+}
+
+/* Блик: короткая дуга, которая бесконечно идёт по ореолу. */
+.mk-sweep {
+  stroke: var(--gold-hi);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-dasharray: 26 389;
+  opacity: 0;
+  transform-origin: 84px 84px;
+  filter: drop-shadow(0 0 8px rgba(var(--gold-rgb), .75));
+  animation: markSweepIn 900ms var(--ease-silk) 2100ms forwards,
+             markSweep 6.5s linear 2100ms infinite;
+}
+
+/* Сами кольца: каждое прорисовывается своей стрелой времени. */
+.mk-ring {
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  stroke-dasharray: 208;
+  stroke-dashoffset: 208;
+}
+.mk-ring--a {
+  stroke: url(#mk-gold);
+  transform-origin: 68px 86px;
+  transform: rotate(-96deg);
+  animation: markDraw 1700ms cubic-bezier(.19, 1, .3, 1) 420ms forwards;
+}
+.mk-ring--b {
+  stroke: url(#mk-gold-2);
+  transform-origin: 100px 86px;
+  transform: rotate(84deg);
+  animation: markDraw 1700ms cubic-bezier(.19, 1, .3, 1) 760ms forwards;
+}
+
+/* Искры в местах сцепления — загораются после того, как кольца сошлись. */
+.mk-spark {
+  fill: #fff6de;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  filter: drop-shadow(0 0 6px rgba(var(--gold-rgb), .9));
+}
+.mk-spark:nth-child(1) { animation: markSpark 3.8s var(--ease-silk) 2250ms infinite; }
+.mk-spark:nth-child(2) { animation: markSpark 4.6s var(--ease-silk) 2900ms infinite; }
+.mk-spark:nth-child(3) { animation: markSpark 5.2s var(--ease-silk) 3400ms infinite; }
+.mk-spark:nth-child(4) { animation: markSpark 4.2s var(--ease-silk) 3900ms infinite; }
+
+@keyframes markDraw { to { stroke-dashoffset: 0; } }
+@keyframes markFloat { to { transform: translateY(-6px); } }
+@keyframes markSweepIn { to { opacity: .85; } }
+@keyframes markSweep { to { transform: rotate(360deg); } }
+@keyframes markSpark {
+  0%, 72% { opacity: 0; transform: scale(.4); }
+  80% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(.5); }
+}
+
+/* Вход: знак, имя, подпись и кнопки приходят по очереди, а не одним куском. */
+.lang-inner > * { animation: gateRise 1100ms var(--ease-scene) both; }
+.lang-inner > .mark { animation-delay: 0ms; }
+.lang-inner > .wordmark { animation-delay: 700ms; }
+.lang-inner > .lang-lead { animation-delay: 1000ms; }
+.lang-inner > .lang-picks { animation-delay: 1260ms; }
+
+@keyframes gateRise {
+  from { opacity: 0; transform: translateY(16px); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mark,
+  .mk-sweep,
+  .mk-spark { animation: none; }
+  .mk-halo,
+  .mk-ring { stroke-dashoffset: 0; animation: none; }
+  .mk-sweep { opacity: .5; }
+  .lang-inner > * { animation: none; }
 }
 
 .blk .ring-mark__a { stroke-dashoffset: 62; }
@@ -277,7 +371,7 @@ svg {
 @keyframes ringDraw { to { stroke-dashoffset: 62; } }
 
 .wordmark {
-  margin: 22px 0 0;
+  margin: 24px 0 0;
   font: 400 clamp(3rem, 14vw, 4rem)/1 var(--display);
   letter-spacing: -.035em;
   color: var(--silk);
@@ -715,8 +809,7 @@ svg {
 .cal { margin-top: 20px; }
 .cal-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .cal-bar b { color: var(--silk); font: 300 .63rem/1 var(--mono); letter-spacing: .16em; text-transform: uppercase; }
-.cal-arrow,
-.map-btn {
+.cal-arrow {
   display: grid;
   width: 44px;
   height: 44px;
@@ -771,20 +864,33 @@ svg {
 .read-out { margin: 18px 0 0; text-align: center; color: var(--gold); font: 300 .58rem/1.7 var(--mono); letter-spacing: .1em; text-transform: uppercase; }
 
 /* Place */
+/* Карта города: сначала она, потом справочник тойхон. Точки каталога видны
+   сразу — искать их в Яндексе бесполезно, их там нет. */
+.mapframe { position: relative; height: 268px; margin-top: 14px; overflow: hidden; border: 1px solid rgba(255,247,235,.1); border-radius: var(--radius-in); background: #0d0c09; }
+#map { position: absolute; inset: 0; }
+.map-note { position: absolute; z-index: 4; left: 10px; right: 10px; bottom: 10px; margin: 0; padding: 9px 12px; color: var(--silk); font-size: .76rem; line-height: 1.4; border-radius: 10px; background: rgba(8,7,4,.82); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+
+/* Справочник: карточка на строку, монограмма слева. */
+.venue-list { display: grid; gap: 8px; margin-top: 12px; }
+.venue { display: flex; width: 100%; min-height: 62px; align-items: center; gap: 12px; padding: 11px 13px; text-align: left; border: 1px solid rgba(255,247,235,.1); border-radius: var(--radius-in); background: linear-gradient(180deg, var(--well-top), var(--well-bottom)); transition: border-color var(--motion-ui) var(--ease-silk), background var(--motion-ui) var(--ease-silk); }
+.venue:active { border-color: rgba(var(--gold-rgb), .5); }
+.venue-mark { display: grid; width: 38px; height: 38px; flex: 0 0 38px; place-items: center; color: var(--gold-hi); border: 1px solid rgba(var(--gold-rgb), .34); border-radius: 50%; font: 400 1rem/1 var(--display); }
+.venue-copy { min-width: 0; flex: 1; }
+.venue-copy b { display: block; overflow: hidden; color: var(--silk); font-size: .92rem; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.venue-copy span { display: block; margin-top: 3px; overflow: hidden; color: var(--mute); font-size: .73rem; text-overflow: ellipsis; white-space: nowrap; }
+.venue-empty { margin: 0; padding: 16px 4px; color: var(--mute); font-size: .82rem; }
+
+/* Запасной путь: общий геокодер под справочником. */
 .geo-list { margin-top: 10px; overflow: hidden; border: 1px solid rgba(255,247,235,.11); border-radius: var(--radius-in); background: rgba(8,8,6,.54); }
+.geo-head { margin: 0; padding: 10px 15px 6px; color: var(--mute); font: 300 .52rem/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; }
 .geo-item { display: block; width: 100%; min-height: 54px; padding: 12px 15px; text-align: left; border-bottom: 1px solid rgba(255,247,235,.065); }
 .geo-item:last-child { border-bottom: 0; }
 .geo-item b { display: block; color: var(--silk); font-size: .9rem; font-weight: 500; }
 .geo-item span { display: block; margin-top: 2px; color: var(--mute); font-size: .74rem; }
 .geo-empty { margin: 0; padding: 14px; color: var(--mute); font-size: .82rem; }
-.map-hint { margin: 19px 0 10px; color: var(--mute); font-size: .78rem; }
-.map-hint::before { content: ''; margin-right: 8px; color: var(--gold); }
-.mapframe { position: relative; height: 276px; overflow: hidden; border: 1px solid rgba(255,247,235,.1); border-radius: var(--radius-in); background: #0d0c09; }
-#map { position: absolute; inset: 0; filter: saturate(.74) sepia(.08) brightness(.84); }
-#map .yandex-widget { width:100%; height:100%; border:0; }
-#map [class*='copyrights-pane'] { opacity:.62; }
-.map-zoom { position: absolute; z-index: 5; right: 10px; bottom: 10px; display: grid; gap: 7px; }
-.map-btn { color: var(--silk); background: rgba(8,8,6,.88); backdrop-filter: blur(8px); font-size: 1.1rem; }
+.venue-manual { margin-top: 16px; }
+.map-hint { margin: 14px 0 0; color: var(--mute); font-size: .78rem; }
+.picked--venue { margin-top: 16px; }
 
 /* Music */
 .segs { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 4px; overflow: hidden; border: 1px solid rgba(255,247,235,.11); border-radius: 999px; background: rgba(8,8,6,.52); }
@@ -805,142 +911,237 @@ svg {
 .picked-note { display: grid; width: 40px; height: 40px; flex: 0 0 40px; place-items: center; color: var(--ink); border-radius: 50%; background: linear-gradient(105deg, var(--gold), var(--gold-hi)); }
 .picked-info { min-width: 0; flex: 1; }
 .picked-info b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.picked-info span { color: var(--mute); font-size: .74rem; }
+.picked-info span { display: block; overflow: hidden; color: var(--mute); font-size: .74rem; text-overflow: ellipsis; white-space: nowrap; }
 .empty { padding: 34px 14px; text-align: center; color: var(--mute); font-size: .84rem; }
 
-/* ═══ Отрывок музыки ═══
-   Волна, две ручки, секунды. Ни одного поля ввода: всё пальцем. */
-@property --trim-ring {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 360deg;
+/* ═══ Откуда играть ═══
+   Единственный узел студии, который работает как инструмент, а не как форма.
+   Прицеливаться в двухпиксельную иглу на телефоне невозможно, поэтому решает
+   ухо: трек играет, полоса идёт, и в нужный момент нажимают одну большую
+   кнопку. Всё остальное здесь — обратная связь, а не органы управления. */
+
+.trim {
+  margin-top: 16px;
+  padding: 16px 15px 15px;
+  border: 1px solid rgba(var(--gold-rgb), .2);
+  border-radius: var(--radius-in);
+  background:
+    radial-gradient(120% 100% at 50% 0%, rgba(var(--gold-rgb), .07), transparent 62%),
+    linear-gradient(180deg, rgba(30, 20, 8, .5), rgba(6, 5, 3, .62));
+  box-shadow: inset 0 1px rgba(255, 246, 222, .06);
+  transition: border-color 520ms var(--ease-silk), box-shadow 520ms var(--ease-silk);
+}
+.trim.is-loading { opacity: .5; }
+.trim.is-set {
+  border-color: rgba(var(--gold-rgb), .45);
+  box-shadow: inset 0 1px rgba(255, 246, 222, .08), 0 0 34px -22px rgba(var(--gold-rgb), .9);
 }
 
-.trim { margin-top: 14px; }
-.trim.is-loading { opacity: .5; }
 .trim-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
-  margin: 0 0 10px;
+  margin: 0 0 14px;
   color: var(--mute);
-  font: 400 .62rem/1.4 var(--mono);
-  letter-spacing: .16em;
+  font: 400 .58rem/1.4 var(--mono);
+  letter-spacing: .18em;
   text-transform: uppercase;
 }
-.trim-head b { color: var(--gold-hi); font: 400 1.05rem/1 var(--display); letter-spacing: .02em; }
-
-.trim-wave {
-  position: relative;
-  height: 84px;
-  touch-action: none;                 /* волна ведёт ручку, а не листает страницу */
-  border: 1px solid rgba(255, 248, 232, .12);
-  border-radius: 14px;
-  background: linear-gradient(160deg, rgba(255, 249, 234, .06), rgba(6, 5, 3, .38));
-  overflow: hidden;
-}
-.trim-canvas { display: block; width: 100%; height: 100%; }
-
-/* Отброшенные края гаснут — видно, что в приглашение они не попадут. */
-.trim-shade {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 0;
-  background: rgba(5, 4, 2, .58);
-  pointer-events: none;
-}
-.trim-shade--b { left: auto; right: 0; }
-
-.trim-window {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  border-left: 1px solid rgba(var(--gold-rgb), .75);
-  border-right: 1px solid rgba(var(--gold-rgb), .75);
-  background: linear-gradient(180deg, rgba(var(--gold-rgb), .09), transparent 40% 60%, rgba(var(--gold-rgb), .09));
-  box-shadow: 0 0 26px -12px rgba(var(--gold-rgb), .8);
-  pointer-events: none;
-  transition: left 220ms var(--ease-silk), right 220ms var(--ease-silk);
-}
-
-/* Ручка: узкая метка на волне и широкая зона под палец. */
-.trim-grip {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  display: grid;
-  width: 44px;
-  margin-left: -22px;
-  place-items: center;
-  cursor: grab;
-  touch-action: none;
-}
-.trim-grip i {
-  display: block;
-  width: 4px;
-  height: 62%;
-  border-radius: 99px;
-  background: linear-gradient(180deg, var(--gold-hi), var(--gold));
-  box-shadow: 0 0 14px rgba(var(--gold-rgb), .55);
-  transition: width 220ms var(--ease-silk), height 220ms var(--ease-silk);
-}
-.trim-grip::after {
-  content: '';
-  position: absolute;
-  bottom: 5px;
-  width: 0;
-  height: 0;
-  border-inline: 5px solid transparent;
-  border-bottom: 6px solid var(--gold-hi);
-}
-.trim-grip.is-drag { cursor: grabbing; }
-.trim-grip.is-drag i, .trim-grip:focus-visible i { width: 6px; height: 78%; }
-
-/* Прозрачная кнопка поверх волны: кольцо показывает, сколько осталось
-   до того, как отрывок смолкнет сам. */
-.trim-stop {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  display: grid;
-  width: 46px;
-  height: 46px;
-  place-items: center;
-  transform: translate(-50%, -50%);
+/* Выбранное начало — главная цифра блока. */
+.trim-head b {
   color: var(--gold-hi);
-  border: 1px solid rgba(255, 247, 235, .3);
-  border-radius: 50%;
-  background: rgba(8, 6, 3, .34);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
-  animation: trimStopIn 320ms var(--ease-silk) both;
+  font: 300 1.7rem/1 var(--display);
+  letter-spacing: .01em;
+  font-variant-numeric: tabular-nums;
+  transition: color 420ms var(--ease-silk);
 }
-.trim-stop svg { width: 18px; height: 18px; }
-.trim-stop::after {
+.trim:not(.is-set) .trim-head b { color: var(--mute); }
+
+/* ── Пульт: кнопка, полоса, часы ── */
+
+.trim-deck { display: flex; align-items: center; gap: 12px; }
+
+.trim-play {
+  position: relative;
+  display: grid;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  place-items: center;
+  color: var(--ink);
+  border-radius: 50%;
+  background: linear-gradient(140deg, var(--gold-hi), var(--gold));
+  box-shadow: 0 6px 20px -8px rgba(var(--gold-rgb), .85);
+  transition: transform var(--motion-fast) var(--ease-silk), box-shadow 420ms var(--ease-silk);
+}
+.trim-play:active { transform: scale(.94); }
+.trim-play svg { position: absolute; width: 21px; height: 21px; fill: currentColor; stroke: none; }
+.trim-play .ic-pause { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.trim .ic-pause { opacity: 0; }
+.trim.is-playing .ic-play { opacity: 0; }
+.trim.is-playing .ic-pause { opacity: 1; }
+/* Пока играет — мягкое кольцо-дыхание: видно, что звук идёт. */
+.trim.is-playing .trim-play { animation: trimBeat 2.6s var(--ease-silk) infinite; }
+@keyframes trimBeat {
+  50% { box-shadow: 0 6px 20px -8px rgba(var(--gold-rgb), .85), 0 0 0 10px rgba(var(--gold-rgb), .07); }
+}
+
+/* Полоса — и ход трека, и перемотка. */
+.trim-line {
+  position: relative;
+  height: 44px;                       /* палец, а не пиксель */
+  flex: 1;
+  touch-action: none;
+  cursor: pointer;
+}
+.trim-line::before {
   content: '';
   position: absolute;
-  inset: -4px;
-  border-radius: 50%;
-  background: conic-gradient(rgba(241, 221, 176, .8) var(--trim-ring), transparent 0);
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 3px;
+  margin-top: -1.5px;
+  border-radius: 99px;
+  background: rgba(255, 247, 235, .13);
 }
-.trim-stop.is-counting::after { animation: trimRing 5s linear forwards; }
-@keyframes trimStopIn { from { opacity: 0; transform: translate(-50%, -50%) scale(.8); } }
-@keyframes trimRing { from { --trim-ring: 360deg; } to { --trim-ring: 0deg; } }
+/* Хвост, который попадёт в приглашение: от отметки и до конца. */
+.trim-kept {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  height: 3px;
+  margin-top: -1.5px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, rgba(var(--gold-rgb), .5), rgba(var(--gold-rgb), .16));
+  transition: left 260ms var(--ease-silk);
+}
+.trim-done {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 3px;
+  margin-top: -1.5px;
+  border-radius: 99px;
+  background: rgba(255, 247, 235, .34);
+  transition: width 280ms linear;     /* timeupdate приходит редко — досочиняем ход */
+}
+.trim-line.is-seeking .trim-done { transition: none; }
+
+/* Отметка начала: флажок на полосе. */
+.trim-flag {
+  position: absolute;
+  top: 50%;
+  width: 3px;
+  height: 19px;
+  margin: -9.5px 0 0 -1.5px;
+  border-radius: 99px;
+  background: var(--gold-hi);
+  box-shadow: 0 0 12px rgba(var(--gold-rgb), .8);
+  opacity: 0;
+  transform: scaleY(.4);
+  transition: left 260ms var(--ease-silk), opacity 320ms var(--ease-silk), transform 320ms var(--ease-silk);
+}
+.trim.is-set .trim-flag { opacity: 1; transform: none; }
+
+/* Где звучит прямо сейчас. */
+.trim-headdot {
+  position: absolute;
+  top: 50%;
+  width: 11px;
+  height: 11px;
+  margin: -5.5px 0 0 -5.5px;
+  border-radius: 50%;
+  background: var(--silk);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .6);
+  transition: left 280ms linear;
+}
+.trim-line.is-seeking .trim-headdot { transition: none; transform: scale(1.25); }
+
+.trim-clock {
+  flex: 0 0 auto;
+  min-width: 3.2ch;
+  color: var(--silk-2);
+  font: 500 .78rem/1 var(--mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ── Главное действие ── */
+
+.trim-set {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  margin-top: 14px;
+  color: var(--silk);
+  font-size: .92rem;
+  font-weight: 500;
+  border: 1px solid rgba(var(--gold-rgb), .42);
+  border-radius: 999px;
+  background: rgba(var(--gold-rgb), .08);
+  transition: color 320ms var(--ease-silk), background 320ms var(--ease-silk),
+    border-color 320ms var(--ease-silk), transform var(--motion-fast) var(--ease-silk);
+}
+.trim-set:active { transform: scale(.985); }
+/* Пока трек играет, кнопка — самое яркое место блока: её и нажимают. */
+.trim.is-playing .trim-set {
+  color: var(--ink);
+  border-color: transparent;
+  background: linear-gradient(105deg, var(--gold), var(--gold-hi));
+}
 
 .trim-foot {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin: 9px 0 0;
+  gap: 12px;
+  margin: 11px 2px 0;
 }
-.trim-foot b { color: var(--silk); font: 500 .82rem/1 var(--mono); font-variant-numeric: tabular-nums; }
-.trim-foot i { color: var(--mute); font: 400 .66rem/1.3 var(--mono); font-style: normal; text-align: center; }
+.trim-foot i { color: var(--mute); font: 400 .74rem/1.35 var(--sans); font-style: normal; }
+.trim.is-set .trim-foot i { color: var(--silk-2); }
+.trim-reset {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 0 4px;
+  color: var(--mute);
+  font: 400 .72rem/1 var(--sans);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Подсказка из зала: откуда этот же трек запускают другие пары. */
+.trim-tip {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 12px;
+  padding: 11px 14px;
+  text-align: left;
+  color: var(--silk-2);
+  font-size: .8rem;
+  border: 1px dashed rgba(var(--gold-rgb), .38);
+  border-radius: 10px;
+  background: rgba(var(--gold-rgb), .05);
+  transition: background var(--motion-ui) var(--ease-silk), border-color var(--motion-ui) var(--ease-silk);
+}
+.trim-tip::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 9px;
+  vertical-align: middle;
+  border-radius: 50%;
+  background: var(--gold-hi);
+  box-shadow: 0 0 9px rgba(var(--gold-rgb), .85);
+}
+.trim-tip:active { background: rgba(var(--gold-rgb), .12); border-style: solid; }
+
+@media (prefers-reduced-motion: reduce) {
+  .trim.is-playing .trim-play { animation: none; }
+}
 
 /* Photos */
 .photo-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 17px; }
@@ -1077,7 +1278,6 @@ svg {
    pauses decorative loops; the sequential studio flow remains intact. */
 @media (prefers-reduced-motion: reduce) {
   .btn--gold::after,
-  .pm-card,
   .spark,
   #bloom,
   #ikat,
@@ -1374,12 +1574,13 @@ body {
 .hdrum-num { font-size: .9rem; }
 .read-out { font-size: .75rem; }
 
-.map-switch { margin-top:16px; }
-.map-tools { margin-top: 6px; }
 .map-hint { display:flex; align-items:center; gap:9px; color:var(--silk-2); font-size:.88rem; }
 .map-hint::before { content:''; width:8px; height:8px; flex:0 0 8px; border:1px solid var(--gold-hi); border-radius:50%; box-shadow:0 0 12px rgba(var(--scene-rgb),.7); }
 .mapframe { height:300px; border-color:rgba(var(--scene-rgb),.28); box-shadow:inset 0 0 42px rgba(0,0,0,.3); }
-.map-btn svg { width:20px; height:20px; }
+.venue { min-height:70px; border-color:rgba(var(--scene-rgb),.2); }
+.venue-copy b { font-size:1rem; }
+.venue-copy span { font-size:.8rem; }
+.map-note { font-size:.84rem; }
 .geo-item { min-height:62px; padding:13px 15px; }
 .geo-item b { font-size:1rem; }
 .geo-item span { font-size:.85rem; line-height:1.5; }
@@ -1421,222 +1622,16 @@ body {
 .readycard > span { font-size:.75rem; }
 .notice p { font-size:.92rem; }
 
-/* Personal link story: nVate → one live invitation → three individual guests. */
-.personal-motion {
-  position:relative;
-  isolation:isolate;
-  height:520px;
-  margin-top:22px;
-  overflow:hidden;
-  opacity:.72;
-  border:1px solid rgba(var(--scene-rgb),.3);
-  border-radius:16px;
-  background:
-    radial-gradient(80% 46% at 50% 35%,rgba(229,190,105,.13),transparent 68%),
-    radial-gradient(48% 35% at 14% 3%,rgba(255,239,199,.07),transparent 72%),
-    linear-gradient(155deg,#14110c 0%,#090806 48%,#050504 100%);
-  box-shadow:inset 0 1px rgba(255,250,234,.06),0 28px 72px -44px #000;
-  transition:opacity 900ms var(--ease-silk),box-shadow 1100ms var(--ease-scene);
-  contain:layout paint style;
-}
-.personal-motion::before {
-  content:'';
-  position:absolute;
-  z-index:-1;
-  inset:0;
-  opacity:.22;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitchTiles'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.24'/%3E%3C/svg%3E");
-  mix-blend-mode:soft-light;
-  pointer-events:none;
-}
-.personal-motion::after {
-  content:'';
-  position:absolute;
-  z-index:8;
-  inset:0;
-  border-radius:inherit;
-  box-shadow:inset 0 0 72px 22px rgba(0,0,0,.58);
-  pointer-events:none;
-}
-.personal-motion.is-visible { opacity:1; }
-.personal-motion.is-final { box-shadow:inset 0 1px rgba(255,250,234,.08),0 0 54px -25px rgba(var(--scene-rgb),.72); }
-/* Именные приглашения включены — сцена перестаёт быть просто рекламой и
-   подтверждает выбор золотой кромкой. Класс ставит renderGuests(). */
-.personal-motion.is-on { border-color:rgba(var(--scene-rgb),.62); }
-
-.pm-atmosphere { position:absolute; z-index:0; inset:0; overflow:hidden; transition:scale 1200ms var(--ease-scene); }
-/* Мягкость луча делают сами градиенты, а не filter:blur: размытая полоса,
-   которая ещё и плывёт по кругу без остановки, заставляла телефон
-   перерисовывать всю сцену на каждом кадре. */
-.pm-ray { position:absolute; top:-42%; width:22%; height:112%; opacity:.12; transform:rotate(23deg);
-  background:linear-gradient(90deg,transparent,rgba(255,243,207,.42) 32%,rgba(255,243,207,.42) 68%,transparent),
-    linear-gradient(180deg,rgba(255,243,207,.5),rgba(196,139,48,.03));
-  background-blend-mode:multiply;
-  animation:pmRayDrift 14s var(--ease-silk) infinite alternate; }
-.pm-ray--one { left:17%; }
-.pm-ray--two { right:12%; opacity:.07; animation-delay:-4.5s; }
-.pm-dust i { position:absolute; left:var(--pm-x); top:var(--pm-y); width:2px; height:2px; opacity:.24; border-radius:50%; background:var(--gold-hi); box-shadow:0 0 7px rgba(var(--scene-rgb),.75); animation:pmDustFloat var(--pm-t) var(--ease-silk) infinite alternate; }
-.pm-dust i:nth-child(1){--pm-x:11%;--pm-y:23%;--pm-t:5.7s}.pm-dust i:nth-child(2){--pm-x:27%;--pm-y:76%;--pm-t:7.3s}.pm-dust i:nth-child(3){--pm-x:43%;--pm-y:18%;--pm-t:6.4s}.pm-dust i:nth-child(4){--pm-x:61%;--pm-y:69%;--pm-t:8.1s}.pm-dust i:nth-child(5){--pm-x:76%;--pm-y:26%;--pm-t:5.9s}.pm-dust i:nth-child(6){--pm-x:89%;--pm-y:82%;--pm-t:7.7s}.pm-dust i:nth-child(7){--pm-x:55%;--pm-y:44%;--pm-t:6.9s}
-@keyframes pmRayDrift { to { opacity:.2; transform:translateX(24px) rotate(20deg); } }
-@keyframes pmDustFloat { to { opacity:.5; transform:translate3d(5px,-14px,0); } }
-
-.pm-origin {
-  position:absolute;
-  z-index:3;
-  left:50%;
-  top:27px;
-  display:grid;
-  justify-items:center;
-  gap:2px;
-  width:112px;
-  opacity:0;
-  transform:translateX(-50%) translateY(8px);
-  filter:blur(7px);
-  transition:opacity 950ms var(--ease-silk),transform 950ms var(--ease-silk),filter 950ms var(--ease-silk),scale 1200ms var(--ease-scene);
-}
-.personal-motion.is-brand-visible .pm-origin { opacity:1; transform:translateX(-50%) translateY(0); filter:blur(0); }
-.pm-origin-mark {
-  display:grid;
-  width:47px;
-  height:47px;
-  place-items:center;
-  margin-bottom:2px;
-  color:var(--gold-hi);
-  border:1px solid rgba(241,221,176,.5);
-  border-radius:50%;
-  background:radial-gradient(circle at 36% 28%,rgba(255,246,222,.13),rgba(90,61,23,.08));
-  box-shadow:0 0 28px rgba(var(--scene-rgb),.12),inset 0 0 15px rgba(var(--scene-rgb),.06);
-  font:500 .82rem/1 var(--display);
-  letter-spacing:-.08em;
-}
-.pm-origin b { color:var(--silk); font:500 1.03rem/1.15 var(--display); letter-spacing:.02em; }
-.pm-origin small { color:var(--mute); font:500 .48rem/1.3 var(--mono); letter-spacing:.22em; }
-.pm-origin.is-pulsing .pm-origin-mark { animation:pmOriginPulse 800ms var(--ease-silk); }
-@keyframes pmOriginPulse { 50% { color:#fff7df; border-color:var(--gold-hi); box-shadow:0 0 33px 6px rgba(var(--scene-rgb),.3),inset 0 0 16px rgba(var(--scene-rgb),.16); } }
-
-.pm-wires { position:absolute; z-index:1; inset:0; width:100%; height:100%; overflow:visible; transition:scale 1200ms var(--ease-scene); pointer-events:none; }
-.pm-wire {
-  fill:none;
-  opacity:0;
-  stroke:url(#pm-gold-line);
-  stroke-width:1.15;
-  stroke-dasharray:1;
-  stroke-dashoffset:1;
-  vector-effect:non-scaling-stroke;
-  transition:opacity 700ms var(--ease-silk),stroke-width 700ms var(--ease-silk);
-}
-.pm-wire.is-drawing { opacity:1; animation:pmWireDraw var(--pm-draw,900ms) cubic-bezier(.22,.61,.25,1) forwards; }
-.pm-wire.is-complete { opacity:.48; stroke-dashoffset:0; }
-.personal-motion.is-final .pm-wire { opacity:.88; stroke-width:1.45; filter:url(#pm-line-glow); }
-@keyframes pmWireDraw { to { stroke-dashoffset:0; } }
-.pm-traveler { opacity:0; fill:#fff5d9; stroke:none; filter:url(#pm-line-glow); }
-.pm-traveler.is-traveling { opacity:1; }
-
-.pm-card {
-  position:absolute;
-  z-index:3;
-  left:50%;
-  top:132px;
-  display:grid;
-  width:min(calc(100% - 48px),260px);
-  min-height:166px;
-  padding:25px 18px 21px;
-  place-content:center;
-  gap:10px;
-  opacity:0;
-  transform:translateX(-50%) translateY(11px) scale(.965);
-  text-align:center;
-  border:1px solid rgba(235,205,145,.38);
-  border-radius:5px;
-  background:
-    linear-gradient(145deg,rgba(255,246,221,.07),transparent 42%),
-    linear-gradient(165deg,rgba(34,26,16,.97),rgba(10,8,5,.98));
-  box-shadow:0 24px 54px rgba(0,0,0,.5),inset 0 1px rgba(255,250,237,.08),0 0 36px -25px rgba(var(--scene-rgb),.8);
-  filter:blur(6px);
-  transition:opacity 850ms var(--ease-silk),transform 1050ms var(--ease-silk),filter 850ms var(--ease-silk),box-shadow 850ms var(--ease-silk),scale 1200ms var(--ease-scene);
-}
-.personal-motion.is-card-visible .pm-card { opacity:1; transform:translateX(-50%) translateY(0) scale(1); filter:blur(0); }
-.pm-card::before,.pm-card::after { content:''; position:absolute; width:18px; height:18px; opacity:.7; }
-.pm-card::before { left:7px; top:7px; border-left:1px solid var(--gold); border-top:1px solid var(--gold); }
-.pm-card::after { right:7px; bottom:7px; border-right:1px solid var(--gold); border-bottom:1px solid var(--gold); }
-.pm-card-rule { width:44px; height:1px; justify-self:center; background:linear-gradient(90deg,transparent,var(--gold),transparent); }
-.pm-card > small { color:var(--mute); font:500 .54rem/1.3 var(--mono); letter-spacing:.19em; text-transform:uppercase; }
-.pm-salutation { min-height:28px; margin:0; color:var(--silk); font:400 1rem/1.45 var(--display); }
-.pm-salutation b { color:var(--gold-hi); font-weight:500; }
-.pm-link { display:block; min-height:15px; color:#c8aa6a; font:500 .56rem/1.5 var(--mono); letter-spacing:.015em; }
-.pm-card-seal { position:absolute; left:50%; bottom:-12px; display:grid; width:25px; height:25px; place-items:center; transform:translateX(-50%); color:#211505; border:1px solid rgba(255,241,204,.54); border-radius:50%; background:linear-gradient(145deg,#f0d89e,#9b7131); box-shadow:0 5px 15px rgba(0,0,0,.4); font:600 .48rem/1 var(--display); }
-.pm-card.is-pulsing { animation:pmCardPulse 750ms var(--ease-silk); }
-@keyframes pmCardPulse { 50% { box-shadow:0 24px 54px rgba(0,0,0,.5),inset 0 1px rgba(255,250,237,.08),0 0 35px 1px rgba(var(--scene-rgb),.28); } }
-
-.pm-char { display:inline-block; white-space:pre; animation:pmCharIn 440ms var(--ease-silk) both; animation-delay:calc(var(--pm-i) * 22ms); }
-.is-deleting .pm-char { animation:pmCharOut 460ms cubic-bezier(.55,0,.78,.39) both; animation-delay:calc((var(--pm-count) - var(--pm-i)) * 7ms); }
-@keyframes pmCharIn { from { opacity:0; transform:translateY(5px); filter:blur(4px); } }
-@keyframes pmCharOut { to { opacity:0; transform:translateY(-4px); filter:blur(4px); } }
-
-.pm-people {
-  position:absolute;
-  z-index:3;
-  left:13px;
-  right:13px;
-  bottom:66px;
-  display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:6px;
-  transition:scale 1200ms var(--ease-scene);
-}
-.pm-person {
-  position:relative;
-  display:flex;
-  min-width:0;
-  min-height:76px;
-  align-items:center;
-  justify-content:center;
-  flex-direction:column;
-  gap:7px;
-  padding:9px 4px;
-  opacity:.38;
-  color:var(--mute);
-  border:1px solid rgba(var(--scene-rgb),.18);
-  border-radius:10px;
-  background:linear-gradient(150deg,rgba(255,246,222,.055),rgba(13,10,6,.64));
-  box-shadow:inset 0 1px rgba(255,255,255,.035);
-  transition:opacity 720ms var(--ease-silk),color 720ms var(--ease-silk),border-color 720ms var(--ease-silk),box-shadow 720ms var(--ease-silk),transform 720ms var(--ease-silk);
-}
-.pm-person-monogram { display:grid; width:25px; height:25px; place-items:center; flex:0 0 25px; border:1px solid currentColor; border-radius:50%; font:500 .68rem/1 var(--display); }
-.pm-person-copy { display:grid; min-width:0; justify-items:center; }
-.pm-person-copy b { max-width:100%; overflow:hidden; color:currentColor; font:500 .65rem/1.25 var(--display); text-overflow:ellipsis; white-space:nowrap; }
-.pm-person-copy small { margin-top:2px; color:var(--mute); font:500 .43rem/1 var(--mono); letter-spacing:.16em; }
-.pm-person.is-connected { opacity:.9; color:var(--silk-2); border-color:rgba(var(--scene-rgb),.38); }
-.pm-person.is-current { opacity:1; color:var(--gold-hi); border-color:rgba(241,221,176,.65); box-shadow:0 0 27px -11px rgba(var(--scene-rgb),.72),inset 0 0 20px rgba(var(--scene-rgb),.055); transform:translateY(-2px); }
-.pm-person.is-arriving { animation:pmRecipientPulse 850ms var(--ease-silk); }
-@keyframes pmRecipientPulse { 45% { box-shadow:0 0 34px 2px rgba(var(--scene-rgb),.4),inset 0 0 22px rgba(var(--scene-rgb),.1); transform:translateY(-2px) scale(1.035); } }
-
-.pm-tagline { position:absolute; z-index:4; left:18px; right:18px; bottom:17px; margin:0; opacity:0; transform:translateY(7px); color:var(--silk-2); text-align:center; font:400 .7rem/1.45 var(--display); letter-spacing:.035em; transition:opacity 950ms var(--ease-silk),transform 950ms var(--ease-silk); }
-.personal-motion.is-final .pm-tagline { opacity:1; transform:translateY(0); }
-.personal-motion.is-final .pm-atmosphere,
-.personal-motion.is-final .pm-origin,
-.personal-motion.is-final .pm-wires,
-.personal-motion.is-final .pm-card,
-.personal-motion.is-final .pm-people { scale:.975; }
-.personal-motion.is-resetting .pm-origin,
-.personal-motion.is-resetting .pm-card,
-.personal-motion.is-resetting .pm-person,
-.personal-motion.is-resetting .pm-wire,
-.personal-motion.is-resetting .pm-tagline { opacity:0; }
-
-@media (min-width:620px) {
-  .personal-motion { height:350px; }
-  .pm-origin { left:25px; top:125px; width:92px; transform:translateY(8px); }
-  .personal-motion.is-brand-visible .pm-origin { transform:translateY(0); }
-  .pm-card { top:68px; width:218px; min-height:210px; padding:31px 18px 27px; }
-  .pm-salutation { font-size:1.08rem; }
-  .pm-link { font-size:.6rem; }
-  .pm-people { left:auto; right:22px; top:46px; bottom:auto; width:137px; grid-template-columns:1fr; gap:10px; }
-  .pm-person { min-height:78px; justify-content:flex-start; flex-direction:row; gap:9px; padding:10px; }
-  .pm-person-copy { justify-items:start; }
-  .pm-person-copy b { font-size:.74rem; }
-  .pm-tagline { bottom:18px; font-size:.76rem; }
-}
+/* Именные приглашения — три строки вместо анимации: что вписать, что увидит
+   гость и откуда придут ссылки. Нумерация здесь настоящая: это порядок шагов. */
+.howto { display:grid; gap:0; margin:18px 0 0; padding:0; list-style:none; counter-reset:howto; }
+.howto li { position:relative; display:grid; gap:3px; padding:15px 0 15px 44px; counter-increment:howto;
+  border-top:1px solid rgba(255,247,235,.08); }
+.howto li:first-child { border-top:0; }
+.howto li::before { content:counter(howto,decimal-leading-zero); position:absolute; left:0; top:16px;
+  color:var(--gold); font:400 .58rem/1 var(--mono); letter-spacing:.1em; }
+.howto b { color:var(--silk); font-size:.95rem; font-weight:500; }
+.howto span { color:var(--mute); font-size:.84rem; line-height:1.5; }
 
 .switch { min-height:80px; padding:16px 17px; border-color:rgba(var(--scene-rgb),.22); background:linear-gradient(180deg,rgba(255,231,174,.1),rgba(48,28,8,.12)); }
 .gst { background:linear-gradient(145deg,rgba(255,248,226,.16),rgba(var(--scene-rgb),.11)); box-shadow:inset 0 1px rgba(255,255,255,.08); }
@@ -1664,11 +1659,9 @@ body {
 
 @media (prefers-reduced-motion:reduce) {
   #stage::before,#stage::after,.blk.is-live::before,.btn--gold,
-  .btn--gold::after,.trk-play.playing svg,.pm-ray,.pm-dust i,
-  .pm-origin-mark,.pm-card.is-pulsing,.pm-person.is-arriving,
+  .btn--gold::after,.trk-play.playing svg,
   .plate-name.is-bump,.cal-cell.sel,.bead.live.is-pulse i,
   #bloom,#ikat,#silk-fall i { animation: none !important; }
-  .personal-motion * { transition-duration:220ms !important; }
   .scene-wash { transition-duration:700ms; }
   .blk.is-done { transform: none; opacity: .88; }
 }
@@ -1816,8 +1809,8 @@ body {
 .btn--ghost,
 .ghost-ic,
 .cal-arrow,
-.map-btn,
 .trk-play,
+.venue,
 .geo-item {
   border-color: rgba(255, 248, 232, .16);
   background: linear-gradient(160deg, rgba(255, 249, 234, .1), rgba(255, 240, 214, .03));
@@ -1833,15 +1826,14 @@ body {
 .btn--ghost:active,
 .ghost-ic:active,
 .cal-arrow:active,
-.map-btn:active,
 .trk-play:active { transform: scale(.94); }
 
 @media (hover: hover) {
   .btn--ghost:hover,
   .ghost-ic:hover,
   .cal-arrow:hover,
-  .map-btn:hover,
   .trk-play:hover,
+  .venue:hover,
   .geo-item:hover {
     color: var(--gold-hi);
     border-color: rgba(var(--scene-rgb), .5);
@@ -1921,7 +1913,7 @@ html[data-motion='full'] #sky { opacity: .92; }
 /* Пальцевые цели: всё, по чему нажимают, — не меньше 44 px. Точки колоды и
    ячейки календаря остаются визуально мелкими, растёт только зона нажатия. */
 .brand { display: inline-flex; align-items: center; min-height: 44px; padding-right: 6px; }
-.cal-arrow, .map-btn { width: 46px; height: 46px; }
+.cal-arrow { width: 46px; height: 46px; }
 .cal-cell { aspect-ratio: auto; min-height: 46px; }
 .linkbtn { min-height: 46px; }
 .hdrum-num { min-height: 44px; }

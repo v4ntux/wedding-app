@@ -28,9 +28,10 @@ export const DEV_NO_AUTH = process.env.DEV_NO_AUTH === '1';
 // Ссылка поддержки для кнопки Support в боте (напр. https://t.me/username). Необязательно.
 export const SUPPORT_URL = (process.env.SUPPORT_URL ?? 'https://t.me/nvate_admin').trim();
 
-// Яндекс-карты: с ключом работает JS API и выбор точки; без ключа показываем
-// официальный интерактивный виджет. Для продакшена пропишите ключ в .env.
-export const YANDEX_MAPS_API_KEY = (process.env.YANDEX_MAPS_API_KEY ?? '').trim();
+// Тайлы карты студии и админки. По умолчанию OpenStreetMap: ключей не просит,
+// но и нагрузку держит на добром слове — под заметный трафик поставьте сюда
+// своего провайдера ({z}/{x}/{y} подставляются платформой).
+export const MAP_TILES = (process.env.MAP_TILES ?? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png').trim();
 
 // Google Places (console.cloud.google.com, «Places API (New)»): даёт мгновенный и
 // точный поиск заведений, как у chungdoi. Без ключа поиск идёт по бесплатным источникам.

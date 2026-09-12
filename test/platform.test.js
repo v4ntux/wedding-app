@@ -12,11 +12,12 @@ process.env.ADMIN_CHAT_IDS = '';
 process.env.NVATE_DISABLE_WATCH = '1';
 
 const dbModule = await import('../src/db.js');
-const { validateForm, buildPreviewApp, submitApplication, ValidationError } = await import('../src/service.js');
+const { validateForm, buildPreviewApp, submitApplication, musicKey, ValidationError } = await import('../src/service.js');
 const { renderInvitation, renderDemo } = await import('../src/render.js');
 const { publicTemplates, allTemplates } = await import('../src/templateStore.js');
 const { slugify, coupleSlugBase } = await import('../src/slug.js');
 const { detectFileType, UPLOADS_DIR } = await import('../src/upload.js');
+const { publicVenues, allVenues, saveVenues } = await import('../src/venues.js');
 const { createServer } = await import('../src/server.js');
 const { escapeHtml } = await import('../public/admin/sanitize.js');
 
@@ -46,13 +47,11 @@ const baseForm = (overrides = {}) => ({
     url: 'https://audio-ssl.itunes.apple.com/example.m4a',
   },
   musicStart: 7,
-  musicEnd: 67,
+  musicEnd: null,
   templateId: 'oqshom',
   guestNames: [],
   addons: [],
-  contactTg: 'nvate_test',
   phone: '+998 90 123 45 67',
-  phone2: '',
   submissionKey: '12345678-1234-4123-8123-123456789abc',
   ...overrides,
 });
@@ -166,6 +165,70 @@ test('submission key makes application creation idempotent', () => {
   assert.equal(second.duplicate, true);
   const count = dbModule.db.prepare('SELECT COUNT(*) AS count FROM applications WHERE tg_user_id = ?').get(user.id).count;
   assert.equal(count, 1);
+});
+
+test('phone is the only contact we ask for — Telegram comes from the bot', () => {
+  // Телефона нет — заявку не принимаем: подтверждать оплату не по чему.
+  assert.throws(
+    () => validateForm(baseForm({ phone: '' }), { requirePhone: true }),
+    (error) => error instanceof ValidationError && error.step === 'review'
+  );
+  // Явная опечатка в номере видна сразу, а не после оплаты.
+  assert.throws(
+    () => validateForm(baseForm({ phone: '123' }), { requirePhone: true }),
+    /Некорректный номер/
+  );
+  const user = { id: 7101, username: 'from_bot' };
+  const created = submitApplication(
+    baseForm({ submissionKey: '22345678-1234-4123-8123-123456789abc' }),
+    user
+  ).app;
+  // Telegram берём из initData, а не из полей формы.
+  assert.equal(created.tg_user_id, 7101);
+  assert.equal(created.tg_username, 'from_bot');
+});
+
+test('the cut keeps a start and runs to the end of the track', () => {
+  const clean = validateForm(baseForm({ musicStart: 12, musicEnd: null }));
+  assert.equal(clean.musicStart, 12);
+  assert.equal(clean.musicEnd, null);
+});
+
+test('a popular start point is only suggested once several couples agree', () => {
+  const track = {
+    name: 'Shared Song',
+    artist: 'Shared Artist',
+    url: 'https://audio-ssl.itunes.apple.com/shared.m4a',
+  };
+  const key = musicKey({ musicType: 'itunes', musicValue: track });
+  assert.ok(key);
+  assert.equal(dbModule.popularCut(key), null, 'без заявок подсказки быть не должно');
+
+  const submit = (id, start) => submitApplication(baseForm({
+    musicValue: track,
+    musicStart: start,
+    submissionKey: `3234567${id}-1234-4123-8123-123456789abc`,
+  }), { id: 7200 + id, username: `cut_${id}` });
+
+  submit(1, 18);
+  assert.equal(dbModule.popularCut(key), null, 'одна пара — ещё не рекомендация');
+
+  submit(2, 19);   // та же пятисекундная корзина, что и 18
+  submit(3, 44);
+  const cut = dbModule.popularCut(key);
+  assert.deepEqual(cut, { start: 18, uses: 2 }, 'предлагаем самую раннюю секунду корзины');
+});
+
+test('the venue catalog hides drafts from couples and keeps them for the admin', () => {
+  saveVenues([
+    { id: 'live-one', name: 'Navro‘z', kind: 'toyxona', address: 'Mang‘it', lat: 42.1178, lng: 60.0601, seats: 300 },
+    { id: 'draft-one', name: 'Oq saroy', kind: 'toyxona', address: 'Mang‘it', lat: 42.1207, lng: 60.0614, draft: true },
+    { name: 'Без точки', kind: 'kafe' },                       // некуда поставить метку
+    { id: 'abroad', name: 'Далеко', lat: 10, lng: 10 },        // за пределами страны
+  ]);
+  assert.deepEqual(allVenues().map((v) => v.id), ['live-one', 'draft-one']);
+  assert.deepEqual(publicVenues().map((v) => v.id), ['live-one']);
+  assert.equal(publicVenues()[0].seats, 300);
 });
 
 test('legacy Atlas applications render Atlas rather than the public master', () => {
