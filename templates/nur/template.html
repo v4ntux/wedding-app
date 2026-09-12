@@ -46,13 +46,18 @@ body{background:
 
 /* Лучи из окна: три полосы света, очень медленно плывущие по комнате. */
 .sunbeams{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+/* Мягкость луча делают сами градиенты, а не filter:blur: размывать полосу
+   во всю высоту экрана телефон соглашался только с потерей кадров. */
 .sunbeams i{position:absolute;top:-30%;height:170%;width:var(--w,120px);
-  background:linear-gradient(180deg,rgba(255,238,186,.85),rgba(255,231,170,.34) 56%,transparent);
-  filter:blur(var(--b,18px));transform:rotate(14deg) translateX(var(--x,0));opacity:var(--o,.5);
+  background:
+    linear-gradient(90deg,transparent,rgba(255,238,186,.8) 22%,rgba(255,238,186,.8) 78%,transparent),
+    linear-gradient(180deg,rgba(255,238,186,.9),rgba(255,231,170,.3) 58%,transparent);
+  background-blend-mode:multiply;
+  transform:rotate(14deg) translateX(var(--x,0));opacity:var(--o,.5);
   animation:beamDrift var(--t,26s) ease-in-out var(--dl,0s) infinite alternate}
-.sunbeams i:nth-child(1){left:8%;--w:170px;--o:.75;--t:30s;--b:30px}
-.sunbeams i:nth-child(2){left:38%;--w:96px;--o:.6;--t:24s;--dl:-6s;--b:18px}
-.sunbeams i:nth-child(3){left:66%;--w:210px;--o:.5;--t:34s;--dl:-12s;--b:38px}
+.sunbeams i:nth-child(1){left:8%;--w:190px;--o:.7;--t:30s}
+.sunbeams i:nth-child(2){left:38%;--w:110px;--o:.56;--t:24s;--dl:-6s}
+.sunbeams i:nth-child(3){left:66%;--w:230px;--o:.46;--t:34s;--dl:-12s}
 @keyframes beamDrift{from{transform:rotate(14deg) translateX(-28px)}to{transform:rotate(11deg) translateX(34px)}}
 
 /* Пыль в луче: мелкие частицы, поднимающиеся против света. */
@@ -111,7 +116,6 @@ body{background:
 .cd-card .cd{width:100%}
 .mapbox{border-radius:18px}
 .mapbox iframe{filter:grayscale(.28) sepia(.14) brightness(1.02) contrast(.96)}
-.shot{border-radius:20px}
 .shot img{filter:saturate(.92) contrast(1.02) brightness(1.04)}
 .routes a{border-color:var(--line);color:var(--ink);border-radius:999px;background:rgba(255,255,255,.6)}
 .cal td.on{color:var(--accent)}
@@ -127,14 +131,10 @@ body{background:
 {{{livingBg}}}
 <div class="sunbeams" aria-hidden="true"><i></i><i></i><i></i></div>
 <div class="dust" aria-hidden="true">
-  <i style="--x:12%;--s:3px;--t:24s;--dl:-3s;--o:.6;--dx:30px"></i>
-  <i style="--x:24%;--s:2px;--t:29s;--dl:-11s;--o:.45;--dx:-22px"></i>
-  <i style="--x:37%;--s:4px;--t:21s;--dl:-7s;--o:.7;--dx:18px"></i>
-  <i style="--x:49%;--s:2px;--t:33s;--dl:-16s;--o:.5;--dx:-30px"></i>
-  <i style="--x:61%;--s:3px;--t:26s;--dl:-2s;--o:.65;--dx:26px"></i>
-  <i style="--x:73%;--s:2px;--t:31s;--dl:-19s;--o:.4;--dx:-16px"></i>
-  <i style="--x:86%;--s:4px;--t:23s;--dl:-9s;--o:.62;--dx:22px"></i>
-  <i style="--x:94%;--s:2px;--t:28s;--dl:-14s;--o:.42;--dx:-24px"></i>
+  <i style="--x:14%;--s:3px;--t:24s;--dl:-3s;--o:.6;--dx:30px"></i>
+  <i style="--x:38%;--s:4px;--t:21s;--dl:-9s;--o:.7;--dx:18px"></i>
+  <i style="--x:62%;--s:3px;--t:26s;--dl:-2s;--o:.62;--dx:26px"></i>
+  <i style="--x:87%;--s:2px;--t:29s;--dl:-15s;--o:.45;--dx:-24px"></i>
 </div>
 <div class="progress" aria-hidden="true"></div>
 

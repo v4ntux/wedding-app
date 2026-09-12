@@ -80,11 +80,12 @@ body{min-width:320px;overflow-x:hidden;background:transparent;color:var(--ink,#2
 .mono--filled{border-radius:50%;background:var(--paper-2,#eae3d6)}
 
 /* ── Появление содержимого ─────────────────────────────────────────────── */
-.fx{opacity:0;transform:translateY(26px);filter:blur(9px)}
-.fx.in{opacity:1;transform:none;filter:none;
+/* Только прозрачность и сдвиг: размытие целой секции телефон считает каждый
+   кадр, а на глаз добавляет к появлению почти ничего. */
+.fx{opacity:0;transform:translateY(26px)}
+.fx.in{opacity:1;transform:none;
   transition:opacity var(--t-slow) ease var(--d,0s),
-             transform var(--t-epic) var(--e-enter) var(--d,0s),
-             filter var(--t-epic) ease var(--d,0s)}
+             transform var(--t-epic) var(--e-enter) var(--d,0s)}
 .fx--rise{transform:translateY(46px) scale(.985)}
 
 /* Линия прочерчивается, а не проявляется. */
@@ -95,20 +96,27 @@ body{min-width:320px;overflow-x:hidden;background:transparent;color:var(--ink,#2
 .rule--x.in{transform:scaleX(1)}
 
 /* Текст проявляется по словам — каскад 55 мс, суммарно в пределах полусекунды. */
-.words span{display:inline-block;opacity:0;transform:translateY(.4em);filter:blur(4px)}
-.words.in span{opacity:1;transform:none;filter:none;
-  transition:opacity var(--t-base) ease,transform var(--t-slow) var(--e-enter),filter var(--t-slow) ease;
+.words span{display:inline-block;opacity:0;transform:translateY(.4em)}
+.words.in span{opacity:1;transform:none;
+  transition:opacity var(--t-base) ease,transform var(--t-slow) var(--e-enter);
   transition-delay:calc(var(--d,0s) + var(--i,0)*.055s)}
 
 /* ── Фотография ────────────────────────────────────────────────────────── */
-/* Кадр открывается шторкой, изображение внутри доезжает своим ходом
-   (follow-through), тень догоняет последней. */
-.shot{position:relative;width:min(100%,560px);margin:0 auto;aspect-ratio:4/5;overflow:hidden;
-  background:var(--paper-3,#ded5c4);clip-path:inset(0 0 100% 0);box-shadow:0 0 0 rgba(44,53,45,0)}
-.shot.in{clip-path:inset(0 0 0 0);box-shadow:0 26px 60px -34px rgba(44,53,45,.5);
-  transition:clip-path var(--t-epic) var(--e-signature) var(--d,0s),box-shadow var(--t-slow) ease calc(var(--d,0s) + .3s)}
-.shot img{width:100%;height:100%;object-fit:cover;filter:saturate(.86) contrast(1.02);
-  transform:scale(1.14);transition:transform 2.4s var(--e-signature) var(--d,0s)}
+/* Кадр проявляется, изображение внутри доезжает своим ходом (follow-through),
+   тень догоняет последней. Кадр всегда по центру колонки: смещать его влево
+   или вправо тема не может — иначе на телефоне лицо уезжает за край.
+   Шторку на clip-path не используем: она мешала темам со своей формой кадра
+   (арка, медальон, ар-деко) и стоила лишней перерисовки на каждом кадре. */
+.shot{position:relative;width:min(100%,560px);margin-inline:auto;aspect-ratio:4/5;overflow:hidden;
+  background:var(--paper-3,#ded5c4);opacity:0;box-shadow:0 0 0 rgba(44,53,45,0)}
+.shot.in{opacity:1;box-shadow:0 26px 60px -34px rgba(44,53,45,.5);
+  transition:opacity var(--t-slow) ease var(--d,0s),box-shadow var(--t-slow) ease calc(var(--d,0s) + .3s)}
+/* Точка внимания чуть выше центра: на свадебном снимке лица стоят в верхней
+   половине кадра, и обрезка «по центру» в широкой рамке срезала головы.
+   Тема может сдвинуть её своей --shot-focus, если у неё другая пропорция. */
+.shot img{width:100%;height:100%;object-fit:cover;object-position:var(--shot-focus,50% 38%);
+  filter:saturate(.86) contrast(1.02);
+  transform:scale(1.08);transition:transform 1.9s var(--e-signature) var(--d,0s)}
 .shot.in img{transform:scale(1)}
 .shot:before{content:'';position:absolute;inset:14px;z-index:2;border:1px solid rgba(255,255,255,.6);pointer-events:none;
   opacity:0;transition:opacity var(--t-slow) ease calc(var(--d,0s) + .5s)}
@@ -145,14 +153,23 @@ body{min-width:320px;overflow-x:hidden;background:transparent;color:var(--ink,#2
   transition:transform var(--t-epic) var(--e-settle) .75s,opacity var(--t-base) ease .75s}
 
 /* ── Отсчёт ────────────────────────────────────────────────────────────── */
-.cd{display:grid;grid-template-columns:repeat(4,1fr);width:min(100%,600px);margin:0 auto}
-.cd>div{position:relative;padding:clamp(14px,4vw,22px) 2px;opacity:0;transform:translateY(20px)}
+/* Четыре равные колонки, которым нельзя разъехаться: minmax(0,1fr) и min-width
+   держат ячейку в её доле, а размер цифр подобран так, чтобы три знака дней
+   («365») умещались в колонку на узком телефоне. Иначе разряд вылезал на
+   соседний и перекрывал секунды. */
+.cd{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:min(100%,600px);margin:0 auto}
+.cd>div{position:relative;min-width:0;padding:clamp(14px,4vw,22px) 4px;opacity:0;transform:translateY(20px)}
 .cd.in>div{opacity:1;transform:none;
   transition:opacity var(--t-base) ease,transform var(--t-slow) var(--e-enter);
   transition-delay:calc(var(--d,0s) + var(--i,0)*70ms)}
 .cd>div+div:before{content:'';position:absolute;top:22%;bottom:22%;left:0;width:1px;background:var(--line-soft,rgba(44,53,45,.09))}
-.cd b{display:block;color:var(--ink);font:300 clamp(2.5rem,12vw,4rem)/1 var(--display);
-  letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+/* Высота строки здесь равна высоте барабана из countdownScript (1.12em): окно
+   разряда закрыто именно там, и уходящая цифра секунд физически не может
+   выехать на дни или часы. Сам разряд overflow не режет — иначе тема со
+   свечением цифр (deco) получила бы срез по краю строки. */
+.cd b{display:flex;align-items:flex-end;justify-content:center;isolation:isolate;
+  color:var(--ink);font:300 clamp(1.9rem,9vw,3.3rem)/1.12 var(--display);
+  letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
 .cd>div>span{display:block;margin-top:12px;color:var(--muted);font:500 .54rem/1 var(--sans);letter-spacing:.2em;text-transform:uppercase}
 
 /* ── Место ─────────────────────────────────────────────────────────────── */
@@ -193,12 +210,15 @@ body{min-width:320px;overflow-x:hidden;background:transparent;color:var(--ink,#2
 
 /* Звёздное поле. Позиции и тайминги приходят из разметки (starfield()),
    поэтому небо у каждого шаблона своё, а код — общий. */
+/* Без mix-blend-mode: полноэкранный слой со смешиванием заставляет телефон
+   пересобирать кадр целиком, а разница на золотом фоне почти не видна.
+   Сияние осталось только у крупных звёзд — оно там и читается. */
 .stars{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;
-  opacity:var(--stars-opacity,1);mix-blend-mode:screen}
+  opacity:var(--stars-opacity,1)}
 .stars i{position:absolute;top:var(--y);left:var(--x);width:var(--s,2px);aspect-ratio:1;border-radius:50%;
   background:var(--star,#fff3d2);opacity:calc(var(--o,.6) * .4);
-  box-shadow:0 0 calc(var(--s,2px) * 3) rgba(255,232,183,.55);
   animation:starTwinkle var(--t,5s) ease-in-out var(--dl,0s) infinite alternate}
+.stars i.big{box-shadow:0 0 calc(var(--s,2px) * 3) rgba(255,232,183,.55)}
 /* Крупные звёзды получают лучи — тот самый блеск дорогой оптики. */
 .stars i.big:before,.stars i.big:after{content:'';position:absolute;top:50%;left:50%;
   background:linear-gradient(90deg,transparent,var(--star,#fff3d2),transparent);
@@ -235,7 +255,7 @@ body{min-width:320px;overflow-x:hidden;background:transparent;color:var(--ink,#2
   border:1px solid var(--glass-edge,rgba(255,246,225,.22));border-radius:var(--glass-radius,26px);
   background:var(--glass-face,linear-gradient(158deg,rgba(255,248,232,.12),rgba(255,240,214,.04) 46%,rgba(10,8,5,.14)));
   box-shadow:0 30px 70px -44px rgba(0,0,0,.85),inset 0 1px 0 rgba(255,252,244,.28);
-  -webkit-backdrop-filter:blur(22px) saturate(1.5);backdrop-filter:blur(22px) saturate(1.5);
+  -webkit-backdrop-filter:blur(14px) saturate(1.4);backdrop-filter:blur(14px) saturate(1.4);
   overflow:hidden;isolation:isolate}
 .glass>*{position:relative;z-index:1}
 /* Блик по стеклу — медленно проходит один раз при появлении секции. */
@@ -248,12 +268,12 @@ body{min-width:320px;overflow-x:hidden;background:transparent;color:var(--ink,#2
 @keyframes glassSweep{0%{left:-60%;opacity:0}18%{opacity:.9}100%{left:120%;opacity:0}}
 .glass--tight{padding:clamp(20px,5vw,30px)}
 
-/* Золотая надпись: настоящий градиент металла, а не плоский цвет. */
-.gilt{background:linear-gradient(112deg,var(--gold-lo,#8a6a2f) 0%,var(--gold,#d9b874) 34%,
-  var(--gold-hi,#fff0c8) 52%,var(--gold,#d9b874) 68%,var(--gold-lo,#8a6a2f) 100%);
-  background-size:220% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;
-  animation:giltFlow 9s ease-in-out infinite alternate}
-@keyframes giltFlow{from{background-position:0% 0}to{background-position:100% 0}}
+/* Золотая надпись: настоящий градиент металла, а не плоский цвет. Блик стоит
+   на месте — бегущий градиент по тексту заставлял телефон перерисовывать
+   каждую золотую строку бесконечно. */
+.gilt{background:linear-gradient(112deg,var(--gold-lo,#8a6a2f) 0%,var(--gold,#d9b874) 30%,
+  var(--gold-hi,#fff0c8) 50%,var(--gold,#d9b874) 70%,var(--gold-lo,#8a6a2f) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
 
 /* Золотая линия-разделитель с сиянием по центру. */
 .gold-rule{width:min(78%,320px);height:1px;margin:clamp(26px,6vw,38px) auto;
@@ -263,16 +283,27 @@ body{min-width:320px;overflow-x:hidden;background:transparent;color:var(--ink,#2
 .gold-rule.in{transform:scaleX(1);transition:transform var(--t-epic) var(--e-signature) var(--d,0s)}
 
 @media (prefers-reduced-motion:reduce){
-  .stars i,.stars u,.gilt-dust,.gilt{animation:none!important}
+  .stars i,.stars u,.gilt-dust{animation:none!important}
   .glass.in:after{animation:none!important;opacity:0}
+}
+
+/* Узкий экран — самый слабый процессор: размытие под стеклом тут дороже всего.
+   Карточек со стеклом на странице четыре и больше, поэтому на телефоне
+   размытие снимается совсем, а плотность фона карточки поднимается — текст на
+   ней читается так же, но кадр собирается без повторного размытия фона.
+   Заодно гаснет золотая пыль: полноэкранный дышащий слой на телефоне не виден
+   почти никак, а перерисовывается постоянно. */
+@media (max-width:560px){
+  .glass{-webkit-backdrop-filter:none;backdrop-filter:none;
+    background:var(--glass-face-solid,linear-gradient(158deg,rgba(255,248,232,.2),rgba(255,240,214,.09) 46%,rgba(10,8,5,.34)))}
+  .gilt-dust{animation:none;opacity:.34}
 }
 
 @media(min-width:820px){.sec{padding-block:clamp(120px,13vw,180px)}}
 
 @media (prefers-reduced-motion:reduce){
-  .fx,.words span,.cd>div,.cal td span,.mono b{opacity:1!important;transform:none!important;filter:none!important}
+  .fx,.words span,.cd>div,.cal td span,.mono b,.shot{opacity:1!important;transform:none!important;filter:none!important}
   .rule,.mono circle{transform:none!important;stroke-dashoffset:0!important}
-  .shot{clip-path:none!important}
   .shot img{transform:none!important}
   .mono.in{animation:none}
   .num:before,.num:after{width:18px}

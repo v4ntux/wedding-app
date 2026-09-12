@@ -57,13 +57,19 @@ body{background:
 
 /* Веер лучей: золотые линии расходятся из верхней точки и медленно
    поворачиваются — фирменный жест ар-деко. */
-.rays{position:fixed;top:-40vh;left:50%;z-index:0;width:180vw;aspect-ratio:1;
+/* Полотно веера держим в пределах экрана: 180vw — это текстура вчетверо
+   больше кадра, телефон рисовал её целиком ради видимой четверти. */
+/* Веер стоит на месте. Вращение полотна из конического градиента под маской
+   заставляло телефон перерисовывать полный экран каждый кадр — и так все
+   девяносто секунд, по кругу, без остановки. Жест остался: теперь дышит только
+   прозрачность, а её телефон меняет уже на собранном кадре. */
+.rays{position:fixed;top:-30vh;left:50%;z-index:0;width:118vw;aspect-ratio:1;
   transform:translateX(-50%);pointer-events:none;opacity:.32;
   background:repeating-conic-gradient(from 0deg at 50% 50%,
     rgba(201,165,90,.22) 0deg 1.2deg,transparent 1.2deg 9deg);
   mask-image:radial-gradient(closest-side,#000 30%,transparent 74%);
-  animation:rayTurn 90s linear infinite}
-@keyframes rayTurn{to{transform:translateX(-50%) rotate(360deg)}}
+  animation:rayBreath 24s ease-in-out infinite alternate}
+@keyframes rayBreath{from{opacity:.24}to{opacity:.38}}
 
 /* Ступенчатая рама титула — зиккурат, собранный из трёх линий. */
 .hero__deco{position:absolute;top:50%;left:50%;width:min(80vw,360px);height:min(104vw,480px);
@@ -103,15 +109,15 @@ body{background:
 .deco-run b{color:var(--gold-hi);font:400 .96rem/1 var(--display);letter-spacing:.06em;min-width:58px}
 .deco-run span{flex:1;color:var(--ink);font:300 .84rem/1.4 var(--sans);letter-spacing:.14em;text-transform:uppercase}
 
-/* Фотография в ступенчатой арке. */
-.shot{border-radius:0;clip-path:polygon(0 18%,12% 18%,12% 8%,88% 8%,88% 18%,100% 18%,100% 100%,0 100%)}
+/* Фотография в ступенчатой арке. Вырез только по верхним углам: прежние 18 %
+   съедали лица — на портрете они стоят как раз в верхней части кадра. */
+.shot{border-radius:0;clip-path:polygon(0 9%,15% 9%,15% 0,85% 0,85% 9%,100% 9%,100% 100%,0 100%)}
 .cd b{font-family:var(--display)}
 
 .card{width:min(100%,620px);margin:0 auto}
 .cd-card .cd{width:100%}
 .mapbox{border-radius:18px}
 .mapbox iframe{filter:grayscale(.8) sepia(.16) brightness(.56) contrast(1.12)}
-.shot{border-radius:20px}
 .shot img{filter:saturate(.62) contrast(1.12) brightness(.86)}
 .routes a{border-color:var(--line);color:var(--ink);border-radius:999px;background:linear-gradient(160deg,rgba(247,230,180,.1),rgba(201,165,90,.04))}
 .cal td.on{color:var(--gold-hi)}

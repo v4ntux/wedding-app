@@ -47,7 +47,6 @@ body{background:
 .cd-card .cd{width:100%}
 .mapbox{border-radius:18px}
 .mapbox iframe{filter:grayscale(.5) sepia(.24) brightness(.6) contrast(1.06)}
-.shot{border-radius:20px}
 .shot img{filter:saturate(.82) contrast(1.05) brightness(.86)}
 .routes a{border-color:var(--line);color:var(--ink);border-radius:999px;
   background:linear-gradient(160deg,rgba(255,248,232,.09),rgba(255,240,214,.03))}
@@ -58,7 +57,11 @@ body{background:
    Журнальная подача: фотография во всю ширину с наложенным заголовком,
    крупная выносная цитата, дата набрана в строку как колонтитул. */
 .sec{padding-inline:clamp(20px,6vw,38px)}
-.shot{width:100vw;max-width:none;margin-left:50%;transform:translateX(-50%);border-radius:0;aspect-ratio:4/5}
+/* Во всю ширину — через отрицательные поля, а не через transform:
+   transform на .shot забирал параллакс и появление, и кадр уезжал в сторону.
+   Поля гасят ровно отступы секции. Через 100vw делать нельзя: на экране с
+   полосой прокрутки vw шире доступной ширины, и кадр уезжает вбок. */
+.shot{width:auto;max-width:none;margin-inline:calc(-1 * clamp(20px,6vw,38px));border-radius:0;aspect-ratio:4/5}
 .shot__cap{right:clamp(22px,7vw,44px);left:clamp(22px,7vw,44px);bottom:clamp(22px,7vw,40px)}
 .shot__cap b{font-size:clamp(1.8rem,8vw,3rem)}
 .lead{max-width:34ch;font-size:clamp(1rem,4vw,1.14rem)}

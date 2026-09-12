@@ -22,6 +22,8 @@ const state = {
   templateId: null,
   photos: [],           // { name, url, uploading }
   music: null,          // { type, value, name, artist, playUrl }
+  musicStart: 0,        // секунды: откуда играет отрывок
+  musicEnd: null,       // секунды: где смолкает (null — до конца трека)
   guestsOn: false,
   guests: [],
   previewHtml: '',
@@ -41,7 +43,8 @@ const saveDraft = debounce(() => {
       lat: state.lat, lng: state.lng, mapOn: state.mapOn, address: $('address').value,
       templateId: state.templateId,
       photos: state.photos.filter((p) => p.name).map((p) => p.name),
-      music: state.music, guestsOn: state.guestsOn, guests: state.guests,
+      music: state.music, musicStart: state.musicStart, musicEnd: state.musicEnd,
+      guestsOn: state.guestsOn, guests: state.guests,
       contactTg: $('contact-tg').value, phone: $('phone').value, phone2: $('phone2').value,
       open: state.open, seenInvite: state.seenInvite,
       submissionKey: state.submissionKey,
@@ -72,6 +75,8 @@ function restoreDraft() {
   state.submissionKey = typeof d.submissionKey === 'string' ? d.submissionKey : null;
   state.photos = (d.photos || []).map((name) => ({ name, url: '/uploads/' + name, uploading: false }));
   state.music = d.music || null;
+  state.musicStart = Number.isFinite(d.musicStart) ? d.musicStart : 0;
+  state.musicEnd = Number.isFinite(d.musicEnd) ? d.musicEnd : null;
   state.guestsOn = Boolean(d.guestsOn);
   state.guests = Array.isArray(d.guests) ? d.guests.slice(0, 100) : [];
   state.seenInvite = Boolean(d.seenInvite);
@@ -100,9 +105,11 @@ const I18N = {
     add: 'Qo‘shish', uploadMusic: 'Fayl yuklash', lookDone: 'Ko‘rib chiqdim',
     linkHint: 'YouTube havolasi yoki to‘g‘ridan-to‘g‘ri mp3 havolasi.',
     linkPh: 'https://…',
+    trimTitle: 'Qaysi parcha yangraydi', trimHint: 'boshlanish va tugashni suring',
+    trimFromAria: 'Parcha boshlanishi', trimToAria: 'Parcha tugashi',
+    trimStopAria: 'Eshitishni to‘xtatish',
     eTpl: 'Dizayn', tTpl: 'Taklifnoma uslubi',
-    leadTpl: 'Uslublarni surib ko‘ring. Kartani bosing — to‘liq namuna ochiladi.',
-    tplSwipe: 'Surib tanlang', tplPrevAria: 'Oldingi uslub', tplNextAria: 'Keyingi uslub',
+    leadTpl: 'Tanlash uchun uslubga bosing. Burchakdagi ko‘zcha to‘liq namunani ochadi.',
     tplPhotos: (n) => `${n} ta surat`,
     ePhotos: 'Suratlar', tPhotos: 'Sizning suratlaringiz',
     eReady: 'Tayyor', tReady: 'Hammasi tayyor',
@@ -169,9 +176,11 @@ const I18N = {
     add: 'Добавить', uploadMusic: 'Загрузить файл', lookDone: 'Посмотрел',
     linkHint: 'Ссылка на YouTube или прямая ссылка на mp3.',
     linkPh: 'https://…',
+    trimTitle: 'Какой отрывок играет', trimHint: 'двигайте начало и конец',
+    trimFromAria: 'Начало отрывка', trimToAria: 'Конец отрывка',
+    trimStopAria: 'Остановить прослушивание',
     eTpl: 'Дизайн', tTpl: 'Стиль приглашения',
-    leadTpl: 'Листайте стили. Нажмите на карточку, чтобы открыть полный пример.',
-    tplSwipe: 'Листайте для выбора', tplPrevAria: 'Предыдущий стиль', tplNextAria: 'Следующий стиль',
+    leadTpl: 'Нажмите на стиль, чтобы выбрать. Глазок в углу открывает полный пример.',
     tplPhotos: (n) => `${n} фото`,
     ePhotos: 'Фото', tPhotos: 'Ваши фотографии',
     eReady: 'Готово', tReady: 'Всё готово',
@@ -263,6 +272,7 @@ function applyI18n() {
   renderTemplates();
   renderPhotos();
   renderGuests();
+  if (trimDuration) paintTrim();
   renderMapChoice();
   renderReady();
 }
@@ -308,6 +318,33 @@ const FLOW = Object.freeze({
   topGap: 12,
 });
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/* ════ Клавиатура ════
+   В Telegram WebApp клавиатура уходит только вместе с фокусом: пока поле
+   активно, она закрывает половину экрана, и следующий блок поднимается прямо
+   под неё. Поэтому фокус снимается сам — по Enter, по тапу мимо поля и перед
+   каждым переездом камеры. */
+
+const TYPING = 'input:not([type="file"]):not([type="range"]):not([type="checkbox"]):not([type="radio"]),textarea';
+const typingField = (el) => (el && typeof el.matches === 'function' && el.matches(TYPING) ? el : null);
+
+/* Одного blur() мало. В Telegram WebApp — и особенно на iOS — панель ввода
+   остаётся висеть, пока система считает поле местом для набора: фокус ушёл, а
+   клавиатура закрывает половину экрана. Поэтому поле на мгновение становится
+   readonly: набирать в нём уже нельзя, клавиатура уходит, и признак сразу
+   снимается — следующий тап по полю снова печатает как обычно. */
+function dismissField(field) {
+  if (!field) return;
+  const wasReadOnly = field.readOnly;
+  try { field.readOnly = true; } catch (_) { /* поле без readonly — обойдёмся blur() */ }
+  field.blur();
+  if (wasReadOnly) return;
+  setTimeout(() => { try { field.readOnly = false; } catch (_) { /* — */ } }, 120);
+}
+
+function dropKeyboard() {
+  dismissField(typingField(document.activeElement));
+}
 
 /* Ждём кадр отрисовки, но не дольше 120 мс: в свёрнутой вкладке кадров нет,
    и без страховки поток студии остановился бы до возвращения пользователя. */
@@ -485,6 +522,7 @@ function softScrollTo(top, duration = FLOW.scrollMax) {
 function scrollToBlock(i) {
   const el = blk(i);
   if (!el) return;
+  dropKeyboard();
   const y = el.getBoundingClientRect().top + window.scrollY - 72;
   setScene(i);
   const distance = Math.abs(y - window.scrollY);
@@ -548,6 +586,7 @@ async function riseBlock(el) {
 
 function unlock(i) {
   if (i >= STEPS.length || i <= state.open) return;
+  dropKeyboard();
   const run = ++revealRun;
   state.open = i;
   renderBlocks(i);
@@ -591,6 +630,8 @@ function prepareStep(i) {
   const id = STEPS[i].id;
   if (id === 'location') renderMapChoice();
   if (id === 'music') loadTracks();
+  // Обложки собираются из имён и даты — к этому шагу они уже введены.
+  if (id === 'template') renderTemplates();
   if (id === 'photos') renderPhotos();
   if (id === 'ready') { renderReady(); loadPreview(); }
   if (id === 'guests') renderGuests();
@@ -1182,6 +1223,8 @@ function refreshPlayUI() {
    Бесконечный список больше не нужно пролистывать, чтобы идти дальше. */
 function setMusic(music) {
   state.music = music;
+  state.musicStart = 0;
+  state.musicEnd = null;
   haptic.ok();
   player.pause();
   playingUrl = null;
@@ -1190,12 +1233,16 @@ function setMusic(music) {
   $('picked-artist').textContent = music.artist || '';
   $('music-pick').hidden = true;
   $('music-picked').hidden = false;
+  openTrim();
   saveDraft();
-  autoAdvance(430);
+  // Пока пара подбирает отрывок, следующий блок ждёт: каждое движение ручки
+  // отодвигает переход (см. holdMusicStep).
+  autoAdvance(trimmable() ? 4200 : 430);
 }
 
 function reopenMusic() {
   haptic.tap();
+  closeTrim();
   $('music-picked').hidden = true;
   $('music-pick').hidden = false;
   renderTracks(lastList);
@@ -1236,6 +1283,339 @@ async function uploadMusicFile(file) {
   }
 }
 
+/* ════ 04b · Отрывок: где начать и где закончить ════
+   Ни одного поля ввода: две ручки на волне и секунды под ними. Отпустил
+   ручку — оттуда и заиграло, пять секунд на проверку. Дальше музыка гаснет
+   сама или раньше — по прозрачной кнопке поверх волны. */
+
+const PREVIEW_MS = 5000;
+const MIN_SPAN = 3;          // отрывок короче трёх секунд не имеет смысла
+const WAVE_BARS = 96;
+
+let trimPeaks = null;        // реальные пики трека, если файл удалось разобрать
+let trimDuration = 0;
+let trimDrag = null;         // 'a' | 'b' — какую ручку ведём
+let previewTimer = null;
+let trimToken = 0;           // отменяет ответы по уже неактуальному треку
+
+const clockText = (sec) => {
+  const s = Math.max(0, Math.round(sec));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+const trimEnd = () => (Number.isFinite(state.musicEnd) ? state.musicEnd : trimDuration);
+const trimmable = () => Boolean(state.music?.playUrl);
+
+/* Длительность берём у самого <audio>: декодировать файл для этого не нужно. */
+function audioDuration(url) {
+  return new Promise((resolve) => {
+    const probe = new Audio();
+    probe.preload = 'metadata';
+    const done = (value) => {
+      probe.onloadedmetadata = null;
+      probe.onerror = null;
+      clearTimeout(guard);
+      resolve(value);
+    };
+    const guard = setTimeout(() => done(0), 7000);
+    probe.onloadedmetadata = () => done(Number(probe.duration));
+    probe.onerror = () => done(0);
+    probe.src = url;
+  });
+}
+
+/* Пики строим сами из файла. Чужой домен без CORS разобрать не даст — тогда
+   волны не будет вовсе: вместо неё рисуем линейку секунд, а не выдуманную
+   картинку чужого трека. */
+async function loadPeaks(url) {
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return null;
+  let ctx = null;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const raw = await res.arrayBuffer();
+    if (raw.byteLength > 12 * 1024 * 1024) return null;   // на телефоне это уже дорого
+    ctx = new Ctx();
+    const decoded = await ctx.decodeAudioData(raw);
+    const data = decoded.getChannelData(0);
+    const per = Math.floor(data.length / WAVE_BARS) || 1;
+    const peaks = new Float32Array(WAVE_BARS);
+    let loudest = 0;
+    for (let i = 0; i < WAVE_BARS; i += 1) {
+      const from = i * per;
+      let power = 0;
+      let taken = 0;
+      // Каждый 32-й отсчёт: на глаз разницы нет, а работы в 32 раза меньше.
+      for (let j = 0; j < per; j += 32) {
+        const v = data[from + j] || 0;
+        power += v * v;
+        taken += 1;
+      }
+      peaks[i] = taken ? Math.sqrt(power / taken) : 0;
+      if (peaks[i] > loudest) loudest = peaks[i];
+    }
+    if (!loudest) return null;
+    for (let i = 0; i < WAVE_BARS; i += 1) peaks[i] = Math.min(1, peaks[i] / loudest);
+    return peaks;
+  } catch (_) {
+    return null;
+  } finally {
+    try { await ctx?.close(); } catch (_) { /* — */ }
+  }
+}
+
+function drawTrim() {
+  const canvas = $('trim-canvas');
+  if (!canvas?.getContext) return;
+  const w = canvas.clientWidth;
+  const hgt = canvas.clientHeight;
+  if (!w || !hgt) return;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(hgt * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, hgt);
+
+  const from = state.musicStart || 0;
+  const to = trimEnd();
+  const mid = hgt / 2;
+  const lit = 'rgba(241,221,176,.9)';
+  const dim = 'rgba(241,221,176,.2)';
+
+  if (trimPeaks) {
+    const step = w / trimPeaks.length;
+    const bar = Math.max(1.5, step - 1.6);
+    for (let i = 0; i < trimPeaks.length; i += 1) {
+      const at = ((i + .5) / trimPeaks.length) * trimDuration;
+      const tall = Math.max(2, trimPeaks[i] * (hgt - 6));
+      ctx.fillStyle = at >= from && at <= to ? lit : dim;
+      ctx.fillRect(i * step + (step - bar) / 2, mid - tall / 2, bar, tall);
+    }
+    return;
+  }
+
+  // Линейка: тонкие штрихи по секундам, высокие — каждые пять.
+  const seconds = Math.max(1, Math.round(trimDuration));
+  const step = w / seconds;
+  for (let s = 0; s <= seconds; s += 1) {
+    const five = s % 5 === 0;
+    const tall = five ? hgt * .52 : hgt * .24;
+    ctx.fillStyle = s >= from && s <= to ? lit : dim;
+    ctx.fillRect(Math.min(w - 1.4, s * step), mid - tall / 2, 1.4, tall);
+  }
+}
+
+function paintGrip(grip, sec, label) {
+  grip.setAttribute('aria-valuemin', '0');
+  grip.setAttribute('aria-valuemax', String(Math.round(trimDuration)));
+  grip.setAttribute('aria-valuenow', String(Math.round(sec)));
+  grip.setAttribute('aria-valuetext', clockText(sec));
+  grip.setAttribute('aria-label', label);
+}
+
+function paintTrim() {
+  if (!trimDuration) return;
+  const from = Math.max(0, Math.min(state.musicStart || 0, trimDuration - MIN_SPAN));
+  const to = Math.max(from + MIN_SPAN, Math.min(trimEnd(), trimDuration));
+  state.musicStart = from;
+  state.musicEnd = to;
+  const left = (from / trimDuration) * 100;
+  const right = (to / trimDuration) * 100;
+
+  $('trim-window').style.left = `${left}%`;
+  $('trim-window').style.right = `${100 - right}%`;
+  $('trim-shade-a').style.width = `${left}%`;
+  $('trim-shade-b').style.width = `${100 - right}%`;
+  $('trim-a').style.left = `${left}%`;
+  $('trim-b').style.left = `${right}%`;
+  $('trim-from').textContent = clockText(from);
+  $('trim-to').textContent = clockText(to);
+  $('trim-len').textContent = clockText(to - from);
+  paintGrip($('trim-a'), from, t('trimFromAria'));
+  paintGrip($('trim-b'), to, t('trimToAria'));
+  drawTrim();
+}
+
+/* Показываем отрывок только там, где его слышно: у ссылки на YouTube нет ни
+   волны, ни длительности, и гадать мы не будем. */
+async function openTrim() {
+  const box = $('music-trim');
+  if (!box) return;
+  const token = ++trimToken;
+  stopPreview();
+  trimPeaks = null;
+  trimDuration = 0;
+  const url = state.music?.playUrl;
+  if (!url) { box.hidden = true; return; }
+
+  box.hidden = false;
+  box.classList.add('is-loading');
+  const duration = await audioDuration(url);
+  if (token !== trimToken) return;
+  if (!Number.isFinite(duration) || duration < MIN_SPAN + 1) {
+    box.hidden = true;
+    box.classList.remove('is-loading');
+    return;
+  }
+
+  trimDuration = duration;
+  if (!Number.isFinite(state.musicStart)) state.musicStart = 0;
+  if (!Number.isFinite(state.musicEnd)) state.musicEnd = Math.round(duration);
+  box.classList.remove('is-loading');
+  paintTrim();
+
+  const peaks = await loadPeaks(url);
+  if (token !== trimToken) return;
+  trimPeaks = peaks;
+  drawTrim();
+}
+
+function closeTrim() {
+  trimToken += 1;
+  stopPreview();
+  trimPeaks = null;
+  trimDuration = 0;
+  const box = $('music-trim');
+  if (box) { box.hidden = true; box.classList.remove('is-loading'); }
+}
+
+function secAt(clientX) {
+  const rect = $('trim-wave').getBoundingClientRect();
+  if (!rect.width) return 0;
+  const k = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  return k * trimDuration;
+}
+
+function moveGrip(sec) {
+  if (trimDrag === 'a') state.musicStart = Math.min(Math.max(0, sec), trimEnd() - MIN_SPAN);
+  else state.musicEnd = Math.max(Math.min(trimDuration, sec), (state.musicStart || 0) + MIN_SPAN);
+  paintTrim();
+}
+
+/* Прослушивание: играем ровно выбранный отрывок и не дольше пяти секунд.
+   Тянули конец — слушаем подход к обрыву, чтобы слышно было, где музыка смолкнет. */
+function previewGrip(which) {
+  if (which === 'a') previewFrom(state.musicStart || 0);
+  else previewFrom(Math.max(state.musicStart || 0, trimEnd() - PREVIEW_MS / 1000));
+}
+
+function onPreviewTick() {
+  if (player.currentTime >= trimEnd()) stopPreview();
+}
+
+function previewFrom(sec) {
+  const url = state.music?.playUrl;
+  if (!url) return;
+  clearTimeout(previewTimer);
+  player.removeEventListener('timeupdate', onPreviewTick);
+  playingUrl = null;
+  activeTrackUrl = null;
+  refreshPlayUI();
+
+  const go = () => {
+    try { player.currentTime = Math.max(0, sec); } catch (_) { /* поток ещё не готов */ }
+    player.play().then(() => {
+      player.addEventListener('timeupdate', onPreviewTick);
+      previewTimer = setTimeout(stopPreview, PREVIEW_MS);
+      showTrimStop(true);
+    }).catch(() => { showTrimStop(false); });
+  };
+
+  if (player.src.includes(url) && player.readyState >= 1) { go(); return; }
+  player.src = url;
+  player.addEventListener('loadedmetadata', go, { once: true });
+}
+
+function stopPreview() {
+  clearTimeout(previewTimer);
+  previewTimer = null;
+  player.removeEventListener('timeupdate', onPreviewTick);
+  if (!player.paused) player.pause();
+  showTrimStop(false);
+}
+
+/* Кнопка живёт ровно столько, сколько играет музыка: кольцо показывает,
+   сколько осталось до того, как она смолкнет сама. */
+function showTrimStop(on) {
+  const btn = $('trim-stop');
+  if (!btn) return;
+  btn.setAttribute('aria-label', t('trimStopAria'));
+  btn.hidden = !on;
+  btn.classList.remove('is-counting');
+  if (!on) return;
+  void btn.offsetWidth;
+  btn.classList.add('is-counting');
+}
+
+/* Настраивают отрывок — переход к следующему блоку ждёт. */
+function holdMusicStep() {
+  if (state.open === stepIdx('music')) autoAdvance(4200);
+}
+
+function commitTrim(which) {
+  trimDrag = null;
+  state.musicStart = Math.round(state.musicStart || 0);
+  state.musicEnd = Math.round(trimEnd());
+  paintTrim();
+  saveDraft();
+  previewGrip(which);
+  holdMusicStep();
+}
+
+function wireTrim() {
+  ['trim-a', 'trim-b'].forEach((id) => {
+    const grip = $(id);
+    const which = id === 'trim-a' ? 'a' : 'b';
+
+    grip.addEventListener('pointerdown', (event) => {
+      if (!trimDuration) return;
+      event.preventDefault();
+      trimDrag = which;
+      grip.classList.add('is-drag');
+      grip.setPointerCapture?.(event.pointerId);
+      stopPreview();
+    });
+    grip.addEventListener('pointermove', (event) => {
+      if (trimDrag !== which) return;
+      moveGrip(secAt(event.clientX));
+    });
+
+    const release = () => {
+      if (trimDrag !== which) return;
+      grip.classList.remove('is-drag');
+      haptic.tap();
+      commitTrim(which);
+    };
+    grip.addEventListener('pointerup', release);
+    grip.addEventListener('pointercancel', release);
+
+    grip.addEventListener('keydown', (event) => {
+      if (!trimDuration) return;
+      const step = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0;
+      if (!step) return;
+      event.preventDefault();
+      trimDrag = which;
+      moveGrip((which === 'a' ? state.musicStart || 0 : trimEnd()) + step);
+      commitTrim(which);
+    });
+  });
+
+  // Тап по волне подтягивает ближнюю ручку — не нужно ловить её пальцем.
+  $('trim-wave').addEventListener('pointerdown', (event) => {
+    if (!trimDuration || event.target.closest('.trim-grip, .trim-stop')) return;
+    const sec = secAt(event.clientX);
+    const which = Math.abs(sec - (state.musicStart || 0)) <= Math.abs(sec - trimEnd()) ? 'a' : 'b';
+    trimDrag = which;
+    moveGrip(sec);
+    commitTrim(which);
+  });
+
+  $('trim-stop').addEventListener('click', () => { haptic.tap(); stopPreview(); });
+
+  window.addEventListener('resize', debounce(() => { if (trimDuration) drawTrim(); }, 200), { passive: true });
+}
+
 /* ════ 05 · Шаблоны ════ */
 
 const templates = () => state.config?.templates || [];
@@ -1273,10 +1653,13 @@ function openDemo(tpl) {
   window.open(url, '_blank', 'noopener');
 }
 
-/* Витрина дизайнов — сетка обложек. Каждая карточка выглядит как сама тема:
-   её бумага, чернила и золото. Живых превью в сетке нет: восемь работающих
-   приглашений не тянет ни один телефон, а пример открывается отдельной
-   страницей по кнопке. */
+/* Витрина дизайнов — галерея: все восемь обложек лежат на странице по две в
+   ряд. Карусель здесь не работала: чтобы дойти до последнего стиля, нужно было
+   восемь раз пролистать вслепую, а сравнить два дизайна между собой нельзя
+   вовсе. Теперь выбор виден целиком и делается одним тапом.
+   Каждая карточка выглядит как сама тема: её бумага, чернила и золото. Живых
+   превью в витрине нет — восемь работающих приглашений не тянет ни один
+   телефон, полный пример открывается отдельной страницей по глазку. */
 function templateCover(tpl) {
   const cover = tpl.cover || {};
   const groom = $('groom').value.trim() || (LANG === 'ru' ? 'Жених' : 'Kuyov');
@@ -1303,10 +1686,10 @@ function renderTemplates() {
   if (!grid) return;
   grid.innerHTML = '';
   const pops = state.config?.populars || {};
-  const ordered = rankedTemplates();
-  const bestPopularity = Math.max(0, ...ordered.map((tpl) => Number(pops[tpl.id]) || 0));
+  const list = rankedTemplates();
+  const bestPopularity = Math.max(0, ...list.map((tpl) => Number(pops[tpl.id]) || 0));
 
-  ordered.forEach((tpl, index) => {
+  list.forEach((tpl) => {
     const chosen = tpl.id === state.templateId;
     const isPopular = bestPopularity > 0 && Number(pops[tpl.id] || 0) === bestPopularity;
 
@@ -1317,22 +1700,22 @@ function renderTemplates() {
       'aria-pressed': chosen ? 'true' : 'false',
     },
       templateCover(tpl),
-      isPopular ? h('span', { class: 'tplc-flag' }, t('popular')) : null,
       h('span', { class: 'tplc-check' }, svgIcon('check')),
-      h('span', { class: 'tplc-info' },
+      h('span', { class: 'tplc-meta' },
         h('b', {}, tpl.name),
         h('i', {}, money(tpl.price)),
         h('em', {}, t('tplPhotos', tpl.minPhotos))));
-
-    const demo = h('button', { type: 'button', class: 'tplc-demo' },
-      svgIcon('eye'), h('span', {}, t('demo')));
-
     pick.addEventListener('click', () => takeTpl(tpl));
-    demo.addEventListener('click', (event) => { event.stopPropagation(); openDemo(tpl); });
 
-    const card = h('div', { class: `tplc${chosen ? ' chosen' : ''}`, dataset: { id: tpl.id } }, pick, demo);
-    card.style.setProperty('--i', String(index));
-    grid.appendChild(card);
+    // Глазок — отдельная кнопка: посмотреть пример, ничего не выбирая.
+    const eye = h('button', { type: 'button', class: 'tplc-eye', 'aria-label': `${t('demo')}: ${tpl.name}` },
+      svgIcon('eye'));
+    eye.addEventListener('click', () => openDemo(tpl));
+
+    grid.appendChild(h('article', { class: `tplc${chosen ? ' chosen' : ''}`, dataset: { id: tpl.id } },
+      pick,
+      eye,
+      isPopular ? h('span', { class: 'tplc-flag' }, t('popular')) : null));
   });
 }
 
@@ -1833,6 +2216,7 @@ function renderGuests(focusIdx = -1) {
     const blank = !name.trim();
     const input = h('input', {
       id: `guest-${i}`, type: 'text', maxlength: '50', value: name,
+      enterkeyhint: 'done',
       'aria-label': `${t('guestPh')} ${i + 1}`,
       placeholder: i === state.guests.length - 1 ? t('guestPh') : '—',
     });
@@ -1951,8 +2335,8 @@ function collectForm() {
     photos: state.photos.filter((p) => p.name).slice(0, requiredPhotos()).map((p) => p.name),
     musicType: state.music?.type ?? 'none',
     musicValue: state.music?.value ?? null,
-    musicStart: null,
-    musicEnd: null,
+    musicStart: trimmable() ? state.musicStart ?? null : null,
+    musicEnd: trimmable() ? state.musicEnd ?? null : null,
     templateId: state.templateId,
     guestNames: cleanGuests(),
     contactTg: $('contact-tg').value.trim(),
@@ -2046,7 +2430,54 @@ async function loadMine() {
 
 /* ════ События ════ */
 
+/* Одно правило на все поля студии: набрал — клавиатура ушла.
+   По кнопкам фокус снимаем уже после клика: закрытие клавиатуры двигает
+   вёрстку, и тап, снятый раньше, не дошёл бы до кнопки. */
+function wireKeyboard() {
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' || event.isComposing) return;
+    const field = typingField(event.target);
+    if (!field) return;
+    event.preventDefault();
+    dismissField(field);
+  });
+
+  document.addEventListener('pointerdown', (event) => {
+    const active = typingField(document.activeElement);
+    if (!active || event.target === active) return;
+    if (event.target.closest?.('button,a,label,input,textarea,select,[role="switch"]')) return;
+    dismissField(active);
+  }, { passive: true });
+
+  document.addEventListener('click', (event) => {
+    const active = typingField(document.activeElement);
+    if (!active || event.target === active) return;
+    if (event.target.closest?.('input,textarea,select')) return;
+    dismissField(active);
+  });
+
+  /* Пара начала листать студию — значит с полем закончили. Ловим именно
+     протяжку пальцем: короткий тап по полю не должен гасить клавиатуру. */
+  let swipeFrom = null;
+  document.addEventListener('touchstart', (event) => {
+    swipeFrom = event.touches.length === 1 ? event.touches[0].clientY : null;
+  }, { passive: true });
+
+  document.addEventListener('touchmove', (event) => {
+    if (swipeFrom === null) return;
+    const active = typingField(document.activeElement);
+    if (!active) return;
+    if (Math.abs(event.touches[0].clientY - swipeFrom) < 26) return;
+    swipeFrom = null;
+    dismissField(active);
+  }, { passive: true });
+
+  document.addEventListener('touchend', () => { swipeFrom = null; }, { passive: true });
+}
+
 function wire() {
+  wireKeyboard();
+  wireTrim();
   window.addEventListener('wheel', cancelMainScroll, { passive: true });
   window.addEventListener('touchstart', cancelMainScroll, { passive: true });
   window.addEventListener('pointerdown', cancelMainScroll, { passive: true });
@@ -2110,9 +2541,12 @@ function wire() {
   $('music-change').addEventListener('click', reopenMusic);
   $('music-skip').addEventListener('click', () => {
     state.music = null;
+    state.musicStart = 0;
+    state.musicEnd = null;
     player.pause();
     playingUrl = null;
     activeTrackUrl = null;
+    closeTrim();
     $('music-picked').hidden = true;
     haptic.tap();
     saveDraft();
@@ -2204,6 +2638,7 @@ async function start() {
     $('picked-artist').textContent = state.music.artist || '';
     $('music-pick').hidden = true;
     $('music-picked').hidden = false;
+    openTrim();
   }
   const resuming = !testingTemplates && state.open > 0;
   renderBlocks(testingTemplates || resuming ? -1 : 0);

@@ -165,8 +165,12 @@ export function buildData(app, guestName = null, tpl = null) {
     }),
     extras,
     livingBg: livingBackground(),
-    starfield: starfield(),
-    starfieldDense: starfield(72, 3),
+    /* Звёзд стало вдвое меньше. Каждая — отдельный узел с бесконечной
+       анимацией мерцания, и на телефоне пять десятков таких узлов поверх
+       страницы стоят дороже, чем весь остальной декор. На глаз небо то же:
+       разреженное ночное небо и выглядит правдоподобнее плотной россыпи. */
+    starfield: starfield(18),
+    starfieldDense: starfield(24, 1),
     coreCSS: coreCSS(),
     monogram: monogram(`${firstChar(app.groom_name)}${firstChar(app.bride_name)}`),
     monogramFilled: monogram(`${firstChar(app.groom_name)}${firstChar(app.bride_name)}`, 'mono--filled'),

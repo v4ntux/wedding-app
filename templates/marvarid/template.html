@@ -55,13 +55,19 @@ body{background:
 .hero__scroll:after{content:'';position:absolute;inset:0;background:var(--accent);animation:drip 3.6s var(--e-signature) infinite}
 @keyframes drip{0%{transform:translateY(-100%)}55%,100%{transform:translateY(100%)}}
 
-/* Перламутр: широкая радужная полоса очень медленно проходит по экрану. */
-.nacre{position:fixed;inset:-20%;z-index:0;pointer-events:none;opacity:.5;
-  background:conic-gradient(from 200deg at 50% 50%,
-    rgba(255,236,240,.9),rgba(236,240,255,.85),rgba(255,246,230,.9),
-    rgba(244,232,255,.8),rgba(255,236,240,.9));
-  filter:blur(60px);animation:nacreTurn 46s linear infinite}
-@keyframes nacreTurn{to{transform:rotate(360deg)}}
+/* Перламутр: широкие радужные пятна, очень медленно дышащие.
+   Раньше это был вращающийся конический градиент под blur(60px) — телефон
+   пересчитывал размытие всего экрана каждый кадр. Те же переливы дают мягкие
+   радиальные пятна: без фильтра и без вращения. */
+.nacre{position:fixed;inset:-20%;z-index:0;pointer-events:none;opacity:.55;
+  background:
+    radial-gradient(38% 30% at 24% 26%,rgba(255,236,240,.95),transparent 70%),
+    radial-gradient(42% 32% at 76% 34%,rgba(236,240,255,.9),transparent 72%),
+    radial-gradient(40% 34% at 38% 76%,rgba(255,246,230,.92),transparent 72%),
+    radial-gradient(36% 28% at 82% 78%,rgba(244,232,255,.85),transparent 70%);
+  animation:nacreBreath 40s ease-in-out infinite alternate}
+@keyframes nacreBreath{from{opacity:.42;transform:translate3d(-1%,1%,0) scale(1)}
+  to{opacity:.62;transform:translate3d(1%,-1%,0) scale(1.05)}}
 
 /* Лепестковая пыль: мелкие лепестки, кружащие у самого низа кадра. */
 .petals{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
@@ -108,7 +114,6 @@ body{background:
 .cd-card .cd{width:100%}
 .mapbox{border-radius:18px}
 .mapbox iframe{filter:grayscale(.2) sepia(.1) brightness(1.04) contrast(.94)}
-.shot{border-radius:20px}
 .shot img{filter:saturate(.94) contrast(1.01) brightness(1.05)}
 .routes a{border-color:var(--line);color:var(--ink);border-radius:999px;background:rgba(255,255,255,.66)}
 .cal td.on{color:var(--gold-hi)}
@@ -123,11 +128,9 @@ body{background:
 {{{livingBg}}}
 <div class="nacre" aria-hidden="true"></div>
 <div class="petals" aria-hidden="true">
-  <i class="petal" style="--x:10%;--s:13px;--t:26s;--dl:-3s;--dx:48px"></i>
-  <i class="petal" style="--x:28%;--s:10px;--t:31s;--dl:-12s;--dx:-38px"></i>
-  <i class="petal" style="--x:45%;--s:15px;--t:23s;--dl:-7s;--dx:56px"></i>
-  <i class="petal" style="--x:63%;--s:11px;--t:29s;--dl:-18s;--dx:-44px"></i>
-  <i class="petal" style="--x:82%;--s:14px;--t:25s;--dl:-9s;--dx:40px"></i>
+  <i class="petal" style="--x:14%;--s:13px;--t:26s;--dl:-3s;--dx:48px"></i>
+  <i class="petal" style="--x:48%;--s:15px;--t:31s;--dl:-14s;--dx:-44px"></i>
+  <i class="petal" style="--x:81%;--s:12px;--t:28s;--dl:-9s;--dx:40px"></i>
 </div>
 <div class="progress" aria-hidden="true"></div>
 

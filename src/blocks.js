@@ -85,8 +85,10 @@ export function mapEmbed({ lat, lng, lang, address, enabled = true }) {
 .venue-type span{position:relative;z-index:2;display:block;width:min(170px,52vw);height:1px;margin:32px auto 0;background:linear-gradient(90deg,transparent,currentColor,transparent);opacity:.78}
 .venue-type span:after{content:'';position:absolute;left:0;top:-2px;width:5px;height:5px;border-radius:50%;background:currentColor;box-shadow:0 0 14px currentColor;animation:venueTrace 5.4s ease-in-out infinite}
 @keyframes venueAura{to{opacity:.25;transform:translate(-50%,-50%) scale(1.08) rotate(6deg)}}
-@keyframes venueTitle{to{transform:translateY(-5px);letter-spacing:-.035em;text-shadow:0 0 48px color-mix(in srgb,currentColor 38%,transparent)}}
-@keyframes venueTrace{50%{left:calc(100% - 5px)}100%{left:0}}
+/* Дыхание заголовка — только сдвиг и свечение. Разрядку (letter-spacing) тут
+   анимировать нельзя: строка в 13vw переверстывается каждый кадр. */
+@keyframes venueTitle{to{transform:translateY(-5px);text-shadow:0 0 48px color-mix(in srgb,currentColor 38%,transparent)}}
+@keyframes venueTrace{50%{transform:translateX(calc(min(170px,52vw) - 5px))}100%{transform:translateX(0)}}
 @media(prefers-reduced-motion:reduce){.venue-type:before,.venue-type b,.venue-type span:after{animation:none}}
 </style><div class="venue-type"><small>${kicker}</small><b>${escapeHtml(address || '')}</b><span aria-hidden="true"></span></div>`;
   }
@@ -105,10 +107,18 @@ referrerpolicy="no-referrer-when-downgrade" title="${mapTitle}" aria-label="${es
 // «тикают», а дни стоят на месте.
 export function countdownScript(targetIso) {
   return `<style>
-.roll{position:relative;display:inline-flex;overflow:hidden;height:1em;vertical-align:baseline;line-height:1;font:inherit;letter-spacing:inherit}
-.roll u{position:relative;display:block;text-decoration:none;transition:transform .52s cubic-bezier(.22,.61,.36,1),opacity .52s ease}
-.roll u.out{position:absolute;transform:translateY(-100%);opacity:0}
-.roll u.in{animation:rollIn .52s cubic-bezier(.22,.61,.36,1) both}
+/* Барабан на весь разряд, а не на отдельную цифру. Ширину задаёт само число,
+   поэтому широкие цифры антиквы (Cinzel, Italiana) никогда не срезаются по
+   бокам, а единственное, что может двигаться, — это вертикаль внутри окна
+   высотой в одну строку. Окно закрыто overflow, и уходящая цифра физически не
+   может выехать на соседний разряд. */
+.roll{position:relative;display:block;overflow:hidden;height:1.12em;font:inherit;
+  font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+.roll u{display:block;height:1.12em;line-height:1.12;text-decoration:none;font:inherit;
+  font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;
+  transition:transform .5s cubic-bezier(.22,.61,.36,1),opacity .5s ease}
+.roll u.out{position:absolute;inset:0;transform:translateY(-100%);opacity:0}
+.roll u.in{animation:rollIn .5s cubic-bezier(.22,.61,.36,1) both}
 @keyframes rollIn{from{transform:translateY(100%);opacity:0}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion:reduce){.roll u{transition:none}.roll u.in{animation:none}}
 </style><script>(function(){
@@ -117,31 +127,29 @@ function p(n){return n<10?'0'+n:''+n}
 ids.forEach(function(id){
   var el=document.getElementById(id);if(!el)return;
   el.textContent='';
-  cells[id]={host:el,digits:[]};
+  var box=document.createElement('span');box.className='roll';
+  var u=document.createElement('u');box.appendChild(u);
+  el.appendChild(box);
+  cells[id]={box:box,cur:u,val:null};
 });
-// Каждый разряд — отдельный барабан: при смене «10» на «09» едет только последняя цифра.
+// Разряд меняется целиком: старое число уходит вверх, новое приходит снизу.
+// Ширина разряда при этом не пересчитывается по цифрам, поэтому колонки стоят.
 function setValue(id,str){
   var c=cells[id];if(!c)return;
-  var chars=String(str).split('');
-  while(c.digits.length>chars.length){c.host.removeChild(c.digits.pop().box)}
-  chars.forEach(function(ch,i){
-    var d=c.digits[i];
-    if(!d){
-      var box=document.createElement('span');box.className='roll';
-      var u=document.createElement('u');u.textContent=ch;box.appendChild(u);
-      c.host.appendChild(box);c.digits[i]={box:box,cur:u,val:ch};return;
-    }
-    if(d.val===ch)return;
-    var next=document.createElement('u');next.textContent=ch;next.className='in';
-    var prev=d.cur;prev.classList.add('out');
-    d.box.appendChild(next);
-    setTimeout(function(){if(prev.parentNode)prev.parentNode.removeChild(prev)},560);
-    d.cur=next;d.val=ch;
-  });
+  var val=String(str);
+  if(c.val===val)return;
+  if(c.val===null){c.cur.textContent=val;c.val=val;return}
+  var next=document.createElement('u');next.textContent=val;next.className='in';
+  var prev=c.cur;prev.classList.add('out');
+  c.box.appendChild(next);
+  setTimeout(function(){if(prev.parentNode)prev.parentNode.removeChild(prev)},560);
+  c.cur=next;c.val=val;
 }
 function tick(){
   var x=Math.max(0,t-Date.now());
-  setValue('cd',Math.floor(x/864e5));
+  // Дни тоже с ведущим нулём: иначе на «9 → 10» колонка дней меняла ширину и
+  // тянула за собой сетку, а секунды дёргались вместе с ней.
+  setValue('cd',p(Math.floor(x/864e5)));
   setValue('ch',p(Math.floor(x/36e5)%24));
   setValue('cm',p(Math.floor(x/6e4)%60));
   setValue('cs',p(Math.floor(x/1e3)%60));

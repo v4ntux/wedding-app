@@ -82,11 +82,11 @@
 
       <div class="field">
         <label for="groom" data-i18n="groom"></label>
-        <input id="groom" type="text" maxlength="100" autocomplete="off" spellcheck="false">
+        <input id="groom" type="text" maxlength="100" autocomplete="off" spellcheck="false" enterkeyhint="done">
       </div>
       <div class="field">
         <label for="bride" data-i18n="bride"></label>
-        <input id="bride" type="text" maxlength="100" autocomplete="off" spellcheck="false">
+        <input id="bride" type="text" maxlength="100" autocomplete="off" spellcheck="false" enterkeyhint="done">
       </div>
       <p class="blk-err" hidden></p>
     </section>
@@ -132,7 +132,7 @@
 
       <div class="field">
         <label for="address" data-i18n="address"></label>
-        <input id="address" type="text" maxlength="140" autocomplete="off">
+        <input id="address" type="text" maxlength="140" autocomplete="off" enterkeyhint="done">
       </div>
 
       <button id="map-toggle" type="button" class="switch map-switch" role="switch" aria-checked="false">
@@ -143,7 +143,7 @@
       <div id="map-tools" class="map-tools" hidden>
         <div class="field">
           <label for="geo-q" data-i18n="seekLbl"></label>
-          <input id="geo-q" type="text" autocomplete="off" spellcheck="false">
+          <input id="geo-q" type="search" autocomplete="off" spellcheck="false" enterkeyhint="search">
           <span id="geo-spin" class="field-spin" hidden></span>
         </div>
         <div id="geo-list" class="geo-list" hidden></div>
@@ -175,7 +175,7 @@
 
         <div id="ms-top">
           <div class="field field--tight">
-            <input id="music-q" type="text" autocomplete="off" spellcheck="false" aria-label="Music search">
+            <input id="music-q" type="search" autocomplete="off" spellcheck="false" enterkeyhint="search" aria-label="Music search">
           </div>
           <div id="track-scroll" class="track-scroll"></div>
         </div>
@@ -184,7 +184,7 @@
           <div class="field field--tight">
             <label for="music-link" data-i18n="linkLbl"></label>
             <div class="field-row">
-              <input id="music-link" type="url" maxlength="300" autocomplete="off" spellcheck="false">
+              <input id="music-link" type="url" maxlength="300" autocomplete="off" spellcheck="false" enterkeyhint="go">
               <button id="music-link-go" type="button" class="btn btn--gold btn--row" data-i18n="add"></button>
             </div>
           </div>
@@ -201,6 +201,36 @@
         <div class="picked-info"><b id="picked-name"></b><span id="picked-artist"></span></div>
         <button id="music-change" type="button" class="btn btn--ghost btn--tiny" data-i18n="change"></button>
       </div>
+
+      <!-- Отрывок: где начать и где закончить. Отпустил ручку — оттуда играет -->
+      <div id="music-trim" class="trim" hidden>
+        <p class="trim-head">
+          <span data-i18n="trimTitle"></span>
+          <b id="trim-len">0:00</b>
+        </p>
+
+        <div id="trim-wave" class="trim-wave">
+          <canvas id="trim-canvas" class="trim-canvas" aria-hidden="true"></canvas>
+          <span id="trim-shade-a" class="trim-shade" aria-hidden="true"></span>
+          <span id="trim-shade-b" class="trim-shade trim-shade--b" aria-hidden="true"></span>
+          <span id="trim-window" class="trim-window" aria-hidden="true"></span>
+
+          <div id="trim-a" class="trim-grip" role="slider" tabindex="0"
+               aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="0:00"><i></i></div>
+          <div id="trim-b" class="trim-grip trim-grip--b" role="slider" tabindex="0"
+               aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="0:00"><i></i></div>
+
+          <button id="trim-stop" type="button" class="trim-stop" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7v10M15 7v10"/></svg>
+          </button>
+        </div>
+
+        <p class="trim-foot">
+          <b id="trim-from">0:00</b>
+          <i data-i18n="trimHint"></i>
+          <b id="trim-to">0:00</b>
+        </p>
+      </div>
       <p class="blk-err" hidden></p>
     </section>
 
@@ -211,6 +241,8 @@
       <h2 class="blk-title" data-i18n="tTpl"></h2>
       <p class="blk-lead" data-i18n="leadTpl"></p>
 
+      <!-- Витрина: все дизайны сразу, по два в ряд. Тап по карточке — выбор,
+           глазок в углу открывает полный пример отдельной страницей. -->
       <div id="tpl-grid" class="tpl-grid"></div>
       <p class="blk-err" hidden></p>
     </section>
@@ -348,15 +380,15 @@
 
       <div class="field">
         <label for="contact-tg" data-i18n="tgLbl"></label>
-        <input id="contact-tg" type="text" maxlength="40" autocomplete="off" placeholder="@username">
+        <input id="contact-tg" type="text" maxlength="40" autocomplete="off" enterkeyhint="done" placeholder="@username">
       </div>
       <div class="field">
         <label for="phone" data-i18n="phoneLbl"></label>
-        <input id="phone" type="tel" maxlength="20" autocomplete="off" placeholder="+998 90 123 45 67">
+        <input id="phone" type="tel" maxlength="20" autocomplete="off" enterkeyhint="done" placeholder="+998 90 123 45 67">
       </div>
       <div class="field">
         <label for="phone2" data-i18n="phone2Lbl"></label>
-        <input id="phone2" type="text" maxlength="40" autocomplete="off" placeholder="@username / +998 …">
+        <input id="phone2" type="text" maxlength="40" autocomplete="off" enterkeyhint="done" placeholder="@username / +998 …">
       </div>
       <p class="hint" data-i18n="contactRule"></p>
 

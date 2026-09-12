@@ -17,6 +17,11 @@ window.Sky = (function () {
      ручной проверки в средах, где браузер всегда репортит reduced-motion. */
   const still = () => slowMotion.matches && document.documentElement.dataset.motion !== 'full';
 
+  /* Общий темп неба. Четверть «естественной» скорости: за текстом небо должно
+     едва дышать — любое заметное движение в фоне читается как рябь и мешает
+     читать. Один множитель ведёт всё: мерцание, дрейф, пыль и падающие звёзды. */
+  const SPEED = .25;
+
   let W = 0, H = 0, dpr = 1;
   let stars = [];
   let dust = [];
@@ -45,10 +50,50 @@ window.Sky = (function () {
     }
   }
 
-  /* Плотность подбирается по площади: на телефоне звёзд меньше, чем на планшете. */
+  /* Мягкое пятно света рисуется один раз в отдельный canvas и дальше только
+     копируется. Раньше на каждую звезду и пылинку в каждом кадре собирался
+     новый радиальный градиент — под сотню градиентов за кадр, и телефон грелся
+     на ровном месте. Спрайт пересобирается лишь когда тон неба заметно уехал. */
+  const glow = document.createElement('canvas');
+  const glowCtx = glow.getContext('2d');
+  const GLOW_R = 48;
+  let glowTone = null;
+
+  function buildGlow() {
+    glow.width = glow.height = GLOW_R * 2;
+    const g = glowCtx.createRadialGradient(GLOW_R, GLOW_R, 0, GLOW_R, GLOW_R, GLOW_R);
+    const r = Math.round(tone.r * .35 + 255 * .65);
+    const g2 = Math.round(tone.g * .4 + 250 * .6);
+    const b = Math.round(tone.b * .5 + 226 * .5);
+    g.addColorStop(0, `rgba(${r},${g2},${b},1)`);
+    g.addColorStop(.5, `rgba(${r},${g2},${b},.26)`);
+    g.addColorStop(1, `rgba(${r},${g2},${b},0)`);
+    glowCtx.clearRect(0, 0, glow.width, glow.height);
+    glowCtx.fillStyle = g;
+    glowCtx.fillRect(0, 0, glow.width, glow.height);
+    glowTone = { r: tone.r, g: tone.g, b: tone.b };
+  }
+
+  /* Спрайт догоняет тон неба не каждый кадр, а когда цвет реально сменился. */
+  function syncGlow() {
+    if (!glowTone
+      || Math.abs(glowTone.r - tone.r) > 6
+      || Math.abs(glowTone.g - tone.g) > 6
+      || Math.abs(glowTone.b - tone.b) > 6) buildGlow();
+  }
+
+  function paintGlow(x, y, radius, alpha) {
+    if (alpha <= .01) return;
+    ctx.globalAlpha = Math.min(1, alpha);
+    ctx.drawImage(glow, x - radius, y - radius, radius * 2, radius * 2);
+    ctx.globalAlpha = 1;
+  }
+
+  /* Плотность подбирается по площади: на телефоне звёзд меньше, чем на планшете.
+     Небо держим разреженным — звёзды здесь фон за текстом, а не главный герой. */
   function build() {
     const area = W * H;
-    const count = Math.round(Math.min(190, Math.max(70, area / 7600)));
+    const count = Math.round(Math.min(120, Math.max(44, area / 13000)));
     stars = Array.from({ length: count }, () => {
       const depth = Math.random();               // 0 — далеко, 1 — близко
       return {
@@ -65,7 +110,7 @@ window.Sky = (function () {
       };
     });
 
-    const dustCount = Math.round(Math.min(26, Math.max(8, area / 46000)));
+    const dustCount = Math.round(Math.min(14, Math.max(5, area / 90000)));
     dust = Array.from({ length: dustCount }, () => ({
       x: Math.random(),
       y: Math.random(),
@@ -108,7 +153,7 @@ window.Sky = (function () {
     const alpha = Math.min(1, s.base * twinkle);
     if (alpha <= .01) return;
     // Параллакс: близкие звёзды заметнее реагируют на скролл страницы.
-    const y = ((s.y * H - scroll * s.depth * .06 - clock * .0016 * s.drift * H) % (H + 40) + H + 40) % (H + 40) - 20;
+    const y = ((s.y * H - scroll * s.depth * .06 * SPEED - clock * .0016 * s.drift * H) % (H + 40) + H + 40) % (H + 40) - 20;
     const x = s.x * W;
     const r = s.r;
     const warm = s.warm;
@@ -116,15 +161,7 @@ window.Sky = (function () {
     const cg = warm ? Math.round(tone.g * .4 + 250 * .6) : 248;
     const cb = warm ? Math.round(tone.b * .5 + 226 * .5) : 255;
 
-    if (s.depth > .7) {
-      const glow = ctx.createRadialGradient(x, y, 0, x, y, r * 6.5);
-      glow.addColorStop(0, `rgba(${cr},${cg},${cb},${alpha * .5})`);
-      glow.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = glow;
-      ctx.beginPath();
-      ctx.arc(x, y, r * 6.5, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    if (s.depth > .7) paintGlow(x, y, r * 6.5, alpha * .5);
 
     ctx.fillStyle = `rgba(${cr},${cg},${cb},${alpha})`;
     ctx.beginPath();
@@ -144,27 +181,22 @@ window.Sky = (function () {
   }
 
   function drawDust(d, dt) {
-    d.x += d.vx * dt / 1000;
-    d.y += d.vy * dt / 1000;
+    d.x += d.vx * dt * SPEED / 1000;
+    d.y += d.vy * dt * SPEED / 1000;
     if (d.y < -.1) { d.y = 1.1; d.x = Math.random(); }
     if (d.x < -.1) d.x = 1.1;
     if (d.x > 1.1) d.x = -.1;
     const x = d.x * W;
     const y = d.y * H;
     const breathe = .72 + .28 * Math.sin(clock * .0006 + d.phase);
-    const g = ctx.createRadialGradient(x, y, 0, x, y, d.r);
-    g.addColorStop(0, `rgba(${Math.round(tone.r)},${Math.round(tone.g)},${Math.round(tone.b)},${d.a * breathe})`);
-    g.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(x, y, d.r, 0, Math.PI * 2);
-    ctx.fill();
+    paintGlow(x, y, d.r, d.a * breathe);
   }
 
   function drawShot(s, dt) {
-    s.life += dt;
-    s.x += s.vx * dt;
-    s.y += s.vy * dt;
+    // Жизнь и путь идут одним темпом: трасса та же, только вдвое спокойнее.
+    s.life += dt * SPEED;
+    s.x += s.vx * dt * SPEED;
+    s.y += s.vy * dt * SPEED;
     const k = s.life / s.span;
     if (k >= 1) return false;
     // Появляется и гаснет мягко: резкие вспышки выглядят дёшево.
@@ -185,29 +217,26 @@ window.Sky = (function () {
     ctx.lineTo(tailX, tailY);
     ctx.stroke();
 
-    const head = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, 7);
-    head.addColorStop(0, `rgba(255,250,232,${alpha})`);
-    head.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = head;
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, 7, 0, Math.PI * 2);
-    ctx.fill();
+    paintGlow(s.x, s.y, 7, alpha);
     return s.x > -200 && s.x < W + 200 && s.y < H + 200;
   }
 
   function frame(now) {
     raf = requestAnimationFrame(frame);
     const dt = Math.min(64, now - last || 16);
-    // На телефоне держим ~40 fps: глазу хватает, батарее легче.
-    const step = W < 560 ? 25 : 16;
+    /* Небо движется очень медленно, поэтому частые кадры ему не нужны:
+       30 fps на телефоне и 50 на большом экране глаз не отличает, а работы
+       вдвое меньше. */
+    const step = W < 560 ? 33 : 20;
     if (now - last < step) return;
     last = now;
-    clock += dt;
+    clock += dt * SPEED;
 
     // Догоняем целевой тон — 1.5 % за кадр даёт мягкий переход около двух секунд.
     tone.r += (target.r - tone.r) * .015;
     tone.g += (target.g - tone.g) * .015;
     tone.b += (target.b - tone.b) * .015;
+    syncGlow();
 
     ctx.clearRect(0, 0, W, H);
     ctx.globalCompositeOperation = 'lighter';
@@ -225,6 +254,7 @@ window.Sky = (function () {
 
   /* Статичный кадр для reduced-motion: небо есть, движения нет. */
   function paintStill() {
+    syncGlow();
     ctx.clearRect(0, 0, W, H);
     ctx.globalCompositeOperation = 'lighter';
     for (const s of stars) drawStar(s, 0);

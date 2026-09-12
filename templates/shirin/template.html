@@ -59,8 +59,8 @@ body{background:
 /* Солнце у горизонта: медленно опускается и разгорается. */
 .sun{position:fixed;left:50%;bottom:-12vh;z-index:0;width:min(104vw,540px);aspect-ratio:1;
   transform:translateX(-50%);pointer-events:none;border-radius:50%;
-  background:radial-gradient(circle,rgba(255,226,170,1),rgba(255,150,72,.72) 40%,rgba(214,86,38,.28) 62%,transparent 74%);
-  filter:blur(4px);animation:sunSet 38s ease-in-out infinite alternate}
+  background:radial-gradient(circle,rgba(255,226,170,1),rgba(255,150,72,.72) 38%,rgba(214,86,38,.28) 62%,transparent 76%);
+  animation:sunSet 38s ease-in-out infinite alternate}
 @keyframes sunSet{from{transform:translateX(-50%) translateY(4vh) scale(.96);opacity:.8}
   to{transform:translateX(-50%) translateY(-2vh) scale(1.04);opacity:1}}
 
@@ -83,7 +83,11 @@ body{background:
    дата лежит на линии горизонта. */
 .sec{padding-inline:0}
 .wrap{width:min(100%,640px);padding-inline:clamp(20px,6vw,34px)}
-.shot{width:100vw;max-width:none;margin-left:50%;transform:translateX(-50%);border-radius:0;aspect-ratio:3/2}
+/* Во всю ширину — через отрицательные поля, а не через transform:
+   transform на .shot забирал параллакс и появление, и кадр уезжал в сторону.
+   Поля гасят внутренние отступы .wrap. Через 100vw делать нельзя: на экране с
+   полосой прокрутки vw шире доступной ширины, и кадр уезжает вбок. */
+.shot{width:auto;max-width:none;margin-inline:calc(-1 * clamp(20px,6vw,34px));border-radius:0;aspect-ratio:3/2}
 .shot--wide{aspect-ratio:16/10}
 
 /* Дата на горизонте: число слева, время справа, между ними — линия. */
@@ -100,7 +104,6 @@ body{background:
 .cd-card .cd{width:100%}
 .mapbox{border-radius:18px}
 .mapbox iframe{filter:grayscale(.3) sepia(.4) brightness(.7) contrast(1.02)}
-.shot{border-radius:20px}
 .shot img{filter:saturate(1.02) contrast(1.02) brightness(.94) sepia(.08)}
 .routes a{border-color:var(--line);color:var(--ink);border-radius:999px;background:linear-gradient(160deg,rgba(255,238,220,.1),rgba(240,176,119,.05))}
 .cal td.on{color:var(--gold-hi)}

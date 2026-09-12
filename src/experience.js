@@ -99,7 +99,7 @@ body.locked{overflow:hidden;height:100dvh;overscroll-behavior:none}
   transform-style:preserve-3d;transform:rotateX(0deg);will-change:transform;
   clip-path:polygon(0 0,100% 0,50% 100%);
   background:linear-gradient(178deg,var(--ev-paper,#f2ece0),color-mix(in srgb,var(--ev-paper-2,#e0d7c6) 92%,#000));
-  filter:drop-shadow(0 10px 14px rgba(0,0,0,.28))}
+  filter:drop-shadow(0 6px 8px rgba(0,0,0,.26))}
 /* Изнанка клапана — цветная подкладка конверта. */
 .ev-flap:after{content:'';position:absolute;inset:0;transform:rotateX(180deg);backface-visibility:hidden;
   background:linear-gradient(178deg,var(--ev-liner,#5b4630),color-mix(in srgb,var(--ev-liner,#5b4630) 76%,#000));
@@ -113,14 +113,12 @@ body.locked{overflow:hidden;height:100dvh;overscroll-behavior:none}
     radial-gradient(circle at 34% 28%,var(--ev-wax-hi,#d69a6d),transparent 46%),
     radial-gradient(circle at 62% 74%,rgba(0,0,0,.34),transparent 52%),
     var(--ev-wax,#8a4a2c);
-  box-shadow:0 8px 18px -6px rgba(0,0,0,.6),inset 0 1px 2px rgba(255,255,255,.35);
-  animation:evWaxShine 6s ease-in-out infinite alternate}
+  box-shadow:0 8px 18px -6px rgba(0,0,0,.6),inset 0 1px 2px rgba(255,255,255,.35)}
 .ev-wax b{color:color-mix(in srgb,var(--ev-wax-hi,#d69a6d) 72%,#fff);
   font:400 .74rem/1 var(--ev-display,'Cormorant Garamond',Georgia,serif);letter-spacing:.06em;
   text-shadow:0 1px 1px rgba(0,0,0,.4)}
 .ev-wax:after{content:'';position:absolute;inset:11%;border-radius:inherit;
   border:1px solid color-mix(in srgb,var(--ev-wax-hi,#d69a6d) 46%,transparent);opacity:.7}
-@keyframes evWaxShine{from{filter:brightness(.94)}to{filter:brightness(1.12)}}
 
 /* ── Открытие ───────────────────────────────────────────────────────────
    Печать откалывается → клапан откидывается → письмо выезжает → наезд. */
@@ -173,9 +171,18 @@ body.ev-handoff .inv{animation:evMeet 1400ms cubic-bezier(.5,0,.25,1) forwards}
 
 
 /* ── Живой фон страницы ────────────────────────────────────────────────── */
+/* Раньше здесь крутился полноэкранный видеоролик. На телефоне он стоил
+   декодирования каждого кадра и нескольких мегабайт трафика — а видно было
+   только медленное шевеление света. Теперь то же шевеление делают два
+   градиента: они не грузятся, не декодируются и живут на GPU. */
 .living-bg{position:fixed;inset:0;z-index:-2;overflow:hidden;background:var(--paper,#f2ede3);pointer-events:none}
-.living-bg video{position:absolute;top:50%;left:50%;width:max(100vw,calc(100dvh * .5625));aspect-ratio:9/16;transform:translate(-50%,-50%) scale(1.04);object-fit:cover}
+.living-bg i{position:absolute;inset:-25%;display:block;
+  background:
+    radial-gradient(42% 34% at 28% 24%,color-mix(in srgb,var(--accent,#b08968) 22%,transparent),transparent 70%),
+    radial-gradient(46% 38% at 74% 68%,color-mix(in srgb,var(--accent-2,#7a8b6f) 18%,transparent),transparent 72%);
+  opacity:.7;animation:paperBreath 26s ease-in-out infinite alternate}
 .living-bg:after{content:'';position:absolute;inset:0;background:var(--bg-veil,radial-gradient(120% 80% at 50% 0,transparent 40%,rgba(255,255,255,.4)))}
+@keyframes paperBreath{from{transform:translate3d(-1.5%,1%,0) scale(1)}to{transform:translate3d(1.5%,-1%,0) scale(1.06)}}
 
 /* Пыльца: несколько точек, плывущих вверх. Дёшево и оживляет кадр. */
 .motes{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
@@ -185,8 +192,10 @@ body.ev-handoff .inv{animation:evMeet 1400ms cubic-bezier(.5,0,.25,1) forwards}
   88%{opacity:var(--o,.5)}
   100%{opacity:0;transform:translateY(-104vh) translateX(var(--dx,20px))}}
 
-/* Параллакс: элемент едет медленнее страницы (правила появления — в theme.js). */
-[data-parallax]{will-change:transform}
+/* Параллакс: элемент едет медленнее страницы (правила появления — в theme.js).
+   Сдвиг пишем в отдельное свойство translate, а не в transform: иначе он
+   затирал поворот и центрирование, заданные темой, и кадр уезжал в сторону. */
+[data-parallax]{will-change:translate}
 
 /* Плеер: кнопка и выезжающий из-под неё регулятор громкости. Слайдер
    появляется вместе с музыкой и прячется, когда его перестают трогать. */
@@ -271,7 +280,9 @@ export function envelopeScene({ theme, openHint = '', groom = '', bride = '', gr
 }
 
 // Живой фон страницы: дышащая акварельная бумага + пыльца.
-export function livingBackground(src = '/assets/invitations/reference-4.mp4', motes = 14) {
+// Пыльцы немного: каждая частица — узел с бесконечной анимацией, и на телефоне
+// заметна не она, а севшая батарея.
+export function livingBackground(motes = 4) {
   const dots = Array.from({ length: motes }, (_, i) => {
     const left = ((i * 37) % 100) + ((i % 3) * 2);
     const size = 2 + (i % 4);
@@ -281,20 +292,22 @@ export function livingBackground(src = '/assets/invitations/reference-4.mp4', mo
     const op = (0.28 + ((i % 4) * 0.11)).toFixed(2);
     return `<i style="left:${left}%;--s:${size}px;--t:${dur}s;--dl:${delay}s;--dx:${dx}px;--o:${op}"></i>`;
   }).join('');
-  return `<div class="living-bg" aria-hidden="true"><video data-living-bg src="${src}" muted loop playsinline preload="auto"></video></div>
+  return `<div class="living-bg" aria-hidden="true"><i></i></div>
 <div class="motes" aria-hidden="true">${dots}</div>`;
 }
 
 /* Звёздное поле приглашения. Раскладка детерминированная: один и тот же
    шаблон всегда даёт одинаковый HTML — это важно для кэша и тестов, а глазу
    хватает того, что размеры, яркость и темп мерцания у звёзд разные. */
-export function starfield(count = 46, shooting = 2) {
+export function starfield(count = 34, shooting = 1) {
   const stars = Array.from({ length: count }, (_, i) => {
     const x = ((i * 37 + (i % 7) * 11) % 100).toFixed(2);
     const y = ((i * 53 + (i % 5) * 17) % 100).toFixed(2);
     const size = i % 11 === 0 ? 2.6 : i % 4 === 0 ? 1.8 : 1.1;
     const opacity = (0.32 + ((i % 6) * 0.11)).toFixed(2);
-    const period = (3.6 + ((i * 7) % 46) / 10).toFixed(1);
+    /* Мерцание вдвое медленнее прежнего: звёзды за текстом должны быть
+       атмосферой, а частое мигание фона мешает читать. */
+    const period = (7.2 + ((i * 7) % 46) / 5).toFixed(1);
     const delay = (-((i * 13) % 52) / 10).toFixed(1);
     const big = i % 11 === 0 ? ' class="big"' : '';
     return `<i${big} style="--x:${x}%;--y:${y}%;--s:${size}px;--o:${opacity};--t:${period}s;--dl:${delay}s"></i>`;
@@ -303,7 +316,7 @@ export function starfield(count = 46, shooting = 2) {
   const falls = Array.from({ length: shooting }, (_, i) => {
     const x = (14 + i * 38) % 74;
     const y = (6 + i * 17) % 34;
-    const period = 17 + i * 9;
+    const period = 34 + i * 18;
     const delay = -(i * 11);
     const tail = 110 + i * 40;
     return `<u style="--x:${x}%;--y:${y}%;--t:${period}s;--dl:${delay}s;--tail:${tail}px"></u>`;
@@ -338,6 +351,28 @@ function reveal(){
   if(rm||!('IntersectionObserver' in window)){els.forEach(function(e){e.classList.add('in')});return}
   var io=new IntersectionObserver(function(en){en.forEach(function(t){if(t.isIntersecting){t.target.classList.add('in');io.unobserve(t.target)}})},{threshold:.1,rootMargin:'0px 0px -6% 0px'});
   els.forEach(function(e){io.observe(e)});
+
+  /* Страховка. Содержимое ждёт появления в кадре, и пока наблюдатель молчит,
+     фотография стоит прозрачной — то есть её просто нет. Один порог на весь
+     список (10 % площади) не берёт кадр выше экрана: снимок во весь экран
+     такой доли в поле зрения может и не набрать. Поэтому по каждому скроллу
+     дополнительно проверяем сами: что попало в кадр — показываем, и элемент
+     из проверки уходит. Дешево, и «фото не видно» больше не случается. */
+  var watch=els.slice(),pending=false;
+  function sweep(){
+    pending=false;
+    for(var i=watch.length-1;i>=0;i--){
+      var el=watch[i];
+      if(el.classList.contains('in')){watch.splice(i,1);continue}
+      var r=el.getBoundingClientRect();
+      if(r.bottom>0&&r.top<innerHeight){el.classList.add('in');io.unobserve(el);watch.splice(i,1)}
+    }
+    if(!watch.length)removeEventListener('scroll',queue);
+  }
+  function queue(){if(!pending){pending=true;requestAnimationFrame(sweep)}}
+  addEventListener('scroll',queue,{passive:true});
+  addEventListener('resize',queue,{passive:true});
+  setTimeout(sweep,700);
 }
 
 // Полоса прочитанного: вторичный слой навигации, ничего не загораживает.
@@ -365,24 +400,11 @@ function parallax(){
     items.forEach(function(el){
       var r=el.getBoundingClientRect(),k=Number(el.getAttribute('data-parallax'))||.12;
       var mid=r.top+r.height/2-vh/2;
-      el.style.transform='translate3d(0,'+(-mid*k).toFixed(2)+'px,0)';
+      el.style.translate='0 '+(-mid*k).toFixed(2)+'px';
     });
   }
   addEventListener('scroll',function(){if(!tick){tick=true;requestAnimationFrame(frame)}},{passive:true});
   addEventListener('resize',frame);frame();
-}
-
-// Живой фон крутим только когда вкладка на виду — не жжём батарею впустую.
-// Автовоспроизведение могут отклонить, поэтому пробуем ещё раз по первому касанию.
-function livingBg(){
-  var v=document.querySelector('[data-living-bg]');
-  if(!v||rm)return;
-  function play(){var p=v.play();if(p&&p.catch)p.catch(function(){})}
-  if(document.visibilityState==='visible')play();
-  document.addEventListener('visibilitychange',function(){document.visibilityState==='visible'?play():v.pause()});
-  ['pointerdown','touchstart','scroll'].forEach(function(e){
-    addEventListener(e,function once(){if(v.paused)play();removeEventListener(e,once)},{passive:true,once:true});
-  });
 }
 
 // Шелест бумаги под фазы ролика.
@@ -398,7 +420,7 @@ setTimeout(function(){try{c.close()}catch(e){}},3800)}catch(e){}}
 
 function music(delay){setTimeout(function(){if(window.__music)window.__music.start()},delay)}
 
-function start(){reveal();parallax();livingBg();progress()}
+function start(){reveal();parallax();progress()}
 
 // Карусель шаблонов в форме рендерит страницу без открытия.
 if(document.body.hasAttribute('data-card-preview')){
