@@ -284,6 +284,39 @@ test('music player ships a volume control that remembers the guest choice', asyn
   assert.match(yt, /enablejsapi=1/);
 });
 
+test('a cut track plays from its start to the very end and returns to that start', async () => {
+  const { audioWidget } = await import('../src/blocks.js');
+  const widget = audioWidget({ url: 'https://example.com/song.mp3', playable: true, start: 20, end: 0 }, 'ru');
+  assert.doesNotMatch(widget, /a\.loop=true/, 'петля с 0:00 перескакивала через выбранное начало');
+  assert.match(widget, /addEventListener\('ended'/);
+  assert.match(widget, /s=20/);
+});
+
+test('the invitation map shows only the chosen place, glowing, with no foreign widget', async () => {
+  const { mapEmbed } = await import('../src/blocks.js');
+  const html = mapEmbed({
+    lat: 42.1151, lng: 60.0593, lang: 'ru', address: 'Navro‘z </script>', enabled: true,
+    tone: 'light', tiles: 'https://tiles.example/{z}/{x}/{y}.png',
+  });
+  assert.match(html, /NvMap\.create/);
+  assert.match(html, /here:true/);
+  assert.match(html, /interactive:false/);
+  assert.doesNotMatch(html, /yandex\.ru\/map-widget|<iframe/);
+  assert.doesNotMatch(html, /<\/script>"/, 'название места не должно рвать скрипт');
+});
+
+test('every design ends with a live nVate.uz link to the bot', async () => {
+  const { renderDemo } = await import('../src/render.js');
+  for (const id of PUBLIC_IDS) {
+    for (const lang of ['ru', 'uz']) {
+      const html = renderDemo(id, { lang });
+      assert.match(html, /href="https:\/\/t\.me\/nvate_bot"/, `${id}/${lang}: ссылка на бота`);
+      assert.match(html, /nVate<i>\.uz<\/i>/, `${id}/${lang}: подпись nVate.uz`);
+      assert.match(html, /class="mapbox"[\s\S]*here:true/, `${id}/${lang}: карта места со свечением`);
+    }
+  }
+});
+
 test('Admin sanitizer neutralizes stored markup and attributes', () => {
   const hostile = `<img src=x onerror="globalThis.pwned=1">'&`;
   const escaped = escapeHtml(hostile);

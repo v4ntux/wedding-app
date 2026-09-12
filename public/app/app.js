@@ -99,7 +99,7 @@ const I18N = {
     venueSeats: (n) => `${n} o‘rin`,
     venueKind: { toyxona: 'To‘yxona', restoran: 'Restoran', kafe: 'Kafe', bog: 'Bog‘' },
     geoHead: 'Umumiy xaritadan topildi',
-    mapPick: 'Joyni ko‘rsatish uchun xaritada bosing',
+    mapPick: 'Bu joy ro‘yxatda yo‘q — taklifnomada xaritasiz, nomi bilan chiqadi.',
     mapHint: 'Nuqtani aniqlashtirish uchun xaritada bosing',
     linkLbl: 'Musiqa havolasi',
     change: 'O‘zgartirish',
@@ -180,7 +180,7 @@ const I18N = {
     venueSeats: (n) => `${n} мест`,
     venueKind: { toyxona: 'Тойхона', restoran: 'Ресторан', kafe: 'Кафе', bog: 'Сад' },
     geoHead: 'Найдено на общей карте',
-    mapPick: 'Нажмите на карту, чтобы поставить точку',
+    mapPick: 'Этого места нет в каталоге — в приглашении будет название, без карты.',
     mapHint: 'Нажмите на карту, чтобы уточнить точку',
     linkLbl: 'Ссылка на музыку',
     change: 'Изменить',
@@ -1059,6 +1059,7 @@ function pickVenue(venue) {
   markFilled($('address'));
   $('geo-list').hidden = true;
   setPoint(venue.lat, venue.lng);
+  paintVenueMarks();
   venueMap?.setView(venue.lat, venue.lng, 17);
   renderVenueChoice();
   clearErr(stepIdx('location'));
@@ -1124,15 +1125,12 @@ function renderVenueChoice() {
   paintMapNote();
 }
 
-/* Режим карты и подсказка следуют за состоянием блока: ткнуть пальцем можно
-   только тогда, когда место вписывают руками — у тойхоны из каталога точка
-   уже есть, и случайно сбить её тапом нельзя. */
+/* Место вне каталога попадает в приглашение одним названием: карту без
+   точки не нарисовать, и об этом честно говорим прямо над картой. */
 function paintMapNote() {
   const note = $('map-note');
   if (!note) return;
-  const manual = manualOpen();
-  venueMap?.setPick(manual);
-  if (manual && !placed()) { note.textContent = t('mapPick'); note.hidden = false; return; }
+  if (manualOpen() && !placed()) { note.textContent = t('mapPick'); note.hidden = false; return; }
   note.hidden = true;
 }
 
@@ -1152,23 +1150,15 @@ function ensureMap() {
     lng: placed() ? state.lng : lng,
     zoom: placed() ? 17 : cityZoom(),
     tiles: state.config?.mapTiles,
-    pick: manualOpen(),
+    // Кликабельны только метки тойхон. Пустая карта пальца не ловит: точку
+    // случайным тапом не сбить, и уйти с карты, кроме как в место, некуда.
     onPin: (pin) => {
       const venue = venues().find((v) => v.id === pin.id);
       if (venue) pickVenue(venue);
     },
-    // Тап по карте ставит точку — но только когда место вписывают руками:
-    // у выбранной из каталога тойхоны координата уже есть.
-    onPick: ({ lat: plat, lng: plng }) => {
-      if (!manualOpen()) return;
-      haptic.tap();
-      setPoint(plat, plng);
-      reverseName(plat, plng);
-      autoAdvance(720);
-    },
   });
   paintVenueMarks();
-  if (placed()) venueMap.setMark(state.lat, state.lng);
+  if (placed() && !state.venueId) venueMap.setMark(state.lat, state.lng);
 }
 
 /* Все тойхоны каталога на карте сразу: тап по метке выбирает место. */
@@ -1179,6 +1169,7 @@ function paintVenueMarks(list = venues()) {
     lng: venue.lng,
     label: venue.name,
     active: venue.id === state.venueId,
+    here: venue.id === state.venueId,
   })));
 }
 
@@ -1187,24 +1178,10 @@ function setPoint(lat, lng) {
   state.lng = lng;
   clearErr(stepIdx('location'));
   saveDraft();
-  venueMap?.setMark(lat, lng);
+  // У тойхоны из каталога светится сама её метка — второй кружок поверх не нужен.
+  if (state.venueId) venueMap?.clearMark(); else venueMap?.setMark(lat, lng);
   paintMapNote();
 }
-
-const reverseName = debounce(async (lat, lng) => {
-  if ($('address').dataset.manual === '1') return;
-  try {
-    const response = await fetch(`/api/geo/reverse?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}&lang=${LANG}`);
-    const result = await response.json();
-    const name = result.name || result.address;
-    if (name && !$('address').value.trim()) {
-      $('address').value = String(name).slice(0, 140);
-      markFilled($('address'));
-      saveDraft();
-      autoAdvance(760);
-    }
-  } catch (_) { /* геокодер может молчать — адрес необязателен */ }
-}, 700);
 
 /* ── Поиск по общей карте: запасной путь для мест вне каталога ── */
 

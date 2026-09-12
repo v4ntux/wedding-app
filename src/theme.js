@@ -187,6 +187,7 @@ body{min-width:320px;overflow-x:hidden;background:transparent;color:var(--ink,#2
 .mapbox{position:relative;width:min(100%,720px);margin:0 auto;overflow:hidden;background:var(--paper-3,#ded5c4)}
 .mapbox iframe{display:block;width:100%;height:clamp(260px,42vh,360px);border:0;filter:grayscale(.5) sepia(.16) contrast(.96)}
 .mapbox:after{content:'';position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 0 1px var(--line,rgba(44,53,45,.16))}
+.mapbox .nvmap{display:block;width:100%;height:clamp(260px,42vh,360px)}
 .routes{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:26px}
 /* Кнопка: заливка приходит снизу, нажатие даёт короткую отдачу. */
 .routes a{position:relative;overflow:hidden;padding:14px 28px;border:1px solid var(--line);color:var(--ink);
@@ -203,8 +204,45 @@ body{min-width:320px;overflow-x:hidden;background:transparent;color:var(--ink,#2
 .final__quote{max-width:18ch;margin:.36em auto .5em;color:var(--ink);
   font:300 clamp(2.2rem,9.6vw,3.6rem)/1.12 var(--display);font-style:italic;text-wrap:balance}
 .final__sign{color:var(--muted);font:500 .58rem/1 var(--sans);letter-spacing:.3em;text-transform:uppercase}
-.made{position:relative;z-index:1;padding:26px 20px;background:var(--paper-2,#eae3d6);color:var(--muted);
-  text-align:center;font:500 .54rem/1 var(--sans);letter-spacing:.26em;text-transform:uppercase}
+/* Подпись платформы — реклама, поэтому живая и кликабельная (см. madeFooter):
+   кольца прорисовываются, по «nVate.uz» проходит блик, стрелка зовёт к боту. */
+.made{position:relative;z-index:1;padding:30px 18px calc(30px + env(safe-area-inset-bottom));
+  background:var(--paper-2,#eae3d6);color:var(--muted);text-align:center}
+.made__link{display:inline-flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:12px 14px;
+  max-width:100%;padding:12px 18px 12px 14px;color:inherit;text-decoration:none;
+  border:1px solid color-mix(in srgb,var(--gold,#c9a55a) 34%,transparent);border-radius:999px;
+  background:color-mix(in srgb,var(--paper,#f4efe6) 55%,transparent);-webkit-tap-highlight-color:transparent;
+  transition:transform var(--t-base) var(--e-settle),border-color var(--t-base) ease,box-shadow var(--t-base) ease}
+.made__link:hover,.made__link:focus-visible{transform:translateY(-2px);border-color:var(--gold,#c9a55a);
+  box-shadow:0 14px 34px -18px rgba(var(--gold-rgb,201,165,90),.75);outline:none}
+.made__link:active{transform:scale(.98)}
+.made__rings{width:44px;height:27px;flex:0 0 44px;overflow:visible}
+.made__rings circle{fill:none;stroke:var(--gold,#c9a55a);stroke-width:1.7;stroke-dasharray:76;stroke-dashoffset:76}
+.made.in .made__rings circle{animation:madeDraw 1.4s var(--e-signature) .2s forwards}
+.made.in .made__rings circle+circle{animation-delay:.55s}
+.made__copy{display:grid;gap:6px;text-align:left}
+.made__copy small{font:500 .54rem/1 var(--sans);letter-spacing:.24em;text-transform:uppercase;opacity:.82}
+.made__copy b{font:400 1.45rem/1 var(--display);letter-spacing:.01em;color:transparent;
+  background:linear-gradient(100deg,var(--ink) 0 38%,var(--gold-hi,#fff0c8) 48%,var(--gold,#c9a55a) 54%,var(--ink) 64% 100%);
+  background-size:260% 100%;background-position:100% 0;-webkit-background-clip:text;background-clip:text}
+.made.in .made__copy b{animation:madeShine 5s var(--e-signature) 1.2s infinite}
+.made__copy i{font-style:normal;color:var(--gold,#c9a55a);-webkit-text-fill-color:var(--gold,#c9a55a)}
+.made__cta{display:grid;justify-items:start;gap:5px;padding-left:14px;text-align:left;
+  border-left:1px solid color-mix(in srgb,var(--gold,#c9a55a) 30%,transparent)}
+.made__cta em{display:inline-flex;align-items:center;gap:5px;color:var(--gold,#c9a55a);font:600 .74rem/1 var(--sans);font-style:normal}
+.made__cta em svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.made.in .made__cta em svg{animation:madeNudge 2.2s var(--e-settle) 2s infinite}
+.made__cta>span{font:500 .5rem/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;opacity:.78}
+@keyframes madeDraw{to{stroke-dashoffset:0}}
+@keyframes madeShine{0%{background-position:100% 0}45%,100%{background-position:0 0}}
+@keyframes madeNudge{0%,55%,100%{transform:none}28%{transform:translateX(4px)}}
+/* На узком экране призыв встаёт под подписью: вместо черты сбоку — тонкая
+   линия сверху, иначе вертикальный разделитель повисал на второй строке. */
+@media (max-width:440px){
+  .made__link{border-radius:22px;padding:14px 20px}
+  .made__cta{flex-basis:100%;justify-items:center;padding:11px 0 0;border-left:0;
+    border-top:1px solid color-mix(in srgb,var(--gold,#c9a55a) 24%,transparent)}
+}
 
 #mbtn{border:1px solid var(--line);background:color-mix(in srgb,var(--paper,#f4efe6) 92%,transparent);
   color:var(--accent-2,#7a8b6f);backdrop-filter:blur(10px);
@@ -335,6 +373,8 @@ body{min-width:320px;overflow-x:hidden;background:transparent;color:var(--ink,#2
 @media (prefers-reduced-motion:reduce){
   .fx,.words span,.letters span,.cd>div,.cal td span,.mono b,.shot{opacity:1!important;transform:none!important;filter:none!important}
   .gold-rule.in:after{animation:none;opacity:0}
+  .made__rings circle{stroke-dashoffset:0!important;animation:none!important}
+  .made__copy b,.made__cta em svg{animation:none!important}
   .rule,.mono circle{transform:none!important;stroke-dashoffset:0!important}
   .shot img{transform:none!important}
   .mono.in,.gilt.in{animation:none}

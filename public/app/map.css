@@ -40,7 +40,9 @@
 .nvmap-tile.is-on { opacity: 1; }
 .nvmap-tile.is-off { opacity: 0; }
 
-/* ── Метка тойхоны ── */
+/* ── Метка тойхоны ──
+   Золотая капля остриём ровно в координату, рядом — табличка с названием.
+   Острие, а не центр круга: так видно, в какую именно точку показывают. */
 
 .nvmap-pin {
   position: absolute;
@@ -48,51 +50,127 @@
   top: 0;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   padding: 0;
-  margin: -8px 0 0 -8px;              /* точка ложится ровно на координату */
+  margin: -29px 0 0 -12px;            /* острие капли — ровно в координате */
+  color: inherit;
   pointer-events: auto;
   border: 0;
   background: none;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
+span.nvmap-pin { cursor: default; pointer-events: none; }
+
 .nvmap-dot {
   position: relative;
   display: block;
-  width: 15px;
-  height: 15px;
-  flex: 0 0 15px;
-  border: 2px solid #0c0a06;
-  border-radius: 50%;
-  background: linear-gradient(150deg, var(--gold-hi, #f1ddb0), var(--gold, #c9a227));
-  box-shadow: 0 2px 10px rgba(0, 0, 0, .55), 0 0 0 0 rgba(var(--gold-rgb, 201, 162, 39), .5);
-  transition: transform 260ms cubic-bezier(.22, .61, .36, 1), box-shadow 260ms ease;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border-radius: 50% 50% 50% 0;
+  background: linear-gradient(135deg, var(--gold-hi, #f4e2b6) 0%, var(--gold, #c9a227) 55%, #7d5f2b 100%);
+  box-shadow: 0 0 0 1.5px rgba(12, 10, 6, .82), 0 6px 14px -4px rgba(0, 0, 0, .7);
+  transform: rotate(-45deg);
+  transition: transform 320ms cubic-bezier(.22, .61, .36, 1), filter 320ms ease;
 }
+/* Сердцевина капли. */
+.nvmap-dot::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: #120d05;
+  box-shadow: inset 0 1px 1px rgba(255, 240, 200, .25);
+}
+
 .nvmap-label {
   display: block;
-  max-width: 112px;
+  max-width: 132px;
   overflow: hidden;
-  padding: 3px 7px;
+  padding: 5px 10px 5px 9px;
   color: var(--silk, #f6efe2);
-  font: 500 .66rem/1.2 inherit;
+  font: 600 .7rem/1.15 var(--sans, system-ui, -apple-system, 'Segoe UI', sans-serif);
+  letter-spacing: .01em;
   white-space: nowrap;
   text-overflow: ellipsis;
-  border-radius: 7px;
-  background: rgba(10, 8, 4, .82);
-  -webkit-backdrop-filter: blur(7px);
-  backdrop-filter: blur(7px);
-  box-shadow: inset 0 0 0 1px rgba(255, 246, 222, .13);
+  border-radius: 8px;
+  background: rgba(10, 8, 4, .86);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: inset 0 0 0 1px rgba(var(--gold-rgb, 201, 162, 39), .28), 0 6px 16px -8px rgba(0, 0, 0, .8);
   transition: color 260ms ease, box-shadow 260ms ease;
 }
+
 .nvmap-pin:active .nvmap-dot,
 .nvmap-pin.is-active .nvmap-dot {
-  transform: scale(1.25);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, .55), 0 0 0 7px rgba(var(--gold-rgb, 201, 162, 39), .18);
+  transform: rotate(-45deg) scale(1.12);
+  filter: drop-shadow(0 0 8px rgba(var(--gold-rgb, 201, 162, 39), .75));
 }
 .nvmap-pin.is-active .nvmap-label {
-  color: var(--gold-hi, #f1ddb0);
-  box-shadow: inset 0 0 0 1px rgba(var(--gold-rgb, 201, 162, 39), .55);
+  color: var(--gold-hi, #f4e2b6);
+  box-shadow: inset 0 0 0 1px rgba(var(--gold-rgb, 201, 162, 39), .6), 0 6px 16px -8px rgba(0, 0, 0, .8);
 }
+
+/* «Это будет здесь»: световые круги расходятся от острия, капля дышит. */
+.nvmap-glow {
+  position: absolute;
+  left: 12px;
+  top: 29px;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.nvmap-glow::before,
+.nvmap-glow::after {
+  content: '';
+  position: absolute;
+  left: -36px;
+  top: -36px;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(var(--gold-rgb, 201, 162, 39), .6) 0%, rgba(var(--gold-rgb, 201, 162, 39), .18) 42%, transparent 70%);
+  opacity: 0;
+  transform: scale(.2);
+  animation: nvmapHere 2.8s cubic-bezier(.22, .61, .36, 1) infinite;
+}
+.nvmap-glow::after { animation-delay: 1.4s; }
+@keyframes nvmapHere {
+  0% { opacity: 0; transform: scale(.2); }
+  18% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.9); }
+}
+.nvmap-pin.is-here .nvmap-dot {
+  filter: drop-shadow(0 0 10px rgba(var(--gold-rgb, 201, 162, 39), .85));
+  animation: nvmapBob 2.8s ease-in-out infinite;
+}
+@keyframes nvmapBob { 50% { transform: rotate(-45deg) translate(2px, -2px); } }
+/* Подпись места — над каплей, по центру. Метка стоит посреди карты, и
+   табличка справа упиралась в край и обрезалась на полуслове. */
+.nvmap-pin.is-here .nvmap-label {
+  position: absolute;
+  left: 12px;
+  bottom: calc(100% + 12px);
+  max-width: min(240px, 72vw);
+  padding: 7px 13px;
+  color: var(--gold-hi, #f4e2b6);
+  font-size: .8rem;
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+/* Карта-иллюстрация в приглашении: страница листается сквозь неё пальцем,
+   двигают её только плюс и минус. */
+.nvmap--static { cursor: default; touch-action: pan-y; }
+
+/* Светлые темы: тайлы не выворачиваем в ночь, а приглушаем в тон бумаге. */
+.nvmap--light { background: #ece6d8; }
+.nvmap--light .nvmap-tile { filter: saturate(.55) sepia(.2) brightness(1.02) contrast(.94); }
 
 /* Выбранная точка: не метка каталога, а «вот здесь» — пульсирующий круг. */
 .nvmap-mark {
@@ -161,9 +239,11 @@
   border-radius: 5px;
   background: rgba(8, 7, 4, .55);
 }
-.nvmap-credit:hover { color: rgba(246, 239, 226, .82); }
 
 @media (prefers-reduced-motion: reduce) {
-  .nvmap-mark { animation: none; }
+  .nvmap-mark,
+  .nvmap-pin.is-here .nvmap-dot,
+  .nvmap-glow::after { animation: none; }
+  .nvmap-glow::before { animation: none; opacity: .55; transform: scale(1); }
   .nvmap-tile { transition: none; }
 }

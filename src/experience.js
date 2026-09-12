@@ -199,7 +199,10 @@ body.ev-handoff .inv{animation:evMeet 1400ms cubic-bezier(.5,0,.25,1) forwards}
 
 /* Плеер: кнопка и выезжающий из-под неё регулятор громкости. Слайдер
    появляется вместе с музыкой и прячется, когда его перестают трогать. */
-#mplayer{position:fixed;right:16px;bottom:16px;z-index:8000;display:flex;align-items:center;gap:10px}
+/* Слева внизу; регулятор выезжает вправо от кнопки. Когда доезжает футер,
+   скрипт плеера поднимает всю связку чуть выше него (LIFT_JS в blocks.js). */
+#mplayer{position:fixed;left:16px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:8000;display:flex;
+  flex-direction:row-reverse;align-items:center;gap:10px;will-change:transform}
 #mbtn{position:relative;width:52px;height:52px;border-radius:50%;cursor:pointer;font-size:1.25rem;
   box-shadow:0 4px 14px rgba(0,0,0,.18);flex:0 0 52px}
 #mvol{width:0;height:34px;padding:0;margin:0;opacity:0;pointer-events:none;

@@ -12,6 +12,15 @@ export const GRAIN = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/20
 // через window.__music.start() с нарастанием громкости ~2.5s.
 const MUSIC_ICON = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>';
 
+/* Кнопка стоит слева внизу, а когда до экрана доезжает футер, поднимается и
+   держится чуть выше него: подпись nVate.uz внизу страницы не перекрывается.
+   Скролл читаем через rAF — не чаще кадра. */
+const LIFT_JS = `(function(){var raf=0;
+function lift(){raf=0;var f=document.querySelector('.made');if(!f)return;
+var over=innerHeight-f.getBoundingClientRect().top;box.style.transform=over>0?'translate3d(0,'+(-over)+'px,0)':''}
+function queue(){if(!raf)raf=requestAnimationFrame(lift)}
+addEventListener('scroll',queue,{passive:true});addEventListener('resize',queue);lift()})();`;
+
 /* Кнопка музыки и регулятор громкости — одна разметка на оба режима. */
 function player(musicLabel, volumeLabel) {
   return `<div id="mplayer"><input id="mvol" type="range" min="0" max="100" step="1" value="70" aria-label="${volumeLabel}">`
@@ -43,6 +52,7 @@ b.addEventListener('click',function(e){e.stopPropagation();on?stop():play()});
 vol.addEventListener('input',function(){paint();send('setVolume',[Number(vol.value)]);
 try{localStorage.setItem('nv_volume',vol.value)}catch(e){}showVol()});
 vol.addEventListener('click',function(e){e.stopPropagation()});
+${LIFT_JS}
 window.__music={start:function(){if(!on)play()}};
 })();</script>`;
   }
@@ -56,12 +66,17 @@ var level=Number.isFinite(saved)&&saved>=0&&saved<=100?saved:70;
 vol.value=level;paint();
 function paint(){vol.style.setProperty('--vol',vol.value+'%')}
 function target(){return Number(vol.value)/100}
-if(e>s){a.addEventListener('timeupdate',function(){if(a.currentTime>=e){a.currentTime=s;a.play()}})}else{a.loop=true}
+// Конца у отрывка нет: трек доигрывает до последней секунды и начинается
+// снова с выбранного места. Прежняя петля a.loop возвращала его на 0:00 —
+// в обход начала, которое пара отметила в студии.
+if(e>s){a.addEventListener('timeupdate',function(){if(a.currentTime>=e){a.currentTime=s;a.play()}})}
+else{a.addEventListener('ended',function(){a.currentTime=s;a.play().catch(function(){})})}
 function fade(to,ms){if(tm)clearInterval(tm);var f0=a.volume,t0=Date.now();
 tm=setInterval(function(){var k=Math.min(1,(Date.now()-t0)/ms);a.volume=Math.max(0,Math.min(1,f0+(to-f0)*k));if(k>=1){clearInterval(tm);tm=null}},50)}
 function showVol(){box.classList.add('vol-open');clearTimeout(hide);hide=setTimeout(function(){box.classList.remove('vol-open')},5000)}
 function play(ms){if(s&&a.currentTime<s)a.currentTime=s;a.volume=0;
 a.play().then(function(){b.classList.add('on');fade(target(),ms);showVol()}).catch(function(){})}
+${LIFT_JS}
 window.__music={start:function(){play(2500)}};
 b.addEventListener('click',function(ev){ev.stopPropagation();
 if(a.paused){play(600)}else{a.pause();b.classList.remove('on');box.classList.remove('vol-open')}});
@@ -73,7 +88,7 @@ vol.addEventListener('click',function(ev){ev.stopPropagation()});
 
 // Локация в приглашении: живая карта, если её включили, или крупная
 // типографическая сцена с названием места без декоративной иллюстрации.
-export function mapEmbed({ lat, lng, lang, address, enabled = true }) {
+export function mapEmbed({ lat, lng, lang, address, enabled = true, tone = 'dark', tiles = '' }) {
   if (!enabled) {
     const kicker = lang === 'ru' ? 'МЕСТО ВСТРЕЧИ' : 'UCHRASHUV MANZILI';
     return `<style>
@@ -93,12 +108,38 @@ export function mapEmbed({ lat, lng, lang, address, enabled = true }) {
 </style><div class="venue-type"><small>${kicker}</small><b>${escapeHtml(address || '')}</b><span aria-hidden="true"></span></div>`;
   }
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return '';
-  const mapLang = lang === 'ru' ? 'ru_RU' : 'uz_UZ';
-  const mapTitle = lang === 'ru' ? 'Карта места' : 'Joy xaritasi';
-  const pt = `${lng},${lat}`;
-  const src = `https://yandex.ru/map-widget/v1/?ll=${pt}&z=16&pt=${pt},pm2rdm&lang=${mapLang}`;
-  return `<div class="mapbox"><iframe src="${src}" loading="lazy" allowfullscreen
-referrerpolicy="no-referrer-when-downgrade" title="${mapTitle}" aria-label="${escapeHtml(address || mapTitle)}"></iframe></div>`;
+  /* Своя карта вместо виджета Яндекса: на ней ровно одна метка — эта тойхона,
+     со свечением «праздник будет здесь». Чужих меток, линейки, компаса и
+     кнопок у неё нет; палец страницу не останавливает — листается сквозь. */
+  const label = lang === 'ru' ? 'Карта места' : 'Joy xaritasi';
+  const name = String(address || '').slice(0, 140);
+  const safe = (value) => JSON.stringify(value).replace(/</g, '\\u003c');
+  const cfg = { lat, lng, name, tone: tone === 'light' ? 'light' : 'dark', tiles: tiles || '' };
+  return `<link rel="stylesheet" href="/app/map.css">
+<div class="mapbox"><div class="nvmap-host" role="img" aria-label="${escapeHtml(name || label)}"></div></div>
+<script src="/app/map.js"></script>
+<script>(function(){var c=${safe(cfg)},host=document.querySelector('.mapbox .nvmap-host');
+if(!host||!window.NvMap)return;
+var map=NvMap.create(host,{lat:c.lat,lng:c.lng,zoom:16,tiles:c.tiles||undefined,tone:c.tone,interactive:false});
+map.setPins([{id:'here',lat:c.lat,lng:c.lng,label:c.name,here:true}]);
+})();</script>`;
+}
+
+/* Подпись платформы в конце каждого приглашения. Это реклама, поэтому она
+   живая: кольца прорисовываются, по имени проходит блик, стрелка зовёт, а
+   весь блок — ссылка на бота, где гость может собрать своё приглашение. */
+export function madeFooter(lang = 'uz', bot = 'nvate_bot') {
+  const ru = lang === 'ru';
+  const kicker = ru ? 'Приглашение создано в' : 'Taklifnoma yaratildi';
+  const cta = ru ? 'Создать своё' : 'O‘zingiznikini yarating';
+  const handle = escapeHtml(String(bot).replace(/^@/, ''));
+  return `<footer class="made fx">
+<a class="made__link" href="https://t.me/${handle}" target="_blank" rel="noopener">
+<svg class="made__rings" viewBox="0 0 56 34" aria-hidden="true"><circle cx="20" cy="17" r="12"/><circle cx="36" cy="17" r="12"/></svg>
+<span class="made__copy"><small>${kicker}</small><b>nVate<i>.uz</i></b></span>
+<span class="made__cta"><em>@${handle}<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 10h10M11 6l4 4-4 4"/></svg></em><span>${cta}</span></span>
+</a>
+</footer>`;
 }
 
 // Живой отсчёт до события: пишет в элементы #cd #ch #cm #cs.

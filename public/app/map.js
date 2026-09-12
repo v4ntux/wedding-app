@@ -62,17 +62,17 @@ window.NvMap = (function () {
       maxZoom: MAX_Z,
       tiles: DEFAULT_TILES,
       credit: '© OpenStreetMap',
-      creditHref: 'https://www.openstreetmap.org/copyright',
       onPin: null,        // (pin) => void — тап по метке
       onPick: null,       // ({lat,lng}) => void — тап по карте в режиме выбора
       pick: false,        // режим «поставить точку»
+      interactive: true,  // false — карта-иллюстрация: страница листается сквозь неё
+      tone: 'dark',       // 'light' — для светлых тем: тайлы не выворачиваются в ночь
       ...options,
     };
     // Спред кладёт в объект и явные undefined: `{tiles: undefined}` затирал бы
     // значение по умолчанию. Поэтому обязательные поля добираем после слияния.
     opts.tiles = opts.tiles || DEFAULT_TILES;
     opts.credit = opts.credit ?? '© OpenStreetMap';
-    opts.creditHref = opts.creditHref || 'https://www.openstreetmap.org/copyright';
     opts.minZoom = Number.isFinite(opts.minZoom) ? opts.minZoom : MIN_Z;
     opts.maxZoom = Number.isFinite(opts.maxZoom) ? opts.maxZoom : MAX_Z;
     if (!Number.isFinite(opts.lat) || !Number.isFinite(opts.lng)) { opts.lat = 42.116169; opts.lng = 60.0625143; }
@@ -85,6 +85,8 @@ window.NvMap = (function () {
     let dead = false;
 
     host.classList.add('nvmap');
+    host.classList.toggle('nvmap--static', !opts.interactive);
+    host.classList.toggle('nvmap--light', opts.tone === 'light');
     host.innerHTML = '';
 
     const world = document.createElement('div');
@@ -107,11 +109,10 @@ window.NvMap = (function () {
     zoomOut.appendChild(svg(['M4 10h12']));
     zoomBox.append(zoomIn, zoomOut);
 
-    const credit = document.createElement('a');
+    // Подпись OpenStreetMap обязательна, но ссылкой ей быть незачем: на карте
+    // не должно быть ничего, куда можно случайно уйти пальцем.
+    const credit = document.createElement('span');
     credit.className = 'nvmap-credit';
-    credit.href = opts.creditHref;
-    credit.target = '_blank';
-    credit.rel = 'noopener noreferrer';
     credit.textContent = opts.credit;
 
     host.append(world, zoomBox, credit);
@@ -179,10 +180,20 @@ window.NvMap = (function () {
     /* ── Метки ── */
 
     function pinNode(pin) {
-      const node = document.createElement('button');
-      node.type = 'button';
-      node.className = `nvmap-pin${pin.active ? ' is-active' : ''}`;
+      // Метка ловит палец только там, где на неё есть обработчик. В
+      // приглашении она просто показывает место и никуда не ведёт.
+      const tappable = opts.interactive && typeof opts.onPin === 'function';
+      const node = document.createElement(tappable ? 'button' : 'span');
+      if (tappable) node.type = 'button';
+      node.className = `nvmap-pin${pin.active ? ' is-active' : ''}${pin.here ? ' is-here' : ''}`;
       node.dataset.id = pin.id ?? '';
+      if (pin.here) {
+        // «Это будет здесь»: от острия капли расходятся световые круги.
+        const glow = document.createElement('span');
+        glow.className = 'nvmap-glow';
+        glow.setAttribute('aria-hidden', 'true');
+        node.appendChild(glow);
+      }
       const dot = document.createElement('span');
       dot.className = 'nvmap-dot';
       node.appendChild(dot);
@@ -192,10 +203,12 @@ window.NvMap = (function () {
         label.textContent = pin.label;
         node.appendChild(label);
       }
-      node.addEventListener('click', (event) => {
-        event.stopPropagation();
-        opts.onPin?.(pin);
-      });
+      if (tappable) {
+        node.addEventListener('click', (event) => {
+          event.stopPropagation();
+          opts.onPin(pin);
+        });
+      }
       return node;
     }
 
@@ -374,19 +387,23 @@ window.NvMap = (function () {
 
     /* ── События ── */
 
-    host.addEventListener('pointerdown', onDown);
-    host.addEventListener('pointermove', onMove);
-    host.addEventListener('pointerup', onUp);
-    host.addEventListener('pointercancel', onUp);
-    host.addEventListener('contextmenu', (e) => e.preventDefault());
-    host.addEventListener('dblclick', (event) => {
-      event.preventDefault();
-      zoomBy(1, hostPoint(event.clientX, event.clientY));
-    });
-    host.addEventListener('wheel', (event) => {
-      event.preventDefault();
-      zoomBy(event.deltaY < 0 ? 1 : -1, hostPoint(event.clientX, event.clientY));
-    }, { passive: false });
+    // Карта-иллюстрация пальца не перехватывает: гость листает приглашение
+    // сквозь неё, а приблизить место можно плюсом и минусом.
+    if (opts.interactive) {
+      host.addEventListener('pointerdown', onDown);
+      host.addEventListener('pointermove', onMove);
+      host.addEventListener('pointerup', onUp);
+      host.addEventListener('pointercancel', onUp);
+      host.addEventListener('contextmenu', (e) => e.preventDefault());
+      host.addEventListener('dblclick', (event) => {
+        event.preventDefault();
+        zoomBy(1, hostPoint(event.clientX, event.clientY));
+      });
+      host.addEventListener('wheel', (event) => {
+        event.preventDefault();
+        zoomBy(event.deltaY < 0 ? 1 : -1, hostPoint(event.clientX, event.clientY));
+      }, { passive: false });
+    }
 
     zoomIn.addEventListener('click', (e) => { e.stopPropagation(); zoomBy(1); });
     zoomOut.addEventListener('click', (e) => { e.stopPropagation(); zoomBy(-1); });

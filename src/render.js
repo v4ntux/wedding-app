@@ -1,11 +1,11 @@
 // Рендер приглашений: шаблоны живут в templates/ (см. templateStore.js),
 // здесь — подготовка данных (buildData), демо и водяная сетка.
 
-import { findMusicPreset } from './config.js';
+import { findMusicPreset, MAP_TILES } from './config.js';
 import { mapsLinks, youtubeId } from './service.js';
 import { getTemplate } from './templateStore.js';
 import { renderTemplate, escapeHtml } from './templateEngine.js';
-import { GRAIN, audioWidget, mapEmbed, countdownScript } from './blocks.js';
+import { GRAIN, audioWidget, mapEmbed, madeFooter, countdownScript } from './blocks.js';
 import { envelopeScene, envelopeExperienceCSS, envelopeExperienceScript, livingBackground, starfield } from './experience.js';
 import { coreCSS, monogram } from './theme.js';
 import { normalizeDesign, STATIONERY } from './design.js';
@@ -59,6 +59,15 @@ const LOCALES = {
 
 function firstChar(s) {
   return [...String(s ?? '')][0] ?? '';
+}
+
+// Светлая ли бумага темы: от этого зависит, выворачивать ли карту в ночь.
+function isLightPaper(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex ?? ''));
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  const luma = 0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255);
+  return luma / 255 > 0.55;
 }
 
 // Данные для шаблона. Значения сырые: {{x}} экранирует движок,
@@ -177,8 +186,12 @@ export function buildData(app, guestName = null, tpl = null) {
     experienceCSS: envelopeExperienceCSS(),
     experienceScript: envelopeExperienceScript(),
     audioWidget: audioWidget(music, lang),
-    map: mapEmbed({ lat, lng, lang, address: app.address, enabled: mapEnabled }),
+    map: mapEmbed({
+      lat, lng, lang, address: app.address, enabled: mapEnabled,
+      tone: isLightPaper(stationery?.paper) ? 'light' : 'dark', tiles: MAP_TILES,
+    }),
     countdown: countdownScript(targetIso),
+    made: madeFooter(lang),
   };
 }
 
