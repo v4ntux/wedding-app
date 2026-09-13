@@ -302,7 +302,7 @@ export function createBot({ token, adminIds = [], baseUrl }) {
     if (https) kb.webApp('💌 Studiya · Студия', orderUrl);
     if (isAdminId(fromId)) {
       if (https) kb.row();
-      kb.text(Number(track.library) ? '✅ Kutubxonada · В библиотеке' : '📚 Kutubxonaga · В библиотеку', `lib:${track.id}`);
+      kb.text(Number(track.library) === 1 ? '✅ Kutubxonada · В библиотеке' : '📚 Kutubxonaga · В библиотеку', `lib:${track.id}`);
     }
     return kb;
   }
@@ -359,11 +359,11 @@ export function createBot({ token, adminIds = [], baseUrl }) {
     }
     const track = await getTrack(Number(ctx.match[1]));
     if (!track) return ctx.answerCallbackQuery({ text: 'Трек не найден', show_alert: true });
-    const on = !Number(track.library);
+    const on = Number(track.library) !== 1;
     await setTrackLibrary(track.id, on);
     await ctx.answerCallbackQuery({ text: on ? '📚 На полке nvate' : 'Снят с полки' });
     try {
-      await ctx.editMessageReplyMarkup({ reply_markup: trackKeyboard({ ...track, library: on ? 1 : 0 }, ctx.from.id) });
+      await ctx.editMessageReplyMarkup({ reply_markup: trackKeyboard({ ...track, library: on ? 1 : -1 }, ctx.from.id) });
     } catch { /* сообщение уже изменено */ }
   });
 

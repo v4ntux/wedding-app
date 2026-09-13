@@ -2,11 +2,14 @@
 //
 // iTunes, Deezer и Spotify отдают по API только 30-секундные превью: пара
 // ставила начало на 0:17, и гости слышали тринадцать секунд и петлю. Поэтому
-// звук живёт у нас. Пара пересылает песню боту (узбекская музыка и так ходит
-// по Telegram-каналам) или загружает файл, а админ собирает из лучшего полку
-// nvate. Сам звук лежит в uploads, сведения о нём — в таблице tracks.
+// звук живёт у нас. Песню находят поиском по YouTube — сервер забирает её
+// целиком, одну на всех. Её же можно переслать боту (узбекская музыка и так
+// ходит по Telegram-каналам) или загрузить файлом. Сам звук лежит в uploads,
+// сведения о нём — в таблице tracks.
 
 import { detectFileType, saveUpload } from './upload.js';
+import { downloadAudio } from './download.js';
+import { songInfo, songMeta, topMoment } from './youtube.js';
 import * as db from './db.js';
 
 // Больше Bot API скачать не даст, и в студии держим тот же предел.
@@ -31,7 +34,8 @@ export function publicTrack(row) {
     file: row.file,
     url: `/uploads/${row.file}`,
     uses: Number(row.uses) || 0,
-    library: Boolean(Number(row.library)),
+    library: Number(row.library) === 1,
+    youtubeId: row.source === 'youtube' ? row.source_id : null,
   };
 }
 
@@ -44,6 +48,8 @@ export async function registerTrack(file, meta = {}) {
     artist: text(meta.artist, 120) || null,
     duration: meta.duration,
     source: meta.source ?? 'upload',
+    sourceId: meta.sourceId ?? null,
+    topStart: meta.topStart ?? null,
     tgUniqueId: meta.tgUniqueId ?? null,
     library: meta.library === true,
   });
@@ -68,6 +74,59 @@ export async function addTrack(buffer, meta = {}) {
     if (concurrent) return { track: concurrent, duplicate: true };
     throw error;
   }
+}
+
+/* Песня с YouTube одна на всех: первая пара ждёт скачивания, следующие получают
+   готовый файл сразу. Владельца у неё нет — это общая песня, а не чья-то личная. */
+const fetching = new Map();
+
+export async function youtubeSong(id, { download = downloadAudio, info = songInfo, top = topMoment } = {}) {
+  const known = await db.trackBySource('youtube', id);
+  if (known) return known;
+  if (!fetching.has(id)) {
+    fetching.set(id, fetchYoutubeSong(id, { download, info, top }).finally(() => fetching.delete(id)));
+  }
+  return fetching.get(id);
+}
+
+async function fetchYoutubeSong(id, { download, info, top }) {
+  const [file, meta, topStart] = await Promise.all([
+    download(`https://www.youtube.com/watch?v=${id}`, { maxBytes: MAX_TRACK_BYTES }),
+    info(id).catch(() => ({})),
+    top(id).catch(() => null),
+  ]);
+  if (!file) return null;
+  const named = songMeta(file.name.replace(/\.[a-z0-9]{2,5}$/i, ''));
+  try {
+    const added = await addTrack(file.buffer, {
+      source: 'youtube',
+      sourceId: id,
+      title: meta.title || named.title,
+      artist: meta.artist || named.artist,
+      duration: meta.duration,
+      topStart,
+    });
+    return added?.track ?? null;
+  } catch (error) {
+    // Вторая копия сервера скачала ту же песню чуть раньше.
+    const raced = await db.trackBySource('youtube', id);
+    if (raced) return raced;
+    throw error;
+  }
+}
+
+/* TikTok, Instagram: звук из ролика становится личной песней пары. */
+export async function linkSong(url, ownerId, { download = downloadAudio } = {}) {
+  const file = await download(url, { maxBytes: MAX_TRACK_BYTES });
+  if (!file) return null;
+  const named = metaFromFileName(file.name);
+  const added = await addTrack(file.buffer, {
+    ownerId,
+    source: 'link',
+    title: named.title || new URL(url).hostname.replace(/^www\./, ''),
+    artist: named.artist,
+  });
+  return added?.track ?? null;
 }
 
 export async function libraryTracks() {

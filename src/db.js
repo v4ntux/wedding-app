@@ -100,9 +100,10 @@ export async function templatePopularity() {
 
 export async function insertTrack(t) {
   const duration = Number(t.duration);
+  const top = t.topStart === null || t.topStart === undefined ? NaN : Number(t.topStart);
   const res = (await db.prepare(
-    `INSERT INTO tracks (owner_id, file, title, artist, duration, source, tg_unique_id, library)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO tracks (owner_id, file, title, artist, duration, source, source_id, top_start, tg_unique_id, library)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     t.ownerId ?? null,
     t.file,
@@ -110,6 +111,8 @@ export async function insertTrack(t) {
     t.artist ?? null,
     Number.isFinite(duration) && duration > 0 ? duration : null,
     t.source ?? 'upload',
+    t.sourceId ?? null,
+    Number.isFinite(top) && top >= 0 ? top : null,
     t.tgUniqueId ?? null,
     t.library ? 1 : 0
   ));
@@ -138,13 +141,22 @@ export async function listTracksByOwner(ownerId, limit = 40) {
     .all(ownerId, limit);
 }
 
-// Полка nvate: сверху то, что пары выбирают чаще.
+// Полка nvate: песни от админа и песни с YouTube, которые пары уже поставили в
+// приглашение. Сверху то, что выбирают чаще.
 export async function listLibrary() {
-  return db.prepare(`SELECT t.*, ${TRACK_USES} AS uses FROM tracks t WHERE t.library = 1 ORDER BY uses DESC, t.id DESC`).all();
+  return db.prepare(`SELECT t.*, ${TRACK_USES} AS uses FROM tracks t
+    WHERE t.library = 1 OR (t.library = 0 AND t.source = 'youtube' AND ${TRACK_USES} > 0)
+    ORDER BY uses DESC, t.id DESC LIMIT 120`).all();
 }
 
+export async function trackBySource(source, sourceId) {
+  return (await db.prepare(`SELECT t.*, ${TRACK_USES} AS uses FROM tracks t WHERE t.source = ? AND t.source_id = ?`)
+    .get(source, sourceId)) ?? null;
+}
+
+// Снятая админом песня (-1) не возвращается на полку сама, даже если её выбирают.
 export async function setTrackLibrary(id, on) {
-  return (await db.prepare('UPDATE tracks SET library = ? WHERE id = ?').run(on ? 1 : 0, id)).changes === 1;
+  return (await db.prepare('UPDATE tracks SET library = ? WHERE id = ?').run(on ? 1 : -1, id)).changes === 1;
 }
 
 export async function updateTrackMeta(id, title, artist) {

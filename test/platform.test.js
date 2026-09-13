@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import crypto from 'node:crypto';
 
 const testDataDir = mkdtempSync(path.join(tmpdir(), 'nvate-test-'));
 process.env.NVATE_DATA_DIR = testDataDir;
@@ -12,6 +13,7 @@ process.env.ADMIN_CHAT_IDS = '';
 process.env.NVATE_DISABLE_WATCH = '1';
 process.env.BASE_URL = 'https://nvate.uz';
 process.env.YOUTUBE_API_KEY = '';
+process.env.YTDLP_BIN = 'nvate-missing-ytdlp';
 // Only an explicitly named disposable database may be used by tests.
 process.env.DATABASE_URL = process.env.NVATE_TEST_DATABASE_URL || '';
 delete process.env.NVATE_MIGRATE_SQLITE;
@@ -406,6 +408,83 @@ test('YouTube search reads the results page and keeps only real songs', async ()
   assert.equal(youtubeIdOf('https://youtu.be/abcdefghijk?t=3'), 'abcdefghijk');
   const bad = await fetch(`${baseUrl}/api/music/youtube/info?url=${encodeURIComponent('https://example.com/song')}`);
   assert.equal(bad.status, 400);
+});
+
+test('«Топ выбор» с YouTube — пик пересмотров после вступления, а не первая секунда', async () => {
+  const { parseHeatmap, peakMoment, songMeta } = await import('../src/youtube.js');
+  // Сто точек по 2,25 с: начало смотрят все, а переслушивают припев на 1:07.
+  const markers = Array.from({ length: 100 }, (_, i) => ({
+    startMillis: String(i * 2250),
+    durationMillis: '2250',
+    intensityScoreNormalized: i === 0 ? 1 : i === 30 ? 0.9 : 0.5 + (i % 3) * 0.01,
+  }));
+  const html = `<script>var d={"markerType":"MARKER_TYPE_HEATMAP","markers":${JSON.stringify(markers)},"markersMetadata":{}};</script>`;
+  assert.equal(peakMoment(parseHeatmap(html)), 65, 'на две секунды раньше пика');
+  assert.equal(peakMoment(markers.map((m) => ({ ...m, intensityScoreNormalized: 0.5 }))), null, 'ровный график пика не даёт');
+  assert.equal(parseHeatmap('<html>капча</html>'), null);
+  assert.deepEqual(songMeta('Shahzoda - Yomg‘ir | Шахзода - Ёмгир (AUDIO)', 'Shahzoda'), { title: 'Yomg‘ir', artist: 'Shahzoda' });
+  assert.deepEqual(songMeta('Kelin salom [Official Video]', 'Ansambl - Topic'), { title: 'Kelin salom', artist: 'Ansambl' });
+});
+
+test('a YouTube song is downloaded once for everyone and joins the shelf once a couple picks it', async () => {
+  const music = await import('../src/music.js');
+  let downloads = 0;
+  const m4a = Buffer.concat([Buffer.alloc(4), Buffer.from('ftypM4A '), Buffer.alloc(40)]);
+  const fake = {
+    download: async () => {
+      downloads += 1;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      return { buffer: m4a, name: 'Yor-yor.m4a' };
+    },
+    info: async () => ({ title: 'Yor-yor', artist: 'Shahzoda', duration: 214 }),
+    top: async () => 66,
+  };
+  const [first, second] = await Promise.all([music.youtubeSong('yoryor00001', fake), music.youtubeSong('yoryor00001', fake)]);
+  assert.equal(downloads, 1, 'две пары разом — одно скачивание');
+  assert.equal(second.id, first.id);
+  assert.equal((await music.youtubeSong('yoryor00001', fake)).id, first.id);
+  assert.equal(downloads, 1, 'скачанная песня отдаётся сразу');
+  const song = music.publicTrack(first);
+  assert.deepEqual([song.title, song.artist, song.duration, song.youtubeId], ['Yor-yor', 'Shahzoda', 214, 'yoryor00001']);
+  const onShelf = async () => (await music.libraryTracks()).some((t) => t.id === song.id);
+  assert.equal(await onShelf(), false, 'на полку — только после выбора парой');
+
+  const cut = await (await fetch(`${baseUrl}/api/music/cut?type=upload&url=${encodeURIComponent(song.file)}`)).json();
+  assert.deepEqual(cut.cut, { start: 66, uses: 0 }, 'пока пар мало — подсказывает YouTube');
+
+  await submitApplication(baseForm({
+    musicType: 'upload', musicValue: song.file, musicStart: 66,
+    submissionKey: '52345671-1234-4123-8123-123456789abc',
+  }), { id: 8301, username: 'yt_song' });
+  assert.equal(await onShelf(), true);
+  await music.saveLibrary((await music.libraryTracks()).filter((t) => t.id !== song.id));
+  assert.equal(await onShelf(), false, 'снятая админом песня сама не возвращается');
+  assert.equal(await music.youtubeSong('failed00001', { ...fake, download: async () => null }), null);
+});
+
+const signedInitData = (user) => {
+  const params = new URLSearchParams({ auth_date: String(Math.floor(Date.now() / 1000)), user: JSON.stringify(user) });
+  const check = [...params.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${k}=${v}`).join('\n');
+  const secret = crypto.createHmac('sha256', 'WebAppData').update(process.env.BOT_TOKEN).digest();
+  params.set('hash', crypto.createHmac('sha256', secret).update(check).digest('hex'));
+  return params.toString();
+};
+
+test('HTTP: songs by link need Telegram and only ever reach YouTube, Instagram or TikTok', async () => {
+  const post = (url, initData = '') => fetch(`${baseUrl}/api/music/link`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-init-data': initData },
+    body: JSON.stringify({ url }),
+  });
+  assert.equal((await post('https://youtu.be/abcdefghijk')).status, 401);
+  const couple = signedInitData({ id: 8401, first_name: 'Test' });
+  // Внутренняя сеть и чужие сайты — не песня: yt-dlp за ними не ходит.
+  for (const url of ['http://nvate-postgres.railway.internal/', 'https://example.com/song.mp4', 'http://www.tiktok.com/@a/video/1']) {
+    assert.equal((await post(url, couple)).status, 400, url);
+  }
+  assert.equal((await post('https://www.tiktok.com/@nvate/video/1', couple)).status, 501, 'без yt-dlp скачивать нечем');
+  const config = await (await fetch(`${baseUrl}/api/config`)).json();
+  assert.equal(config.downloadEnabled, false);
 });
 
 test('an invitation names the venue kind and landmark from the catalog, not from the form', async () => {

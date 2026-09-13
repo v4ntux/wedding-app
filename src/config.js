@@ -44,10 +44,12 @@ export const GOOGLE_MAPS_API_KEY = (process.env.GOOGLE_MAPS_API_KEY ?? '').trim(
 // поиск песен идёт через страницу выдачи youtube.com.
 export const YOUTUBE_API_KEY = (process.env.YOUTUBE_API_KEY ?? '').trim();
 
-// Извлечение аудио из видео (Instagram/TikTok/YouTube) — cobalt-совместимый API.
-// Например self-hosted cobalt (github.com/imputnet/cobalt) или платный инстанс.
-export const EXTRACT_API_URL = (process.env.EXTRACT_API_URL ?? '').trim();
-export const EXTRACT_API_KEY = (process.env.EXTRACT_API_KEY ?? '').trim();
+// yt-dlp забирает песню целиком с YouTube, TikTok и Instagram. В Docker-образе он
+// уже в PATH; без него песни с YouTube играют официальным плеером, без волны.
+export const YTDLP_BIN = (process.env.YTDLP_BIN ?? '').trim() || 'yt-dlp';
+// Содержимое cookies.txt (формат Netscape) — если YouTube начнёт просить сервер
+// подтвердить, что он не бот. Берите cookies запасного аккаунта.
+export const YTDLP_COOKIES = process.env.YTDLP_COOKIES ?? '';
 
 // Шаблоны открыток живут в templates/<id>/ (см. src/templateStore.js) —
 // новый дизайн добавляется папкой, без правок кода.

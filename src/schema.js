@@ -53,8 +53,11 @@ export const schema = `
     UNIQUE(application_id, slug)
   );
 
-  -- Полные треки: присланные боту, загруженные в студии и библиотека nvate.
-  -- Сам звук лежит файлом в uploads, здесь — чей он, как зовётся и сколько длится.
+  -- Полные треки: присланные боту, загруженные в студии, скачанные с YouTube и
+  -- библиотека nvate. Сам звук лежит файлом в uploads, здесь — чей он, как
+  -- зовётся и сколько длится. source_id — id ролика YouTube: песня одна на всех.
+  -- top_start — самый переслушиваемый момент ролика. library: 1 — на полке,
+  -- -1 — админ снял с полки, 0 — песня с YouTube попадает туда, когда её выберут.
   CREATE TABLE IF NOT EXISTS tracks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     owner_id INTEGER,
@@ -63,6 +66,8 @@ export const schema = `
     artist TEXT,
     duration REAL,
     source TEXT NOT NULL DEFAULT 'upload',
+    source_id TEXT,
+    top_start REAL,
     tg_unique_id TEXT,
     library INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))

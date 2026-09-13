@@ -9,15 +9,16 @@ import * as db from './db.js';
 import { healthCheck } from './storage.js';
 import {
   BOT_TOKEN, RUNTIME, BASE_URL, DEV_NO_AUTH, isAdmin, MAX_GUESTS, MAX_PHOTOS,
-  GOOGLE_MAPS_API_KEY, MAP_TILES, EXTRACT_API_URL, EXTRACT_API_KEY } from './config.js';
+  GOOGLE_MAPS_API_KEY, MAP_TILES } from './config.js';
 import {
   addTrack, registerTrack, publicTrack, libraryTracks, userTracks, saveLibrary,
-  metaFromFileName, MAX_TRACK_BYTES } from './music.js';
+  metaFromFileName, youtubeSong, linkSong, MAX_TRACK_BYTES } from './music.js';
 import { publicTemplates, publicEvents, allTemplates } from './templateStore.js';
 import { guestPrice, pricedAddons, pricingSnapshot, updatePricing } from './pricing.js';
 import { publicVenues, allVenues, saveVenues, cityCenter } from './venues.js';
 import { RESERVED_SLUGS } from './slug.js';
-import { searchYoutube, youtubeVideo } from './youtube.js';
+import { searchYoutube, youtubeVideo, youtubeIdOf, topMoment } from './youtube.js';
+import { downloadReady } from './download.js';
 
 const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
 
@@ -171,7 +172,7 @@ export function createServer({ onNewApplication, onPaid } = {}) {
       city: cityCenter(),
       mapTiles: MAP_TILES,
       googleGeoEnabled: Boolean(GOOGLE_MAPS_API_KEY),
-      extractEnabled: Boolean(EXTRACT_API_URL),
+      downloadEnabled: await downloadReady(),
     });
   });
 
@@ -522,10 +523,12 @@ export function createServer({ onNewApplication, onPaid } = {}) {
     res.json({ ok: true, tracks: await userTracks(user.id) });
   });
 
-  // Поиск песен на YouTube: только то, что автор разрешил встраивать.
+  // Поиск песен на YouTube. Песню сервер скачивает к себе, и запрет автора на
+  // встраивание ей не мешает; без yt-dlp она играет плеером — тогда запрет важен.
   app.get('/api/music/youtube/search', musicLimit, async (req, res) => {
     res.set('Cache-Control', 'no-store');
-    res.json({ ok: true, results: await searchYoutube(String(req.query.q ?? '')) });
+    const embeddable = !(await downloadReady());
+    res.json({ ok: true, results: await searchYoutube(String(req.query.q ?? ''), { embeddable }) });
   });
 
   // Вставленная ссылка: название ролика и разрешение на показ в приглашении.
@@ -536,57 +539,47 @@ export function createServer({ onNewApplication, onPaid } = {}) {
     res.status(code).json({ ok: false, error: found.status });
   });
 
-  /* Откуда этот трек обычно запускают. Пара услышит подсказку раньше, чем
-     начнёт искать нужный такт пальцем. Молчим, пока пар меньше двух: одна
-     чужая обрезка — это не рекомендация. */
+  /* «Топ выбор»: откуда этот трек обычно запускают. Пара услышит подсказку
+     раньше, чем начнёт искать нужный такт пальцем. Одна чужая обрезка — ещё не
+     рекомендация, поэтому, пока пар меньше двух, подсказывает YouTube: самый
+     переслушиваемый момент песни. */
   app.get('/api/music/cut', musicLimit, async (req, res) => {
     const type = String(req.query.type ?? '');
-    const url = String(req.query.url ?? '').slice(0, 400);
-    const form = type === 'itunes'
-      ? { musicType: 'itunes', musicValue: { name: String(req.query.name ?? '').slice(0, 120), artist: String(req.query.artist ?? '').slice(0, 120), url } }
-      : { musicType: type, musicValue: url };
-    const key = musicKey(form);
+    const key = musicKey({ musicType: type, musicValue: String(req.query.url ?? '').slice(0, 400) });
+    let cut = key ? await db.popularCut(key) : null;
+    if (!cut && key && (type === 'upload' || type === 'youtube')) {
+      const top = type === 'upload' ? (await db.trackByFile(key))?.top_start : await topMoment(youtubeIdOf(key));
+      if (top !== null && top !== undefined) cut = { start: Number(top), uses: 0 };
+    }
     res.set('Cache-Control', 'public, max-age=300');
-    res.json({ ok: true, cut: key ? (await db.popularCut(key)) : null });
+    res.json({ ok: true, cut });
   });
 
-  // Извлечение аудио из видео-ссылки (Instagram/TikTok/YouTube) через cobalt-совместимый API.
-  app.post('/api/extract', musicLimit, express.json({ limit: '4kb' }), async (req, res) => {
+  /* Песня по ссылке или из поиска — целиком, чтобы у неё были волна и выбор
+     начала. YouTube скачивается один раз на всех, звук из TikTok и Instagram
+     становится личной песней пары. Другие адреса yt-dlp не отдаём: сервер пошёл
+     бы за ними куда угодно, в том числе во внутреннюю сеть. */
+  const songLimit = rateLimit({ windowMs: 10 * 60_000, max: 30 });
+  const SONG_HOSTS = /(^|\.)(instagram\.com|tiktok\.com)$/i;
+  app.post('/api/music/link', songLimit, express.json({ limit: '4kb' }), async (req, res) => {
     const user = authUser(req.get('x-init-data') ?? req.body?.initData ?? '');
     if (!user) return res.status(401).json({ ok: false, error: 'Откройте форму через Telegram-бота' });
-    if (!EXTRACT_API_URL) {
-      return res.status(501).json({ ok: false, error: 'extract-not-configured' });
-    }
-    const url = String(req.body?.url ?? '').slice(0, 300);
-    if (!/^https?:\/\/\S+$/.test(url)) return res.status(400).json({ ok: false, error: 'Некорректная ссылка' });
+    const url = String(req.body?.url ?? '').trim().slice(0, 300);
+    const id = youtubeIdOf(url);
+    let host = '';
     try {
-      const r = await fetch(EXTRACT_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          ...(EXTRACT_API_KEY ? { Authorization: `Api-Key ${EXTRACT_API_KEY}` } : {}),
-        },
-        body: JSON.stringify({ url, downloadMode: 'audio', audioFormat: 'mp3' }),
-        signal: AbortSignal.timeout(30000),
-      });
-      const j = await r.json();
-      const dl = j?.url;
-      if (!dl) throw new Error(j?.error?.code ?? 'no url');
-      const audioRes = await fetch(dl, { signal: AbortSignal.timeout(90000) });
-      const buf = Buffer.from(await audioRes.arrayBuffer());
-      const named = metaFromFileName(j.filename || '');
-      const added = await addTrack(buf, {
-        ownerId: user.id,
-        source: 'link',
-        title: named.title || new URL(url).hostname.replace(/^www\./, ''),
-        artist: named.artist,
-      });
-      if (!added) throw new Error('not audio');
-      res.json({ ok: true, file: added.track.file, track: publicTrack(added.track) });
+      const parsed = new URL(url);
+      host = parsed.protocol === 'https:' ? parsed.hostname : '';
+    } catch { /* не ссылка */ }
+    if (!id && !SONG_HOSTS.test(host)) return res.status(400).json({ ok: false, error: 'bad-link' });
+    if (!(await downloadReady())) return res.status(501).json({ ok: false, error: 'download-off' });
+    try {
+      const track = id ? await youtubeSong(id) : await linkSong(url, user.id);
+      if (!track) return res.status(502).json({ ok: false, error: 'download-failed' });
+      res.json({ ok: true, track: publicTrack(track) });
     } catch (e) {
-      console.error('[server] extract failed:', e.message);
-      res.status(502).json({ ok: false, error: 'extract-failed' });
+      console.error('[server] song download failed:', e.message);
+      res.status(502).json({ ok: false, error: 'download-failed' });
     }
   });
 

@@ -110,10 +110,11 @@ const I18N = {
     seekMusic: 'Qo‘shiq yoki ijrochi nomi', musicSkip: 'Musiqasiz davom etish',
     add: 'Qo‘shish', uploadMusic: 'Fayl yuklash', lookDone: 'Ko‘rib chiqdim',
     libEmptyTitle: 'Qo‘shiq nomini yozing',
-    libEmptyText: 'YouTube’dan topamiz. Yoki qo‘shiqni botga yuboring — u to‘liq yangraydi va boshlanishini tanlash mumkin.',
+    libEmptyText: 'Istalgan qo‘shiqni topamiz — u to‘liq yangraydi, boshlanishini esa o‘zingiz tanlaysiz.',
     libHead: 'nvate kutubxonasi', ytHead: 'YouTube’dan',
     ytSearching: 'YouTube’dan qidirilmoqda…', ytNone: 'YouTube’da hech narsa topilmadi',
-    ytNote: 'YouTube qo‘shig‘i boshidan yangraydi — boshlanish joyini tanlab bo‘lmaydi.',
+    songLoading: 'Yuklanmoqda…',
+    ytNote: (time) => `YouTube pleeri orqali ${time} dan yangraydi — to‘lqinni ko‘rsatib bo‘lmaydi.`,
     ytBlocked: 'Muallif bu videoni boshqa saytlarda qo‘yishni taqiqlagan — boshqasini tanlang',
     nextCue: 'Keyingi bosqich',
     libEmptyGo: 'Mening musiqam →',
@@ -121,8 +122,8 @@ const I18N = {
     botDropText: 'Istalgan Telegram kanalidan qo‘shiqni botga forward qiling — bir necha soniyada u shu yerda to‘liq holda paydo bo‘ladi.',
     botOpen: 'Botni ochish',
     mineFresh: (name) => `«${name}» botdan keldi`,
-    linkHint: 'YouTube havolasi (boshidan yangraydi) yoki to‘g‘ridan-to‘g‘ri mp3 havolasi.',
-    linkHintX: 'YouTube havolasi (boshidan yangraydi), Instagram yoki TikTok — qo‘shiqni ajratib olamiz.',
+    linkHint: 'YouTube havolasi yoki to‘g‘ridan-to‘g‘ri mp3 havolasi.',
+    linkHintX: 'YouTube, Instagram yoki TikTok havolasi — qo‘shiqni to‘liq olamiz, boshlanishini o‘zingiz tanlaysiz.',
     linkPh: 'https://…',
     extracting: 'Havoladan qo‘shiq olinmoqda…',
     eExtract: 'Havoladan qo‘shiqni olib bo‘lmadi',
@@ -132,7 +133,6 @@ const I18N = {
     tapeLoading: 'Qo‘shiq to‘lqini chizilmoqda…',
     tapeListening: 'Tinglanmoqda',
     tapePreview: 'Mehmonlar shunday eshitadi…',
-    chipQuiet: 'Tinch kirishsiz',
     chipTop: 'Top tanlov',
     eTpl: 'Dizayn', tTpl: 'Taklifnoma uslubi',
     leadTpl: 'Tanlash uchun uslubga bosing. Burchakdagi ko‘zcha to‘liq namunani ochadi.',
@@ -208,10 +208,11 @@ const I18N = {
     seekMusic: 'Песня или исполнитель', musicSkip: 'Продолжить без музыки',
     add: 'Добавить', uploadMusic: 'Загрузить файл', lookDone: 'Посмотрел',
     libEmptyTitle: 'Впишите название песни',
-    libEmptyText: 'Найдём на YouTube. Или пришлите песню боту — она прозвучит целиком, и можно выбрать, откуда начать.',
+    libEmptyText: 'Найдём любую песню — она прозвучит целиком, а начало выберете сами.',
     libHead: 'Библиотека nvate', ytHead: 'С YouTube',
     ytSearching: 'Ищем на YouTube…', ytNone: 'На YouTube ничего не нашлось',
-    ytNote: 'Песня с YouTube играет с начала — выбрать место старта нельзя.',
+    songLoading: 'Загружаем…',
+    ytNote: (time) => `Играет через плеер YouTube с ${time} — волну показать нельзя.`,
     ytBlocked: 'Автор запретил показывать это видео на других сайтах — выберите другое',
     nextCue: 'Следующий шаг',
     libEmptyGo: 'Моя музыка →',
@@ -219,8 +220,8 @@ const I18N = {
     botDropText: 'Перешлите трек боту из любого Telegram-канала — через пару секунд он появится здесь целиком.',
     botOpen: 'Открыть бота',
     mineFresh: (name) => `«${name}» пришла из бота`,
-    linkHint: 'Ссылка на YouTube (играет с начала) или прямая ссылка на mp3.',
-    linkHintX: 'Ссылка на YouTube (играет с начала), Instagram или TikTok — достанем песню.',
+    linkHint: 'Ссылка на YouTube или прямая ссылка на mp3.',
+    linkHintX: 'Ссылка на YouTube, Instagram или TikTok — возьмём песню целиком, начало выберете сами.',
     linkPh: 'https://…',
     extracting: 'Достаём песню из ссылки…',
     eExtract: 'Не получилось достать песню из ссылки',
@@ -230,7 +231,6 @@ const I18N = {
     tapeLoading: 'Рисуем волну песни…',
     tapeListening: 'Слушаем',
     tapePreview: 'Так услышат гости…',
-    chipQuiet: 'Без тихого вступления',
     chipTop: 'Топ выбор',
     eTpl: 'Дизайн', tTpl: 'Стиль приглашения',
     leadTpl: 'Нажмите на стиль, чтобы выбрать. Глазок в углу открывает полный пример.',
@@ -305,8 +305,8 @@ function applyI18n() {
   $('geo-q').setAttribute('aria-label', t('seekLbl'));
   $('music-q').placeholder = t('seekMusic');
   $('music-link').placeholder = t('linkPh');
-  $('link-hint').textContent = t(state.config?.extractEnabled ? 'linkHintX' : 'linkHint');
-  $('music-note').textContent = t('ytNote');
+  $('link-hint').textContent = t(state.config?.downloadEnabled ? 'linkHintX' : 'linkHint');
+  paintMusicNote();
   $('next-cue-label').textContent = t('nextCue');
   $('bot-open').hidden = !state.config?.botUrl;
   $('submit-label').textContent = t('pay');
@@ -620,13 +620,13 @@ function renderBlocks(waitIdx = -1) {
   renderBeads();
 }
 
-/* Камера ставит верх блока под шапку. Последнему открытому блоку ниже может не
-   хватить страницы — тогда он застревал посередине экрана. Хвост студии
-   вытягивается ровно настолько, чтобы верх блока доехал до места. */
-function makeRoom(el) {
+/* Последнему открытому блоку ниже может не хватить страницы — камера не довезла
+   бы его до места. Хвост студии вытягивается ровно настолько, чтобы верх блока
+   доехал до своей линии: под шапку или до середины экрана. */
+function makeRoom(el, line = headerOffset()) {
   const tail = document.querySelector('.studio-tail');
   if (!tail || !el) return;
-  const need = window.innerHeight - headerOffset() - el.offsetHeight - 24;
+  const need = window.innerHeight - line - el.offsetHeight - 24;
   tail.style.minHeight = need > 0 ? `${Math.ceil(need)}px` : '';
 }
 
@@ -687,14 +687,19 @@ function revealWhenSeen(i, run) {
   }
 }
 
+/* Автоскролл везёт новый блок только до середины экрана: его верх встаёт
+   посередине, а конец пройденного блока остаётся на виду. Блок уже выше
+   середины — камера стоит, назад она не едет. Прыжок по доку (scrollToBlock)
+   по-прежнему ставит блок под шапку. */
 async function cameraTo(i) {
   const el = blk(i);
   if (!el) return;
-  makeRoom(el);
-  const dest = Math.max(0, slotTop(el) - headerOffset());
+  const line = Math.round(window.innerHeight / 2);
+  makeRoom(el, line);
+  const dest = Math.max(0, slotTop(el) - line);
   const maxTop = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
   const y = Math.min(maxTop, dest);
-  const distance = Math.abs(y - window.scrollY);
+  const distance = y - window.scrollY;
   if (distance <= 8) return;
   const duration = Math.min(FLOW.scrollMax, Math.max(FLOW.scrollMin, 900 + distance * .9));
   await softScrollTo(y, duration);
@@ -1413,7 +1418,7 @@ let ytResults = [];
 let ytState = 'idle';         // idle | loading | ready | error
 let ytQuery = '';
 let ytSeq = 0;
-let ytOpen = null;            // id ролика, чей плеер раскрыт в списке
+let songBusy = null;          // id песни из поиска, которую сервер сейчас скачивает
 
 const clockText = (sec) => {
   const s = Math.max(0, Math.round(sec));
@@ -1477,30 +1482,34 @@ function trackRow(track, { fresh = false } = {}) {
   return row;
 }
 
-/* Ролик YouTube: тап раскрывает под строкой настоящий плеер — пара слышит
-   песню так же, как её сыграет приглашение, и тут же выбирает. */
-function youtubeRow(video) {
-  const open = ytOpen === video.id;
-  const chosen = state.music?.type === 'youtube' && youtubeIdOf(state.music.value) === video.id;
-  const head = h('button', { type: 'button', class: 'yt-head', 'aria-expanded': open ? 'true' : 'false' },
-    h('span', { class: 'yt-thumb' },
-      h('img', { src: video.thumb, alt: '', loading: 'lazy', decoding: 'async' }),
-      video.duration ? h('i', {}, clockText(video.duration)) : null),
-    h('span', { class: 'yt-info' }, h('b', {}, video.title), h('span', {}, video.channel)));
-  head.addEventListener('click', () => toggleYoutube(video));
-  let preview = null;
-  if (open) {
-    const pick = h('button', { type: 'button', class: 'btn btn--gold btn--block yt-pick' }, chosen ? t('taken') : t('take'));
-    pick.addEventListener('click', () => chooseYoutube(video));
-    preview = h('div', { class: 'yt-preview' },
-      h('iframe', {
-        src: `https://www.youtube-nocookie.com/embed/${video.id}?autoplay=1&playsinline=1&rel=0`,
-        allow: 'autoplay; encrypted-media; picture-in-picture',
-        title: video.title,
-      }),
-      pick);
-  }
-  return h('div', { class: `yt${open ? ' is-open' : ''}${chosen ? ' chosen' : ''}`, dataset: { id: video.id } }, head, preview);
+/* Песня из поиска — тот же ряд, что и на полке. Тап берёт её целиком. */
+function songRow(video) {
+  const busy = songBusy === video.id;
+  const chosen = state.music?.youtubeId === video.id
+    || (state.music?.type === 'youtube' && youtubeIdOf(state.music.value) === video.id);
+  const meta = [video.artist, video.duration ? clockText(video.duration) : ''].filter(Boolean).join(' · ');
+  const row = h('button', { type: 'button', class: `trk trk--song${busy ? ' is-busy' : ''}${chosen ? ' chosen' : ''}`, 'aria-busy': busy ? 'true' : null },
+    h('span', { class: 'trk-cover' }, h('img', { src: video.thumb, alt: '', loading: 'lazy', decoding: 'async' })),
+    h('span', { class: 'trk-info' }, h('b', {}, video.title), h('span', {}, meta)),
+    h('span', { class: 'trk-pick' }, busy ? t('songLoading') : chosen ? t('taken') : t('take')));
+  row.addEventListener('click', () => pickSong(video));
+  return row;
+}
+
+/* Сервер скачивает песню, строка тем временем дышит золотом. Готово — список
+   сворачивается и открывается лента. Не скачалась — играет плеер YouTube. */
+async function pickSong(video) {
+  if (songBusy) return;
+  haptic.tap();
+  hushStudio();
+  if (!state.config?.downloadEnabled) { await importYoutube(video.url); return; }
+  wakeTapeSound();
+  songBusy = video.id;
+  renderLibrary();
+  const track = await fetchSong(video.url);
+  songBusy = null;
+  if (track) { chooseTrack(track); return; }
+  if (!(await importYoutube(video.url))) renderLibrary();
 }
 
 function renderLibrary() {
@@ -1528,7 +1537,7 @@ function renderLibrary() {
     if (ytState === 'loading') box.appendChild(h('p', { class: 'lib-wait' }, t('ytSearching')));
     else if (ytState === 'error') box.appendChild(h('p', { class: 'lib-wait' }, t('eNet')));
     else if (!ytResults.length) box.appendChild(h('p', { class: 'lib-wait' }, t('ytNone')));
-    else ytResults.forEach((video) => box.appendChild(youtubeRow(video)));
+    else ytResults.forEach((video) => box.appendChild(songRow(video)));
     return;
   }
 
@@ -1562,7 +1571,6 @@ const searchYoutubeSoon = debounce(async () => {
   const seq = ++ytSeq;
   ytQuery = q;
   ytState = 'loading';
-  ytOpen = null;
   renderLibrary();
   try {
     const response = await fetch(`/api/music/youtube/search?q=${encodeURIComponent(q)}`);
@@ -1587,30 +1595,11 @@ function onMusicQuery() {
     ytQuery = '';
     ytResults = [];
     ytState = 'idle';
-    ytOpen = null;
   } else if (q !== ytQuery) {
     ytState = 'loading';
   }
   renderLibrary();
   searchYoutubeSoon();
-}
-
-function toggleYoutube(video) {
-  haptic.tap();
-  if (ytOpen === video.id) { ytOpen = null; renderLibrary(); return; }
-  pauseTape();
-  if (!player.paused) player.pause();
-  playingUrl = null;
-  activeTrackUrl = null;
-  ytOpen = video.id;
-  renderLibrary();
-}
-
-// Скрытый iframe продолжает играть — плеер из списка убираем целиком.
-function closeYoutubePreview() {
-  if (!ytOpen) return;
-  ytOpen = null;
-  renderLibrary();
 }
 
 function renderMyTracks(fresh = new Set()) {
@@ -1671,7 +1660,7 @@ function switchMusicTab(index) {
   document.querySelector('.segs')?.classList.toggle('at-1', index === 1);
   $('ms-top').hidden = index !== 0;
   $('ms-mine').hidden = index !== 1;
-  if (index === 1) { closeYoutubePreview(); loadMyTracks({ announce: true }); }
+  if (index === 1) loadMyTracks({ announce: true });
   syncMinePoll();
 }
 
@@ -1689,7 +1678,6 @@ function togglePlay(track) {
   const url = track.url;
   haptic.tap();
   pauseTape();
-  closeYoutubePreview();
   activeTrackUrl = url;
   if (playingUrl === url) {
     player.pause();
@@ -1729,7 +1717,6 @@ function hushStudio() {
   pauseTape();
   if (!player.paused) player.pause();
   if (playingUrl) { playingUrl = null; refreshPlayUI(); }
-  closeYoutubePreview();
 }
 
 function chooseTrack(track) {
@@ -1740,23 +1727,23 @@ function chooseTrack(track) {
     artist: track.artist || '',
     playUrl: track.url,
     duration: track.duration || null,
+    youtubeId: track.youtubeId || null,
   });
 }
 
 function chooseYoutube(video) {
-  ytOpen = null;
   setMusic({
     type: 'youtube',
     value: video.url,
     name: video.title || 'YouTube',
-    artist: video.channel ? `YouTube · ${video.channel}` : 'YouTube',
+    artist: video.artist ? `YouTube · ${video.artist}` : 'YouTube',
     playUrl: null,
   });
 }
 
 /* Выбрал трек — прослушивание останавливается, список сворачивается в карточку.
-   Под файлом раскрывается лента: откуда гости услышат песню. У YouTube ленты
-   нет — там честная подпись, что песня играет с начала. */
+   Под файлом раскрывается лента: игла сама встаёт на «Топ выбор», и это место
+   звучит пять секунд. У плеера YouTube ленты нет — честная подпись, откуда он играет. */
 function setMusic(music) {
   state.music = music;
   state.musicStart = 0;
@@ -1770,12 +1757,18 @@ function setMusic(music) {
   $('picked-artist').textContent = music.artist || '';
   $('music-pick').hidden = true;
   $('music-picked').hidden = false;
-  $('music-note').hidden = music.type !== 'youtube';
+  paintMusicNote();
   renderLibrary();
   syncMinePoll();
-  openTrim();
+  openTrim({ fresh: true });
   saveDraft();
   autoAdvance(620);
+}
+
+function paintMusicNote() {
+  const note = $('music-note');
+  note.hidden = state.music?.type !== 'youtube';
+  if (!note.hidden) note.textContent = t('ytNote', clockText(state.musicStart || 0));
 }
 
 function reopenMusic() {
@@ -1789,67 +1782,77 @@ function reopenMusic() {
   syncMinePoll();
 }
 
-const EXTRACTABLE = /(?:instagram\.com|tiktok\.com)\//i;
+const LINKABLE = /^https:\/\/([\w-]+\.)*(instagram\.com|tiktok\.com)\//i;
 
+/* Ссылка из «Моей музыки». Сервер с yt-dlp превращает YouTube, Instagram и TikTok
+   в файл с волной и выбором начала; без него YouTube играет своим плеером, а
+   прямой mp3 — как есть. */
 async function addMusicLink() {
-  const url = $('music-link').value.trim();
-  if (!/^https?:\/\/\S+$/.test(url)) { toast(t('eLink'), 'err'); return; }
-  // YouTube — всегда своим плеером: песня целиком, но с начала ролика.
-  if (youtubeIdOf(url)) { await importYoutube(url); return; }
-  if (state.config?.extractEnabled && EXTRACTABLE.test(url)) { await extractLink(url); return; }
-  if (!/\.(mp3|m4a|ogg|wav)(\?|$)/i.test(url)) { toast(t('eLink'), 'err'); return; }
-  setMusic({
-    type: 'custom',
-    value: url,
-    name: t('myTrack'),
-    artist: url.replace(/^https?:\/\//, '').slice(0, 40),
-    playUrl: url,
-  });
-}
-
-async function importYoutube(url) {
+  const input = $('music-link');
   const button = $('music-link-go');
   if (button.disabled) return;
+  const url = input.value.trim();
+  if (!/^https?:\/\/\S+$/.test(url)) { toast(t('eLink'), 'err'); return; }
+  const youtube = Boolean(youtubeIdOf(url));
+  const download = Boolean(state.config?.downloadEnabled) && (youtube || LINKABLE.test(url));
+  if (!download && !youtube) {
+    if (!/\.(mp3|m4a|ogg|wav)(\?|$)/i.test(url)) { toast(t('eLink'), 'err'); return; }
+    input.value = '';
+    setMusic({ type: 'custom', value: url, name: t('myTrack'), artist: url.replace(/^https?:\/\//, '').slice(0, 40), playUrl: url });
+    return;
+  }
   button.disabled = true;
   button.classList.add('btn--wait');
   try {
-    const response = await fetch(`/api/music/youtube/info?url=${encodeURIComponent(url)}`);
-    const data = await response.json().catch(() => ({}));
-    if (response.status === 422) { toast(t('ytBlocked'), 'err'); return; }
-    if (response.status === 400) { toast(t('eLink'), 'err'); return; }
-    $('music-link').value = '';
-    // YouTube не ответил — ссылка всё равно рабочая, берём её как есть.
-    chooseYoutube(response.ok && data.ok ? data.video : { url, title: 'YouTube', channel: url.replace(/^https?:\/\//, '').slice(0, 40) });
-  } catch (_) {
-    toast(t('eNet'), 'err');
+    let track = null;
+    if (download) {
+      wakeTapeSound();
+      toast(t('extracting'), 'info', 2600);
+      track = await fetchSong(url);
+    }
+    if (track) {
+      input.value = '';
+      if (!track.youtubeId) rememberMine(track);
+      chooseTrack(track);
+    } else if (youtube) {
+      if (await importYoutube(url)) input.value = '';
+    } else {
+      toast(t('eExtract'), 'err');
+    }
   } finally {
     button.disabled = false;
     button.classList.remove('btn--wait');
   }
 }
 
-async function extractLink(url) {
-  const button = $('music-link-go');
-  if (button.disabled) return;
-  button.disabled = true;
-  button.classList.add('btn--wait');
-  toast(t('extracting'), 'info', 2600);
+async function fetchSong(url) {
   try {
-    const response = await fetch('/api/extract', {
+    const response = await fetch('/api/music/link', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-init-data': tg ? tg.initData : '' },
       body: JSON.stringify({ url }),
     });
-    const data = await response.json();
-    if (!response.ok || !data.ok || !data.track) throw new Error('extract');
-    $('music-link').value = '';
-    rememberMine(data.track);
-    chooseTrack(data.track);
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 429) toast(t('eTooMany'), 'err');
+    return response.ok && data.ok && data.track ? data.track : null;
   } catch (_) {
-    toast(t('eExtract'), 'err');
-  } finally {
-    button.disabled = false;
-    button.classList.remove('btn--wait');
+    return null;
+  }
+}
+
+/* Плеер YouTube годится, только если автор разрешил встраивание. */
+async function importYoutube(url) {
+  try {
+    const response = await fetch(`/api/music/youtube/info?url=${encodeURIComponent(url)}`);
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 422) { toast(t('ytBlocked'), 'err'); return false; }
+    if (response.status === 400) { toast(t('eLink'), 'err'); return false; }
+    // YouTube не ответил — ссылка всё равно рабочая, берём её как есть.
+    chooseYoutube(response.ok && data.ok ? data.video : { url, title: 'YouTube', artist: '' });
+    return true;
+  } catch (_) {
+    toast(t('eNet'), 'err');
+    return false;
   }
 }
 
@@ -1882,10 +1885,12 @@ async function uploadMusicFile(file) {
    Волна трека лежит лентой под неподвижной золотой иглой. Ленту тянут пальцем,
    как отрывок в сторис: что оказалось под иглой — с того гости и услышат.
    Отпущенная лента звучит с этого места пять секунд и плавно затихает — ровно
-   столько, чтобы узнать место, и не дольше, чтобы не мешать думать. Подсказки
-   под лентой: конец тихого вступления и «топ выбор» — откуда этот трек чаще
-   всего запускают другие пары. Конца у отрывка нет: в приглашении песня
-   играет до последней секунды и мягко возвращается к отметке. */
+   столько, чтобы узнать место, и не дольше, чтобы не мешать думать. Подсказка
+   под лентой одна — «Топ выбор»: откуда трек запускают другие пары, пока их
+   мало — самый переслушиваемый момент на YouTube, а если и его нет — конец
+   тихого вступления. Свежевыбранная песня сама встаёт на неё. Конца у отрывка
+   нет: в приглашении песня играет до последней секунды и мягко возвращается
+   к отметке. */
 
 const TAPE = Object.freeze({
   px: 10,         // пикселей на секунду: секунда — ширина пальца на ленте
@@ -1901,12 +1906,11 @@ const TAPE = Object.freeze({
 const tape = {
   token: 0, src: null, url: null, duration: 0, peaks: null, energy: null,
   px: TAPE.px, needle: 0, width: 0, viewWidth: 0,
-  playing: false, previewing: false, touching: false, scrubbed: false, gliding: false, glide: 0,
+  playing: false, previewing: false, touching: false, touched: false, scrubbed: false, gliding: false, glide: 0,
   expect: null, lastMark: -1, raf: 0, playToken: 0, primed: false, fadeTimer: 0, volTimer: 0,
-  marks: { quiet: null, popular: null, uses: 0 },
+  marks: { top: null },
 };
 
-const trimmable = () => Boolean(state.music?.playUrl);
 const maxStart = () => Math.max(0, Math.floor(tape.duration - 1));
 const clampStart = (sec) => Math.max(0, Math.min(maxStart(), Math.round(Number(sec) || 0)));
 
@@ -2117,19 +2121,18 @@ function drawRuler(ctx, r, g, b) {
       ctx.fillText(clockText(s), x + 4, y + 2);
     }
   }
-  // Ромбики над линейкой — туда ведут подсказки под лентой.
+  // Ромбик над линейкой — туда ведёт «Топ выбор».
+  const sec = tape.marks.top;
+  if (sec === null || sec === undefined) return;
+  const x = sec * tape.px;
   ctx.fillStyle = `rgb(${Math.min(255, r + 30)}, ${Math.min(255, g + 30)}, ${Math.min(255, b + 50)})`;
-  for (const sec of [tape.marks.quiet, tape.marks.popular]) {
-    if (sec === null || sec === undefined) continue;
-    const x = sec * tape.px;
-    ctx.beginPath();
-    ctx.moveTo(x, y - 7);
-    ctx.lineTo(x + 3.5, y - 3.5);
-    ctx.lineTo(x, y);
-    ctx.lineTo(x - 3.5, y - 3.5);
-    ctx.closePath();
-    ctx.fill();
-  }
+  ctx.beginPath();
+  ctx.moveTo(x, y - 7);
+  ctx.lineTo(x + 3.5, y - 3.5);
+  ctx.lineTo(x, y);
+  ctx.lineTo(x - 3.5, y - 3.5);
+  ctx.closePath();
+  ctx.fill();
 }
 
 /* Звучащий отрезок подсвечен золотом: от отметки и до того, что играет сейчас. */
@@ -2172,22 +2175,17 @@ function paintTape() {
 function paintChips() {
   const box = $('tape-chips');
   if (!box) return;
-  const start = state.musicStart || 0;
-  const away = (sec) => sec !== null && sec !== undefined && Math.abs(sec - start) > 1;
-  const chips = [];
-  if (away(tape.marks.popular)) chips.push(['top', tape.marks.popular, t('chipTop')]);
-  if (away(tape.marks.quiet)) chips.push(['quiet', tape.marks.quiet, t('chipQuiet')]);
-  const key = `${LANG}/${chips.map((chip) => chip.join('|')).join('/')}`;
+  const top = tape.marks.top;
+  const show = top !== null && top !== undefined && Math.abs(top - (state.musicStart || 0)) > 1;
+  const key = `${LANG}/${show ? top : '-'}`;
   if (box.dataset.key === key) return;
   box.dataset.key = key;
   box.innerHTML = '';
-  box.hidden = !chips.length;
-  for (const [kind, sec, label] of chips) {
-    const chip = h('button', { type: 'button', class: `tape-chip tape-chip--${kind}` },
-      h('span', {}, label), h('b', {}, clockText(sec)));
-    chip.addEventListener('click', () => { haptic.tap(); primeTape(); glideTo(sec, { play: true }); });
-    box.appendChild(chip);
-  }
+  box.hidden = !show;
+  if (!show) return;
+  const chip = h('button', { type: 'button', class: 'tape-chip' }, h('span', {}, t('chipTop')), h('b', {}, clockText(top)));
+  chip.addEventListener('click', () => { haptic.tap(); tape.touched = true; primeTape(); glideTo(top, { play: true }); });
+  box.appendChild(chip);
 }
 
 /* ── Звук ──
@@ -2224,6 +2222,18 @@ function tapeElement() {
     if (!tapeSound.plain) tapeSound.plain = newTapeElement();
     return tapeSound.plain;
   }
+  return routedTapeElement();
+}
+
+/* Песню выбрали касанием, а зазвучит она через несколько секунд — после
+   скачивания и волны. iOS даёт звук только из касания, поэтому звук ленты
+   заводим сразу, пока касание ещё «наше». */
+function wakeTapeSound() {
+  routedTapeElement();
+  tapeSound.ctx?.resume?.().catch(() => {});
+}
+
+function routedTapeElement() {
   if (!tapeSound.routed) {
     tapeSound.routed = newTapeElement();
     const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -2286,7 +2296,6 @@ function playTape(from = state.musicStart || 0, { preview = false } = {}) {
   const token = ++tape.playToken;
   clearTimeout(tape.fadeTimer);
   if (playingUrl || !player.paused) { player.pause(); playingUrl = null; activeTrackUrl = null; refreshPlayUI(); }
-  closeYoutubePreview();
   const el = tapeElement();
   const go = () => {
     if (token !== tape.playToken) return;
@@ -2462,20 +2471,29 @@ function mountTape() {
   paintTape();
 }
 
-async function openTrim() {
+async function openTrim({ fresh = false } = {}) {
   const box = $('music-trim');
   if (!box) return;
   const token = ++tape.token;
   pauseTape();
   Object.assign(tape, {
-    src: null, url: null, duration: 0, peaks: null, energy: null, width: 0, primed: false, scrubbed: false,
-    marks: { quiet: null, popular: null, uses: 0 },
+    src: null, url: null, duration: 0, peaks: null, energy: null, width: 0, primed: false, scrubbed: false, touched: false,
+    marks: { top: null },
   });
   $('tape-chips').dataset.key = '';
   $('tape-chips').innerHTML = '';
+  const top = fetchTopStart(state.music);
   const url = state.music?.playUrl;
-  // У YouTube нет ни звука для волны, ни управления началом — ленту не показываем.
-  if (!url) { box.hidden = true; return; }
+  // У плеера YouTube нет звука для волны: ленты нет, но играет он с «Топ выбора».
+  if (!url) {
+    box.hidden = true;
+    const cut = fresh && state.music?.type === 'youtube' ? await top : null;
+    if (token !== tape.token || !cut) return;
+    state.musicStart = cut.start;
+    saveDraft();
+    paintMusicNote();
+    return;
+  }
 
   box.hidden = false;
   box.classList.add('is-loading');
@@ -2490,10 +2508,30 @@ async function openTrim() {
   box.classList.remove('is-loading');
   if (!wave) { box.hidden = true; return; }
   Object.assign(tape, { src: wave.src, url, duration: wave.duration, peaks: wave.peaks, energy: wave.energy });
-  tape.marks.quiet = findQuietIntro(wave.energy, wave.duration);
   state.musicStart = clampStart(state.musicStart);
   mountTape();
-  loadTopStart(token);
+
+  const cut = await Promise.race([top, wait(2500).then(() => null)]);
+  if (token !== tape.token) return;
+  tape.marks.top = cut && cut.start < tape.duration - 1 ? cut.start : findQuietIntro(wave.energy, wave.duration);
+  if (tape.width) drawTape();
+  paintTape();
+  if (!fresh || tape.touched) return;
+  if (tape.marks.top !== null) glideTo(tape.marks.top, { play: true });
+  else playTape(0, { preview: true });
+}
+
+/* «Топ выбор» с сервера: где этот трек запускают пары, а пока пар мало — самый
+   переслушиваемый момент песни на YouTube. */
+async function fetchTopStart(music) {
+  if (!music) return null;
+  try {
+    const query = new URLSearchParams({ type: music.type, url: String(music.value ?? '') });
+    const cut = (await (await fetch(`/api/music/cut?${query}`)).json()).cut;
+    return cut && Number.isFinite(cut.start) ? cut : null;
+  } catch (_) {
+    return null;
+  }
 }
 
 function closeTrim() {
@@ -2505,23 +2543,6 @@ function closeTrim() {
   if (box) { box.hidden = true; box.classList.remove('is-loading', 'is-playing', 'is-set', 'is-fading', 'is-scrubbing'); }
 }
 
-/* «Топ выбор»: откуда этот трек чаще всего запускают другие пары. */
-async function loadTopStart(token) {
-  const music = state.music;
-  if (!music || music.type === 'youtube') return;
-  const query = new URLSearchParams({ type: music.type, url: String(music.value ?? '') });
-  let cut = null;
-  try {
-    const response = await fetch(`/api/music/cut?${query}`);
-    cut = (await response.json()).cut;
-  } catch (_) { return; }
-  if (token !== tape.token || !cut || !Number.isFinite(cut.start) || cut.start >= tape.duration - 1) return;
-  tape.marks.popular = cut.start;
-  tape.marks.uses = cut.uses;
-  if (tape.width) drawTape();
-  paintTape();
-}
-
 function wireTape() {
   const view = $('tape-view');
   $('trim-play').addEventListener('click', toggleTapePlay);
@@ -2529,6 +2550,7 @@ function wireTape() {
 
   const grab = () => {
     tape.touching = true;
+    tape.touched = true;
     tape.expect = null;
     tape.glide += 1;
     tape.gliding = false;
@@ -2567,6 +2589,7 @@ function wireTape() {
 
   view.addEventListener('keydown', (event) => {
     if (!tape.duration) return;
+    tape.touched = true;
     const step = event.shiftKey ? 5 : 1;
     const moves = { ArrowLeft: -step, ArrowRight: step, PageUp: -15, PageDown: 15 };
     if (event.key in moves) {
@@ -3080,7 +3103,7 @@ function collectForm() {
     photos: state.photos.filter((p) => p.name).slice(0, requiredPhotos()).map((p) => p.name),
     musicType: state.music?.type ?? 'none',
     musicValue: state.music?.value ?? null,
-    musicStart: trimmable() ? state.musicStart ?? null : null,
+    musicStart: state.music ? state.musicStart ?? null : null,
     musicEnd: null,
     templateId: state.templateId,
     guestNames: cleanGuests(),
@@ -3219,6 +3242,18 @@ function wireKeyboard() {
   }, { passive: true });
 
   document.addEventListener('touchend', () => { swipeFrom = null; }, { passive: true });
+
+  /* Пара замолчала на три секунды — клавиатура уходит сама, в любом поле студии.
+     У имён и адреса за те же три секунды камера ещё и едет дальше (autoAdvance). */
+  let typingTimer = 0;
+  document.addEventListener('input', (event) => {
+    const field = typingField(event.target);
+    if (!field) return;
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(() => {
+      if (document.activeElement === field) dismissField(field);
+    }, TYPING_PAUSE);
+  });
 }
 
 function wire() {
@@ -3290,7 +3325,6 @@ function wire() {
     playingUrl = null;
     activeTrackUrl = null;
     closeTrim();
-    ytOpen = null;
     $('music-picked').hidden = true;
     $('music-note').hidden = true;
     renderLibrary();
@@ -3383,6 +3417,7 @@ async function start() {
     $('picked-artist').textContent = state.music.artist || '';
     $('music-pick').hidden = true;
     $('music-picked').hidden = false;
+    paintMusicNote();
     openTrim();
   }
   const resuming = !testingTemplates && state.open > 0;
