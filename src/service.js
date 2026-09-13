@@ -8,6 +8,7 @@ import { guestPrice, addonPrice, pricedAddons } from './pricing.js';
 import { findTemplate } from './templateStore.js';
 import { UPLOADS_DIR } from './upload.js';
 import { normalizeDesign } from './design.js';
+import { findVenue } from './venues.js';
 
 export class ValidationError extends Error {
   constructor(message, step = null) {
@@ -165,6 +166,10 @@ export function validateForm(form, { requirePhone = false } = {}) {
   const chosen = pricedAddons().filter((a) => a.listed !== false && wanted.has(a.id));
   const extras = Object.fromEntries(chosen.map((a) => [a.id, true]));
   extras.design = normalizeDesign(form.design);
+  // Тойхона из справочника: вид и ориентир под названием в приглашении берём
+  // из каталога, а не из формы — подписать место чужим адресом нельзя.
+  const venue = typeof form.venueId === 'string' ? findVenue(form.venueId) : null;
+  if (venue && !venue.draft) extras.venue = { id: venue.id, name: venue.name, kind: venue.kind, address: venue.address };
   const addonsPrice = chosen.reduce((sum, a) => sum + a.price, 0);
   const domainEnabled = Boolean(extras.domain);
   const domainPrice = domainEnabled ? addonPrice('domain', 0) : 0;

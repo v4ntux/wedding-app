@@ -1,14 +1,15 @@
-import { Bot, InlineKeyboard } from 'grammy';
+import { Bot, InlineKeyboard, InputFile } from 'grammy';
 import { writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { payApplication, cancelApplication, ValidationError, mapsLinks } from './service.js';
 import { findMusicPreset, SUPPORT_URL, ADDONS, GUEST_LINK_PRICE, MAX_PHOTOS } from './config.js';
 import { findTemplate, publicTemplates } from './templateStore.js';
-import { markMainSent, markGuestSent, getApplication, listGuests, refreshSettings, getTrack, setTrackLibrary, trackByTelegram } from './db.js';
+import { markMainSent, markGuestSent, getApplication, listGuests, refreshSettings, getTrack, setTrackLibrary, trackByTelegram, getApplicationBySlug, getGuestById, setGuestMessage } from './db.js';
 import { UPLOADS_DIR } from './upload.js';
 import { escapeHtml as esc } from './render.js';
 import { addTrack, metaFromFileName, trackLabel, MAX_TRACK_BYTES } from './music.js';
+import { renderShareCard } from './share.js';
 
 function money(n) {
   return `${Number(n).toLocaleString('ru-RU')} сум`;
@@ -35,6 +36,18 @@ function photoCount(app) {
   } catch {
     return 0;
   }
+}
+
+const MONTHS = {
+  uz: ['yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun', 'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr'],
+  ru: ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'],
+};
+
+// «19-sentabr, 2027» / «19 сентября 2027» — дата свадьбы на языке пары.
+function weddingDate(app) {
+  const [y, m, d] = String(app.wedding_date ?? '').split('-').map(Number);
+  if (!y || !m || !d) return esc(app.wedding_date ?? '');
+  return app.lang === 'ru' ? `${d} ${MONTHS.ru[m - 1]} ${y}` : `${d}-${MONTHS.uz[m - 1]}, ${y}`;
 }
 
 const STATUS_LINE = {
@@ -398,6 +411,84 @@ export function createBot({ token, adminIds = [], baseUrl }) {
   });
   bot.callbackQuery('noop', (ctx) => ctx.answerCallbackQuery());
 
+  /* ── Инлайн-режим: сама отправка приглашения ──
+     «Поделиться» открывает выбор чата и подставляет «@nvate_bot inv slug»; бот
+     отвечает карточкой приглашения, пара жмёт её — и сообщение ушло. Именная
+     кнопка («g id») срабатывает один раз: как только пара выбрала чат, кнопку в
+     её сообщении снимаем и помечаем ссылку отправленной. */
+  function guestInvite(app, name) {
+    return app.lang === 'ru'
+      ? `💌 ${name}, ${app.groom_name} и ${app.bride_name} приглашают вас на свадьбу`
+      : `💌 Hurmatli ${name}! ${app.groom_name} va ${app.bride_name} sizni to‘yga taklif qiladi`;
+  }
+
+  function inviteResult(app, link, guest = null) {
+    const uz = app.lang !== 'ru';
+    const couple = `${esc(app.groom_name)} &amp; ${esc(app.bride_name)}`;
+    const when = `📅 ${weddingDate(app)}  ·  🕰 ${esc(app.wedding_time)}`;
+    const where = app.address ? `\n📍 ${esc(app.address)}` : '';
+    const head = guest
+      ? (uz
+        ? `💌 <b>Hurmatli ${esc(guest.name)}!</b>\n\n💍 <b>${couple}</b> sizni to‘yiga taklif qiladi.`
+        : `💌 <b>${esc(guest.name)}, здравствуйте!</b>\n\n💍 <b>${couple}</b> приглашают вас на свадьбу.`)
+      : (uz
+        ? `💌 <b>Taklifnoma</b>\n\n💍 <b>${couple}</b>\nSizni to‘yimizga taklif qilamiz!`
+        : `💌 <b>Приглашение на свадьбу</b>\n\n💍 <b>${couple}</b>\nПриглашаем вас разделить с нами этот день!`);
+    const couplePlain = `${app.groom_name} & ${app.bride_name}`;
+    return {
+      type: 'article',
+      id: guest ? `g-${guest.id}` : `m-${app.id}`,
+      title: guest
+        ? (uz ? `💌 ${guest.name} uchun taklifnoma` : `💌 Приглашение: ${guest.name}`)
+        : (uz ? `💌 ${couplePlain} — taklifnoma` : `💌 ${couplePlain} — приглашение`),
+      description: `${weddingDate(app)} · ${link}`,
+      input_message_content: {
+        message_text: `${head}\n\n${when}${where}\n\n🔗 ${link}`,
+        parse_mode: 'HTML',
+        link_preview_options: { is_disabled: true },
+      },
+      reply_markup: new InlineKeyboard().url(uz ? '💌 Taklifnomani ochish' : '💌 Открыть приглашение', link),
+    };
+  }
+
+  async function consumeGuestButton(api, app, guest) {
+    if (Number(guest.sent)) return;
+    await markGuestSent(app.id, guest.slug);
+    if (!guest.message_id) return;
+    const uz = app.lang !== 'ru';
+    try {
+      await api.editMessageText(app.tg_user_id, Number(guest.message_id),
+        `${guestCard(app, guest)}\n\n✅ <b>${uz ? 'Yuborildi' : 'Отправлено'}</b>`,
+        { parse_mode: 'HTML', link_preview_options: { is_disabled: true }, reply_markup: { inline_keyboard: [] } });
+    } catch { /* сообщение удалено или уже изменено */ }
+  }
+
+  bot.on('inline_query', async (ctx) => {
+    const query = ctx.inlineQuery.query.trim();
+    const main = /^inv\s+([a-z0-9-]{1,120})$/i.exec(query);
+    const named = /^g\s+(\d{1,12})$/.exec(query);
+    try {
+      if (main) {
+        const app = await getApplicationBySlug(main[1].toLowerCase());
+        if (!app) return await ctx.answerInlineQuery([], { cache_time: 10 });
+        return await ctx.answerInlineQuery([inviteResult(app, `${baseUrl}/${app.slug}`)], { cache_time: 60 });
+      }
+      if (named) {
+        const guest = await getGuestById(Number(named[1]));
+        const app = guest ? await getApplication(guest.application_id) : null;
+        // Именную ссылку отправляет только сама пара.
+        if (!guest || !app?.slug || app.status !== 'paid' || Number(app.tg_user_id) !== Number(ctx.from.id)) {
+          return await ctx.answerInlineQuery([], { cache_time: 0, is_personal: true });
+        }
+        await consumeGuestButton(ctx.api, app, guest);
+        return await ctx.answerInlineQuery([inviteResult(app, `${baseUrl}/${app.slug}/${guest.slug}`, guest)], { cache_time: 0, is_personal: true });
+      }
+      await ctx.answerInlineQuery([], { cache_time: 300 });
+    } catch (e) {
+      console.error('[bot] inline query failed:', e.message ?? e);
+    }
+  });
+
   // Прочие сообщения: подсказка chat id, пока ADMIN_CHAT_IDS не настроен.
   bot.on('message', async (ctx) => {
     if (!adminIds.length) {
@@ -408,39 +499,67 @@ export function createBot({ token, adminIds = [], baseUrl }) {
     }
   });
 
-  // Уведомление пары после подтверждения: общая ссылка + именные ссылки с кнопкой «Отправить».
-  async function notifyCouplePaid(api, app, guests) {
+  /* ── Готовое приглашение: что получает пара ──
+     Сначала карточка с QR-кодом — её сканируют с экрана или печатают на столы.
+     Затем общая ссылка с кнопкой «Поделиться»: жми сколько угодно раз, отправляй
+     кому угодно. В конце — именные ссылки: у каждой кнопка одноразовая и
+     исчезает, как только приглашение ушло гостю.
+     Кнопки работают через инлайн-режим бота (@BotFather → /setinline). Пока он
+     выключен, остаётся обычная ссылка «поделиться» — рабочая, но многоразовая. */
+  const inlineShare = () => {
+    try { return Boolean(bot.botInfo?.supports_inline_queries); } catch { return false; }
+  };
+  const shareLink = (link, text) => `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
+  const guestCard = (app, guest) => `👤 <b>${esc(guest.name)}</b>\n🔗 ${baseUrl}/${app.slug}/${guest.slug}`;
+
+  async function notifyCouplePaid(api, app) {
     const uz = app.lang !== 'ru';
+    const chat = app.tg_user_id;
     const link = `${baseUrl}/${app.slug}`;
+    const couple = `${esc(app.groom_name)} &amp; ${esc(app.bride_name)}`;
+    const when = `📅 ${weddingDate(app)}  ·  🕰 ${esc(app.wedding_time)}`;
+    const where = app.address ? `\n📍 ${esc(app.address)}` : '';
+    const quiet = { parse_mode: 'HTML', link_preview_options: { is_disabled: true } };
 
-    // Одна кнопка: нажал → ссылка помечается отправленной, а через 2 секунды
-    // сообщение переписывается и прямо говорит, что она уже отправлена.
-    const shareBtn = (cbData) =>
-      new InlineKeyboard().text(uz ? '📤 Ulashish' : '📤 Поделиться', cbData);
-
-    await api.sendMessage(app.tg_user_id,
-      uz
-        ? `🎉 Tabriklaymiz! Taklifnomangiz tayyor.\n\n🔗 <b>Umumiy havola:</b>\n${link}`
-        : `🎉 Поздравляем! Ваше приглашение готово.\n\n🔗 <b>Общая ссылка:</b>\n${link}`,
-      {
-        parse_mode: 'HTML', link_preview_options: { is_disabled: true },
-        reply_markup: app.main_sent
-          ? new InlineKeyboard().text('✅ Yuborildi · Отправлено', 'noop')
-          : shareBtn(`sent:${app.id}:m`),
+    try {
+      await api.sendPhoto(chat, new InputFile(renderShareCard(link), `nvate-${app.slug}.png`), {
+        parse_mode: 'HTML',
+        caption: uz
+          ? `🎉 <b>Tabriklaymiz! Taklifnomangiz tayyor</b>\n\n💍 <b>${couple}</b>\n${when}${where}\n\n📲 QR-kodni telefon kamerasida skanerlang — taklifnoma darhol ochiladi.\n🖨 Kartochkani chop etib, stollarga yoki konvertlarga qo‘yish mumkin.`
+          : `🎉 <b>Поздравляем! Ваше приглашение готово</b>\n\n💍 <b>${couple}</b>\n${when}${where}\n\n📲 Наведите камеру телефона на QR-код — приглашение откроется сразу.\n🖨 Карточку можно распечатать и поставить на столы или вложить в конверты.`,
       });
+    } catch (e) {
+      // Без карточки пара всё равно получает ссылки ниже.
+      console.error('[bot] QR card failed:', e.message ?? e);
+    }
 
-    if (guests.length) {
-      await api.sendMessage(app.tg_user_id, uz
-        ? '👥 Har bir mehmon uchun shaxsiy havola:'
-        : '👥 Личная ссылка для каждого гостя:');
-      for (const g of guests) {
-        const glink = `${baseUrl}/${app.slug}/${g.slug}`;
-        await api.sendMessage(app.tg_user_id,
-          `<b>${esc(g.name)}</b>\n${glink}`, {
-            parse_mode: 'HTML', link_preview_options: { is_disabled: true },
-            reply_markup: shareBtn(`sent:${app.id}:g${g.id}`),
-          });
-      }
+    const invite = uz
+      ? `💌 ${app.groom_name} va ${app.bride_name} to‘yiga taklifnoma`
+      : `💌 Приглашение на свадьбу: ${app.groom_name} и ${app.bride_name}`;
+    const main = new InlineKeyboard();
+    if (inlineShare()) main.switchInline(uz ? '📤 Ulashish' : '📤 Поделиться', `inv ${app.slug}`);
+    else main.url(uz ? '📤 Ulashish' : '📤 Поделиться', shareLink(link, invite));
+    main.row().url(uz ? '💌 Taklifnomani ochish' : '💌 Открыть приглашение', link);
+    await api.sendMessage(chat, uz
+      ? `🔗 <b>Umumiy havola</b> — barcha mehmonlar uchun\n${link}\n\n👇 «Ulashish» tugmasi bilan taklifnomani do‘stlar, qarindoshlar va guruhlarga yuboring — xohlagancha marta.`
+      : `🔗 <b>Общая ссылка</b> — для всех гостей\n${link}\n\n👇 Кнопкой «Поделиться» отправьте приглашение друзьям, родным и в группы — сколько угодно раз.`,
+      { ...quiet, reply_markup: main });
+
+    const guests = await listGuests(app.id);
+    if (!guests.length) return;
+    const oneTime = inlineShare();
+    await api.sendMessage(chat, uz
+      ? `👥 <b>Ismli taklifnomalar</b> — ${guests.length} ta\nHar bir mehmon taklifnomani ochganda o‘z ismini ko‘radi.${oneTime ? '\n\n☝️ «Yuborish» tugmasi bir martalik: taklifnoma yuborilishi bilan u yo‘qoladi.' : ''}`
+      : `👥 <b>Именные приглашения</b> — ${guests.length}\nКаждый гость увидит в приглашении своё имя.${oneTime ? '\n\n☝️ Кнопка «Отправить» одноразовая: как только приглашение ушло, она исчезает.' : ''}`,
+      { parse_mode: 'HTML' });
+    for (const guest of guests) {
+      const name = String(guest.name).slice(0, 32);
+      const label = uz ? `📨 Yuborish · ${name}` : `📨 Отправить · ${name}`;
+      const keyboard = oneTime
+        ? new InlineKeyboard().switchInline(label, `g ${guest.id}`)
+        : new InlineKeyboard().url(label, shareLink(`${baseUrl}/${app.slug}/${guest.slug}`, guestInvite(app, guest.name)));
+      const sent = await api.sendMessage(chat, guestCard(app, guest), { ...quiet, reply_markup: keyboard });
+      if (oneTime) await setGuestMessage(guest.id, sent.message_id);
     }
   }
 

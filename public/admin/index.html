@@ -521,6 +521,7 @@ function vnMountMap(){
     lng: Number(city.lng) || 60.0625143,
     zoom: Number(city.zoom) || 14,
     tiles: DATA?.mapTiles || undefined,
+    tone: 'light',
     onPin: (pin) => {
       const card = document.querySelector(`[data-vn="${pin.id}"]`);
       if (!card) return;

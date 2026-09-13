@@ -159,6 +159,7 @@ body{background:
       <div class="num">05 · {{L.where}}</div>
       <div class="venue-card glass card fx" style="--d:.14s">
         <h2 class="venue__name">{{address}}</h2>
+        {{#if venueLine}}<p class="venue__meta">{{venueLine}}</p>{{/if}}
         <div>{{{map}}}</div>
         {{#if gmaps}}
         <div class="routes">

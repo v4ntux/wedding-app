@@ -55,6 +55,7 @@ if (connectionString) {
         .replace('confirmed_by INTEGER', 'confirmed_by BIGINT').replace(' REAL', ' DOUBLE PRECISION'));
     }
     await client.query('ALTER TABLE guests ADD COLUMN IF NOT EXISTS sent INTEGER NOT NULL DEFAULT 0');
+    await client.query('ALTER TABLE guests ADD COLUMN IF NOT EXISTS message_id BIGINT');
     await client.query('CREATE UNIQUE INDEX IF NOT EXISTS applications_submission_key ON applications(tg_user_id, submission_key) WHERE submission_key IS NOT NULL');
     await client.query('CREATE TABLE IF NOT EXISTS nvate_migrations (name TEXT PRIMARY KEY, completed_at TIMESTAMPTZ NOT NULL DEFAULT now())');
     await client.query('COMMIT');
@@ -65,9 +66,10 @@ if (connectionString) {
   sqlite.exec(schema);
   const columns = sqlite.prepare('PRAGMA table_info(applications)').all().map((c) => c.name);
   for (const [col, ddl] of migrations) if (!columns.includes(col)) sqlite.exec(ddl);
-  if (!sqlite.prepare('PRAGMA table_info(guests)').all().some((c) => c.name === 'sent')) {
-    sqlite.exec('ALTER TABLE guests ADD COLUMN sent INTEGER NOT NULL DEFAULT 0');
-  }
+  const guestColumns = sqlite.prepare('PRAGMA table_info(guests)').all().map((c) => c.name);
+  if (!guestColumns.includes('sent')) sqlite.exec('ALTER TABLE guests ADD COLUMN sent INTEGER NOT NULL DEFAULT 0');
+  // Сообщение бота с одноразовой кнопкой «Отправить»: её снимают после отправки.
+  if (!guestColumns.includes('message_id')) sqlite.exec('ALTER TABLE guests ADD COLUMN message_id INTEGER');
   sqlite.exec('CREATE UNIQUE INDEX IF NOT EXISTS applications_submission_key ON applications(tg_user_id, submission_key) WHERE submission_key IS NOT NULL');
 }
 

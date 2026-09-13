@@ -107,17 +107,22 @@ const I18N = {
     change: 'O‘zgartirish',
     guestPh: 'Ism yozing…',
     eMusic: 'Ovoz', tMusic: 'Musiqa', msTop: 'Kutubxona', msMine: 'Mening musiqam',
-    seekMusic: 'Kutubxonadan qidirish', musicSkip: 'Musiqasiz davom etish',
+    seekMusic: 'Qo‘shiq yoki ijrochi nomi', musicSkip: 'Musiqasiz davom etish',
     add: 'Qo‘shish', uploadMusic: 'Fayl yuklash', lookDone: 'Ko‘rib chiqdim',
-    libEmptyTitle: 'Kutubxona to‘ldirilmoqda',
-    libEmptyText: 'Qo‘shiqni botga yuboring yoki faylni yuklang — u to‘liq yangraydi.',
+    libEmptyTitle: 'Qo‘shiq nomini yozing',
+    libEmptyText: 'YouTube’dan topamiz. Yoki qo‘shiqni botga yuboring — u to‘liq yangraydi va boshlanishini tanlash mumkin.',
+    libHead: 'nvate kutubxonasi', ytHead: 'YouTube’dan',
+    ytSearching: 'YouTube’dan qidirilmoqda…', ytNone: 'YouTube’da hech narsa topilmadi',
+    ytNote: 'YouTube qo‘shig‘i boshidan yangraydi — boshlanish joyini tanlab bo‘lmaydi.',
+    ytBlocked: 'Muallif bu videoni boshqa saytlarda qo‘yishni taqiqlagan — boshqasini tanlang',
+    nextCue: 'Keyingi bosqich',
     libEmptyGo: 'Mening musiqam →',
     botDropTitle: 'Qo‘shiqni botga yuboring',
     botDropText: 'Istalgan Telegram kanalidan qo‘shiqni botga forward qiling — bir necha soniyada u shu yerda to‘liq holda paydo bo‘ladi.',
     botOpen: 'Botni ochish',
     mineFresh: (name) => `«${name}» botdan keldi`,
-    linkHint: 'YouTube havolasi yoki to‘g‘ridan-to‘g‘ri mp3 havolasi.',
-    linkHintX: 'YouTube, Instagram yoki TikTok havolasi — qo‘shiqni to‘liq ajratib olamiz.',
+    linkHint: 'YouTube havolasi (boshidan yangraydi) yoki to‘g‘ridan-to‘g‘ri mp3 havolasi.',
+    linkHintX: 'YouTube havolasi (boshidan yangraydi), Instagram yoki TikTok — qo‘shiqni ajratib olamiz.',
     linkPh: 'https://…',
     extracting: 'Havoladan qo‘shiq olinmoqda…',
     eExtract: 'Havoladan qo‘shiqni olib bo‘lmadi',
@@ -125,12 +130,10 @@ const I18N = {
     trimFrom: (time) => `${time} dan oxirigacha yangraydi`,
     tapeHint: 'Tasmani suring: igna ostidagi joydan mehmonlar eshitadi',
     tapeLoading: 'Qo‘shiq to‘lqini chizilmoqda…',
-    tapeListening: 'Kerakli joy yangradimi — bosing',
-    tapeCatch: (time) => `${time} dan boshlash`,
+    tapeListening: 'Tinglanmoqda',
+    tapePreview: 'Mehmonlar shunday eshitadi…',
     chipQuiet: 'Tinch kirishsiz',
-    chipPeak: 'Eng yorqin joy',
-    chipPopular: (uses) => `${uses} juft shu yerdan`,
-    chipReset: 'Boshidan',
+    chipTop: 'Top tanlov',
     eTpl: 'Dizayn', tTpl: 'Taklifnoma uslubi',
     leadTpl: 'Tanlash uchun uslubga bosing. Burchakdagi ko‘zcha to‘liq namunani ochadi.',
     tplPhotos: (n) => `${n} ta surat`,
@@ -202,17 +205,22 @@ const I18N = {
     change: 'Изменить',
     guestPh: 'Впишите имя…',
     eMusic: 'Звук', tMusic: 'Музыка', msTop: 'Библиотека', msMine: 'Моя музыка',
-    seekMusic: 'Поиск по библиотеке', musicSkip: 'Продолжить без музыки',
+    seekMusic: 'Песня или исполнитель', musicSkip: 'Продолжить без музыки',
     add: 'Добавить', uploadMusic: 'Загрузить файл', lookDone: 'Посмотрел',
-    libEmptyTitle: 'Библиотека пополняется',
-    libEmptyText: 'Пришлите песню боту или загрузите файл — она прозвучит целиком.',
+    libEmptyTitle: 'Впишите название песни',
+    libEmptyText: 'Найдём на YouTube. Или пришлите песню боту — она прозвучит целиком, и можно выбрать, откуда начать.',
+    libHead: 'Библиотека nvate', ytHead: 'С YouTube',
+    ytSearching: 'Ищем на YouTube…', ytNone: 'На YouTube ничего не нашлось',
+    ytNote: 'Песня с YouTube играет с начала — выбрать место старта нельзя.',
+    ytBlocked: 'Автор запретил показывать это видео на других сайтах — выберите другое',
+    nextCue: 'Следующий шаг',
     libEmptyGo: 'Моя музыка →',
     botDropTitle: 'Пришлите песню боту',
     botDropText: 'Перешлите трек боту из любого Telegram-канала — через пару секунд он появится здесь целиком.',
     botOpen: 'Открыть бота',
     mineFresh: (name) => `«${name}» пришла из бота`,
-    linkHint: 'Ссылка на YouTube или прямая ссылка на mp3.',
-    linkHintX: 'Ссылка на YouTube, Instagram или TikTok — достанем песню целиком.',
+    linkHint: 'Ссылка на YouTube (играет с начала) или прямая ссылка на mp3.',
+    linkHintX: 'Ссылка на YouTube (играет с начала), Instagram или TikTok — достанем песню.',
     linkPh: 'https://…',
     extracting: 'Достаём песню из ссылки…',
     eExtract: 'Не получилось достать песню из ссылки',
@@ -220,12 +228,10 @@ const I18N = {
     trimFrom: (time) => `Играет с ${time} и до конца`,
     tapeHint: 'Тяните ленту: что под иглой — с того и услышат гости',
     tapeLoading: 'Рисуем волну песни…',
-    tapeListening: 'Зазвучало нужное — жмите',
-    tapeCatch: (time) => `Начать с ${time}`,
+    tapeListening: 'Слушаем',
+    tapePreview: 'Так услышат гости…',
     chipQuiet: 'Без тихого вступления',
-    chipPeak: 'Самое яркое место',
-    chipPopular: (uses) => `Так начинают ${uses} ${uses % 10 >= 2 && uses % 10 <= 4 && (uses % 100 < 12 || uses % 100 > 14) ? 'пары' : 'пар'}`,
-    chipReset: 'С начала',
+    chipTop: 'Топ выбор',
     eTpl: 'Дизайн', tTpl: 'Стиль приглашения',
     leadTpl: 'Нажмите на стиль, чтобы выбрать. Глазок в углу открывает полный пример.',
     tplPhotos: (n) => `${n} фото`,
@@ -300,6 +306,8 @@ function applyI18n() {
   $('music-q').placeholder = t('seekMusic');
   $('music-link').placeholder = t('linkPh');
   $('link-hint').textContent = t(state.config?.extractEnabled ? 'linkHintX' : 'linkHint');
+  $('music-note').textContent = t('ytNote');
+  $('next-cue-label').textContent = t('nextCue');
   $('bot-open').hidden = !state.config?.botUrl;
   $('submit-label').textContent = t('pay');
   $('btn-mine').setAttribute('aria-label', t('mineAria'));
@@ -370,7 +378,11 @@ const FLOW = Object.freeze({
   reveal: 520,
   rise: 96,
   topGap: 12,
+  quietReveal: 1200,
 });
+/* Пара печатает — не торопим. Три секунды тишины после последней буквы, и
+   только тогда клавиатура уходит, а камера едет дальше. */
+const TYPING_PAUSE = 3000;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /* ════ Клавиатура ════
@@ -577,7 +589,8 @@ function scrollToBlock(i) {
   const el = blk(i);
   if (!el) return;
   dropKeyboard();
-  const y = el.getBoundingClientRect().top + window.scrollY - 72;
+  makeRoom(el);
+  const y = slotTop(el) - headerOffset();
   setScene(i);
   const distance = Math.abs(y - window.scrollY);
   const duration = Math.min(FLOW.scrollMax, Math.max(FLOW.scrollMin, 900 + distance * .9));
@@ -607,9 +620,77 @@ function renderBlocks(waitIdx = -1) {
   renderBeads();
 }
 
+/* Камера ставит верх блока под шапку. Последнему открытому блоку ниже может не
+   хватить страницы — тогда он застревал посередине экрана. Хвост студии
+   вытягивается ровно настолько, чтобы верх блока доехал до места. */
+function makeRoom(el) {
+  const tail = document.querySelector('.studio-tail');
+  if (!tail || !el) return;
+  const need = window.innerHeight - headerOffset() - el.offsetHeight - 24;
+  tail.style.minHeight = need > 0 ? `${Math.ceil(need)}px` : '';
+}
+
+/* ── Тихий переход ──
+   Камера остаётся там, где пара её оставила: музыку выбирают долго, и
+   утаскивать экран из-под пальца нельзя. Следующий блок ждёт внизу и медленно
+   поднимается, когда пара сама до него долистает, — появление видно, а не
+   случается где-то за краем. Пока он ниже экрана, над доком проявляется
+   подсказка «Следующий шаг». */
+function showCue(onTap) {
+  const cue = $('next-cue');
+  if (!cue) return;
+  clearTimeout(showCue.hideTimer);
+  cue.onclick = () => { haptic.tap(); onTap(); };
+  cue.hidden = false;
+  void cue.offsetWidth;   // фиксируем скрытое состояние, чтобы проявление было переходом
+  cue.classList.add('is-in');
+}
+
+function hideCue() {
+  const cue = $('next-cue');
+  if (!cue || cue.hidden) return;
+  cue.classList.remove('is-in');
+  cue.onclick = null;
+  clearTimeout(showCue.hideTimer);
+  showCue.hideTimer = setTimeout(() => { if (!cue.classList.contains('is-in')) cue.hidden = true; }, 1100);
+}
+
+function revealWhenSeen(i, run) {
+  const el = blk(i);
+  if (!el) return;
+  let done = false;
+  let observer = null;
+  const seen = () => el.getBoundingClientRect().top < window.innerHeight - 60;
+  const onScroll = () => { if (seen()) reveal(); };
+  async function reveal() {
+    if (done) return;
+    done = true;
+    observer?.disconnect();
+    window.removeEventListener('scroll', onScroll);
+    hideCue();
+    if (run !== revealRun || state.open !== i) return;
+    setScene(i);
+    haptic.ok();
+    pulseLiveBead();
+    await riseBlock(el, FLOW.quietReveal);
+    if (run === revealRun && state.open === i) activateStep(i);
+  }
+  if (seen()) { reveal(); return; }
+  showCue(() => scrollToBlock(i));
+  if ('IntersectionObserver' in window) {
+    observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) reveal();
+    }, { rootMargin: '0px 0px -60px 0px' });
+    observer.observe(el);
+  } else {
+    window.addEventListener('scroll', onScroll, { passive: true });
+  }
+}
+
 async function cameraTo(i) {
   const el = blk(i);
   if (!el) return;
+  makeRoom(el);
   const dest = Math.max(0, slotTop(el) - headerOffset());
   const maxTop = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
   const y = Math.min(maxTop, dest);
@@ -619,7 +700,7 @@ async function cameraTo(i) {
   await softScrollTo(y, duration);
 }
 
-async function riseBlock(el) {
+async function riseBlock(el, duration = FLOW.reveal) {
   if (!el) return;
   el.style.opacity = '0';
   el.style.transform = `translate3d(0, ${FLOW.rise}px, 0)`;
@@ -627,7 +708,7 @@ async function riseBlock(el) {
   el.style.willChange = 'opacity, transform';
   el.classList.add('is-rising', 'is-live');
   el.classList.remove('is-wait');
-  await playMotion(FLOW.reveal, (k) => {
+  await playMotion(duration, (k) => {
     const riseK = easeOut(k);
     const fadeK = k < .14 ? 0 : easeOut((k - .14) / .86);
     el.style.opacity = String(fadeK);
@@ -641,6 +722,7 @@ async function riseBlock(el) {
 function unlock(i, { quiet = false } = {}) {
   if (i >= STEPS.length || i <= state.open) return;
   dropKeyboard();
+  hideCue();
   const run = ++revealRun;
   state.open = i;
   renderBlocks(i);
@@ -651,13 +733,14 @@ function unlock(i, { quiet = false } = {}) {
     if (run !== revealRun) return;
     await nextFrame();
     if (run !== revealRun) return;
+    // Тихий переход камеру не трогает: блок поднимется, когда до него долистают.
+    if (quiet) { revealWhenSeen(i, run); return; }
     setScene(i);
     haptic.ok();
     pulseLiveBead();
     // Камера и подъём блока идут одновременно: пара видит движение сразу,
-    // а не ждёт, пока страница доедет. Тихий переход камеру не трогает:
-    // блок вырастает снизу, а страница остаётся там, где её оставили.
-    const camera = quiet ? Promise.resolve() : cameraTo(i);
+    // а не ждёт, пока страница доедет.
+    const camera = cameraTo(i);
     await riseBlock(blk(i));
     await camera;
     if (run === revealRun && state.open === i) activateStep(i);
@@ -1031,12 +1114,15 @@ function venueSubtitle(venue) {
   return parts.join(' · ');
 }
 
+/* Плитка — только название: список читается как витрина. Вид, места и
+   ориентир показывает карточка уже выбранного места. */
 function venueCard(venue) {
-  const card = h('button', { type: 'button', class: 'venue', dataset: { id: venue.id } },
-    h('span', { class: 'venue-mark' }, [...venue.name][0] || '·'),
-    h('span', { class: 'venue-copy' },
-      h('b', {}, venue.name),
-      h('span', {}, venueSubtitle(venue))));
+  const card = h('button', {
+    type: 'button',
+    class: `venue${venue.id === state.venueId ? ' chosen' : ''}`,
+    dataset: { id: venue.id },
+    'aria-label': `${venue.name} · ${venueSubtitle(venue)}`,
+  }, h('b', { class: 'venue-name' }, venue.name));
   card.addEventListener('click', () => pickVenue(venue));
   return card;
 }
@@ -1069,7 +1155,7 @@ async function loadVenues() {
     state.venues = [];
   }
   renderVenues($('geo-q')?.value || '');
-  if (venues().length && !placed()) venueMap?.fit(venues());
+  if (!placed()) fitVenues();
   // Каталог приезжает уже после первой отрисовки блока. Пока пара ничего не
   // выбрала, возвращаем шаг в то состояние, которое отвечает пришедшему
   // списку: есть места — показываем их, пусто — сразу даём вписать своё.
@@ -1132,8 +1218,7 @@ function reopenVenues() {
   $('venue-body').hidden = false;
   venueMap?.clearMark();
   renderVenues();
-  if (venues().length) venueMap?.fit(venues());
-  else venueMap?.setView(cityCenter()[0], cityCenter()[1], cityZoom());
+  fitVenues();
   paintMapNote();
   saveDraft();
 }
@@ -1173,7 +1258,25 @@ function paintMapNote() {
 function renderMapChoice() {
   ensureMap();
   venueMap?.invalidate();
+  if (mapFitPending && !placed()) fitVenues();
   renderVenueChoice();
+}
+
+/* Карта вмещает все тойхоны, но не отдаляется дальше города: пара должна
+   узнать Мангит, а не искать его на карте Средней Азии. Пока блок скрыт, у
+   карты нет размера — впишем, когда блок откроется. */
+let mapFitPending = false;
+
+function fitVenues() {
+  const list = venues();
+  if (!venueMap) { mapFitPending = list.length > 0; return; }
+  if (!list.length) {
+    const [lat, lng] = cityCenter();
+    venueMap.jumpTo(lat, lng, cityZoom());
+    mapFitPending = false;
+    return;
+  }
+  mapFitPending = !venueMap.fit(list, .3, cityZoom() - 1);
 }
 
 function ensureMap() {
@@ -1184,6 +1287,7 @@ function ensureMap() {
     lng: placed() ? state.lng : lng,
     zoom: placed() ? 17 : cityZoom(),
     tiles: state.config?.mapTiles,
+    tone: 'light',
     // Кликабельны только метки тойхон. Пустая карта пальца не ловит: точку
     // случайным тапом не сбить, и уйти с карты, кроме как в место, некуда.
     onPin: (pin) => {
@@ -1291,9 +1395,10 @@ function showGeo(list) {
 
 
 /* ════ 04 · Музыка ════
-   Только полные треки. Каталог iTunes отдавал тридцать секунд превью: с началом
-   на 0:17 гости слышали тринадцать секунд и петлю. Теперь звук — целые файлы на
-   нашем сервере: полка nvate, песня, присланная боту, свой файл или ссылка. */
+   Звук целиком. Музыкальные API отдают только тридцатисекундные превью, поэтому
+   полные песни берутся из трёх мест: поиск по YouTube (узбекская музыка живёт
+   там; играет официальный плеер, с начала ролика), полка nvate и песни,
+   присланные боту или загруженные файлом — у них начало выбирается на ленте. */
 
 const player = new Audio();
 player.preload = 'auto';
@@ -1304,6 +1409,11 @@ let libraryState = 'idle';    // idle | loading | ready | error
 let mineTracks = [];
 let mineSeen = null;          // id личных треков, которые пара уже видела
 let minePoll = 0;
+let ytResults = [];
+let ytState = 'idle';         // idle | loading | ready | error
+let ytQuery = '';
+let ytSeq = 0;
+let ytOpen = null;            // id ролика, чей плеер раскрыт в списке
 
 const clockText = (sec) => {
   const s = Math.max(0, Math.round(sec));
@@ -1314,6 +1424,9 @@ function sameUrl(a, b) {
   if (!a || !b) return false;
   try { return new URL(a, location.href).href === new URL(b, location.href).href; } catch (_) { return a === b; }
 }
+
+const YT_RE = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/;
+const youtubeIdOf = (url) => String(url ?? '').match(YT_RE)?.[1] ?? null;
 
 function svgIcon(kind) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -1340,7 +1453,7 @@ function svgIcon(kind) {
   return svg;
 }
 
-/* ── Списки: полка nvate и «Моя музыка» ── */
+/* ── Списки: полка nvate, YouTube и «Моя музыка» ── */
 
 function trackRow(track, { fresh = false } = {}) {
   const chosen = state.music?.type === 'upload' && state.music.value === track.file;
@@ -1364,31 +1477,67 @@ function trackRow(track, { fresh = false } = {}) {
   return row;
 }
 
+/* Ролик YouTube: тап раскрывает под строкой настоящий плеер — пара слышит
+   песню так же, как её сыграет приглашение, и тут же выбирает. */
+function youtubeRow(video) {
+  const open = ytOpen === video.id;
+  const chosen = state.music?.type === 'youtube' && youtubeIdOf(state.music.value) === video.id;
+  const head = h('button', { type: 'button', class: 'yt-head', 'aria-expanded': open ? 'true' : 'false' },
+    h('span', { class: 'yt-thumb' },
+      h('img', { src: video.thumb, alt: '', loading: 'lazy', decoding: 'async' }),
+      video.duration ? h('i', {}, clockText(video.duration)) : null),
+    h('span', { class: 'yt-info' }, h('b', {}, video.title), h('span', {}, video.channel)));
+  head.addEventListener('click', () => toggleYoutube(video));
+  let preview = null;
+  if (open) {
+    const pick = h('button', { type: 'button', class: 'btn btn--gold btn--block yt-pick' }, chosen ? t('taken') : t('take'));
+    pick.addEventListener('click', () => chooseYoutube(video));
+    preview = h('div', { class: 'yt-preview' },
+      h('iframe', {
+        src: `https://www.youtube-nocookie.com/embed/${video.id}?autoplay=1&playsinline=1&rel=0`,
+        allow: 'autoplay; encrypted-media; picture-in-picture',
+        title: video.title,
+      }),
+      pick);
+  }
+  return h('div', { class: `yt${open ? ' is-open' : ''}${chosen ? ' chosen' : ''}`, dataset: { id: video.id } }, head, preview);
+}
+
 function renderLibrary() {
   const box = $('track-scroll');
   if (!box) return;
   box.innerHTML = '';
-  if (libraryState === 'loading' && !library.length) {
-    for (let i = 0; i < 4; i++) {
+  const q = ($('music-q').value || '').trim();
+  const needle = q.toLowerCase();
+  const shelf = needle ? library.filter((track) => `${track.title} ${track.artist}`.toLowerCase().includes(needle)) : library;
+
+  if (!q && libraryState === 'loading' && !library.length) {
+    for (let i = 0; i < 3; i++) {
       box.appendChild(h('div', { class: 'trk' }, h('div', { class: 'trk-play' }), h('div', { class: 'trk-info' }, h('b', {}, '···'))));
     }
     return;
   }
-  if (libraryState === 'error' && !library.length) {
-    box.appendChild(h('p', { class: 'empty' }, t('eNet')));
+
+  if (shelf.length) {
+    if (q) box.appendChild(h('p', { class: 'lib-head' }, t('libHead')));
+    shelf.forEach((track) => box.appendChild(trackRow(track)));
+  }
+
+  if (q.length >= 2) {
+    box.appendChild(h('p', { class: 'lib-head' }, t('ytHead')));
+    if (ytState === 'loading') box.appendChild(h('p', { class: 'lib-wait' }, t('ytSearching')));
+    else if (ytState === 'error') box.appendChild(h('p', { class: 'lib-wait' }, t('eNet')));
+    else if (!ytResults.length) box.appendChild(h('p', { class: 'lib-wait' }, t('ytNone')));
+    else ytResults.forEach((video) => box.appendChild(youtubeRow(video)));
     return;
   }
-  if (!library.length) {
+
+  if (!shelf.length) {
     const go = h('button', { type: 'button', class: 'linkbtn' }, t('libEmptyGo'));
     go.addEventListener('click', () => { haptic.tap(); switchMusicTab(1); });
     box.appendChild(h('div', { class: 'empty empty--lib' },
       h('b', {}, t('libEmptyTitle')), h('span', {}, t('libEmptyText')), go));
-    return;
   }
-  const q = ($('music-q').value || '').trim().toLowerCase();
-  const list = q ? library.filter((track) => `${track.title} ${track.artist}`.toLowerCase().includes(q)) : library;
-  if (!list.length) { box.appendChild(h('p', { class: 'empty' }, t('eNoFound'))); return; }
-  list.forEach((track) => box.appendChild(trackRow(track)));
 }
 
 async function loadLibrary() {
@@ -1404,6 +1553,63 @@ async function loadLibrary() {
   } catch (_) {
     libraryState = 'error';
   }
+  renderLibrary();
+}
+
+const searchYoutubeSoon = debounce(async () => {
+  const q = $('music-q').value.trim();
+  if (q.length < 2 || (q === ytQuery && ytState === 'ready')) return;
+  const seq = ++ytSeq;
+  ytQuery = q;
+  ytState = 'loading';
+  ytOpen = null;
+  renderLibrary();
+  try {
+    const response = await fetch(`/api/music/youtube/search?q=${encodeURIComponent(q)}`);
+    const data = await response.json();
+    if (seq !== ytSeq) return;
+    if (!response.ok || !data.ok) throw new Error('search');
+    ytResults = Array.isArray(data.results) ? data.results : [];
+    ytState = 'ready';
+  } catch (_) {
+    if (seq !== ytSeq) return;
+    ytResults = [];
+    ytState = 'error';
+  }
+  renderLibrary();
+}, 650);
+
+/* Один поиск на всё: полка фильтруется сразу, YouTube — когда пара перестала печатать. */
+function onMusicQuery() {
+  const q = $('music-q').value.trim();
+  if (q.length < 2) {
+    ytSeq += 1;
+    ytQuery = '';
+    ytResults = [];
+    ytState = 'idle';
+    ytOpen = null;
+  } else if (q !== ytQuery) {
+    ytState = 'loading';
+  }
+  renderLibrary();
+  searchYoutubeSoon();
+}
+
+function toggleYoutube(video) {
+  haptic.tap();
+  if (ytOpen === video.id) { ytOpen = null; renderLibrary(); return; }
+  pauseTape();
+  if (!player.paused) player.pause();
+  playingUrl = null;
+  activeTrackUrl = null;
+  ytOpen = video.id;
+  renderLibrary();
+}
+
+// Скрытый iframe продолжает играть — плеер из списка убираем целиком.
+function closeYoutubePreview() {
+  if (!ytOpen) return;
+  ytOpen = null;
   renderLibrary();
 }
 
@@ -1465,7 +1671,7 @@ function switchMusicTab(index) {
   document.querySelector('.segs')?.classList.toggle('at-1', index === 1);
   $('ms-top').hidden = index !== 0;
   $('ms-mine').hidden = index !== 1;
-  if (index === 1) loadMyTracks({ announce: true });
+  if (index === 1) { closeYoutubePreview(); loadMyTracks({ announce: true }); }
   syncMinePoll();
 }
 
@@ -1483,6 +1689,7 @@ function togglePlay(track) {
   const url = track.url;
   haptic.tap();
   pauseTape();
+  closeYoutubePreview();
   activeTrackUrl = url;
   if (playingUrl === url) {
     player.pause();
@@ -1522,6 +1729,7 @@ function hushStudio() {
   pauseTape();
   if (!player.paused) player.pause();
   if (playingUrl) { playingUrl = null; refreshPlayUI(); }
+  closeYoutubePreview();
 }
 
 function chooseTrack(track) {
@@ -1535,8 +1743,20 @@ function chooseTrack(track) {
   });
 }
 
-/* Выбрал трек — прослушивание останавливается, список сворачивается в карточку,
-   а под ней раскрывается лента: откуда гости услышат песню. */
+function chooseYoutube(video) {
+  ytOpen = null;
+  setMusic({
+    type: 'youtube',
+    value: video.url,
+    name: video.title || 'YouTube',
+    artist: video.channel ? `YouTube · ${video.channel}` : 'YouTube',
+    playUrl: null,
+  });
+}
+
+/* Выбрал трек — прослушивание останавливается, список сворачивается в карточку.
+   Под файлом раскрывается лента: откуда гости услышат песню. У YouTube ленты
+   нет — там честная подпись, что песня играет с начала. */
 function setMusic(music) {
   state.music = music;
   state.musicStart = 0;
@@ -1550,6 +1770,8 @@ function setMusic(music) {
   $('picked-artist').textContent = music.artist || '';
   $('music-pick').hidden = true;
   $('music-picked').hidden = false;
+  $('music-note').hidden = music.type !== 'youtube';
+  renderLibrary();
   syncMinePoll();
   openTrim();
   saveDraft();
@@ -1560,30 +1782,50 @@ function reopenMusic() {
   haptic.tap();
   closeTrim();
   $('music-picked').hidden = true;
+  $('music-note').hidden = true;
   $('music-pick').hidden = false;
   renderLibrary();
   renderMyTracks();
   syncMinePoll();
 }
 
-const YT_RE = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/;
-const EXTRACTABLE = /(?:youtube\.com|youtu\.be|instagram\.com|tiktok\.com)\//i;
+const EXTRACTABLE = /(?:instagram\.com|tiktok\.com)\//i;
 
 async function addMusicLink() {
   const url = $('music-link').value.trim();
   if (!/^https?:\/\/\S+$/.test(url)) { toast(t('eLink'), 'err'); return; }
-  // Извлекатель настроен — из ссылки достаём сам звук, и песня играет целиком.
+  // YouTube — всегда своим плеером: песня целиком, но с начала ролика.
+  if (youtubeIdOf(url)) { await importYoutube(url); return; }
   if (state.config?.extractEnabled && EXTRACTABLE.test(url)) { await extractLink(url); return; }
-  const yt = YT_RE.test(url);
-  const direct = /\.(mp3|m4a|ogg|wav)(\?|$)/i.test(url);
-  if (!yt && !direct) { toast(t('eLink'), 'err'); return; }
+  if (!/\.(mp3|m4a|ogg|wav)(\?|$)/i.test(url)) { toast(t('eLink'), 'err'); return; }
   setMusic({
-    type: yt ? 'youtube' : 'custom',
+    type: 'custom',
     value: url,
-    name: yt ? 'YouTube' : t('myTrack'),
+    name: t('myTrack'),
     artist: url.replace(/^https?:\/\//, '').slice(0, 40),
-    playUrl: direct ? url : null,
+    playUrl: url,
   });
+}
+
+async function importYoutube(url) {
+  const button = $('music-link-go');
+  if (button.disabled) return;
+  button.disabled = true;
+  button.classList.add('btn--wait');
+  try {
+    const response = await fetch(`/api/music/youtube/info?url=${encodeURIComponent(url)}`);
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 422) { toast(t('ytBlocked'), 'err'); return; }
+    if (response.status === 400) { toast(t('eLink'), 'err'); return; }
+    $('music-link').value = '';
+    // YouTube не ответил — ссылка всё равно рабочая, берём её как есть.
+    chooseYoutube(response.ok && data.ok ? data.video : { url, title: 'YouTube', channel: url.replace(/^https?:\/\//, '').slice(0, 40) });
+  } catch (_) {
+    toast(t('eNet'), 'err');
+  } finally {
+    button.disabled = false;
+    button.classList.remove('btn--wait');
+  }
 }
 
 async function extractLink(url) {
@@ -1638,28 +1880,30 @@ async function uploadMusicFile(file) {
 /* ════ 04b · Лента: откуда играть ════
 
    Волна трека лежит лентой под неподвижной золотой иглой. Ленту тянут пальцем,
-   как отрывок в сторис: что оказалось под иглой — с того гости и услышат, а
-   отпущенная лента сразу звучит с этого места. Второй путь — ухом: трек играет,
-   и в нужный момент нажимают «Начать с 1:02». Подсказки под лентой находят то,
-   что пальцем искать долго: конец тихого вступления, самое яркое место и то,
-   откуда начинают другие пары. Конца у отрывка нет: песня играет до последней
-   секунды и снова возвращается к отметке. */
+   как отрывок в сторис: что оказалось под иглой — с того гости и услышат.
+   Отпущенная лента звучит с этого места пять секунд и плавно затихает — ровно
+   столько, чтобы узнать место, и не дольше, чтобы не мешать думать. Подсказки
+   под лентой: конец тихого вступления и «топ выбор» — откуда этот трек чаще
+   всего запускают другие пары. Конца у отрывка нет: в приглашении песня
+   играет до последней секунды и мягко возвращается к отметке. */
 
 const TAPE = Object.freeze({
-  px: 10,        // пикселей на секунду: секунда — ширина пальца на ленте
-  bar: .5,       // один штрих волны — полсекунды
+  px: 10,         // пикселей на секунду: секунда — ширина пальца на ленте
+  bar: .5,        // один штрих волны — полсекунды
   height: 96,
   wave: 66,
-  rate: 20,      // точек громкости на секунду
-  needle: .3,    // игла на трети ширины: впереди видно, что будет звучать
+  rate: 20,       // точек громкости на секунду
+  needle: .3,     // игла на трети ширины: впереди видно, что будет звучать
+  preview: 5000,  // сколько звучит выбранное место
+  fade: 2400,     // и как долго затихает
 });
 
 const tape = {
   token: 0, src: null, url: null, duration: 0, peaks: null, energy: null,
   px: TAPE.px, needle: 0, width: 0, viewWidth: 0,
-  playing: false, touching: false, scrubbed: false, gliding: false, glide: 0,
-  expect: null, lastMark: -1, raf: 0, playToken: 0, primed: false,
-  marks: { quiet: null, peak: null, popular: null, uses: 0 },
+  playing: false, previewing: false, touching: false, scrubbed: false, gliding: false, glide: 0,
+  expect: null, lastMark: -1, raf: 0, playToken: 0, primed: false, fadeTimer: 0, volTimer: 0,
+  marks: { quiet: null, popular: null, uses: 0 },
 };
 
 const trimmable = () => Boolean(state.music?.playUrl);
@@ -1695,7 +1939,7 @@ function rememberWave(url, wave) {
   while (waveCache.size > 3) {
     const [oldUrl, old] = waveCache.entries().next().value;
     waveCache.delete(oldUrl);
-    if (old.src.startsWith('blob:') && old.src !== tape.src && !sameUrl(player.src, old.src)) URL.revokeObjectURL(old.src);
+    if (old.src.startsWith('blob:') && old.src !== tape.src) URL.revokeObjectURL(old.src);
   }
 }
 
@@ -1766,51 +2010,24 @@ function measureWave(buffer) {
   return { duration: buffer.duration, peaks, energy };
 }
 
-/* Подсказки из самой волны: где кончается тихое вступление и где песня
-   звучит ярче всего (обычно это припев). Это эвристика по громкости, поэтому
-   показываем её только там, где разница с остальной песней заметна. */
-function findMarks(energy, duration) {
-  const marks = { quiet: null, peak: null };
+/* Где кончается тихое вступление: первая секунда, когда звук держится выше
+   трети громкой части песни. Вступление короче двух секунд не в счёт. */
+function findQuietIntro(energy, duration) {
   const r = TAPE.rate;
-  if (!energy || energy.length < r * 20) return marks;
+  if (!energy || energy.length < r * 20) return null;
   const n = energy.length;
-  const prefix = new Float64Array(n + 1);
-  for (let i = 0; i < n; i++) prefix[i + 1] = prefix[i] + energy[i];
-  const mean = (from, len) => {
-    const a = Math.max(0, from);
-    const b = Math.min(n, from + len);
-    return b > a ? (prefix[b] - prefix[a]) / (b - a) : 0;
-  };
   const sorted = Array.from(energy).sort((a, b) => a - b);
   const loud = sorted[Math.floor(n * .9)];
-  if (!loud) return marks;
-
+  if (!loud) return null;
   for (let i = 0; i < n - r; i += r / 4) {
-    if (mean(i, r) > loud * .32) {
+    let sum = 0;
+    for (let k = i; k < i + r; k++) sum += energy[k];
+    if (sum / r > loud * .32) {
       const sec = Math.floor(i / r);
-      if (sec >= 2 && sec < duration * .4) marks.quiet = sec;
-      break;
+      return sec >= 2 && sec < duration * .4 ? sec : null;
     }
   }
-
-  const win = r * 12;
-  const from = Math.max(r * 8, ((marks.quiet || 0) + 4) * r);
-  let best = -1;
-  let bestAt = -1;
-  for (let i = from; i + win <= n - r * 6; i += r / 2) {
-    const sum = prefix[i + win] - prefix[i];
-    if (sum > best) { best = sum; bestAt = i; }
-  }
-  const overall = prefix[n] / n;
-  if (bestAt >= 0 && best / win > overall * 1.15) {
-    // Отступаем к нарастанию: лучше начать чуть до подъёма, чем на его середине.
-    const level = best / win;
-    let at = bestAt;
-    while (at - r >= 0 && bestAt - at < r * 8 && mean(at - r, r) >= level * .8) at -= r / 2;
-    marks.peak = Math.floor(at / r);
-    if (marks.quiet !== null && Math.abs(marks.peak - marks.quiet) < 6) marks.peak = null;
-  }
-  return marks;
+  return null;
 }
 
 /* ── Рисунок ── */
@@ -1902,7 +2119,7 @@ function drawRuler(ctx, r, g, b) {
   }
   // Ромбики над линейкой — туда ведут подсказки под лентой.
   ctx.fillStyle = `rgb(${Math.min(255, r + 30)}, ${Math.min(255, g + 30)}, ${Math.min(255, b + 50)})`;
-  for (const sec of [tape.marks.quiet, tape.marks.peak, tape.marks.popular]) {
+  for (const sec of [tape.marks.quiet, tape.marks.popular]) {
     if (sec === null || sec === undefined) continue;
     const x = sec * tape.px;
     ctx.beginPath();
@@ -1947,7 +2164,7 @@ function paintTape() {
   box.classList.toggle('is-set', start > 0);
   $('trim-play').setAttribute('aria-label', tape.playing ? t('pauseAria') : t('playAria'));
   $('trim-state').textContent = tape.playing
-    ? t('tapeListening')
+    ? (tape.previewing ? t('tapePreview') : t('tapeListening'))
     : start > 0 ? t('trimFrom', clockText(start)) : t('tapeHint');
   paintChips();
 }
@@ -1958,10 +2175,8 @@ function paintChips() {
   const start = state.musicStart || 0;
   const away = (sec) => sec !== null && sec !== undefined && Math.abs(sec - start) > 1;
   const chips = [];
+  if (away(tape.marks.popular)) chips.push(['top', tape.marks.popular, t('chipTop')]);
   if (away(tape.marks.quiet)) chips.push(['quiet', tape.marks.quiet, t('chipQuiet')]);
-  if (away(tape.marks.peak)) chips.push(['peak', tape.marks.peak, t('chipPeak')]);
-  if (away(tape.marks.popular)) chips.push(['popular', tape.marks.popular, t('chipPopular', tape.marks.uses)]);
-  if (start > 0) chips.push(['reset', 0, t('chipReset')]);
   const key = `${LANG}/${chips.map((chip) => chip.join('|')).join('/')}`;
   if (box.dataset.key === key) return;
   box.dataset.key = key;
@@ -1969,92 +2184,174 @@ function paintChips() {
   box.hidden = !chips.length;
   for (const [kind, sec, label] of chips) {
     const chip = h('button', { type: 'button', class: `tape-chip tape-chip--${kind}` },
-      h('span', {}, label), kind === 'reset' ? null : h('b', {}, clockText(sec)));
-    chip.addEventListener('click', () => { haptic.tap(); glideTo(sec, { play: true }); });
+      h('span', {}, label), h('b', {}, clockText(sec)));
+    chip.addEventListener('click', () => { haptic.tap(); primeTape(); glideTo(sec, { play: true }); });
     box.appendChild(chip);
   }
 }
 
-/* ── Звук ── */
+/* ── Звук ──
+   Лента играет своим элементом через узел громкости Web Audio: на iPhone
+   свойство volume у <audio> только для чтения, и плавно погасить песню можно
+   лишь так. Чужой сервер без CORS отдал бы в Web Audio тишину, поэтому такие
+   ссылки играют обычным элементом и затихают громкостью, где это умеют. */
 
-/* iOS разрешает звук только из касания. Первое касание ленты заводит плеер
-   беззвучно — дальше лента может звучать сама, когда её отпустят. */
-function primeTape() {
-  if (tape.primed || !tape.src) return;
-  tape.primed = true;
-  if (playingUrl) { playingUrl = null; activeTrackUrl = null; refreshPlayUI(); }
-  if (!sameUrl(player.src, tape.src)) player.src = tape.src;
-  const token = tape.playToken;
-  player.muted = true;
-  const undo = () => {
-    if (token === tape.playToken) player.pause();
-    player.muted = false;
-  };
-  const pending = player.play();
-  if (pending?.then) pending.then(undo, undo); else undo();
+const tapeSound = { ctx: null, gain: null, routed: null, plain: null };
+
+function tapeStopped(event) {
+  if (!tape.playing || event.currentTarget !== currentTapeElement()) return;
+  tape.playing = false;
+  tape.previewing = false;
+  clearTimeout(tape.fadeTimer);
+  stopSweep();
+  paintTape();
 }
 
-function playTape(from = state.musicStart || 0) {
+function newTapeElement() {
+  const el = new Audio();
+  el.preload = 'auto';
+  el.addEventListener('ended', tapeStopped);
+  el.addEventListener('pause', tapeStopped);
+  return el;
+}
+
+function currentTapeElement() {
+  return tape.src?.startsWith('blob:') ? tapeSound.routed : tapeSound.plain;
+}
+
+function tapeElement() {
+  if (!tape.src?.startsWith('blob:')) {
+    if (!tapeSound.plain) tapeSound.plain = newTapeElement();
+    return tapeSound.plain;
+  }
+  if (!tapeSound.routed) {
+    tapeSound.routed = newTapeElement();
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    try {
+      tapeSound.ctx = new Ctx();
+      const source = tapeSound.ctx.createMediaElementSource(tapeSound.routed);
+      tapeSound.gain = tapeSound.ctx.createGain();
+      source.connect(tapeSound.gain).connect(tapeSound.ctx.destination);
+    } catch (_) {
+      tapeSound.ctx = null;
+      tapeSound.gain = null;   // без Web Audio — пауза вместо затухания
+    }
+  }
+  return tapeSound.routed;
+}
+
+function setTapeLevel(value, ms = 0) {
+  const el = tapeElement();
+  clearInterval(tape.volTimer);
+  if (tapeSound.gain && el === tapeSound.routed) {
+    const param = tapeSound.gain.gain;
+    const now = tapeSound.ctx.currentTime;
+    param.cancelScheduledValues(now);
+    param.setValueAtTime(Math.max(.0001, param.value), now);
+    if (ms) param.exponentialRampToValueAtTime(Math.max(.0001, value), now + ms / 1000);
+    else param.setValueAtTime(value, now);
+    return;
+  }
+  if (!ms) { try { el.volume = value; } catch (_) { /* iOS */ } return; }
+  const from = el.volume;
+  const t0 = performance.now();
+  tape.volTimer = setInterval(() => {
+    const k = Math.min(1, (performance.now() - t0) / ms);
+    try { el.volume = from + (value - from) * (1 - (1 - k) ** 2); } catch (_) { /* iOS */ }
+    if (k >= 1) clearInterval(tape.volTimer);
+  }, 40);
+}
+
+/* iOS разрешает звук только из касания: касание ленты, подсказки или кнопки
+   заводит плеер беззвучно — дальше лента может звучать сама. */
+function primeTape() {
+  if (!tape.src) return;
+  const el = tapeElement();
+  if (tapeSound.ctx?.state === 'suspended') tapeSound.ctx.resume().catch(() => {});
+  if (tape.primed) return;
+  if (!sameUrl(el.src, tape.src)) el.src = tape.src;
+  const token = tape.playToken;
+  el.muted = true;
+  const undo = (ok) => {
+    if (ok) tape.primed = true;
+    if (token === tape.playToken) el.pause();
+    el.muted = false;
+  };
+  const pending = el.play();
+  if (pending?.then) pending.then(() => undo(true), () => undo(false)); else undo(true);
+}
+
+function playTape(from = state.musicStart || 0, { preview = false } = {}) {
   if (!tape.src) return;
   const token = ++tape.playToken;
-  if (playingUrl) { playingUrl = null; activeTrackUrl = null; refreshPlayUI(); }
+  clearTimeout(tape.fadeTimer);
+  if (playingUrl || !player.paused) { player.pause(); playingUrl = null; activeTrackUrl = null; refreshPlayUI(); }
+  closeYoutubePreview();
+  const el = tapeElement();
   const go = () => {
     if (token !== tape.playToken) return;
-    try { player.currentTime = Math.max(0, Math.min(from, tape.duration - .25)); } catch (_) { /* поток ещё не готов */ }
-    player.muted = false;
-    player.play().then(() => {
+    try { el.currentTime = Math.max(0, Math.min(from, tape.duration - .25)); } catch (_) { /* поток ещё не готов */ }
+    setTapeLevel(1);
+    el.muted = false;
+    el.play().then(() => {
       if (token !== tape.playToken) return;
       tape.playing = true;
+      tape.previewing = preview;
+      $('music-trim').classList.remove('is-fading');
+      if (preview) tape.fadeTimer = setTimeout(() => fadeTape(token), TAPE.preview);
       sweep();
       paintTape();
     }).catch(() => {
       if (token !== tape.playToken) return;
       tape.playing = false;
+      tape.previewing = false;
       paintTape();
     });
   };
-  if (!sameUrl(player.src, tape.src)) {
-    player.src = tape.src;
-    player.addEventListener('loadedmetadata', go, { once: true });
+  if (!sameUrl(el.src, tape.src)) {
+    el.src = tape.src;
+    el.addEventListener('loadedmetadata', go, { once: true });
     return;
   }
-  if (player.readyState >= 1) go(); else player.addEventListener('loadedmetadata', go, { once: true });
+  if (el.readyState >= 1) go(); else el.addEventListener('loadedmetadata', go, { once: true });
+}
+
+/* Пять секунд прозвучали — песня медленно уходит в тишину и замолкает. */
+function fadeTape(token) {
+  if (token !== tape.playToken || !tape.playing) return;
+  $('music-trim').classList.add('is-fading');
+  setTapeLevel(0, TAPE.fade);
+  tape.fadeTimer = setTimeout(() => {
+    if (token === tape.playToken) pauseTape();
+  }, TAPE.fade + 80);
 }
 
 function stopSweep() {
   cancelAnimationFrame(tape.raf);
   tape.raf = 0;
   paintSweep(state.musicStart || 0);
-  const button = $('tape-catch');
-  if (button) button.hidden = true;
-  $('music-trim')?.classList.remove('is-catching');
+  $('music-trim')?.classList.remove('is-fading');
 }
 
 function pauseTape() {
   tape.playToken += 1;
+  clearTimeout(tape.fadeTimer);
   const was = tape.playing;
   tape.playing = false;
-  if (tape.src && sameUrl(player.src, tape.src) && !player.paused) player.pause();
+  tape.previewing = false;
+  const el = tape.src ? currentTapeElement() : null;
+  if (el && !el.paused) el.pause();
+  if (el) setTapeLevel(1);
   stopSweep();
   if (was) paintTape();
 }
 
 function sweep() {
   cancelAnimationFrame(tape.raf);
+  const el = currentTapeElement();
   const frame = () => {
-    if (!tape.playing) return;
-    const at = player.currentTime;
-    paintSweep(at);
-    const catchable = at - (state.musicStart || 0) >= 1.5 && at < tape.duration - 1;
-    const button = $('tape-catch');
-    if (catchable) {
-      const label = t('tapeCatch', clockText(Math.floor(at)));
-      if (button.textContent !== label) button.textContent = label;
-    }
-    if (button.hidden === catchable) {
-      button.hidden = !catchable;
-      $('music-trim').classList.toggle('is-catching', catchable);
-    }
+    if (!tape.playing || !el) return;
+    paintSweep(el.currentTime);
     tape.raf = requestAnimationFrame(frame);
   };
   tape.raf = requestAnimationFrame(frame);
@@ -2062,6 +2359,7 @@ function sweep() {
 
 function toggleTapePlay() {
   haptic.tap();
+  primeTape();
   if (tape.playing) pauseTape(); else playTape(state.musicStart || 0);
 }
 
@@ -2076,14 +2374,6 @@ function commitStart(sec) {
   }
   state.musicEnd = null;
   paintTape();
-}
-
-/* Ухом: играет — нажали — это место и стало началом. Звук не прерывается:
-   лента подъезжает под иглу, а песня играет дальше уже «с отметки». */
-function catchHere() {
-  const sec = clampStart(Math.floor(player.currentTime));
-  haptic.ok();
-  glideTo(sec, { play: false });
 }
 
 function glideTo(sec, { play = false } = {}) {
@@ -2103,8 +2393,8 @@ function glideTo(sec, { play = false } = {}) {
     tape.expect = Math.round(to);
     view.scrollLeft = to;
     paintTapeTime(target);
-    paintSweep(tape.playing ? player.currentTime : target);
-    if (play) playTape(target);
+    paintSweep(target);
+    if (play) playTape(target, { preview: true });
   };
   const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   if (reduced || Math.abs(to - from) < 2) { done(); return; }
@@ -2125,7 +2415,7 @@ function glideTo(sec, { play = false } = {}) {
 
 /* Лента двинулась от пальца: звук молчит, крупные цифры бегут вместе с ней,
    каждые пять секунд — лёгкий щелчок. Отпустили — отметка встаёт на целую
-   секунду, и сразу слышно это место. */
+   секунду, и это место звучит пять секунд. */
 function onTapeScroll() {
   if (!tape.duration) return;
   const view = $('tape-view');
@@ -2156,7 +2446,7 @@ function settleTape() {
   tape.expect = Math.round(sec * tape.px);
   view.scrollLeft = tape.expect;
   paintSweep(sec);
-  playTape(sec);
+  playTape(sec, { preview: true });
 }
 
 const settleTapeSoon = debounce(settleTape, 180);
@@ -2168,7 +2458,7 @@ function mountTape() {
   drawTape();
   tape.expect = Math.round((state.musicStart || 0) * tape.px);
   $('tape-view').scrollLeft = tape.expect;
-  paintSweep(tape.playing ? player.currentTime : state.musicStart || 0);
+  paintSweep(state.musicStart || 0);
   paintTape();
 }
 
@@ -2179,17 +2469,17 @@ async function openTrim() {
   pauseTape();
   Object.assign(tape, {
     src: null, url: null, duration: 0, peaks: null, energy: null, width: 0, primed: false, scrubbed: false,
-    marks: { quiet: null, peak: null, popular: null, uses: 0 },
+    marks: { quiet: null, popular: null, uses: 0 },
   });
   $('tape-chips').dataset.key = '';
   $('tape-chips').innerHTML = '';
   const url = state.music?.playUrl;
-  // У ссылки на YouTube нет ни звука для волны, ни длительности — ленту не показываем.
+  // У YouTube нет ни звука для волны, ни управления началом — ленту не показываем.
   if (!url) { box.hidden = true; return; }
 
   box.hidden = false;
   box.classList.add('is-loading');
-  box.classList.remove('is-set', 'is-playing', 'is-catching', 'is-scrubbing');
+  box.classList.remove('is-set', 'is-playing', 'is-fading', 'is-scrubbing');
   $('trim-state').textContent = t('tapeLoading');
   $('tape-at').textContent = clockText(state.musicStart || 0);
   $('tape-total').textContent = '';
@@ -2200,10 +2490,10 @@ async function openTrim() {
   box.classList.remove('is-loading');
   if (!wave) { box.hidden = true; return; }
   Object.assign(tape, { src: wave.src, url, duration: wave.duration, peaks: wave.peaks, energy: wave.energy });
-  tape.marks = { ...tape.marks, ...findMarks(wave.energy, wave.duration) };
+  tape.marks.quiet = findQuietIntro(wave.energy, wave.duration);
   state.musicStart = clampStart(state.musicStart);
   mountTape();
-  loadCutTip(token);
+  loadTopStart(token);
 }
 
 function closeTrim() {
@@ -2212,11 +2502,11 @@ function closeTrim() {
   tape.duration = 0;
   tape.src = null;
   const box = $('music-trim');
-  if (box) { box.hidden = true; box.classList.remove('is-loading', 'is-playing', 'is-set', 'is-catching', 'is-scrubbing'); }
+  if (box) { box.hidden = true; box.classList.remove('is-loading', 'is-playing', 'is-set', 'is-fading', 'is-scrubbing'); }
 }
 
-/* Откуда этот трек запускают другие пары — ещё один ромбик на ленте. */
-async function loadCutTip(token) {
+/* «Топ выбор»: откуда этот трек чаще всего запускают другие пары. */
+async function loadTopStart(token) {
   const music = state.music;
   if (!music || music.type === 'youtube') return;
   const query = new URLSearchParams({ type: music.type, url: String(music.value ?? '') });
@@ -2235,7 +2525,6 @@ async function loadCutTip(token) {
 function wireTape() {
   const view = $('tape-view');
   $('trim-play').addEventListener('click', toggleTapePlay);
-  $('tape-catch').addEventListener('click', catchHere);
   view.addEventListener('scroll', onTapeScroll, { passive: true });
 
   const grab = () => {
@@ -2248,6 +2537,7 @@ function wireTape() {
   const release = () => {
     if (!tape.touching) return;
     tape.touching = false;
+    primeTape();                // на iOS разрешение на звук даёт именно отпускание пальца
     settleTapeSoon();
   };
   view.addEventListener('touchstart', grab, { passive: true });
@@ -2281,10 +2571,12 @@ function wireTape() {
     const moves = { ArrowLeft: -step, ArrowRight: step, PageUp: -15, PageDown: 15 };
     if (event.key in moves) {
       event.preventDefault();
-      glideTo((state.musicStart || 0) + moves[event.key]);
+      primeTape();
+      glideTo((state.musicStart || 0) + moves[event.key], { play: true });
     } else if (event.key === 'Home') {
       event.preventDefault();
-      glideTo(0);
+      primeTape();
+      glideTo(0, { play: true });
     } else if (event.key === ' ' || event.key === 'Enter') {
       event.preventDefault();
       toggleTapePlay();
@@ -2299,17 +2591,9 @@ function wireTape() {
     window.addEventListener('resize', debounce(() => { if (tape.duration) mountTape(); }, 200));
   }
 
-  const stopped = () => {
-    if (!tape.playing || !sameUrl(player.src, tape.src)) return;
-    tape.playing = false;
-    stopSweep();
-    paintTape();
-  };
   player.addEventListener('ended', () => {
-    stopped();
     if (playingUrl) { playingUrl = null; refreshPlayUI(); }
   });
-  player.addEventListener('pause', stopped);
 }
 
 /* ════ 05 · Шаблоны ════ */
@@ -2341,6 +2625,7 @@ function openDemo(tpl) {
     address: $('address').value.trim(), map: placed() ? '1' : '0',
     lat: Number.isFinite(state.lat) ? String(state.lat) : '',
     lng: Number.isFinite(state.lng) ? String(state.lng) : '',
+    venue: state.venueId || '',
   });
   const url = `${location.origin}/demo/${tpl.id}?${q}`;
   const inTelegram = Boolean(tg?.platform && tg.platform !== 'unknown');
@@ -2791,6 +3076,7 @@ function collectForm() {
     lat: placed() ? state.lat : null,
     lng: placed() ? state.lng : null,
     address: $('address').value.trim(),
+    venueId: state.venueId || null,
     photos: state.photos.filter((p) => p.name).slice(0, requiredPhotos()).map((p) => p.name),
     musicType: state.music?.type ?? 'none',
     musicValue: state.music?.value ?? null,
@@ -2897,6 +3183,9 @@ function wireKeyboard() {
     if (!field) return;
     event.preventDefault();
     dismissField(field);
+    // Enter — пара сама сказала «готово»: трёхсекундной паузы не ждём.
+    if (field.id === 'groom' || field.id === 'bride') { if (state.open === 0) autoAdvance(FLOW.settle); }
+    if (field.id === 'address' && state.open === stepIdx('location')) autoAdvance(FLOW.settle);
   });
 
   document.addEventListener('pointerdown', (event) => {
@@ -2954,7 +3243,8 @@ function wire() {
       markFilled($(id));
       clearErr(0);
       saveDraft();
-      autoAdvance(720);
+      // Правка имён на поздних шагах не должна открывать следующий блок.
+      if (state.open === 0) autoAdvance(TYPING_PAUSE);
     });
   }
 
@@ -2971,13 +3261,13 @@ function wire() {
     markFilled($('address'));
     clearErr(stepIdx('location'));
     saveDraft();
-    autoAdvance(760);
+    if (state.open === stepIdx('location')) autoAdvance(TYPING_PAUSE);
   });
 
   document.querySelectorAll('.seg').forEach((b, i) => {
     b.addEventListener('click', () => { haptic.tap(); switchMusicTab(i); });
   });
-  $('music-q').addEventListener('input', debounce(renderLibrary, 120));
+  $('music-q').addEventListener('input', onMusicQuery);
   $('bot-open').addEventListener('click', openBot);
   // Пара вернулась из чата с ботом — сразу спрашиваем, что она прислала.
   const backFromBot = () => { if (myTracksOnScreen()) loadMyTracks({ announce: true }); syncMinePoll(); };
@@ -3000,7 +3290,9 @@ function wire() {
     playingUrl = null;
     activeTrackUrl = null;
     closeTrim();
+    ytOpen = null;
     $('music-picked').hidden = true;
+    $('music-note').hidden = true;
     renderLibrary();
     renderMyTracks();
     haptic.tap();

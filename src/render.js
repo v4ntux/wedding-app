@@ -9,6 +9,17 @@ import { GRAIN, audioWidget, mapEmbed, madeFooter, countdownScript } from './blo
 import { envelopeScene, envelopeExperienceCSS, envelopeExperienceScript, livingBackground, starfield } from './experience.js';
 import { coreCSS, monogram } from './theme.js';
 import { normalizeDesign, STATIONERY } from './design.js';
+import { findVenue } from './venues.js';
+
+// Вид места под названием тойхоны в приглашении.
+const VENUE_KINDS = {
+  uz: { toyxona: 'To‘yxona', restoran: 'Restoran', kafe: 'Kafe', bog: 'Bog‘' },
+  ru: { toyxona: 'Тойхона', restoran: 'Ресторан', kafe: 'Кафе', bog: 'Сад' },
+};
+
+const venueExtra = (venue) => (venue && !venue.draft
+  ? { id: venue.id, name: venue.name, kind: venue.kind, address: venue.address }
+  : null);
 
 export { escapeHtml };
 
@@ -116,6 +127,7 @@ export function buildData(app, guestName = null, tpl = null) {
   }
   if (!extras || typeof extras !== 'object') extras = {};
   const design = normalizeDesign(extras.design);
+  const venue = extras.venue && typeof extras.venue === 'object' ? extras.venue : null;
   const stationery = STATIONERY[tpl?.id] || STATIONERY.ivory;
 
   let photos = [];
@@ -151,6 +163,7 @@ export function buildData(app, guestName = null, tpl = null) {
     weekday: loc.weekdays[new Date(y, m - 1, d).getDay()],
     targetIso,
     address: app.address ?? '',
+    venueLine: venue ? [VENUE_KINDS[lang][venue.kind], venue.address].filter(Boolean).join(' · ') : '',
     lat,
     lng,
     mapEnabled,
@@ -232,9 +245,12 @@ export function renderDemo(templateId, opts = {}) {
     music_value: null,
     template_id: templateId,
     // Демо умеет показать заказ с подключёнными допфункциями: /demo/<id>?addons=dress
-    extras: JSON.stringify(Object.fromEntries(
-      String(opts.addons ?? '').split(',').map((s) => s.trim()).filter(Boolean).map((id) => [id, true])
-    )),
+    extras: JSON.stringify({
+      ...Object.fromEntries(
+        String(opts.addons ?? '').split(',').map((s) => s.trim()).filter(Boolean).map((id) => [id, true])
+      ),
+      ...(opts.venue && venueExtra(findVenue(String(opts.venue))) ? { venue: venueExtra(findVenue(String(opts.venue))) } : {}),
+    }),
     photos: JSON.stringify(['/demo/sample1.svg', '/demo/sample2.svg']),
   };
   const html = renderInvitation(sample, null);

@@ -17,6 +17,7 @@ import { publicTemplates, publicEvents, allTemplates } from './templateStore.js'
 import { guestPrice, pricedAddons, pricingSnapshot, updatePricing } from './pricing.js';
 import { publicVenues, allVenues, saveVenues, cityCenter } from './venues.js';
 import { RESERVED_SLUGS } from './slug.js';
+import { searchYoutube, youtubeVideo } from './youtube.js';
 
 const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
 
@@ -86,6 +87,18 @@ export function createServer({ onNewApplication, onPaid } = {}) {
     next();
   });
 
+  /* Главный адрес — тот, что в BASE_URL (nvate.uz). Старые ссылки и кнопки на
+     *.up.railway.app переезжают на него постоянным редиректом, чтобы у
+     приглашения был один адрес. Проверку здоровья и API не трогаем. */
+  const canonical = (() => { try { return new URL(BASE_URL); } catch { return null; } })();
+  app.use((req, res, next) => {
+    if (canonical?.protocol !== 'https:' || (req.method !== 'GET' && req.method !== 'HEAD')) return next();
+    const host = String(req.hostname || '');
+    if (host === canonical.hostname || !host.endsWith('.up.railway.app')) return next();
+    if (req.path === '/health' || req.path.startsWith('/api/')) return next();
+    res.redirect(301, `${canonical.origin}${req.originalUrl}`);
+  });
+
   const geoLimit = rateLimit({ windowMs: 60_000, max: 45 });
   const musicLimit = rateLimit({ windowMs: 60_000, max: 30 });
   // Студия переспрашивает «что пришло в бот», пока открыта вкладка «Моя музыка».
@@ -133,6 +146,7 @@ export function createServer({ onNewApplication, onPaid } = {}) {
       lat: req.query.lat,
       lng: req.query.lng,
       addons: req.query.addons,
+      venue: req.query.venue,
       design: { palette: req.query.palette, light: req.query.light, effect: req.query.effect, motion: req.query.motion, typography: req.query.typography },
       date: req.query.date,
       time: req.query.time,
@@ -506,6 +520,20 @@ export function createServer({ onNewApplication, onPaid } = {}) {
     if (!user) return res.status(401).json({ ok: false, error: 'Откройте форму через Telegram-бота' });
     res.set('Cache-Control', 'no-store');
     res.json({ ok: true, tracks: await userTracks(user.id) });
+  });
+
+  // Поиск песен на YouTube: только то, что автор разрешил встраивать.
+  app.get('/api/music/youtube/search', musicLimit, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json({ ok: true, results: await searchYoutube(String(req.query.q ?? '')) });
+  });
+
+  // Вставленная ссылка: название ролика и разрешение на показ в приглашении.
+  app.get('/api/music/youtube/info', musicLimit, async (req, res) => {
+    const found = await youtubeVideo(String(req.query.url ?? '').slice(0, 300));
+    if (found.status === 'ok') return res.json({ ok: true, video: found.video });
+    const code = { 'bad-link': 400, blocked: 422, unavailable: 502 }[found.status] ?? 502;
+    res.status(code).json({ ok: false, error: found.status });
   });
 
   /* Откуда этот трек обычно запускают. Пара услышит подсказку раньше, чем

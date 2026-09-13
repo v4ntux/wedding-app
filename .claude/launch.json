@@ -14,9 +14,9 @@
       "name": "studio-preview",
       "runtimeExecutable": "node",
       "runtimeArgs": [
-        "C:/Users/van/AppData/Local/Temp/claude/D--code-vibe-wedding-app/7195cb1e-0b16-4677-88e4-8c796e8cc333/scratchpad/studio-preview.mjs"
+        "C:/Users/van/AppData/Local/Temp/claude/D--code-vibe-wedding-app/c1664470-b15f-45e7-870c-ae6abb3a035a/scratchpad/preview-server.mjs"
       ],
-      "port": 3011
+      "port": 3012
     }
   ]
 }

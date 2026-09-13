@@ -195,6 +195,14 @@ export async function getGuest(applicationId, slug) {
   return (await db.prepare('SELECT * FROM guests WHERE application_id = ? AND slug = ?').get(applicationId, slug)) ?? null;
 }
 
+export async function getGuestById(id) {
+  return (await db.prepare('SELECT * FROM guests WHERE id = ?').get(id)) ?? null;
+}
+
+export async function setGuestMessage(id, messageId) {
+  (await db.prepare('UPDATE guests SET message_id = ? WHERE id = ?').run(messageId, id));
+}
+
 export async function listGuests(applicationId) {
   return (await db.prepare('SELECT * FROM guests WHERE application_id = ? ORDER BY id').all(applicationId));
 }

@@ -183,7 +183,7 @@
       <div id="venue-body">
         <div id="venue-list" class="venue-list"></div>
         <div id="geo-list" class="geo-list" hidden></div>
-        <button id="venue-own" type="button" class="linkbtn" data-i18n="venueOwn"></button>
+        <button id="venue-own" type="button" class="btn btn--ghost btn--block venue-own" data-i18n="venueOwn"></button>
       </div>
 
       <!-- Выбранное место: карточка вместо списка. -->
@@ -247,7 +247,7 @@
           <p id="link-hint" class="hint"></p>
         </div>
 
-        <button id="music-skip" type="button" class="linkbtn" data-i18n="musicSkip"></button>
+        <button id="music-skip" type="button" class="btn btn--ghost btn--block music-skip" data-i18n="musicSkip"></button>
       </div>
 
       <div id="music-picked" class="picked" hidden>
@@ -255,6 +255,7 @@
         <div class="picked-info"><b id="picked-name"></b><span id="picked-artist"></span></div>
         <button id="music-change" type="button" class="btn btn--ghost btn--tiny" data-i18n="change"></button>
       </div>
+      <p id="music-note" class="hint music-note" hidden></p>
 
       <!-- Лента: волна трека едет под золотой иглой. Что под иглой — с того
            гости и услышат. Тянешь пальцем — сразу слышишь это место. -->
@@ -283,7 +284,6 @@
             <svg class="ic-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12M16 6v12"/></svg>
           </button>
           <p id="trim-state" class="tape-state"></p>
-          <button id="tape-catch" type="button" class="tape-catch" hidden></button>
         </div>
 
         <div id="tape-chips" class="tape-chips"></div>
@@ -402,6 +402,12 @@
 
     <div class="studio-tail"></div>
   </main>
+
+  <!-- Следующий шаг открылся, а камера осталась на месте: подсказка над доком. -->
+  <button id="next-cue" type="button" class="next-cue" hidden>
+    <span id="next-cue-label"></span>
+    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M5 11l5 5 5-5"/></svg>
+  </button>
 
   <!-- ═══ Нижний док: нить с бусинами ═══ -->
   <nav id="dock" aria-label="Steps">

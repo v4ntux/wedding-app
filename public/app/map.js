@@ -424,11 +424,13 @@ window.NvMap = (function () {
       centre() { return { ...centre }; },
       zoom() { return zoom; },
       /* Вмещаем все метки в экран: иначе на пустом каталоге карта показывает
-         город, а на широком — половину меток за краем. */
-      fit(list = pins, padding = 0.35) {
+         город, а на широком — половину меток за краем. floor не даёт отдалиться
+         дальше города. Пока у карты нет размера (блок скрыт), вписывать не во
+         что: прежний расчёт уводил её к целому материку. Возвращает, удалось ли. */
+      fit(list = pins, padding = 0.35, floor = opts.minZoom) {
         const spots = list.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
-        if (!spots.length) return;
-        if (spots.length === 1) { this.jumpTo(spots[0].lat, spots[0].lng, 16); return; }
+        if (!spots.length || !host.clientWidth || !host.clientHeight) return false;
+        if (spots.length === 1) { this.jumpTo(spots[0].lat, spots[0].lng, 16); return true; }
         const lats = spots.map((p) => p.lat);
         const lngs = spots.map((p) => p.lng);
         const midLat = (Math.min(...lats) + Math.max(...lats)) / 2;
@@ -440,7 +442,8 @@ window.NvMap = (function () {
           if (Math.abs(b.x - a.x) <= host.clientWidth * (1 - padding)
             && Math.abs(b.y - a.y) <= host.clientHeight * (1 - padding)) { best = z; break; }
         }
-        this.jumpTo(midLat, midLng, best);
+        this.jumpTo(midLat, midLng, Math.max(best, floor));
+        return true;
       },
       invalidate() { draw(); },
       destroy() {

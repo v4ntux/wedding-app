@@ -40,6 +40,10 @@ export const MAP_TILES = (process.env.MAP_TILES ?? 'https://tile.openstreetmap.o
 // точный поиск заведений, как у chungdoi. Без ключа поиск идёт по бесплатным источникам.
 export const GOOGLE_MAPS_API_KEY = (process.env.GOOGLE_MAPS_API_KEY ?? '').trim();
 
+// YouTube Data API v3 (тот же Google Cloud, «YouTube Data API v3»). Без ключа
+// поиск песен идёт через страницу выдачи youtube.com.
+export const YOUTUBE_API_KEY = (process.env.YOUTUBE_API_KEY ?? '').trim();
+
 // Извлечение аудио из видео (Instagram/TikTok/YouTube) — cobalt-совместимый API.
 // Например self-hosted cobalt (github.com/imputnet/cobalt) или платный инстанс.
 export const EXTRACT_API_URL = (process.env.EXTRACT_API_URL ?? '').trim();

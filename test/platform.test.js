@@ -1,6 +1,6 @@
 import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -10,6 +10,8 @@ process.env.DEV_NO_AUTH = '0';
 process.env.BOT_TOKEN = 'test-token';
 process.env.ADMIN_CHAT_IDS = '';
 process.env.NVATE_DISABLE_WATCH = '1';
+process.env.BASE_URL = 'https://nvate.uz';
+process.env.YOUTUBE_API_KEY = '';
 // Only an explicitly named disposable database may be used by tests.
 process.env.DATABASE_URL = process.env.NVATE_TEST_DATABASE_URL || '';
 delete process.env.NVATE_MIGRATE_SQLITE;
@@ -388,6 +390,68 @@ test('HTTP: the shelf is public, personal music and shelf edits need Telegram', 
   assert.equal((await fetch(`${baseUrl}/api/music/mine`)).status, 401);
   assert.equal((await fetch(`${baseUrl}/api/admin/library`)).status, 403);
   assert.equal((await fetch(`${baseUrl}/api/admin/library`, { method: 'POST', body: id3('x') })).status, 403);
+});
+
+test('YouTube search reads the results page and keeps only real songs', async () => {
+  const { parseResultsPage, parseDuration, youtubeIdOf } = await import('../src/youtube.js');
+  const data = { contents: { list: [
+    { videoRenderer: { videoId: 'abcdefghijk', title: { runs: [{ text: 'Yor-yor' }] }, ownerText: { runs: [{ text: 'Shahzoda' }] }, lengthText: { simpleText: '3:45' } } },
+    // Прямой эфир: длительности нет — песней не считается.
+    { videoRenderer: { videoId: 'livestream1', title: { runs: [{ text: 'Efir' }] } } },
+  ] } };
+  const html = `<html><script>var ytInitialData = ${JSON.stringify(data)};</script></html>`;
+  assert.deepEqual(parseResultsPage(html), [{ id: 'abcdefghijk', title: 'Yor-yor', channel: 'Shahzoda', duration: 225 }]);
+  assert.deepEqual(parseResultsPage('<html>капча</html>'), []);
+  assert.equal(parseDuration('1:02:03'), 3723);
+  assert.equal(youtubeIdOf('https://youtu.be/abcdefghijk?t=3'), 'abcdefghijk');
+  const bad = await fetch(`${baseUrl}/api/music/youtube/info?url=${encodeURIComponent('https://example.com/song')}`);
+  assert.equal(bad.status, 400);
+});
+
+test('an invitation names the venue kind and landmark from the catalog, not from the form', async () => {
+  await saveVenues([{ id: 'saroy', name: 'Oq saroy', kind: 'toyxona', address: 'Mang‘it, bozor yonida', lat: 42.1207, lng: 60.0614 }]);
+  const chosen = renderInvitation(buildPreviewApp(baseForm({ venueId: 'saroy', address: 'Oq saroy' })));
+  assert.match(chosen, /class="venue__meta">Тойхона · Mang‘it, bozor yonida</);
+  const manual = renderInvitation(buildPreviewApp(baseForm({ venueId: 'no-such-place' })));
+  assert.doesNotMatch(manual, /class="venue__meta"/, 'своё место — без чужой подписи');
+});
+
+test('the paid couple gets a QR card drawn into the nvate.uz frame', async () => {
+  const { renderShareCard } = await import('../src/share.js');
+  const { PNG } = await import('pngjs');
+  const card = PNG.sync.read(renderShareCard('https://nvate.uz/alisher-and-zebo'));
+  const frame = PNG.sync.read(readFileSync('public/assets/share/qr-frame.png'));
+  assert.equal(card.width, frame.width);
+  assert.equal(card.height, frame.height);
+  const rgb = (png, x, y) => [...png.data.subarray((y * png.width + x) * 4, (y * png.width + x) * 4 + 3)];
+  let ink = 0;
+  let total = 0;
+  for (let y = 610; y < 1068; y += 3) {
+    for (let x = 330; x < 790; x += 3) {
+      const [r, , b] = rgb(card, x, y);
+      if (r < 190 && b < 120) ink += 1;
+      total += 1;
+    }
+  }
+  assert.ok(ink / total > 0.25 && ink / total < 0.75, `код заполняет квадрат наполовину, а не ${ink / total}`);
+  assert.deepEqual(rgb(card, 40, 40), rgb(frame, 40, 40), 'цветы и рамка остаются нетронутыми');
+});
+
+test('the railway address moves to nvate.uz while health checks stay put', async () => {
+  const { request } = await import('node:http');
+  const get = (pathname, host) => new Promise((resolve, reject) => {
+    const req = request({ host: '127.0.0.1', port: server.address().port, path: pathname, headers: { Host: host } }, (res) => {
+      res.resume();
+      resolve(res);
+    });
+    req.on('error', reject);
+    req.end();
+  });
+  const moved = await get('/alisher-and-zebo?from=qr', 'nvate.up.railway.app');
+  assert.equal(moved.statusCode, 301);
+  assert.equal(moved.headers.location, 'https://nvate.uz/alisher-and-zebo?from=qr');
+  assert.equal((await get('/health', 'nvate.up.railway.app')).statusCode, 200);
+  assert.equal((await get('/app/', 'nvate.uz')).statusCode, 200);
 });
 
 test('the invitation map shows only the chosen place, glowing, with no foreign widget', async () => {

@@ -184,6 +184,9 @@ body{min-width:320px;overflow-x:hidden;background:transparent;color:var(--ink,#2
 /* ── Место ─────────────────────────────────────────────────────────────── */
 .venue__name{margin:.3em auto .5em;max-width:20ch;color:var(--ink);
   font:300 clamp(2rem,8.4vw,3.1rem)/1.1 var(--display);text-wrap:balance}
+/* Вид и ориентир тойхоны из справочника: гость понимает, куда именно ехать. */
+.venue__meta{margin:-.1em auto 1.2em;max-width:34ch;color:var(--muted);
+  font:500 .72rem/1.6 var(--sans);letter-spacing:.14em;text-transform:uppercase;text-wrap:balance}
 .mapbox{position:relative;width:min(100%,720px);margin:0 auto;overflow:hidden;background:var(--paper-3,#ded5c4)}
 .mapbox iframe{display:block;width:100%;height:clamp(260px,42vh,360px);border:0;filter:grayscale(.5) sepia(.16) contrast(.96)}
 .mapbox:after{content:'';position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 0 1px var(--line,rgba(44,53,45,.16))}
