@@ -10,7 +10,7 @@ const TRANSLIT = {
 
 // Slug-и, конфликтующие с маршрутами сервера и страницами сайта.
 export const RESERVED_SLUGS = new Set([
-  'app', 'api', 'demo', 'music', 'admin', 'static', 'assets', 'favicon.ico', 'robots.txt',
+  'app', 'api', 'demo', 'music', 'admin', 'static', 'assets', 'favicon.ico', 'robots.txt', 'health',
   'uploads', 'site', 'templates', 'shablonlar', 'how', 'pricing', 'narxlar', 'faq', 'contact', 'aloqa',
 ]);
 
@@ -37,13 +37,13 @@ export function coupleSlugBase(groomName, brideName) {
 }
 
 // Подбирает свободный slug: base, base-2, base-3...
-export function uniqueSlug(base, isTaken) {
+export async function uniqueSlug(base, isTaken) {
   let candidate = base;
   if (!candidate || RESERVED_SLUGS.has(candidate)) candidate = `wedding-${Date.now()}`;
-  if (!isTaken(candidate)) return candidate;
+  if (!(await isTaken(candidate))) return candidate;
   for (let i = 2; i < 1000; i++) {
     const next = `${candidate}-${i}`;
-    if (!isTaken(next)) return next;
+    if (!(await isTaken(next))) return next;
   }
   return `${candidate}-${Date.now()}`;
 }

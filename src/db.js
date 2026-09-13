@@ -1,117 +1,27 @@
-import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync } from 'node:fs';
-import path from 'node:path';
-
-const DATA_DIR = path.resolve(process.env.NVATE_DATA_DIR || path.join(process.cwd(), 'data'));
-mkdirSync(DATA_DIR, { recursive: true });
-
-export const db = new DatabaseSync(path.join(DATA_DIR, 'wedding.db'));
-
-db.exec(`
-  PRAGMA journal_mode = WAL;
-  PRAGMA foreign_keys = ON;
-
-  CREATE TABLE IF NOT EXISTS applications (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    tg_user_id INTEGER NOT NULL,
-    tg_username TEXT,
-    phone TEXT,
-    phone2 TEXT,
-    contact_tg TEXT,
-    event_type TEXT NOT NULL DEFAULT 'wedding',
-    lang TEXT NOT NULL DEFAULT 'uz',
-    groom_name TEXT NOT NULL,
-    bride_name TEXT NOT NULL,
-    wedding_date TEXT NOT NULL,
-    wedding_time TEXT NOT NULL,
-    address TEXT,
-    lat REAL NOT NULL,
-    lng REAL NOT NULL,
-    map_enabled INTEGER NOT NULL DEFAULT 1,
-    music_type TEXT NOT NULL DEFAULT 'none',
-    music_value TEXT,
-    music_start REAL,
-    music_end REAL,
-    template_id TEXT NOT NULL,
-    template_price INTEGER NOT NULL,
-    premium INTEGER NOT NULL DEFAULT 0,
-    premium_price INTEGER NOT NULL DEFAULT 0,
-    domain_enabled INTEGER NOT NULL DEFAULT 0,
-    domain_price INTEGER NOT NULL DEFAULT 0,
-    guest_names TEXT,
-    photos TEXT,
-    total_price INTEGER NOT NULL,
-    status TEXT NOT NULL DEFAULT 'new',
-    slug TEXT UNIQUE,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    paid_at TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS settings (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL,
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS guests (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    application_id INTEGER NOT NULL REFERENCES applications(id),
-    name TEXT NOT NULL,
-    slug TEXT NOT NULL,
-    sent INTEGER NOT NULL DEFAULT 0,
-    UNIQUE(application_id, slug)
-  );
-`);
-
-// Миграции для баз, созданных ранними версиями.
-const appCols = db.prepare('PRAGMA table_info(applications)').all().map((c) => c.name);
-for (const [col, ddl] of [
-  ['photos', 'ALTER TABLE applications ADD COLUMN photos TEXT'],
-  ['lang', "ALTER TABLE applications ADD COLUMN lang TEXT NOT NULL DEFAULT 'uz'"],
-  ['music_start', 'ALTER TABLE applications ADD COLUMN music_start REAL'],
-  ['music_end', 'ALTER TABLE applications ADD COLUMN music_end REAL'],
-  ['phone', 'ALTER TABLE applications ADD COLUMN phone TEXT'],
-  ['event_type', "ALTER TABLE applications ADD COLUMN event_type TEXT NOT NULL DEFAULT 'wedding'"],
-  ['phone2', 'ALTER TABLE applications ADD COLUMN phone2 TEXT'],
-  ['contact_tg', 'ALTER TABLE applications ADD COLUMN contact_tg TEXT'],
-  ['confirmed_by', 'ALTER TABLE applications ADD COLUMN confirmed_by INTEGER'],
-  ['confirmed_by_name', 'ALTER TABLE applications ADD COLUMN confirmed_by_name TEXT'],
-  ['payment_proof', 'ALTER TABLE applications ADD COLUMN payment_proof TEXT'],
-  ['main_sent', 'ALTER TABLE applications ADD COLUMN main_sent INTEGER NOT NULL DEFAULT 0'],
-  ['map_enabled', 'ALTER TABLE applications ADD COLUMN map_enabled INTEGER NOT NULL DEFAULT 1'],
-  ['domain_enabled', 'ALTER TABLE applications ADD COLUMN domain_enabled INTEGER NOT NULL DEFAULT 0'],
-  ['domain_price', 'ALTER TABLE applications ADD COLUMN domain_price INTEGER NOT NULL DEFAULT 0'],
-  ['extras', 'ALTER TABLE applications ADD COLUMN extras TEXT'],
-  ['submission_key', 'ALTER TABLE applications ADD COLUMN submission_key TEXT'],
-]) {
-  if (!appCols.includes(col)) db.exec(ddl);
+import { db, transaction } from './storage.js';
+export { db, transaction };
+const settings = new Map();
+export async function refreshSettings() {
+  const rows = await db.prepare('SELECT key, value FROM settings').all();
+  settings.clear();
+  for (const row of rows) { try { settings.set(row.key, JSON.parse(row.value)); } catch {} }
 }
-db.exec('CREATE UNIQUE INDEX IF NOT EXISTS applications_submission_key ON applications(tg_user_id, submission_key) WHERE submission_key IS NOT NULL');
-
-const guestCols = db.prepare('PRAGMA table_info(guests)').all().map((c) => c.name);
-if (!guestCols.includes('sent')) db.exec('ALTER TABLE guests ADD COLUMN sent INTEGER NOT NULL DEFAULT 0');
+await refreshSettings();
 
 /* Настройки платформы: то, что админ меняет на ходу (цены). Значение — JSON,
    поэтому новая настройка не требует миграции. */
-export function getSetting(key) {
-  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
-  if (!row) return null;
-  try {
-    return JSON.parse(row.value);
-  } catch {
-    return null;
-  }
-}
+export function getSetting(key) { return structuredClone(settings.get(key) ?? null); }
 
-export function setSetting(key, value) {
-  db.prepare(`INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now'))
+export async function setSetting(key, value) {
+  (await db.prepare(`INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now'))
     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`)
-    .run(key, JSON.stringify(value));
+    .run(key, JSON.stringify(value)));
+  settings.set(key, structuredClone(value));
   return value;
 }
 
-export function insertApplication(a) {
-  const res = db
+export async function insertApplication(a) {
+  const res = (await db
     .prepare(
       `INSERT INTO applications
         (tg_user_id, tg_username, phone, phone2, contact_tg, event_type, lang, groom_name, bride_name, wedding_date, wedding_time,
@@ -150,47 +60,47 @@ export function insertApplication(a) {
       a.extras && Object.keys(a.extras).length ? JSON.stringify(a.extras) : null,
       a.submissionKey ?? null,
       a.totalPrice
-    );
+    ));
   return Number(res.lastInsertRowid);
 }
 
-export function getApplicationBySubmissionKey(tgUserId, submissionKey) {
-  return db.prepare('SELECT * FROM applications WHERE tg_user_id = ? AND submission_key = ?')
-    .get(tgUserId, submissionKey) ?? null;
+export async function getApplicationBySubmissionKey(tgUserId, submissionKey) {
+  return (await db.prepare('SELECT * FROM applications WHERE tg_user_id = ? AND submission_key = ?')
+    .get(tgUserId, submissionKey)) ?? null;
 }
 
-export function getApplication(id) {
-  return db.prepare('SELECT * FROM applications WHERE id = ?').get(id) ?? null;
+export async function getApplication(id) {
+  return (await db.prepare('SELECT * FROM applications WHERE id = ?').get(id)) ?? null;
 }
 
 // Заявки пользователя для раздела «Мои приглашения» (новые сверху).
-export function listApplicationsByUser(tgUserId) {
-  return db
+export async function listApplicationsByUser(tgUserId) {
+  return (await db
     .prepare('SELECT * FROM applications WHERE tg_user_id = ? ORDER BY id DESC LIMIT 50')
-    .all(tgUserId);
+    .all(tgUserId));
 }
 
-export function getApplicationBySlug(slug) {
-  return db.prepare("SELECT * FROM applications WHERE slug = ? AND status = 'paid'").get(slug) ?? null;
+export async function getApplicationBySlug(slug) {
+  return (await db.prepare("SELECT * FROM applications WHERE slug = ? AND status = 'paid'").get(slug)) ?? null;
 }
 
-export function slugTaken(slug) {
-  return db.prepare('SELECT 1 FROM applications WHERE slug = ?').get(slug) !== undefined;
+export async function slugTaken(slug) {
+  return (await db.prepare('SELECT 1 FROM applications WHERE slug = ?').get(slug)) !== undefined;
 }
 
 // Сколько раз выбирали каждый шаблон — для бейджа TOP в форме.
-export function templatePopularity() {
-  const rows = db.prepare('SELECT template_id, COUNT(*) AS c FROM applications GROUP BY template_id').all();
+export async function templatePopularity() {
+  const rows = (await db.prepare('SELECT template_id, COUNT(*) AS c FROM applications GROUP BY template_id').all());
   const out = {};
   for (const r of rows) out[r.template_id] = Number(r.c);
   return out;
 }
 
 // Топ-3 трека из каталога, которые выбирают чаще всего.
-export function topMusic(limit = 3) {
-  const rows = db
+export async function topMusic(limit = 3) {
+  const rows = (await db
     .prepare("SELECT music_value, COUNT(*) AS c FROM applications WHERE music_type = 'itunes' GROUP BY music_value ORDER BY c DESC LIMIT ?")
-    .all(limit);
+    .all(limit));
   const out = [];
   for (const r of rows) {
     try {
@@ -205,9 +115,9 @@ export function topMusic(limit = 3) {
    чтобы каждый раз искать её пальцем заново. Считаем по пятисекундным корзинам
    (совпадение до кадра ничего не значит), а предлагаем самую раннюю секунду из
    корзины: начать чуть раньше не страшно, начать позже — значит срезать фразу. */
-export function popularCut(musicValue, { minUses = 2 } = {}) {
+export async function popularCut(musicValue, { minUses = 2 } = {}) {
   if (!musicValue) return null;
-  const row = db
+  const row = (await db
     .prepare(
       `SELECT CAST(MIN(music_start) AS INTEGER) AS start, COUNT(*) AS c
          FROM applications
@@ -216,44 +126,44 @@ export function popularCut(musicValue, { minUses = 2 } = {}) {
         ORDER BY c DESC, start ASC
         LIMIT 1`
     )
-    .get(musicValue);
+    .get(musicValue));
   if (!row || Number(row.c) < minUses) return null;
   return { start: Number(row.start), uses: Number(row.c) };
 }
 
 // Атомарно: сработает только если заявка ещё в статусе 'new' (защита от двойного клика).
-export function markPaid(id, slug) {
-  const res = db
+export async function markPaid(id, slug) {
+  const res = (await db
     .prepare("UPDATE applications SET status = 'paid', slug = ?, paid_at = datetime('now') WHERE id = ? AND status = 'new'")
-    .run(slug, id);
+    .run(slug, id));
   return res.changes === 1;
 }
 
-export function markCancelled(id) {
-  const res = db
+export async function markCancelled(id) {
+  const res = (await db
     .prepare("UPDATE applications SET status = 'cancelled' WHERE id = ? AND status = 'new'")
-    .run(id);
+    .run(id));
   return res.changes === 1;
 }
 
-export function insertGuest(applicationId, name, slug) {
-  db.prepare('INSERT INTO guests (application_id, name, slug) VALUES (?, ?, ?)').run(applicationId, name, slug);
+export async function insertGuest(applicationId, name, slug) {
+  (await db.prepare('INSERT INTO guests (application_id, name, slug) VALUES (?, ?, ?)').run(applicationId, name, slug));
 }
 
-export function getGuest(applicationId, slug) {
-  return db.prepare('SELECT * FROM guests WHERE application_id = ? AND slug = ?').get(applicationId, slug) ?? null;
+export async function getGuest(applicationId, slug) {
+  return (await db.prepare('SELECT * FROM guests WHERE application_id = ? AND slug = ?').get(applicationId, slug)) ?? null;
 }
 
-export function listGuests(applicationId) {
-  return db.prepare('SELECT * FROM guests WHERE application_id = ? ORDER BY id').all(applicationId);
+export async function listGuests(applicationId) {
+  return (await db.prepare('SELECT * FROM guests WHERE application_id = ? ORDER BY id').all(applicationId));
 }
 
 // Сводная статистика для админ-панели (агрегаты по всем заявкам).
-export function adminStats() {
+export async function adminStats() {
   const totals = { all: 0, new: 0, paid: 0, cancelled: 0, revenue: 0 };
-  for (const r of db.prepare(
+  for (const r of (await db.prepare(
     "SELECT status, COUNT(*) c, COALESCE(SUM(total_price),0) s FROM applications GROUP BY status"
-  ).all()) {
+  ).all())) {
     totals.all += Number(r.c);
     if (r.status in totals) totals[r.status] = Number(r.c);
     if (r.status === 'paid') totals.revenue = Number(r.s);
@@ -261,55 +171,55 @@ export function adminStats() {
   totals.conversion = totals.all ? Math.round((totals.paid / totals.all) * 100) : 0;
   totals.avgCheck = totals.paid ? Math.round(totals.revenue / totals.paid) : 0;
 
-  const templates = db.prepare(
+  const templates = (await db.prepare(
     `SELECT template_id AS id, COUNT(*) c,
             COALESCE(SUM(CASE WHEN status='paid' THEN total_price END),0) revenue
      FROM applications GROUP BY template_id ORDER BY c DESC`
-  ).all().map((r) => ({ id: r.id, count: Number(r.c), revenue: Number(r.revenue) }));
+  ).all()).map((r) => ({ id: r.id, count: Number(r.c), revenue: Number(r.revenue) }));
 
   const topMusic = [];
-  for (const r of db.prepare(
+  for (const r of (await db.prepare(
     "SELECT music_value, COUNT(*) c FROM applications WHERE music_type='itunes' GROUP BY music_value ORDER BY c DESC LIMIT 5"
-  ).all()) {
+  ).all())) {
     try {
       const v = JSON.parse(r.music_value);
       topMusic.push({ name: v.name, artist: v.artist, count: Number(r.c) });
     } catch { /* пропускаем битые */ }
   }
 
-  const byDay = db.prepare(
+  const byDay = (await db.prepare(
     `SELECT substr(created_at,1,10) d, COUNT(*) c,
             SUM(CASE WHEN status='paid' THEN 1 ELSE 0 END) paid
      FROM applications GROUP BY d ORDER BY d DESC LIMIT 14`
-  ).all().map((r) => ({ day: r.d, count: Number(r.c), paid: Number(r.paid) })).reverse();
+  ).all()).map((r) => ({ day: r.d, count: Number(r.c), paid: Number(r.paid) })).reverse();
 
-  const guestLinks = Number(db.prepare('SELECT COUNT(*) c FROM guests').get().c);
+  const guestLinks = Number((await db.prepare('SELECT COUNT(*) c FROM guests').get()).c);
   const premiumRevenue = Number(
-    db.prepare("SELECT COALESCE(SUM(premium_price),0) s FROM applications WHERE status='paid' AND premium=1").get().s
+    (await db.prepare("SELECT COALESCE(SUM(premium_price),0) s FROM applications WHERE status='paid' AND premium=1").get()).s
   );
 
   return { totals, templates, topMusic, byDay, guestLinks, premiumRevenue };
 }
 
 // Записать, какой админ подтвердил оплату, когда и скриншот чека.
-export function recordConfirmation(id, adminId, adminName, proof) {
-  db.prepare(
+export async function recordConfirmation(id, adminId, adminName, proof) {
+  (await db.prepare(
     'UPDATE applications SET confirmed_by = ?, confirmed_by_name = ?, payment_proof = ? WHERE id = ?'
-  ).run(adminId ?? null, adminName ?? null, proof ?? null, id);
+  ).run(adminId ?? null, adminName ?? null, proof ?? null, id));
 }
 
-export function markMainSent(id) {
-  db.prepare('UPDATE applications SET main_sent = 1 WHERE id = ?').run(id);
+export async function markMainSent(id) {
+  (await db.prepare('UPDATE applications SET main_sent = 1 WHERE id = ?').run(id));
 }
 
-export function markGuestSent(applicationId, slug) {
-  db.prepare('UPDATE guests SET sent = 1 WHERE application_id = ? AND slug = ?').run(applicationId, slug);
+export async function markGuestSent(applicationId, slug) {
+  (await db.prepare('UPDATE guests SET sent = 1 WHERE application_id = ? AND slug = ?').run(applicationId, slug));
 }
 
 // Последние заявки для админ-панели: кто подтвердил, когда, скриншот, гости.
-export function listRecentOrders(limit = 30) {
-  const rows = db.prepare('SELECT * FROM applications ORDER BY id DESC LIMIT ?').all(limit);
-  return rows.map((a) => ({
+export async function listRecentOrders(limit = 30) {
+  const rows = (await db.prepare('SELECT * FROM applications ORDER BY id DESC LIMIT ?').all(limit));
+  return Promise.all(rows.map(async (a) => ({
     id: a.id,
     groom: a.groom_name,
     bride: a.bride_name,
@@ -327,7 +237,7 @@ export function listRecentOrders(limit = 30) {
     confirmedBy: a.confirmed_by,
     confirmedByName: a.confirmed_by_name,
     paymentProof: a.payment_proof ? `/api/admin/proofs/${encodeURIComponent(a.payment_proof)}` : null,
-    guests: db.prepare('SELECT name, slug, sent FROM guests WHERE application_id = ? ORDER BY id').all(a.id)
+    guests: (await db.prepare('SELECT name, slug, sent FROM guests WHERE application_id = ? ORDER BY id').all(a.id))
       .map((g) => ({ name: g.name, slug: g.slug, sent: Boolean(g.sent) })),
-  }));
+  })));
 }

@@ -89,9 +89,9 @@ export function publicVenues() {
   return allVenues().filter((venue) => !venue.draft);
 }
 
-export function saveVenues(list) {
+export async function saveVenues(list) {
   const clean = normalizeList(list);
-  setSetting('venues', clean);
+  (await setSetting('venues', clean));
   return clean;
 }
 

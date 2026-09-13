@@ -10,6 +10,10 @@ process.env.DEV_NO_AUTH = '0';
 process.env.BOT_TOKEN = 'test-token';
 process.env.ADMIN_CHAT_IDS = '';
 process.env.NVATE_DISABLE_WATCH = '1';
+// Only an explicitly named disposable database may be used by tests.
+process.env.DATABASE_URL = process.env.NVATE_TEST_DATABASE_URL || '';
+delete process.env.NVATE_MIGRATE_SQLITE;
+delete process.env.RAILWAY_ENVIRONMENT;
 
 const dbModule = await import('../src/db.js');
 const { validateForm, buildPreviewApp, submitApplication, musicKey, ValidationError } = await import('../src/service.js');
@@ -67,7 +71,7 @@ before(async () => {
 
 after(async () => {
   if (server) await new Promise((resolve) => server.close(resolve));
-  dbModule.db.close();
+  (await dbModule.db.close());
   rmSync(testDataDir, { recursive: true, force: true });
 });
 
@@ -157,17 +161,54 @@ test('strict validation rejects impossible and past wedding dates', () => {
   assert.doesNotThrow(() => validateForm(baseForm()));
 });
 
-test('submission key makes application creation idempotent', () => {
+test('submission key makes application creation idempotent', async () => {
   const user = { id: 7001, username: 'test_user' };
-  const first = submitApplication(baseForm(), user);
-  const second = submitApplication(baseForm(), user);
+  const first = (await submitApplication(baseForm(), user));
+  const second = (await submitApplication(baseForm(), user));
   assert.equal(second.id, first.id);
   assert.equal(second.duplicate, true);
-  const count = dbModule.db.prepare('SELECT COUNT(*) AS count FROM applications WHERE tg_user_id = ?').get(user.id).count;
+  const count = (await dbModule.db.prepare('SELECT COUNT(*) AS count FROM applications WHERE tg_user_id = ?').get(user.id)).count;
   assert.equal(count, 1);
 });
 
-test('phone is the only contact we ask for — Telegram comes from the bot', () => {
+test('concurrent submissions return one order with a numeric Telegram ID', async () => {
+  const form = baseForm({ submissionKey: 'abcdefab-1234-4123-8123-123456789abc' });
+  const user = { id: 4503599627370000, username: 'concurrency_test' };
+  const results = await Promise.all(Array.from({ length: 5 }, () => submitApplication(form, user)));
+  assert.equal(new Set(results.map((r) => r.id)).size, 1);
+  assert.equal(results[0].app.tg_user_id, user.id);
+});
+
+test('payment is atomic, concurrent confirmations cannot duplicate guest links', async () => {
+  const { payApplication, cancelApplication } = await import('../src/service.js');
+  const first = await submitApplication(baseForm({
+    submissionKey: 'abcdefac-1234-4123-8123-123456789abc', guestNames: ['Aziz', 'Азиз'],
+  }), { id: 89001 });
+  const outcomes = await Promise.allSettled([payApplication(first.id), payApplication(first.id)]);
+  assert.equal(outcomes.filter((r) => r.status === 'fulfilled').length, 1);
+  const paid = await dbModule.getApplication(first.id);
+  const guests = await dbModule.listGuests(first.id);
+  assert.equal(paid.status, 'paid');
+  assert.equal(guests.length, 2);
+  assert.equal(new Set(guests.map((g) => g.slug)).size, 2);
+  assert.equal((await fetch(`${baseUrl}/${paid.slug}/${guests[0].slug}`)).status, 200);
+  const orders = await dbModule.listRecentOrders();
+  assert.equal(orders.find((a) => a.id === first.id).guests.length, 2);
+  assert.equal((await dbModule.adminStats()).totals.paid, 1);
+  await assert.rejects(cancelApplication(first.id), ValidationError);
+
+  const second = await submitApplication(baseForm({ submissionKey: 'abcdefad-1234-4123-8123-123456789abc' }), { id: 89002 });
+  // Simulate failure after a payment update: the committed status must remain new.
+  await assert.rejects(dbModule.transaction(async () => {
+    await dbModule.markPaid(second.id, 'rollback-test');
+    await dbModule.insertGuest(-999999, 'invalid foreign key', 'invalid');
+  }));
+  assert.equal((await dbModule.getApplication(second.id)).status, 'new');
+  const next = await payApplication(second.id);
+  assert.notEqual(next.app.slug, paid.slug, 'same couple names must get distinct links');
+});
+
+test('phone is the only contact we ask for — Telegram comes from the bot', async () => {
   // Телефона нет — заявку не принимаем: подтверждать оплату не по чему.
   assert.throws(
     () => validateForm(baseForm({ phone: '' }), { requirePhone: true }),
@@ -179,10 +220,10 @@ test('phone is the only contact we ask for — Telegram comes from the bot', () 
     /Некорректный номер/
   );
   const user = { id: 7101, username: 'from_bot' };
-  const created = submitApplication(
+  const created = (await submitApplication(
     baseForm({ submissionKey: '22345678-1234-4123-8123-123456789abc' }),
     user
-  ).app;
+  )).app;
   // Telegram берём из initData, а не из полей формы.
   assert.equal(created.tg_user_id, 7101);
   assert.equal(created.tg_username, 'from_bot');
@@ -194,7 +235,7 @@ test('the cut keeps a start and runs to the end of the track', () => {
   assert.equal(clean.musicEnd, null);
 });
 
-test('a popular start point is only suggested once several couples agree', () => {
+test('a popular start point is only suggested once several couples agree', async () => {
   const track = {
     name: 'Shared Song',
     artist: 'Shared Artist',
@@ -202,30 +243,30 @@ test('a popular start point is only suggested once several couples agree', () =>
   };
   const key = musicKey({ musicType: 'itunes', musicValue: track });
   assert.ok(key);
-  assert.equal(dbModule.popularCut(key), null, 'без заявок подсказки быть не должно');
+  assert.equal((await dbModule.popularCut(key)), null, 'без заявок подсказки быть не должно');
 
-  const submit = (id, start) => submitApplication(baseForm({
+  const submit = async (id, start) => (await submitApplication(baseForm({
     musicValue: track,
     musicStart: start,
     submissionKey: `3234567${id}-1234-4123-8123-123456789abc`,
-  }), { id: 7200 + id, username: `cut_${id}` });
+  }), { id: 7200 + id, username: `cut_${id}` }));
 
-  submit(1, 18);
-  assert.equal(dbModule.popularCut(key), null, 'одна пара — ещё не рекомендация');
+  await submit(1, 18);
+  assert.equal((await dbModule.popularCut(key)), null, 'одна пара — ещё не рекомендация');
 
-  submit(2, 19);   // та же пятисекундная корзина, что и 18
-  submit(3, 44);
-  const cut = dbModule.popularCut(key);
+  await submit(2, 19);   // та же пятисекундная корзина, что и 18
+  await submit(3, 44);
+  const cut = (await dbModule.popularCut(key));
   assert.deepEqual(cut, { start: 18, uses: 2 }, 'предлагаем самую раннюю секунду корзины');
 });
 
-test('the venue catalog hides drafts from couples and keeps them for the admin', () => {
-  saveVenues([
+test('the venue catalog hides drafts from couples and keeps them for the admin', async () => {
+  (await saveVenues([
     { id: 'live-one', name: 'Navro‘z', kind: 'toyxona', address: 'Mang‘it', lat: 42.1178, lng: 60.0601, seats: 300 },
     { id: 'draft-one', name: 'Oq saroy', kind: 'toyxona', address: 'Mang‘it', lat: 42.1207, lng: 60.0614, draft: true },
     { name: 'Без точки', kind: 'kafe' },                       // некуда поставить метку
     { id: 'abroad', name: 'Далеко', lat: 10, lng: 10 },        // за пределами страны
-  ]);
+  ]));
   assert.deepEqual(allVenues().map((v) => v.id), ['live-one', 'draft-one']);
   assert.deepEqual(publicVenues().map((v) => v.id), ['live-one']);
   assert.equal(publicVenues()[0].seats, 300);
@@ -260,15 +301,15 @@ test('envelope opens in four beats and hands the page over on the dolly', () => 
 test('admin pricing overrides the manifest and falls back when cleared', async () => {
   const { templatePrice, guestPrice, updatePricing } = await import('../src/pricing.js');
   const base = allTemplates().find((t) => t.id === 'deco');
-  updatePricing({ templates: { deco: 999000 }, guestLink: 25000 }, allTemplates().map((t) => t.id));
+  (await updatePricing({ templates: { deco: 999000 }, guestLink: 25000 }, allTemplates().map((t) => t.id)));
   assert.equal(templatePrice('deco', base.basePrice), 999000);
   assert.equal(guestPrice(), 25000);
   assert.equal(publicTemplates().find((t) => t.id === 'deco').price, 999000);
   // Пустое значение возвращает заводскую цену из manifest.json.
-  updatePricing({ templates: { deco: null }, guestLink: null }, allTemplates().map((t) => t.id));
+  (await updatePricing({ templates: { deco: null }, guestLink: null }, allTemplates().map((t) => t.id)));
   assert.equal(templatePrice('deco', base.basePrice), base.basePrice);
   assert.equal(guestPrice(), 10000);
-  assert.throws(() => updatePricing({ templates: { deco: -5 } }, ['deco']), /цена/i);
+  await assert.rejects(updatePricing({ templates: { deco: -5 } }, ['deco']), /цена/i);
 });
 
 test('music player ships a volume control that remembers the guest choice', async () => {
@@ -325,6 +366,9 @@ test('Admin sanitizer neutralizes stored markup and attributes', () => {
 });
 
 test('HTTP catalog and render routes are healthy with security headers', async () => {
+  const health = await fetch(`${baseUrl}/health`);
+  assert.equal(health.status, 200);
+  assert.deepEqual(await health.json(), { status: 'ok', database: process.env.NVATE_TEST_DATABASE_URL ? 'postgresql' : 'sqlite' });
   const configResponse = await fetch(`${baseUrl}/api/config`);
   assert.equal(configResponse.status, 200);
   assert.equal(configResponse.headers.get('x-content-type-options'), 'nosniff');

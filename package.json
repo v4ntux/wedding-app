@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "express": "^4.21.2",
-    "grammy": "^1.38.2"
+    "grammy": "^1.38.2",
+    "pg": "^8.23.0"
   }
 }

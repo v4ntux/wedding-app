@@ -6,6 +6,7 @@ import { submitApplication, buildPreviewApp, payApplication, cancelApplication, 
 import { renderInvitation, renderDemo, renderNotFound, withWatermark } from './render.js';
 import { saveUpload, UPLOADS_DIR } from './upload.js';
 import * as db from './db.js';
+import { healthCheck } from './storage.js';
 import {
   BOT_TOKEN, BOT_USERNAME, BASE_URL, DEV_NO_AUTH, isAdmin, MAX_GUESTS, MAX_PHOTOS,
   GOOGLE_MAPS_API_KEY, MAP_TILES, EXTRACT_API_URL, EXTRACT_API_KEY } from './config.js';
@@ -55,6 +56,14 @@ function adminUser(initData) {
 // onNewApplication(app) — уведомление админа; подставляется из index.js.
 export function createServer({ onNewApplication, onPaid } = {}) {
   const app = express();
+  // Express 4 needs rejected async handlers forwarded to its error middleware.
+  for (const method of ['get', 'post', 'put']) {
+    const register = app[method].bind(app);
+    app[method] = (route, ...handlers) => register(route, ...handlers.map((handler) =>
+      handler.constructor.name === 'AsyncFunction'
+        ? (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next)
+        : handler));
+  }
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
   app.use((_req, res, next) => {
@@ -73,6 +82,11 @@ export function createServer({ onNewApplication, onPaid } = {}) {
 
   // Продукт — только Telegram WebApp: корень ведёт прямо в форму.
   app.get('/', (_req, res) => res.redirect('/app/'));
+  app.get('/health', async (_req, res) => {
+    try { res.json(await healthCheck()); }
+    catch { res.status(503).json({ status: 'error', database: 'unavailable' }); }
+  });
+  app.use('/api', (_req, _res, next) => db.refreshSettings().then(() => next(), next));
   /* Студия и админка — код без сборки и без хешей в именах. Без явного запрета
      браузер держит их по эвристике кеширования: после выката пара открывает
      WebApp и получает вчерашний app.js вперемешку с сегодняшней разметкой.
@@ -115,7 +129,7 @@ export function createServer({ onNewApplication, onPaid } = {}) {
   });
 
   // Единый источник правды для формы.
-  app.get('/api/config', (_req, res) => {
+  app.get('/api/config', async (_req, res) => {
     res.json({
       templates: publicTemplates(),
       events: publicEvents(),
@@ -124,8 +138,8 @@ export function createServer({ onNewApplication, onPaid } = {}) {
       addons: pricedAddons().filter((addon) => addon.listed !== false),
       maxGuests: MAX_GUESTS,
       maxPhotos: MAX_PHOTOS,
-      populars: db.templatePopularity(),
-      topTracks: db.topMusic(3),
+      populars: (await db.templatePopularity()),
+      topTracks: (await db.topMusic(3)),
       city: cityCenter(),
       mapTiles: MAP_TILES,
       googleGeoEnabled: Boolean(GOOGLE_MAPS_API_KEY),
@@ -134,23 +148,23 @@ export function createServer({ onNewApplication, onPaid } = {}) {
   });
 
   // Статистика для админ-панели (только администратор).
-  app.get('/api/admin/stats', (req, res) => {
+  app.get('/api/admin/stats', async (req, res) => {
     const u = adminUser(req.get('x-init-data') ?? '');
     if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
-    res.json({ ok: true, stats: db.adminStats(), templates: publicTemplates(), orders: db.listRecentOrders(30) });
+    res.json({ ok: true, stats: (await db.adminStats()), templates: publicTemplates(), orders: (await db.listRecentOrders(30)) });
   });
 
   // Всё, что нужно панели одним запросом: показатели, заявки, каталог, прайс.
-  app.get('/api/admin/overview', (req, res) => {
+  app.get('/api/admin/overview', async (req, res) => {
     const u = adminUser(req.get('x-init-data') ?? '');
     if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
     const limit = Math.min(200, Math.max(10, Number(req.query.limit) || 60));
     res.json({
       ok: true,
       admin: { id: u.id, username: u.username ?? null },
-      stats: db.adminStats(),
+      stats: (await db.adminStats()),
       templates: publicTemplates(),
-      orders: db.listRecentOrders(limit),
+      orders: (await db.listRecentOrders(limit)),
       pricing: pricingSnapshot(allTemplates()),
     });
   });
@@ -162,11 +176,11 @@ export function createServer({ onNewApplication, onPaid } = {}) {
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) return res.status(400).json({ ok: false, error: 'Некорректный номер заявки' });
     try {
-      const { app: paid, guests } = payApplication(id, {
+      const { app: paid, guests } = (await payApplication(id, {
         adminId: u.id,
         adminName: u.username ?? String(u.id),
         proof: null,
-      });
+      }));
       // Паре уходит ссылка — тем же сообщением, что и при подтверждении из бота.
       if (onPaid) {
         try {
@@ -183,13 +197,13 @@ export function createServer({ onNewApplication, onPaid } = {}) {
     }
   });
 
-  app.post('/api/admin/applications/:id/cancel', express.json({ limit: '4kb' }), (req, res) => {
+  app.post('/api/admin/applications/:id/cancel', express.json({ limit: '4kb' }), async (req, res) => {
     const u = adminUser(req.get('x-init-data') ?? '');
     if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
     const id = Number(req.params.id);
     if (!Number.isInteger(id)) return res.status(400).json({ ok: false, error: 'Некорректный номер заявки' });
     try {
-      const cancelled = cancelApplication(id);
+      const cancelled = (await cancelApplication(id));
       res.json({ ok: true, id: cancelled.id, status: cancelled.status });
     } catch (e) {
       if (e instanceof ValidationError) return res.status(400).json({ ok: false, error: e.message });
@@ -200,11 +214,11 @@ export function createServer({ onNewApplication, onPaid } = {}) {
 
   // Прайс: цены шаблонов, именной ссылки и допфункций. Пустое значение
   // возвращает заводскую цену из manifest.json / config.js.
-  app.put('/api/admin/pricing', express.json({ limit: '16kb' }), (req, res) => {
+  app.put('/api/admin/pricing', express.json({ limit: '16kb' }), async (req, res) => {
     const u = adminUser(req.get('x-init-data') ?? '');
     if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
     try {
-      updatePricing(req.body ?? {}, allTemplates().map((t) => t.id));
+      (await updatePricing(req.body ?? {}, allTemplates().map((t) => t.id)));
       res.json({ ok: true, pricing: pricingSnapshot(allTemplates()) });
     } catch (e) {
       res.status(400).json({ ok: false, error: e.message || 'Не удалось сохранить цены' });
@@ -219,11 +233,11 @@ export function createServer({ onNewApplication, onPaid } = {}) {
     res.json({ ok: true, city: cityCenter(), venues: allVenues(), mapTiles: MAP_TILES });
   });
 
-  app.put('/api/admin/venues', express.json({ limit: '128kb' }), (req, res) => {
+  app.put('/api/admin/venues', express.json({ limit: '128kb' }), async (req, res) => {
     const u = adminUser(req.get('x-init-data') ?? '');
     if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
     try {
-      const venues = saveVenues(req.body?.venues ?? []);
+      const venues = (await saveVenues(req.body?.venues ?? []));
       res.json({ ok: true, venues });
     } catch (e) {
       res.status(400).json({ ok: false, error: e.message || 'Не удалось сохранить каталог' });
@@ -409,14 +423,14 @@ export function createServer({ onNewApplication, onPaid } = {}) {
   });
 
   // «Мои приглашения»: заявки текущего пользователя Telegram.
-  app.get('/api/my', (req, res) => {
+  app.get('/api/my', async (req, res) => {
     const user = authUser(req.get('x-init-data') ?? '');
     if (!user) return res.status(401).json({ ok: false, error: 'Откройте форму через Telegram-бота' });
-    const apps = db.listApplicationsByUser(user.id).map((a) => {
+    const apps = await Promise.all((await db.listApplicationsByUser(user.id)).map(async (a) => {
       const paid = a.status === 'paid' && a.slug;
       // Именные ссылки гостей — только у оплаченных (создаются при оплате).
       const guests = paid && a.premium
-        ? db.listGuests(a.id).map((g) => ({ name: g.name, url: `${BASE_URL}/${a.slug}/${g.slug}` }))
+        ? (await db.listGuests(a.id)).map((g) => ({ name: g.name, url: `${BASE_URL}/${a.slug}/${g.slug}` }))
         : [];
       return {
         id: a.id,
@@ -433,7 +447,7 @@ export function createServer({ onNewApplication, onPaid } = {}) {
         guests,
         createdAt: a.created_at,
       };
-    });
+    }));
     res.json({ ok: true, apps });
   });
 
@@ -464,7 +478,7 @@ export function createServer({ onNewApplication, onPaid } = {}) {
   /* Откуда этот трек обычно запускают. Пара услышит подсказку раньше, чем
      начнёт искать нужный такт пальцем. Молчим, пока пар меньше двух: одна
      чужая обрезка — это не рекомендация. */
-  app.get('/api/music/cut', musicLimit, (req, res) => {
+  app.get('/api/music/cut', musicLimit, async (req, res) => {
     const type = String(req.query.type ?? '');
     const url = String(req.query.url ?? '').slice(0, 400);
     const form = type === 'itunes'
@@ -472,7 +486,7 @@ export function createServer({ onNewApplication, onPaid } = {}) {
       : { musicType: type, musicValue: url };
     const key = musicKey(form);
     res.set('Cache-Control', 'public, max-age=300');
-    res.json({ ok: true, cut: key ? db.popularCut(key) : null });
+    res.json({ ok: true, cut: key ? (await db.popularCut(key)) : null });
   });
 
   // Извлечение аудио из видео-ссылки (Instagram/TikTok/YouTube) через cobalt-совместимый API.
@@ -547,7 +561,7 @@ export function createServer({ onNewApplication, onPaid } = {}) {
         return res.status(401).json({ ok: false, error: 'Откройте форму через Telegram-бота' });
       }
 
-      const { id, app: created } = submitApplication(form, user);
+      const { id, app: created } = (await submitApplication(form, user));
 
       try {
         await onNewApplication(created);
@@ -567,21 +581,21 @@ export function createServer({ onNewApplication, onPaid } = {}) {
   });
 
   // Страница приглашения: project.uz/ali-and-zebo
-  app.get('/:slug', (req, res, next) => {
+  app.get('/:slug', async (req, res, next) => {
     const { slug } = req.params;
     if (RESERVED_SLUGS.has(slug)) return next();
-    const invitation = db.getApplicationBySlug(slug);
+    const invitation = (await db.getApplicationBySlug(slug));
     if (!invitation) return next();
     res.send(renderInvitation(invitation));
   });
 
   // Именная страница: project.uz/ali-and-zebo/aziz
-  app.get('/:slug/:guestSlug', (req, res, next) => {
+  app.get('/:slug/:guestSlug', async (req, res, next) => {
     const { slug, guestSlug } = req.params;
     if (RESERVED_SLUGS.has(slug)) return next();
-    const invitation = db.getApplicationBySlug(slug);
+    const invitation = (await db.getApplicationBySlug(slug));
     if (!invitation) return next();
-    const guest = db.getGuest(invitation.id, guestSlug);
+    const guest = (await db.getGuest(invitation.id, guestSlug));
     // Незнакомый гость видит общую открытку — битых ссылок не бывает.
     res.send(renderInvitation(invitation, guest?.name ?? null));
   });

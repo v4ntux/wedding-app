@@ -5,7 +5,7 @@ import path from 'node:path';
 import { payApplication, cancelApplication, ValidationError, mapsLinks } from './service.js';
 import { findMusicPreset, SUPPORT_URL, ADDONS, GUEST_LINK_PRICE, MAX_PHOTOS } from './config.js';
 import { findTemplate, publicTemplates } from './templateStore.js';
-import { markMainSent, markGuestSent, getApplication, listGuests } from './db.js';
+import { markMainSent, markGuestSent, getApplication, listGuests, refreshSettings } from './db.js';
 import { UPLOADS_DIR } from './upload.js';
 import { escapeHtml as esc } from './render.js';
 
@@ -101,6 +101,7 @@ function buildCoupleText(app, guests, baseUrl) {
 
 export function createBot({ token, adminIds = [], baseUrl }) {
   const bot = new Bot(token);
+  bot.use(async (_ctx, next) => { await refreshSettings(); await next(); });
   // Админов может быть несколько: ADMIN_CHAT_IDS=111,222,333
   const isAdminId = (id) => adminIds.includes(Number(id));
 
@@ -221,7 +222,7 @@ export function createBot({ token, adminIds = [], baseUrl }) {
     }
     const id = Number(ctx.match[1]);
     try {
-      const app = cancelApplication(id);
+      const app = (await cancelApplication(id));
       await ctx.editMessageText(buildAdminText(app, { baseUrl }), {
         parse_mode: 'HTML', link_preview_options: { is_disabled: true },
       });
@@ -256,7 +257,7 @@ export function createBot({ token, adminIds = [], baseUrl }) {
       const name = `proof-${id}-${randomUUID()}.jpg`;
       writeFileSync(path.join(UPLOADS_DIR, name), buf);
       const adminName = ctx.from.username ? '@' + ctx.from.username : (ctx.from.first_name || String(adminId));
-      const { app, guests } = payApplication(id, { adminId, adminName, proof: name });
+      const { app, guests } = (await payApplication(id, { adminId, adminName, proof: name }));
       await ctx.reply(`✅ Заявка #${id} подтверждена (${adminName}). Чек сохранён.\n${baseUrl}/${app.slug}`, {
         link_preview_options: { is_disabled: true },
       });
@@ -277,20 +278,20 @@ export function createBot({ token, adminIds = [], baseUrl }) {
   // переписываем сообщение: прямым текстом, что эта ссылка уже отправлена.
   bot.callbackQuery(/^sent:(\d+):(.+)$/, async (ctx) => {
     const id = Number(ctx.match[1]);
-    const app = getApplication(id);
+    const app = (await getApplication(id));
     if (!app || Number(app.tg_user_id) !== Number(ctx.from?.id)) {
       return ctx.answerCallbackQuery({ text: 'Bu havola sizga tegishli emas · Эта ссылка не ваша', show_alert: true });
     }
     const token = ctx.match[2];
     const isMain = token === '_main' || token === 'm';
-    const guests = isMain ? [] : listGuests(id);
+    const guests = isMain ? [] : (await listGuests(id));
     const guest = isMain
       ? null
       : /^g\d+$/.test(token)
         ? guests.find((item) => Number(item.id) === Number(token.slice(1)))
         : guests.find((item) => item.slug === token);
     if (!isMain && !guest) return ctx.answerCallbackQuery({ text: 'Havola topilmadi · Ссылка не найдена', show_alert: true });
-    if (isMain) markMainSent(id); else markGuestSent(id, guest.slug);
+    if (isMain) (await markMainSent(id)); else (await markGuestSent(id, guest.slug));
     await ctx.answerCallbackQuery({ text: '✅' });
 
     const uz = app.lang !== 'ru';

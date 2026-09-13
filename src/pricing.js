@@ -57,7 +57,7 @@ export function pricingSnapshot(templates = []) {
 
 /* Сохранение из админки. Принимаем только известные ключи и разумные суммы;
    пустое значение (null) возвращает заводскую цену. */
-export function updatePricing(patch = {}, knownTemplateIds = []) {
+export async function updatePricing(patch = {}, knownTemplateIds = []) {
   const current = read();
   const next = {
     templates: { ...(current.templates ?? {}) },
@@ -94,6 +94,6 @@ export function updatePricing(patch = {}, knownTemplateIds = []) {
     }
   }
 
-  db.setSetting(KEY, next);
+  (await db.setSetting(KEY, next));
   return next;
 }

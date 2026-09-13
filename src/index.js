@@ -1,6 +1,7 @@
 import { BOT_TOKEN, ADMIN_CHAT_IDS, BASE_URL, PORT, DEV_NO_AUTH } from './config.js';
 import { createBot, notifyNewApplication } from './bot.js';
 import { createServer } from './server.js';
+import { db } from './db.js';
 
 if (!BOT_TOKEN && !DEV_NO_AUTH) {
   console.error(
@@ -49,3 +50,21 @@ if (bot) {
 }
 
 process.on('unhandledRejection', (err) => console.error('[unhandledRejection]', err));
+
+let stopping = false;
+async function shutdown() {
+  if (stopping) return;
+  stopping = true;
+  const deadline = setTimeout(() => process.exit(1), 20000).unref();
+  try {
+    await Promise.all([
+      new Promise((resolve) => server.close(resolve)),
+      bot?.isRunning() ? bot.stop() : Promise.resolve(),
+    ]);
+    await db.close();
+    clearTimeout(deadline);
+    process.exit(0);
+  } catch (error) { console.error('[shutdown]', error.message); process.exit(1); }
+}
+process.once('SIGTERM', shutdown);
+process.once('SIGINT', shutdown);

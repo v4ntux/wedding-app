@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import * as db from './db.js';
+import { lockPayments } from './storage.js';
 import { slugify, coupleSlugBase, uniqueSlug } from './slug.js';
 import { findMusicPreset, MAX_GUESTS, MAX_PHOTOS } from './config.js';
 import { guestPrice, addonPrice, pricedAddons } from './pricing.js';
@@ -205,10 +206,10 @@ export function validateForm(form, { requirePhone = false } = {}) {
 }
 
 // Создаёт заявку (телефон обязателен — берётся из окна подтверждения).
-export function submitApplication(form, tgUser) {
+export async function submitApplication(form, tgUser) {
   const v = validateForm(form, { requirePhone: true });
 
-  const existing = db.getApplicationBySubmissionKey(tgUser.id, v.submissionKey);
+  const existing = (await db.getApplicationBySubmissionKey(tgUser.id, v.submissionKey));
   if (existing) return { id: existing.id, app: existing, duplicate: true };
 
   const application = {
@@ -246,14 +247,14 @@ export function submitApplication(form, tgUser) {
 
   let id;
   try {
-    id = db.insertApplication(application);
+    id = (await db.insertApplication(application));
   } catch (error) {
-    const concurrent = db.getApplicationBySubmissionKey(tgUser.id, v.submissionKey);
+    const concurrent = (await db.getApplicationBySubmissionKey(tgUser.id, v.submissionKey));
     if (!concurrent) throw error;
     return { id: concurrent.id, app: concurrent, duplicate: true };
   }
 
-  return { id, app: db.getApplication(id) };
+  return { id, app: (await db.getApplication(id)) };
 }
 
 // Объект «как из БД» для предпросмотра перед подтверждением (ничего не сохраняет).
@@ -282,8 +283,10 @@ export function buildPreviewApp(form) {
 }
 
 // Админ подтвердил оплату: выдаём slug, создаём именные ссылки.
-export function payApplication(id, meta = {}) {
-  const app = db.getApplication(id);
+export async function payApplication(id, meta = {}) {
+  return db.transaction(async () => {
+  await lockPayments();
+  const app = (await db.getApplication(id));
   if (!app) throw new ValidationError(`Заявка #${id} не найдена`);
   if (app.status === 'paid') throw new ValidationError('Заявка уже оплачена');
   if (app.status === 'cancelled') throw new ValidationError('Заявка была отклонена');
@@ -293,10 +296,10 @@ export function payApplication(id, meta = {}) {
     throw new ValidationError(`Дизайн «${app.template_id}» снят с платформы — заявку нельзя подтвердить, предложите паре выбрать другой`);
   }
 
-  const slug = uniqueSlug(coupleSlugBase(app.groom_name, app.bride_name), db.slugTaken);
-  if (!db.markPaid(id, slug)) throw new ValidationError('Заявка уже обработана');
+  const slug = (await uniqueSlug(coupleSlugBase(app.groom_name, app.bride_name), db.slugTaken));
+  if (!(await db.markPaid(id, slug))) throw new ValidationError('Заявка уже обработана');
   // Кто подтвердил, когда (paid_at ставит markPaid) и скриншот чека.
-  db.recordConfirmation(id, meta.adminId ?? null, meta.adminName ?? null, meta.proof ?? null);
+  (await db.recordConfirmation(id, meta.adminId ?? null, meta.adminName ?? null, meta.proof ?? null));
 
   const guests = [];
   if (app.premium) {
@@ -310,19 +313,20 @@ export function payApplication(id, meta = {}) {
         gslug = `${gslug}-${i}`;
       }
       used.add(gslug);
-      db.insertGuest(id, name, gslug);
+      (await db.insertGuest(id, name, gslug));
       guests.push({ name, slug: gslug });
     }
   }
 
-  return { app: db.getApplication(id), guests };
+  return { app: (await db.getApplication(id)), guests };
+  });
 }
 
-export function cancelApplication(id) {
-  const app = db.getApplication(id);
+export async function cancelApplication(id) {
+  const app = (await db.getApplication(id));
   if (!app) throw new ValidationError(`Заявка #${id} не найдена`);
-  if (!db.markCancelled(id)) throw new ValidationError('Заявка уже обработана');
-  return db.getApplication(id);
+  if (!(await db.markCancelled(id))) throw new ValidationError('Заявка уже обработана');
+  return (await db.getApplication(id));
 }
 
 export function mapsLinks(lat, lng) {
