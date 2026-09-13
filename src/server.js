@@ -8,8 +8,11 @@ import { saveUpload, UPLOADS_DIR } from './upload.js';
 import * as db from './db.js';
 import { healthCheck } from './storage.js';
 import {
-  BOT_TOKEN, BOT_USERNAME, BASE_URL, DEV_NO_AUTH, isAdmin, MAX_GUESTS, MAX_PHOTOS,
+  BOT_TOKEN, RUNTIME, BASE_URL, DEV_NO_AUTH, isAdmin, MAX_GUESTS, MAX_PHOTOS,
   GOOGLE_MAPS_API_KEY, MAP_TILES, EXTRACT_API_URL, EXTRACT_API_KEY } from './config.js';
+import {
+  addTrack, registerTrack, publicTrack, libraryTracks, userTracks, saveLibrary,
+  metaFromFileName, MAX_TRACK_BYTES } from './music.js';
 import { publicTemplates, publicEvents, allTemplates } from './templateStore.js';
 import { guestPrice, pricedAddons, pricingSnapshot, updatePricing } from './pricing.js';
 import { publicVenues, allVenues, saveVenues, cityCenter } from './venues.js';
@@ -53,6 +56,15 @@ function adminUser(initData) {
   return null;
 }
 
+// Имя файла приходит заголовком: тело запроса — сырые байты звука.
+function fileNameHeader(req) {
+  try {
+    return decodeURIComponent(String(req.get('x-file-name') ?? '')).slice(0, 200);
+  } catch {
+    return '';
+  }
+}
+
 // onNewApplication(app) — уведомление админа; подставляется из index.js.
 export function createServer({ onNewApplication, onPaid } = {}) {
   const app = express();
@@ -76,6 +88,9 @@ export function createServer({ onNewApplication, onPaid } = {}) {
 
   const geoLimit = rateLimit({ windowMs: 60_000, max: 45 });
   const musicLimit = rateLimit({ windowMs: 60_000, max: 30 });
+  // Студия переспрашивает «что пришло в бот», пока открыта вкладка «Моя музыка».
+  const mineLimit = rateLimit({ windowMs: 60_000, max: 40 });
+  const uploadMb = `${MAX_TRACK_BYTES / 1024 / 1024}mb`;
   const uploadLimit = rateLimit({ windowMs: 10 * 60_000, max: 60 });
   const previewLimit = rateLimit({ windowMs: 60_000, max: 24 });
   const applicationLimit = rateLimit({ windowMs: 10 * 60_000, max: 8 });
@@ -133,13 +148,12 @@ export function createServer({ onNewApplication, onPaid } = {}) {
     res.json({
       templates: publicTemplates(),
       events: publicEvents(),
-      botUrl: BOT_USERNAME ? `https://t.me/${BOT_USERNAME}` : null,
+      botUrl: RUNTIME.botUsername ? `https://t.me/${RUNTIME.botUsername}` : null,
       guestPrice: guestPrice(),
       addons: pricedAddons().filter((addon) => addon.listed !== false),
       maxGuests: MAX_GUESTS,
       maxPhotos: MAX_PHOTOS,
       populars: (await db.templatePopularity()),
-      topTracks: (await db.topMusic(3)),
       city: cityCenter(),
       mapTiles: MAP_TILES,
       googleGeoEnabled: Boolean(GOOGLE_MAPS_API_KEY),
@@ -242,6 +256,33 @@ export function createServer({ onNewApplication, onPaid } = {}) {
     } catch (e) {
       res.status(400).json({ ok: false, error: e.message || 'Не удалось сохранить каталог' });
     }
+  });
+
+  /* Полка nvate: полные треки, которые видят все пары. Пополняется кнопкой
+     под присланным боту треком или загрузкой прямо сюда. */
+  app.get('/api/admin/library', async (req, res) => {
+    const u = adminUser(req.get('x-init-data') ?? '');
+    if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
+    res.json({ ok: true, tracks: await libraryTracks() });
+  });
+
+  app.put('/api/admin/library', express.json({ limit: '64kb' }), async (req, res) => {
+    const u = adminUser(req.get('x-init-data') ?? '');
+    if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
+    res.json({ ok: true, tracks: await saveLibrary(req.body?.tracks ?? []) });
+  });
+
+  // Права проверяем до того, как принять двадцать мегабайт тела.
+  const adminOnly = (req, res, next) => (adminUser(req.get('x-init-data') ?? '')
+    ? next()
+    : res.status(403).json({ ok: false, error: 'forbidden' }));
+
+  app.post('/api/admin/library', adminOnly, uploadLimit, express.raw({ type: () => true, limit: uploadMb }), async (req, res) => {
+    const u = adminUser(req.get('x-init-data') ?? '');
+    const added = await addTrack(req.body, { ...metaFromFileName(fileNameHeader(req)), ownerId: u.id, source: 'admin', library: true });
+    if (!added) return res.status(400).json({ ok: false, error: 'Нужен звуковой файл: MP3, M4A, OGG или WAV' });
+    if (!Number(added.track.library)) await db.setTrackLibrary(added.track.id, true);
+    res.json({ ok: true, track: publicTrack(await db.getTrack(added.track.id)) });
   });
 
   app.get('/api/admin/proofs/:filename', (req, res) => {
@@ -451,28 +492,20 @@ export function createServer({ onNewApplication, onPaid } = {}) {
     res.json({ ok: true, apps });
   });
 
-  // Каталог музыки: прокси к iTunes Search (30-сек превью, без ключей).
-  app.get('/api/music', musicLimit, async (req, res) => {
-    const q = String(req.query.q ?? '').slice(0, 100).trim() || 'wedding instrumental piano';
-    try {
-      const r = await fetch(
-        `https://itunes.apple.com/search?media=music&limit=24&term=${encodeURIComponent(q)}`,
-        { signal: AbortSignal.timeout(8000) }
-      );
-      const j = await r.json();
-      const tracks = (j.results ?? [])
-        .filter((t) => t.previewUrl)
-        .map((t) => ({
-          name: t.trackName,
-          artist: t.artistName,
-          url: t.previewUrl,
-          art: t.artworkUrl60 ?? null,
-        }));
-      res.json({ ok: true, tracks });
-    } catch (e) {
-      console.error('[server] music search failed:', e.message);
-      res.json({ ok: true, tracks: [] });
-    }
+  /* Музыка — только полные треки. Каталог iTunes отдавал тридцать секунд
+     превью: с началом на 0:17 гости слышали тринадцать секунд и петлю.
+     Полка nvate — целые файлы на нашем сервере. */
+  app.get('/api/music', musicLimit, async (_req, res) => {
+    res.set('Cache-Control', 'no-cache');
+    res.json({ ok: true, tracks: await libraryTracks() });
+  });
+
+  // Личные треки пары: присланные боту и загруженные в студии.
+  app.get('/api/music/mine', mineLimit, async (req, res) => {
+    const user = authUser(req.get('x-init-data') ?? '');
+    if (!user) return res.status(401).json({ ok: false, error: 'Откройте форму через Telegram-бота' });
+    res.set('Cache-Control', 'no-store');
+    res.json({ ok: true, tracks: await userTracks(user.id) });
   });
 
   /* Откуда этот трек обычно запускают. Пара услышит подсказку раньше, чем
@@ -514,10 +547,15 @@ export function createServer({ onNewApplication, onPaid } = {}) {
       if (!dl) throw new Error(j?.error?.code ?? 'no url');
       const audioRes = await fetch(dl, { signal: AbortSignal.timeout(90000) });
       const buf = Buffer.from(await audioRes.arrayBuffer());
-      if (buf.length === 0 || buf.length > 16 * 1024 * 1024) throw new Error('bad size');
-      const saved = saveUpload(buf);
-      if (!saved || saved.kind !== 'audio') throw new Error('not audio');
-      res.json({ ok: true, file: saved.file });
+      const named = metaFromFileName(j.filename || '');
+      const added = await addTrack(buf, {
+        ownerId: user.id,
+        source: 'link',
+        title: named.title || new URL(url).hostname.replace(/^www\./, ''),
+        artist: named.artist,
+      });
+      if (!added) throw new Error('not audio');
+      res.json({ ok: true, file: added.track.file, track: publicTrack(added.track) });
     } catch (e) {
       console.error('[server] extract failed:', e.message);
       res.status(502).json({ ok: false, error: 'extract-failed' });
@@ -525,7 +563,7 @@ export function createServer({ onNewApplication, onPaid } = {}) {
   });
 
   // Загрузка фото и аудио: сырые байты, тип определяем по сигнатуре.
-  app.post('/api/upload', uploadLimit, express.raw({ type: () => true, limit: '16mb' }), (req, res) => {
+  app.post('/api/upload', uploadLimit, express.raw({ type: () => true, limit: uploadMb }), async (req, res) => {
     const user = authUser(req.get('x-init-data') ?? '');
     if (!user) return res.status(401).json({ ok: false, error: 'Откройте форму через Telegram-бота' });
     if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
@@ -533,7 +571,11 @@ export function createServer({ onNewApplication, onPaid } = {}) {
     }
     const saved = saveUpload(req.body);
     if (!saved) return res.status(400).json({ ok: false, error: 'Формат не поддерживается (JPG/PNG/WebP, MP3/M4A/OGG/WAV)' });
-    res.json({ ok: true, file: saved.file, kind: saved.kind });
+    // Звук остаётся в «Моей музыке»: сменил трек — к загруженному можно вернуться.
+    const track = saved.kind === 'audio'
+      ? publicTrack(await registerTrack(saved.file, { ...metaFromFileName(fileNameHeader(req)), ownerId: user.id, source: 'upload' }))
+      : null;
+    res.json({ ok: true, file: saved.file, kind: saved.kind, track });
   });
 
   // Предпросмотр перед подтверждением: полная открытка с данными формы + водяная сетка.

@@ -1,4 +1,4 @@
-import { BOT_TOKEN, ADMIN_CHAT_IDS, BASE_URL, PORT, DEV_NO_AUTH } from './config.js';
+import { BOT_TOKEN, ADMIN_CHAT_IDS, BASE_URL, PORT, DEV_NO_AUTH, RUNTIME } from './config.js';
 import { createBot, notifyNewApplication } from './bot.js';
 import { createServer } from './server.js';
 import { db } from './db.js';
@@ -45,7 +45,10 @@ server.listen(PORT, () => {
 
 if (bot) {
   bot.start({
-    onStart: (me) => console.log(`[bot] запущен: @${me.username}`),
+    onStart: (me) => {
+      if (!RUNTIME.botUsername) RUNTIME.botUsername = me.username;
+      console.log(`[bot] запущен: @${me.username}`);
+    },
   });
 }
 

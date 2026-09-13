@@ -70,11 +70,12 @@ function validateCut(form) {
 }
 
 /* Канонический ключ трека — ровно та строка, что лежит в music_value.
-   Нужен, чтобы спросить у базы, откуда этот трек обычно запускают. */
+   Нужен, чтобы спросить у базы, откуда этот трек обычно запускают. У полных
+   треков ключ — имя файла: трек с полки nvate у всех пар один и тот же. */
 export function musicKey(form) {
   try {
     const { musicType, musicValue } = validateMusic(form);
-    return musicType === 'none' || musicType === 'upload' ? null : musicValue;
+    return musicType === 'none' ? null : musicValue;
   } catch (_) {
     return null;
   }

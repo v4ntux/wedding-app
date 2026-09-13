@@ -216,6 +216,7 @@
           <i class="segs-glide"></i>
         </div>
 
+        <!-- Полка nvate: только полные треки, никаких тридцатисекундных превью. -->
         <div id="ms-top">
           <div class="field field--tight">
             <input id="music-q" type="search" autocomplete="off" spellcheck="false" enterkeyhint="search" aria-label="Music search">
@@ -223,7 +224,19 @@
           <div id="track-scroll" class="track-scroll"></div>
         </div>
 
+        <!-- Своя музыка: главный путь — переслать песню боту из любого канала. -->
         <div id="ms-mine" hidden>
+          <div class="bot-drop">
+            <span class="bot-drop-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 4L3 11l6.5 2.5L12 20l3-5.5L21 4z"/><path d="M9.5 13.5L21 4"/></svg></span>
+            <div class="bot-drop-copy"><b data-i18n="botDropTitle"></b><span data-i18n="botDropText"></span></div>
+            <button id="bot-open" type="button" class="btn btn--gold btn--block" hidden><span data-i18n="botOpen"></span></button>
+          </div>
+
+          <div id="mine-tracks" class="track-scroll track-scroll--mine"></div>
+
+          <button id="music-upload" type="button" class="btn btn--ghost btn--block"><span data-i18n="uploadMusic"></span></button>
+          <input id="music-file" type="file" accept="audio/*,.mp3,.m4a,.ogg,.wav" hidden>
+
           <div class="field field--tight">
             <label for="music-link" data-i18n="linkLbl"></label>
             <div class="field-row">
@@ -231,9 +244,7 @@
               <button id="music-link-go" type="button" class="btn btn--gold btn--row" data-i18n="add"></button>
             </div>
           </div>
-          <p class="hint" data-i18n="linkHint"></p>
-          <button id="music-upload" type="button" class="btn btn--ghost btn--block"><span data-i18n="uploadMusic"></span></button>
-          <input id="music-file" type="file" accept="audio/*,.mp3,.m4a,.ogg,.wav" hidden>
+          <p id="link-hint" class="hint"></p>
         </div>
 
         <button id="music-skip" type="button" class="linkbtn" data-i18n="musicSkip"></button>
@@ -245,40 +256,37 @@
         <button id="music-change" type="button" class="btn btn--ghost btn--tiny" data-i18n="change"></button>
       </div>
 
-      <!-- Слушай и отметь: ухо решает, палец подтверждает. -->
-      <div id="music-trim" class="trim" hidden>
-        <p class="trim-head">
-          <span data-i18n="trimTitle"></span>
-          <b id="trim-from">0:00</b>
-        </p>
+      <!-- Лента: волна трека едет под золотой иглой. Что под иглой — с того
+           гости и услышат. Тянешь пальцем — сразу слышишь это место. -->
+      <div id="music-trim" class="tape" hidden>
+        <div class="tape-head">
+          <span class="tape-label" data-i18n="trimTitle"></span>
+          <p class="tape-read"><b id="tape-at">0:00</b><i id="tape-total"></i></p>
+        </div>
 
-        <div class="trim-deck">
+        <div id="tape-deck" class="tape-deck">
+          <div id="tape-view" class="tape-view" role="slider" tabindex="0"
+               aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="0:00">
+            <div id="tape-strip" class="tape-strip">
+              <canvas id="tape-base" class="tape-canvas"></canvas>
+              <canvas id="tape-lit" class="tape-canvas tape-canvas--lit"></canvas>
+              <span id="tape-head" class="tape-playhead" aria-hidden="true"></span>
+            </div>
+          </div>
+          <span class="tape-shade" aria-hidden="true"></span>
+          <span class="tape-needle" aria-hidden="true"><i></i></span>
+        </div>
+
+        <div class="tape-bar">
           <button id="trim-play" type="button" class="trim-play">
             <svg class="ic-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
             <svg class="ic-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12M16 6v12"/></svg>
           </button>
-
-          <div id="trim-line" class="trim-line" role="slider" tabindex="0"
-               aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="0:00">
-            <span id="trim-kept" class="trim-kept" aria-hidden="true"></span>
-            <span id="trim-done" class="trim-done" aria-hidden="true"></span>
-            <span id="trim-flag" class="trim-flag" aria-hidden="true"></span>
-            <span id="trim-head" class="trim-headdot" aria-hidden="true"></span>
-          </div>
-
-          <b id="trim-clock" class="trim-clock">0:00</b>
+          <p id="trim-state" class="tape-state"></p>
+          <button id="tape-catch" type="button" class="tape-catch" hidden></button>
         </div>
 
-        <button id="trim-set" type="button" class="trim-set">
-          <span data-i18n="trimSet"></span>
-        </button>
-
-        <p class="trim-foot">
-          <i id="trim-state"></i>
-          <button id="trim-reset" type="button" class="trim-reset" data-i18n="trimReset" hidden></button>
-        </p>
-
-        <button id="trim-tip" type="button" class="trim-tip" hidden></button>
+        <div id="tape-chips" class="tape-chips"></div>
       </div>
       <p class="blk-err" hidden></p>
     </section>

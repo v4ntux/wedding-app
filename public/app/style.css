@@ -914,53 +914,165 @@ svg {
 .picked-info span { display: block; overflow: hidden; color: var(--mute); font-size: .74rem; text-overflow: ellipsis; white-space: nowrap; }
 .empty { padding: 34px 14px; text-align: center; color: var(--mute); font-size: .84rem; }
 
-/* ═══ Откуда играть ═══
-   Единственный узел студии, который работает как инструмент, а не как форма.
-   Прицеливаться в двухпиксельную иглу на телефоне невозможно, поэтому решает
-   ухо: трек играет, полоса идёт, и в нужный момент нажимают одну большую
-   кнопку. Всё остальное здесь — обратная связь, а не органы управления. */
+/* ═══ Лента: откуда играть ═══
+   Волна трека лежит лентой под неподвижной иглой. Ленту тянут пальцем, как
+   отрывок в сторис: что под иглой — с того гости и услышат. Остальное здесь —
+   обратная связь: время крупно, пройденное лентой — в тени, звучащее — золотом. */
 
-.trim {
+.tape {
+  --needle: 30%;
+  position: relative;
   margin-top: 16px;
-  padding: 16px 15px 15px;
-  border: 1px solid rgba(var(--gold-rgb), .2);
-  border-radius: var(--radius-in);
+  padding: 18px 0 16px;
+  overflow: hidden;
+  border: 1px solid rgba(var(--scene-rgb), .26);
+  border-radius: 22px;
   background:
-    radial-gradient(120% 100% at 50% 0%, rgba(var(--gold-rgb), .07), transparent 62%),
-    linear-gradient(180deg, rgba(30, 20, 8, .5), rgba(6, 5, 3, .62));
-  box-shadow: inset 0 1px rgba(255, 246, 222, .06);
-  transition: border-color 520ms var(--ease-silk), box-shadow 520ms var(--ease-silk);
+    radial-gradient(80% 70% at var(--needle) 42%, rgba(var(--scene-rgb), .13), transparent 70%),
+    linear-gradient(180deg, rgba(26, 18, 8, .62), rgba(5, 4, 2, .76));
+  box-shadow: inset 0 1px rgba(255, 246, 222, .08), 0 26px 60px -42px #000;
+  transition: border-color 520ms var(--ease-silk), box-shadow 700ms var(--ease-silk);
 }
-.trim.is-loading { opacity: .5; }
-.trim.is-set {
-  border-color: rgba(var(--gold-rgb), .45);
-  box-shadow: inset 0 1px rgba(255, 246, 222, .08), 0 0 34px -22px rgba(var(--gold-rgb), .9);
+.tape.is-set { border-color: rgba(var(--scene-rgb), .5); }
+.tape.is-playing {
+  box-shadow: inset 0 1px rgba(255, 246, 222, .1), 0 0 70px -34px rgba(var(--scene-rgb), .95);
 }
 
-.trim-head {
+.tape-head {
   display: flex;
-  align-items: baseline;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 10px;
-  margin: 0 0 14px;
+  gap: 12px;
+  padding: 0 18px 10px;
+}
+.tape-label {
+  padding-bottom: 5px;
   color: var(--mute);
-  font: 400 .58rem/1.4 var(--mono);
-  letter-spacing: .18em;
+  font: 500 .66rem/1.3 var(--mono);
+  letter-spacing: .16em;
   text-transform: uppercase;
 }
+.tape-read { display: flex; align-items: baseline; gap: 7px; margin: 0; }
 /* Выбранное начало — главная цифра блока. */
-.trim-head b {
+.tape-read b {
   color: var(--gold-hi);
-  font: 300 1.7rem/1 var(--display);
-  letter-spacing: .01em;
+  font: 400 2.55rem/.9 var(--display);
   font-variant-numeric: tabular-nums;
+  letter-spacing: -.01em;
+  text-shadow: 0 0 30px rgba(var(--scene-rgb), .34);
   transition: color 420ms var(--ease-silk);
 }
-.trim:not(.is-set) .trim-head b { color: var(--mute); }
+.tape:not(.is-set) .tape-read b { color: var(--silk); }
+.tape-read i { color: var(--mute); font: 400 .8rem/1 var(--mono); font-style: normal; font-variant-numeric: tabular-nums; }
 
-/* ── Пульт: кнопка, полоса, часы ── */
+/* ── Лента ── */
 
-.trim-deck { display: flex; align-items: center; gap: 12px; }
+.tape-deck { position: relative; height: 96px; }
+.tape-view {
+  position: absolute;
+  inset: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  outline: none;
+  cursor: grab;
+  touch-action: pan-x;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  -webkit-mask-image: linear-gradient(90deg, #000 0, #000 84%, transparent 100%);
+  mask-image: linear-gradient(90deg, #000 0, #000 84%, transparent 100%);
+}
+.tape-view::-webkit-scrollbar { display: none; }
+.tape-view.is-grabbing { cursor: grabbing; }
+.tape-strip { position: relative; height: 100%; }
+.tape-canvas { position: absolute; top: 0; display: block; pointer-events: none; }
+.tape-canvas--lit { clip-path: inset(0 100% 0 0); }
+
+/* Где звучит прямо сейчас. */
+.tape-playhead {
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 2px;
+  height: 64px;
+  margin-left: -1px;
+  border-radius: 2px;
+  background: #fff8e8;
+  box-shadow: 0 0 12px rgba(var(--scene-rgb), .95);
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform;
+  transition: opacity 240ms var(--ease-silk);
+}
+.tape.is-playing .tape-playhead { opacity: 1; }
+
+/* Пройденное лентой — в тени: в приглашение оно не попадёт. */
+.tape-shade {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--needle);
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(5, 4, 2, .92), rgba(5, 4, 2, .5));
+}
+
+.tape-needle {
+  position: absolute;
+  left: var(--needle);
+  top: 2px;
+  width: 2px;
+  height: 78px;
+  margin-left: -1px;
+  pointer-events: none;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--gold-hi), rgba(var(--scene-rgb), .45));
+  box-shadow: 0 0 16px rgba(var(--scene-rgb), .85);
+  transition: box-shadow 260ms var(--ease-silk);
+}
+.tape-needle i {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--gold-hi);
+  box-shadow: 0 0 14px rgba(var(--scene-rgb), .95);
+  transform: translate(-50%, -45%) rotate(45deg);
+}
+.tape.is-scrubbing .tape-needle { box-shadow: 0 0 26px rgba(var(--scene-rgb), 1); }
+.tape-view:focus-visible ~ .tape-needle i { outline: 2px solid var(--gold-hi); outline-offset: 4px; }
+
+/* Пока рисуется волна — дышащие штрихи на месте ленты. */
+.tape.is-loading .tape-deck::after {
+  content: '';
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: 22px;
+  height: 36px;
+  pointer-events: none;
+  background: repeating-linear-gradient(90deg, rgba(247, 241, 231, .22) 0 3px, transparent 3px 7px);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+  animation: tapeBreath 1.1s var(--ease-silk) infinite alternate;
+}
+@keyframes tapeBreath {
+  from { opacity: .3; transform: scaleY(.45); }
+  to { opacity: .9; transform: scaleY(1); }
+}
+.tape.is-loading .tape-needle,
+.tape.is-loading .tape-shade { opacity: .3; }
+
+/* ── Пульт ── */
+
+.tape-bar {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px 0;
+}
 
 .trim-play {
   position: relative;
@@ -972,175 +1084,122 @@ svg {
   color: var(--ink);
   border-radius: 50%;
   background: linear-gradient(140deg, var(--gold-hi), var(--gold));
-  box-shadow: 0 6px 20px -8px rgba(var(--gold-rgb), .85);
+  box-shadow: 0 6px 20px -8px rgba(var(--scene-rgb), .85), inset 0 1px rgba(255, 255, 255, .5);
   transition: transform var(--motion-fast) var(--ease-silk), box-shadow 420ms var(--ease-silk);
 }
 .trim-play:active { transform: scale(.94); }
-.trim-play svg { position: absolute; width: 21px; height: 21px; fill: currentColor; stroke: none; }
+.trim-play svg { position: absolute; width: 21px; height: 21px; fill: currentColor; stroke: none; transition: opacity 200ms var(--ease-silk); }
 .trim-play .ic-pause { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
-.trim .ic-pause { opacity: 0; }
-.trim.is-playing .ic-play { opacity: 0; }
-.trim.is-playing .ic-pause { opacity: 1; }
-/* Пока играет — мягкое кольцо-дыхание: видно, что звук идёт. */
-.trim.is-playing .trim-play { animation: trimBeat 2.6s var(--ease-silk) infinite; }
+.tape .ic-pause { opacity: 0; }
+.tape.is-playing .ic-play { opacity: 0; }
+.tape.is-playing .ic-pause { opacity: 1; }
+.tape.is-playing .trim-play { animation: trimBeat 2.6s var(--ease-silk) infinite; }
 @keyframes trimBeat {
-  50% { box-shadow: 0 6px 20px -8px rgba(var(--gold-rgb), .85), 0 0 0 10px rgba(var(--gold-rgb), .07); }
+  50% { box-shadow: 0 6px 20px -8px rgba(var(--scene-rgb), .85), 0 0 0 10px rgba(var(--scene-rgb), .08); }
 }
 
-/* Полоса — и ход трека, и перемотка. */
-.trim-line {
-  position: relative;
-  height: 44px;                       /* палец, а не пиксель */
-  flex: 1;
-  touch-action: none;
-  cursor: pointer;
-}
-.trim-line::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 3px;
-  margin-top: -1.5px;
-  border-radius: 99px;
-  background: rgba(255, 247, 235, .13);
-}
-/* Хвост, который попадёт в приглашение: от отметки и до конца. */
-.trim-kept {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  height: 3px;
-  margin-top: -1.5px;
-  border-radius: 99px;
-  background: linear-gradient(90deg, rgba(var(--gold-rgb), .5), rgba(var(--gold-rgb), .16));
-  transition: left 260ms var(--ease-silk);
-}
-.trim-done {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  height: 3px;
-  margin-top: -1.5px;
-  border-radius: 99px;
-  background: rgba(255, 247, 235, .34);
-  transition: width 280ms linear;     /* timeupdate приходит редко — досочиняем ход */
-}
-.trim-line.is-seeking .trim-done { transition: none; }
+.tape-state { flex: 1; min-width: 0; margin: 0; color: var(--silk-2); font-size: .86rem; line-height: 1.4; }
+.tape.is-catching .tape-state { display: none; }
 
-/* Отметка начала: флажок на полосе. */
-.trim-flag {
-  position: absolute;
-  top: 50%;
-  width: 3px;
-  height: 19px;
-  margin: -9.5px 0 0 -1.5px;
-  border-radius: 99px;
-  background: var(--gold-hi);
-  box-shadow: 0 0 12px rgba(var(--gold-rgb), .8);
-  opacity: 0;
-  transform: scaleY(.4);
-  transition: left 260ms var(--ease-silk), opacity 320ms var(--ease-silk), transform 320ms var(--ease-silk);
-}
-.trim.is-set .trim-flag { opacity: 1; transform: none; }
-
-/* Где звучит прямо сейчас. */
-.trim-headdot {
-  position: absolute;
-  top: 50%;
-  width: 11px;
-  height: 11px;
-  margin: -5.5px 0 0 -5.5px;
-  border-radius: 50%;
-  background: var(--silk);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, .6);
-  transition: left 280ms linear;
-}
-.trim-line.is-seeking .trim-headdot { transition: none; transform: scale(1.25); }
-
-.trim-clock {
-  flex: 0 0 auto;
-  min-width: 3.2ch;
-  color: var(--silk-2);
-  font: 500 .78rem/1 var(--mono);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
-/* ── Главное действие ── */
-
-.trim-set {
-  display: block;
-  width: 100%;
-  min-height: 52px;
-  margin-top: 14px;
-  color: var(--silk);
-  font-size: .92rem;
-  font-weight: 500;
-  border: 1px solid rgba(var(--gold-rgb), .42);
-  border-radius: 999px;
-  background: rgba(var(--gold-rgb), .08);
-  transition: color 320ms var(--ease-silk), background 320ms var(--ease-silk),
-    border-color 320ms var(--ease-silk), transform var(--motion-fast) var(--ease-silk);
-}
-.trim-set:active { transform: scale(.985); }
-/* Пока трек играет, кнопка — самое яркое место блока: её и нажимают. */
-.trim.is-playing .trim-set {
+/* Слушаешь — и ловишь: кнопка появляется, пока трек играет. */
+.tape-catch {
+  min-height: 50px;
+  margin-left: auto;
+  padding: 0 20px;
   color: var(--ink);
-  border-color: transparent;
+  white-space: nowrap;
+  border-radius: 999px;
   background: linear-gradient(105deg, var(--gold), var(--gold-hi));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .55), 0 14px 30px -14px rgba(var(--scene-rgb), .95);
+  font: 600 .9rem/1 var(--body);
+  font-variant-numeric: tabular-nums;
+  animation: catchIn 360ms var(--ease-silk) both;
+  transition: transform var(--motion-fast) var(--ease-silk);
 }
+.tape-catch:active { transform: scale(.96); }
+@keyframes catchIn { from { opacity: 0; transform: translateX(12px) scale(.94); } }
 
-.trim-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 11px 2px 0;
-}
-.trim-foot i { color: var(--mute); font: 400 .74rem/1.35 var(--sans); font-style: normal; }
-.trim.is-set .trim-foot i { color: var(--silk-2); }
-.trim-reset {
-  flex: 0 0 auto;
-  min-height: 32px;
-  padding: 0 4px;
-  color: var(--mute);
-  font: 400 .72rem/1 var(--sans);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
+/* ── Подсказки ── */
 
-/* Подсказка из зала: откуда этот же трек запускают другие пары. */
-.trim-tip {
-  display: block;
-  width: 100%;
+.tape-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px 0; }
+.tape-chip {
+  display: inline-flex;
   min-height: 44px;
-  margin-top: 12px;
-  padding: 11px 14px;
-  text-align: left;
-  color: var(--silk-2);
-  font-size: .8rem;
-  border: 1px dashed rgba(var(--gold-rgb), .38);
-  border-radius: 10px;
-  background: rgba(var(--gold-rgb), .05);
-  transition: background var(--motion-ui) var(--ease-silk), border-color var(--motion-ui) var(--ease-silk);
+  align-items: center;
+  gap: 8px;
+  padding: 0 15px;
+  color: var(--silk);
+  border: 1px solid rgba(255, 248, 232, .16);
+  border-radius: 999px;
+  background: linear-gradient(160deg, rgba(255, 249, 234, .09), rgba(255, 240, 214, .02));
+  font: 500 .8rem/1 var(--body);
+  transition: border-color 320ms var(--ease-silk), background 320ms var(--ease-silk), transform var(--motion-fast) var(--ease-silk);
 }
-.trim-tip::before {
+.tape-chip b { color: var(--gold-hi); font-weight: 600; font-variant-numeric: tabular-nums; }
+.tape-chip::before {
   content: '';
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  margin-right: 9px;
-  vertical-align: middle;
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
   border-radius: 50%;
   background: var(--gold-hi);
-  box-shadow: 0 0 9px rgba(var(--gold-rgb), .85);
+  box-shadow: 0 0 10px rgba(var(--scene-rgb), .9);
 }
-.trim-tip:active { background: rgba(var(--gold-rgb), .12); border-style: solid; }
+.tape-chip--quiet::before { background: transparent; border: 1px solid var(--gold-hi); box-shadow: none; }
+.tape-chip--peak::before { border-radius: 2px; transform: rotate(45deg); }
+.tape-chip--reset { color: var(--mute); }
+.tape-chip--reset::before { display: none; }
+.tape-chip:active { transform: scale(.96); border-color: rgba(var(--scene-rgb), .6); background: rgba(var(--scene-rgb), .12); }
+
+/* ── Своя музыка: главный путь — переслать трек боту ── */
+
+.bot-drop {
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  gap: 12px 13px;
+  align-items: center;
+  margin-top: 16px;
+  padding: 15px;
+  border: 1px solid rgba(var(--scene-rgb), .34);
+  border-radius: 18px;
+  background:
+    radial-gradient(120% 90% at 0% 0%, rgba(var(--scene-rgb), .17), transparent 62%),
+    linear-gradient(160deg, rgba(255, 249, 234, .08), rgba(6, 5, 3, .3));
+  box-shadow: inset 0 1px 0 rgba(255, 252, 244, .22);
+}
+.bot-drop-ic {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  color: var(--ink);
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold-hi), var(--gold));
+  box-shadow: 0 8px 22px -10px rgba(var(--scene-rgb), .95);
+}
+.bot-drop-ic svg { width: 21px; height: 21px; stroke-width: 1.7; }
+.bot-drop-copy b { display: block; color: var(--silk); font-size: 1rem; font-weight: 500; line-height: 1.3; }
+.bot-drop-copy span { display: block; margin-top: 4px; color: var(--silk-2); font-size: .85rem; line-height: 1.45; }
+.bot-drop #bot-open { grid-column: 1 / -1; }
+
+#music-upload { margin-top: 12px; }
+.track-scroll--mine { max-height: 300px; margin-top: 12px; }
+.trk.chosen .trk-info b { color: var(--gold-hi); }
+.trk--fresh { animation: trkFresh 2.8s var(--ease-silk) both; }
+@keyframes trkFresh {
+  0%, 30% { background: rgba(var(--scene-rgb), .24); box-shadow: inset 3px 0 0 var(--gold-hi); }
+  100% { background: transparent; box-shadow: inset 3px 0 0 transparent; }
+}
+
+.empty--lib { display: grid; justify-items: center; gap: 8px; padding: 30px 18px; }
+.empty--lib b { color: var(--silk); font-size: 1rem; font-weight: 500; }
+.empty--lib span { max-width: 32ch; color: var(--mute); line-height: 1.5; }
 
 @media (prefers-reduced-motion: reduce) {
-  .trim.is-playing .trim-play { animation: none; }
+  .tape.is-playing .trim-play,
+  .tape.is-loading .tape-deck::after,
+  .tape-catch,
+  .trk--fresh { animation: none; }
 }
 
 /* Photos */

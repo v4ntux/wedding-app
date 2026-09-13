@@ -5,15 +5,17 @@ import path from 'node:path';
 import { payApplication, cancelApplication, ValidationError, mapsLinks } from './service.js';
 import { findMusicPreset, SUPPORT_URL, ADDONS, GUEST_LINK_PRICE, MAX_PHOTOS } from './config.js';
 import { findTemplate, publicTemplates } from './templateStore.js';
-import { markMainSent, markGuestSent, getApplication, listGuests, refreshSettings } from './db.js';
+import { markMainSent, markGuestSent, getApplication, listGuests, refreshSettings, getTrack, setTrackLibrary, trackByTelegram } from './db.js';
 import { UPLOADS_DIR } from './upload.js';
 import { escapeHtml as esc } from './render.js';
+import { addTrack, metaFromFileName, trackLabel, MAX_TRACK_BYTES } from './music.js';
 
 function money(n) {
   return `${Number(n).toLocaleString('ru-RU')} сум`;
 }
 
-function musicLine(app) {
+function musicLine(app, musicTitle = null) {
+  if (app.music_type === 'upload' && musicTitle) return musicTitle;
   if (app.music_type === 'preset') return findMusicPreset(app.music_value)?.name ?? app.music_value;
   if (app.music_type === 'itunes') {
     try {
@@ -41,7 +43,7 @@ const STATUS_LINE = {
   cancelled: '❌ ОТКЛОНЕНА',
 };
 
-export function buildAdminText(app, { baseUrl, guests = [] } = {}) {
+export function buildAdminText(app, { baseUrl, guests = [], musicTitle = null } = {}) {
   const links = mapsLinks(app.lat, app.lng);
   const template = findTemplate(app.template_id);
   const lines = [
@@ -51,7 +53,7 @@ export function buildAdminText(app, { baseUrl, guests = [] } = {}) {
     `👰 Невеста: <b>${esc(app.bride_name)}</b>`,
     `📅 ${esc(app.wedding_date)}  🕐 ${esc(app.wedding_time)}`,
     `📍 ${esc(app.address ?? 'адрес не указан')}`,
-    `🎵 ${esc(musicLine(app))}`,
+    `🎵 ${esc(musicLine(app, musicTitle))}${app.music_start > 0 ? ` (с ${Math.floor(app.music_start / 60)}:${String(Math.round(app.music_start % 60)).padStart(2, '0')})` : ''}`,
     `📷 Фото: ${photoCount(app)} шт.`,
     `🎨 Шаблон: ${esc(template?.name ?? app.template_id)} — ${money(app.template_price)}`,
   ];
@@ -182,13 +184,13 @@ export function createBot({ token, adminIds = [], baseUrl }) {
       ? '<b>❔ Ko‘p so‘raladigan savollar</b>\n\n' +
         `💰 <b>Narx:</b> shablonga qarab ${priceRange}. Nomli havola — har bir mehmon uchun ${guestPrice}.\n` +
         '🔗 <b>Havola:</b> to‘lovdan so‘ng shaxsiy havola beriladi va o‘chirilmaydi.\n' +
-        '🎵 <b>Musiqa:</b> katalog, YouTube yoki o‘z faylingiz.\n' +
+        '🎵 <b>Musiqa:</b> qo‘shiqni shu botga yuboring yoki kutubxonadan tanlang — to‘liq yangraydi.\n' +
         `📷 <b>Suratlar:</b> 1–${MAX_PHOTOS} ta.\n` +
         '⏱ <b>Vaqt:</b> to‘ldirish ~5 daqiqa.'
       : '<b>❔ Частые вопросы</b>\n\n' +
         `💰 <b>Цена:</b> ${priceRange} в зависимости от шаблона. Именная ссылка — ${guestPrice} за гостя.\n` +
         '🔗 <b>Ссылка:</b> выдаётся после оплаты и не удаляется.\n' +
-        '🎵 <b>Музыка:</b> каталог, YouTube или свой файл.\n' +
+        '🎵 <b>Музыка:</b> пришлите песню этому боту или выберите из библиотеки — звучит целиком.\n' +
         `📷 <b>Фото:</b> 1–${MAX_PHOTOS} шт.\n` +
         '⏱ <b>Время:</b> заполнение ~5 минут.';
     await ctx.reply(text, { parse_mode: 'HTML', reply_markup: welcomeMenu(uz ? 'uz' : 'ru', ctx.from?.id) });
@@ -223,7 +225,8 @@ export function createBot({ token, adminIds = [], baseUrl }) {
     const id = Number(ctx.match[1]);
     try {
       const app = (await cancelApplication(id));
-      await ctx.editMessageText(buildAdminText(app, { baseUrl }), {
+      const musicTitle = app.music_type === 'upload' ? await trackLabel(app.music_value) : null;
+      await ctx.editMessageText(buildAdminText(app, { baseUrl, musicTitle }), {
         parse_mode: 'HTML', link_preview_options: { is_disabled: true },
       });
       await ctx.answerCallbackQuery({ text: 'Заявка отклонена' });
@@ -272,6 +275,83 @@ export function createBot({ token, adminIds = [], baseUrl }) {
       if (!(e instanceof ValidationError)) console.error('[bot] proof confirm:', e);
       await ctx.reply('⚠️ ' + msg);
     }
+  });
+
+  /* ── Музыка: песню присылают боту ──
+     Узбекская музыка живёт в Telegram-каналах: переслать трек сюда быстрее,
+     чем искать его где-то ещё. Файл уходит в студию целиком — гости услышат
+     песню, а не тридцать секунд превью. Админ под треком видит кнопку
+     «в библиотеку»: полка nvate собирается из того, что пары несут сами. */
+  const AUDIO_DOC = /\.(mp3|m4a|ogg|oga|opus|wav)$/i;
+
+  function trackKeyboard(track, fromId) {
+    const kb = new InlineKeyboard();
+    if (https) kb.webApp('💌 Studiya · Студия', orderUrl);
+    if (isAdminId(fromId)) {
+      if (https) kb.row();
+      kb.text(Number(track.library) ? '✅ Kutubxonada · В библиотеке' : '📚 Kutubxonaga · В библиотеку', `lib:${track.id}`);
+    }
+    return kb;
+  }
+
+  bot.on(['message:audio', 'message:voice', 'message:document'], async (ctx, next) => {
+    const msg = ctx.message;
+    const media = msg.audio ?? msg.voice ?? msg.document;
+    if (msg.document && !String(media.mime_type ?? '').startsWith('audio/') && !AUDIO_DOC.test(media.file_name ?? '')) {
+      return next();
+    }
+    const ownerId = ctx.from?.id;
+    if (!ownerId) return;
+    const replyTo = { reply_parameters: { message_id: msg.message_id, allow_sending_without_reply: true } };
+    if (media.file_size && media.file_size > MAX_TRACK_BYTES) {
+      await ctx.reply('⚠️ Fayl 20 MB dan katta — Telegram bunday fayllarni botlarga bermaydi.\n⚠️ Файл больше 20 МБ — Telegram не отдаёт такие ботам.', replyTo);
+      return;
+    }
+    try {
+      let track = await trackByTelegram(ownerId, media.file_unique_id);
+      if (!track) {
+        const named = metaFromFileName(media.file_name ?? '');
+        const file = await ctx.api.getFile(media.file_id);
+        const response = await fetch(`https://api.telegram.org/file/bot${token}/${file.file_path}`, { signal: AbortSignal.timeout(90_000) });
+        if (!response.ok) throw new Error(`download ${response.status}`);
+        const added = await addTrack(Buffer.from(await response.arrayBuffer()), {
+          ownerId,
+          source: 'bot',
+          tgUniqueId: media.file_unique_id,
+          title: msg.voice ? 'Ovozli xabar · Голосовое' : (media.title || named.title || 'Musiqa'),
+          artist: media.performer || named.artist,
+          duration: media.duration,
+        });
+        if (!added) {
+          await ctx.reply('⚠️ Bu formatni o‘qiy olmadik — MP3, M4A, OGG yoki WAV yuboring.\n⚠️ Не получилось прочитать формат — пришлите MP3, M4A, OGG или WAV.', replyTo);
+          return;
+        }
+        track = added.track;
+      }
+      const name = `🎵 <b>${esc(track.title)}</b>${track.artist ? ` — ${esc(track.artist)}` : ''}`;
+      await ctx.reply(
+        `${name}\n\n✅ Studiyada: <i>Musiqa → Mening musiqam</i>\n✅ В студии: <i>Музыка → Моя музыка</i>`,
+        { parse_mode: 'HTML', ...replyTo, reply_markup: trackKeyboard(track, ownerId) }
+      );
+    } catch (e) {
+      console.error('[bot] track receive failed:', e.message ?? e);
+      await ctx.reply('⚠️ Qo‘shiqni yuklab bo‘lmadi, yana yuboring.\n⚠️ Не удалось сохранить песню, пришлите ещё раз.', replyTo);
+    }
+  });
+
+  // Кнопка админа: на полку и обратно — ошибку можно тут же исправить.
+  bot.callbackQuery(/^lib:(\d+)$/, async (ctx) => {
+    if (!isAdminId(ctx.from?.id)) {
+      return ctx.answerCallbackQuery({ text: 'Только для администратора', show_alert: true });
+    }
+    const track = await getTrack(Number(ctx.match[1]));
+    if (!track) return ctx.answerCallbackQuery({ text: 'Трек не найден', show_alert: true });
+    const on = !Number(track.library);
+    await setTrackLibrary(track.id, on);
+    await ctx.answerCallbackQuery({ text: on ? '📚 На полке nvate' : 'Снят с полки' });
+    try {
+      await ctx.editMessageReplyMarkup({ reply_markup: trackKeyboard({ ...track, library: on ? 1 : 0 }, ctx.from.id) });
+    } catch { /* сообщение уже изменено */ }
   });
 
   // Пара нажала «Поделиться» → помечаем отправленной, а через 2 секунды
@@ -378,7 +458,8 @@ export async function notifyNewApplication(api, adminIds, app, baseUrl) {
     console.warn('[bot] ADMIN_CHAT_IDS не настроен — уведомление о заявке не отправлено');
     return;
   }
-  const text = buildAdminText(app, { baseUrl });
+  const musicTitle = app.music_type === 'upload' ? await trackLabel(app.music_value) : null;
+  const text = buildAdminText(app, { baseUrl, musicTitle });
   const opts = {
     parse_mode: 'HTML',
     link_preview_options: { is_disabled: true },

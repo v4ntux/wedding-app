@@ -331,6 +331,63 @@ test('a cut track plays from its start to the very end and returns to that start
   assert.doesNotMatch(widget, /a\.loop=true/, 'петля с 0:00 перескакивала через выбранное начало');
   assert.match(widget, /addEventListener\('ended'/);
   assert.match(widget, /s=20/);
+  // iOS не перематывает до метаданных: старт задаётся и фрагментом, и после loadedmetadata.
+  assert.match(widget, /song\.mp3#t=20/);
+  assert.match(widget, /addEventListener\('loadedmetadata',seek\)/);
+});
+
+const id3 = (tag) => Buffer.concat([Buffer.from('ID3'), Buffer.from(tag.padEnd(61, '.'))]);
+
+test('a song sent to the bot lands whole in the couple’s studio and never twice', async () => {
+  const music = await import('../src/music.js');
+  const meta = { ownerId: 8001, title: 'Yor-yor', artist: 'Ansambl', duration: 214, source: 'bot', tgUniqueId: 'AgADyor' };
+  const first = await music.addTrack(id3('yor-yor'), meta);
+  const again = await music.addTrack(id3('yor-yor'), meta);
+  assert.equal(first.duplicate, false);
+  assert.equal(again.duplicate, true, 'повторная пересылка не плодит копии');
+  assert.equal(again.track.id, first.track.id);
+
+  const mine = await music.userTracks(8001);
+  assert.deepEqual(mine.map((t) => [t.title, t.artist, t.duration]), [['Yor-yor', 'Ansambl', 214]]);
+  assert.equal(mine[0].url, `/uploads/${first.track.file}`);
+  assert.equal((await music.userTracks(8002)).length, 0, 'чужие треки не видны');
+  assert.equal(await music.addTrack(Buffer.from('definitely not an audio file'), { ownerId: 8001, title: 'x' }), null);
+  assert.deepEqual(music.metaFromFileName('Shahzoda - Yor-yor_remix.mp3'), { artist: 'Shahzoda', title: 'Yor-yor remix' });
+});
+
+test('the nvate shelf is shared: popularity and start points come from real orders', async () => {
+  const music = await import('../src/music.js');
+  const { track } = await music.addTrack(id3('shelf-song'), { ownerId: 1, title: 'Kelin salom', source: 'admin', library: true });
+  const [shelf] = await music.libraryTracks();
+  assert.equal(shelf.id, Number(track.id));
+
+  const key = musicKey({ musicType: 'upload', musicValue: track.file });
+  assert.equal(key, track.file, 'ключ полного трека — имя файла');
+  for (const [i, start] of [[1, 42], [2, 43]]) {
+    await submitApplication(baseForm({
+      musicType: 'upload', musicValue: track.file, musicStart: start,
+      submissionKey: `4234567${i}-1234-4123-8123-123456789abc`,
+    }), { id: 8100 + i, username: `shelf_${i}` });
+  }
+  assert.equal((await music.libraryTracks())[0].uses, 2);
+  assert.deepEqual(await dbModule.popularCut(key), { start: 42, uses: 2 });
+  assert.equal(await music.trackLabel(track.file), 'Kelin salom');
+
+  // Снять с полки — не удалить: заказы, которые уже играют файл, не ломаются.
+  await music.saveLibrary([]);
+  assert.equal((await music.libraryTracks()).length, 0);
+  assert.equal((await dbModule.getTrack(track.id)).file, track.file);
+});
+
+test('HTTP: the shelf is public, personal music and shelf edits need Telegram', async () => {
+  const shelf = await fetch(`${baseUrl}/api/music`);
+  assert.equal(shelf.status, 200);
+  const body = await shelf.json();
+  assert.ok(Array.isArray(body.tracks));
+  assert.ok(body.tracks.every((t) => t.url.startsWith('/uploads/')), 'только наши полные файлы, без чужих превью');
+  assert.equal((await fetch(`${baseUrl}/api/music/mine`)).status, 401);
+  assert.equal((await fetch(`${baseUrl}/api/admin/library`)).status, 403);
+  assert.equal((await fetch(`${baseUrl}/api/admin/library`, { method: 'POST', body: id3('x') })).status, 403);
 });
 
 test('the invitation map shows only the chosen place, glowing, with no foreign widget', async () => {

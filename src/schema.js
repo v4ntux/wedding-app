@@ -52,6 +52,24 @@ export const schema = `
     sent INTEGER NOT NULL DEFAULT 0,
     UNIQUE(application_id, slug)
   );
+
+  -- Полные треки: присланные боту, загруженные в студии и библиотека nvate.
+  -- Сам звук лежит файлом в uploads, здесь — чей он, как зовётся и сколько длится.
+  CREATE TABLE IF NOT EXISTS tracks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_id INTEGER,
+    file TEXT NOT NULL,
+    title TEXT NOT NULL,
+    artist TEXT,
+    duration REAL,
+    source TEXT NOT NULL DEFAULT 'upload',
+    tg_unique_id TEXT,
+    library INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS tracks_owner ON tracks(owner_id);
+  CREATE INDEX IF NOT EXISTS tracks_file ON tracks(file);
+  CREATE UNIQUE INDEX IF NOT EXISTS tracks_telegram ON tracks(owner_id, tg_unique_id) WHERE tg_unique_id IS NOT NULL;
 `;
 export const migrations = [
   ['photos', 'ALTER TABLE applications ADD COLUMN photos TEXT'],

@@ -9,6 +9,9 @@ if (existsSync(envPath)) {
 export const BOT_TOKEN = (process.env.BOT_TOKEN ?? '').trim();
 // Username бота (без @) — для кнопок «Создать приглашение» на сайте.
 export const BOT_USERNAME = (process.env.BOT_USERNAME ?? '').trim().replace(/^@/, '');
+// То, что узнаём уже после запуска. Username бот сообщает сам при старте —
+// студии он нужен для кнопки «Отправить песню боту», даже если в .env пусто.
+export const RUNTIME = { botUsername: BOT_USERNAME };
 // Админы: несколько id через запятую — ADMIN_CHAT_IDS=111,222,333
 // (старый ADMIN_CHAT_ID тоже поддерживается).
 export const ADMIN_CHAT_IDS = String(process.env.ADMIN_CHAT_IDS ?? process.env.ADMIN_CHAT_ID ?? '')

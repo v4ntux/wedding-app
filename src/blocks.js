@@ -57,9 +57,12 @@ window.__music={start:function(){if(!on)play()}};
 })();</script>`;
   }
   if (!music.playable) return '';
-  return `<audio id="bgm" preload="auto" src="${escapeHtml(music.url)}"></audio>${player(musicLabel, volumeLabel)}
+  /* #t=17 — медиафрагмент: браузер сам начнёт загрузку с нужного места. Без него
+     iOS молча игнорирует currentTime до метаданных, и гость слышал вступление. */
+  const src = start > 0 && !String(music.url).includes('#') ? `${music.url}#t=${start}` : music.url;
+  return `<audio id="bgm" preload="auto" src="${escapeHtml(src)}"></audio>${player(musicLabel, volumeLabel)}
 <script>(function(){var a=document.getElementById('bgm'),b=document.getElementById('mbtn'),
-box=document.getElementById('mplayer'),vol=document.getElementById('mvol'),s=${start},e=${end},tm=null,hide=null;
+box=document.getElementById('mplayer'),vol=document.getElementById('mvol'),s=${start},e=${end},tm=null,hide=null,tail=false;
 // Громкость гостя запоминается: второй раз подбирать её не придётся.
 var saved=Number(localStorage.getItem('nv_volume'));
 var level=Number.isFinite(saved)&&saved>=0&&saved<=100?saved:70;
@@ -69,12 +72,18 @@ function target(){return Number(vol.value)/100}
 // Конца у отрывка нет: трек доигрывает до последней секунды и начинается
 // снова с выбранного места. Прежняя петля a.loop возвращала его на 0:00 —
 // в обход начала, которое пара отметила в студии.
+function seek(){try{if(s&&a.currentTime<s-.5)a.currentTime=s}catch(_){}}
+a.addEventListener('loadedmetadata',seek);
 if(e>s){a.addEventListener('timeupdate',function(){if(a.currentTime>=e){a.currentTime=s;a.play()}})}
-else{a.addEventListener('ended',function(){a.currentTime=s;a.play().catch(function(){})})}
+else{
+// Последние полторы секунды трек уходит в тишину и возвращается к началу
+// так же мягко, как зазвучал впервые, — без обрыва на полуслове.
+a.addEventListener('timeupdate',function(){if(!tail&&a.duration&&a.duration-a.currentTime<1.6&&!a.paused){tail=true;fade(0,1400)}});
+a.addEventListener('ended',function(){tail=false;a.currentTime=s;a.play().then(function(){fade(target(),2000)}).catch(function(){})})}
 function fade(to,ms){if(tm)clearInterval(tm);var f0=a.volume,t0=Date.now();
 tm=setInterval(function(){var k=Math.min(1,(Date.now()-t0)/ms);a.volume=Math.max(0,Math.min(1,f0+(to-f0)*k));if(k>=1){clearInterval(tm);tm=null}},50)}
 function showVol(){box.classList.add('vol-open');clearTimeout(hide);hide=setTimeout(function(){box.classList.remove('vol-open')},5000)}
-function play(ms){if(s&&a.currentTime<s)a.currentTime=s;a.volume=0;
+function play(ms){seek();a.volume=0;
 a.play().then(function(){b.classList.add('on');fade(target(),ms);showVol()}).catch(function(){})}
 ${LIFT_JS}
 window.__music={start:function(){play(2500)}};

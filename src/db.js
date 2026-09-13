@@ -96,18 +96,59 @@ export async function templatePopularity() {
   return out;
 }
 
-// Топ-3 трека из каталога, которые выбирают чаще всего.
-export async function topMusic(limit = 3) {
-  const rows = (await db
-    .prepare("SELECT music_value, COUNT(*) AS c FROM applications WHERE music_type = 'itunes' GROUP BY music_value ORDER BY c DESC LIMIT ?")
-    .all(limit));
-  const out = [];
-  for (const r of rows) {
-    try {
-      out.push({ ...JSON.parse(r.music_value), uses: Number(r.c) });
-    } catch { /* пропускаем битые записи */ }
-  }
-  return out;
+/* ── Треки ── */
+
+export async function insertTrack(t) {
+  const duration = Number(t.duration);
+  const res = (await db.prepare(
+    `INSERT INTO tracks (owner_id, file, title, artist, duration, source, tg_unique_id, library)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    t.ownerId ?? null,
+    t.file,
+    t.title,
+    t.artist ?? null,
+    Number.isFinite(duration) && duration > 0 ? duration : null,
+    t.source ?? 'upload',
+    t.tgUniqueId ?? null,
+    t.library ? 1 : 0
+  ));
+  return Number(res.lastInsertRowid);
+}
+
+// Сколько заявок уже играет этот файл — по нему полка сортируется.
+const TRACK_USES = "(SELECT COUNT(*) FROM applications a WHERE a.music_type = 'upload' AND a.music_value = t.file)";
+
+export async function getTrack(id) {
+  return (await db.prepare(`SELECT t.*, ${TRACK_USES} AS uses FROM tracks t WHERE t.id = ?`).get(id)) ?? null;
+}
+
+// Библиотечная запись важнее личной копии того же файла.
+export async function trackByFile(file) {
+  return (await db.prepare('SELECT * FROM tracks WHERE file = ? ORDER BY library DESC, id LIMIT 1').get(file)) ?? null;
+}
+
+export async function trackByTelegram(ownerId, uniqueId) {
+  return (await db.prepare(`SELECT t.*, ${TRACK_USES} AS uses FROM tracks t WHERE t.owner_id = ? AND t.tg_unique_id = ?`)
+    .get(ownerId, uniqueId)) ?? null;
+}
+
+export async function listTracksByOwner(ownerId, limit = 40) {
+  return db.prepare(`SELECT t.*, ${TRACK_USES} AS uses FROM tracks t WHERE t.owner_id = ? ORDER BY t.id DESC LIMIT ?`)
+    .all(ownerId, limit);
+}
+
+// Полка nvate: сверху то, что пары выбирают чаще.
+export async function listLibrary() {
+  return db.prepare(`SELECT t.*, ${TRACK_USES} AS uses FROM tracks t WHERE t.library = 1 ORDER BY uses DESC, t.id DESC`).all();
+}
+
+export async function setTrackLibrary(id, on) {
+  return (await db.prepare('UPDATE tracks SET library = ? WHERE id = ?').run(on ? 1 : 0, id)).changes === 1;
+}
+
+export async function updateTrackMeta(id, title, artist) {
+  (await db.prepare('UPDATE tracks SET title = ?, artist = ? WHERE id = ?').run(title, artist || null, id));
 }
 
 /* Откуда пары запускают этот самый трек. Один и тот же куплет нравится многим,
@@ -177,7 +218,7 @@ export async function adminStats() {
      FROM applications GROUP BY template_id ORDER BY c DESC`
   ).all()).map((r) => ({ id: r.id, count: Number(r.c), revenue: Number(r.revenue) }));
 
-  const topMusic = [];
+  let topMusic = [];
   for (const r of (await db.prepare(
     "SELECT music_value, COUNT(*) c FROM applications WHERE music_type='itunes' GROUP BY music_value ORDER BY c DESC LIMIT 5"
   ).all())) {
@@ -186,6 +227,14 @@ export async function adminStats() {
       topMusic.push({ name: v.name, artist: v.artist, count: Number(r.c) });
     } catch { /* пропускаем битые */ }
   }
+  // Полные треки: название берём из tracks, в заявке лежит только имя файла.
+  for (const r of (await db.prepare(
+    "SELECT music_value, COUNT(*) c FROM applications WHERE music_type='upload' GROUP BY music_value ORDER BY c DESC LIMIT 5"
+  ).all())) {
+    const track = await trackByFile(r.music_value);
+    if (track) topMusic.push({ name: track.title, artist: track.artist ?? '', count: Number(r.c) });
+  }
+  topMusic = topMusic.sort((a, b) => b.count - a.count).slice(0, 5);
 
   const byDay = (await db.prepare(
     `SELECT substr(created_at,1,10) d, COUNT(*) c,
