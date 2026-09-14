@@ -1,15 +1,34 @@
 <!DOCTYPE html>
-<html lang="uz">
+<html lang="uz" class="stage-rest">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <title>nvate — studio</title>
 <meta name="theme-color" content="#100b03">
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;500;600&family=Golos+Text:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="map.css">
-<link rel="stylesheet" href="style.css">
+<!-- Тег сборки: по нему app.js достраивает адреса файлов, которые грузит сам. -->
+<meta name="nv-build" content="__V__">
+
+<!-- Настройки студии запрашиваем вместе со стилями, а не после скриптов:
+     пока пара смотрит на экран языка, ответ уже лежит готовым, и app.js
+     забирает его без второго похода в сеть. -->
+<link rel="preload" href="/api/config" as="fetch" crossorigin>
+<link rel="preconnect" href="https://telegram.org">
+
+<!-- Своих шрифтов у студии нет. Ссылка на Google Fonts с первого коммита
+     отвечала 400, поэтому студию всегда видели в запасных Georgia и системном
+     шрифте. Этот вид и сохраняем — без сотни килобайт woff2 на первом экране. -->
+<style>
+  /* До первого кадра: чёрный фон вместо белой вспышки. */
+  html { background: #080806; }
+</style>
+<link rel="stylesheet" href="style.css?v=__V__">
+
+<!-- Скрипты не держат разбор разметки: defer сохраняет порядок и запускает
+     их перед DOMContentLoaded. Карта уехала отсюда — её грузит шаг «Локация». -->
+<script defer src="https://telegram.org/js/telegram-web-app.js"></script>
+<script defer src="ui.js?v=__V__"></script>
+<script defer src="sky.js?v=__V__"></script>
+<script defer src="app.js?v=__V__"></script>
 </head>
 <body>
 
@@ -446,10 +465,5 @@
 </div>
 
 <div id="toasts"></div>
-
-<script src="ui.js"></script>
-<script src="map.js"></script>
-<script src="sky.js"></script>
-<script src="app.js"></script>
 </body>
 </html>

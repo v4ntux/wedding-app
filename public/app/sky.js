@@ -3,13 +3,14 @@
    звёзды и мягкая золотая пыль. Небо подхватывает цвет активного блока
    (--scene-r/g/b) и перекрашивается так же плавно, как фон.
 
-   Правила: ничего не рисуем во вкладке в фоне, уважаем prefers-reduced-motion,
-   на узких экранах держим 40 кадров — телефон не должен греться. */
+   Правила: ничего не рисуем во вкладке в фоне и под сплошной шторкой, уважаем
+   prefers-reduced-motion, на узких экранах держим 40 кадров — телефон не должен
+   греться. */
 'use strict';
 
 window.Sky = (function () {
   const canvas = document.getElementById('sky');
-  if (!canvas || !canvas.getContext) return { setTone() {}, flare() {} };
+  if (!canvas || !canvas.getContext) return { setTone() {}, flare() {}, rest() {} };
 
   const ctx = canvas.getContext('2d', { alpha: true });
   const slowMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -31,6 +32,9 @@ window.Sky = (function () {
   let last = 0;
   let clock = 0;
   let scroll = 0;
+  /* Сцену закрыла сплошная шторка — небо стоит на своём кадре. Разметка
+     приходит уже с классом stage-rest: первым всегда открывается экран языка. */
+  let resting = document.documentElement.classList.contains('stage-rest');
 
   /* Тон неба: к чему стремимся (цель) и что рисуем сейчас — между ними
      всегда идёт плавная догонялка, поэтому смена блока не «щёлкает». */
@@ -230,6 +234,10 @@ window.Sky = (function () {
     const step = W < 560 ? 33 : 20;
     if (now - last < step) return;
     last = now;
+    draw(dt);
+  }
+
+  function draw(dt) {
     clock += dt * SPEED;
 
     // Догоняем целевой тон — 1.5 % за кадр даёт мягкий переход около двух секунд.
@@ -264,6 +272,8 @@ window.Sky = (function () {
   function play() {
     if (raf) return;
     if (still()) { paintStill(); return; }
+    // Под шторкой — один настоящий кадр без бега: время неба не идёт.
+    if (resting) { draw(0); return; }
     last = performance.now();
     raf = requestAnimationFrame(frame);
   }
@@ -276,7 +286,11 @@ window.Sky = (function () {
   let resizeTimer = null;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => { resize(); if (still()) paintStill(); }, 180);
+    resizeTimer = setTimeout(() => {
+      resize();
+      if (still()) paintStill();
+      else if (resting) draw(0);
+    }, 180);
   }, { passive: true });
 
   window.addEventListener('scroll', () => { scroll = window.scrollY; }, { passive: true });
@@ -302,6 +316,12 @@ window.Sky = (function () {
     flare(count = 3) {
       if (still()) return;
       for (let i = 0; i < count; i += 1) setTimeout(spawnShot, i * 260);
+    },
+    /* Шторка закрыла сцену — небо замирает на своём кадре; шторка уходит —
+       небо идёт дальше с того же места. */
+    rest(on) {
+      resting = Boolean(on);
+      if (resting) stop(); else play();
     },
   };
 })();

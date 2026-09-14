@@ -4,9 +4,14 @@
    Секции: состояние · словарь · нить и док · блоки · демо · отправка · старт. */
 'use strict';
 
-const { $, h, debounce, toast, sheet, haptic, tg } = UI;
+const { $, h, debounce, toast, sheet, stageRest, haptic, tg } = UI;
 
 if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#100b03'); } catch (_) { /* старый клиент */ } }
+
+/* Тег сборки из разметки. Всё, что студия догружает сама, идёт с ним же:
+   у браузера тогда один адрес на версию, и держать файл можно вечно. */
+const BUILD = document.querySelector('meta[name="nv-build"]')?.content || '';
+const asset = (name) => (BUILD && BUILD !== '__V__' ? `${name}?v=${BUILD}` : name);
 
 /* ════ Состояние ════ */
 
@@ -1284,8 +1289,52 @@ function fitVenues() {
   mapFitPending = !venueMap.fit(list, .3, cityZoom() - 1);
 }
 
+/* Карта — это отдельные map.js и map.css, вместе под двадцать пять килобайт.
+   На первом экране студии её ещё никто не увидит: пара только вводит имена.
+   Поэтому файлы приезжают в свободную минуту браузера, а если пара вернулась
+   к черновику прямо на шаге «Локация» — сразу же. */
+let mapAssets = null;
+function loadMapAssets(urgent) {
+  if (mapAssets) return mapAssets;
+  mapAssets = new Promise((done, fail) => {
+    const pull = () => {
+      /* Ждём и стили: иначе скрипт успеет построить тайлы раньше правил и
+         карта мелькнёт россыпью неуложенных картинок. */
+      const paint = new Promise((ready) => {
+        const css = document.createElement('link');
+        css.rel = 'stylesheet';
+        css.href = asset('map.css');
+        css.onload = ready;
+        css.onerror = ready;
+        document.head.appendChild(css);
+      });
+      const code = new Promise((ready, broke) => {
+        const js = document.createElement('script');
+        js.src = asset('map.js');
+        js.onload = ready;
+        js.onerror = () => broke(new Error('map assets'));
+        document.head.appendChild(js);
+      });
+      Promise.all([paint, code]).then(() => done(), fail);
+    };
+    if (urgent) pull();
+    else if (window.requestIdleCallback) requestIdleCallback(pull, { timeout: 2500 });
+    else setTimeout(pull, 900);
+  });
+  return mapAssets;
+}
+
 function ensureMap() {
-  if (venueMap || !window.NvMap || !$('map')) return;
+  if (venueMap || !$('map')) return;
+  if (!window.NvMap) {
+    const open = !blk(stepIdx('location'))?.hidden;
+    loadMapAssets(open).then(() => {
+      ensureMap();
+      venueMap?.invalidate();
+      if (mapFitPending && !placed()) fitVenues();
+    }, () => { /* без карты шаг работает поиском и списком тойхон */ });
+    return;
+  }
   const [lat, lng] = cityCenter();
   venueMap = NvMap.create($('map'), {
     lat: placed() ? state.lat : lat,
@@ -3370,13 +3419,21 @@ function wire() {
 
 /* ════ Старт ════ */
 
-async function loadConfig() {
-  try {
-    const r = await fetch('/api/config');
-    state.config = await r.json();
-  } catch (_) {
-    state.config = { templates: [], guestPrice: 10000, maxGuests: 100, maxPhotos: 6, topTracks: [], populars: {} };
+/* Настройки студии спрашиваем сразу, не дожидаясь выбора языка: пока пара
+   читает две кнопки на первом экране, ответ уже лежит готовым, и студия
+   открывается без паузы на сеть. */
+let configPending = null;
+function fetchConfig() {
+  if (!configPending) {
+    configPending = fetch('/api/config')
+      .then((r) => r.json())
+      .catch(() => ({ templates: [], guestPrice: 10000, maxGuests: 100, maxPhotos: 6, topTracks: [], populars: {} }));
   }
+  return configPending;
+}
+
+async function loadConfig() {
+  state.config = await fetchConfig();
 }
 
 function bootLang(lang) {
@@ -3384,6 +3441,8 @@ function bootLang(lang) {
   document.body.classList.add('studio-entering');
   const first = document.querySelector('.blk[data-step="names"]');
   if (first) armBlock(first);
+  // Сцена оживает раньше, чем экран языка начнёт таять: пара видит её уже в движении.
+  stageRest(false);
   $('lang-screen').classList.add('out');
   setTimeout(() => { $('lang-screen').style.display = 'none'; }, 1400);
   $('app').hidden = false;
@@ -3443,3 +3502,4 @@ async function start() {
 }
 
 wire();
+fetchConfig();

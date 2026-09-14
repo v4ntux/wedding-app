@@ -19,6 +19,7 @@ import { publicVenues, allVenues, saveVenues, cityCenter } from './venues.js';
 import { RESERVED_SLUGS } from './slug.js';
 import { searchYoutube, youtubeVideo, youtubeIdOf, topMoment } from './youtube.js';
 import { downloadReady } from './download.js';
+import { createStatic, compressResponses } from './static.js';
 
 const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
 
@@ -87,6 +88,8 @@ export function createServer({ onNewApplication, onPaid } = {}) {
     res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
     next();
   });
+  // Приглашение, демо и ответы формы уезжают сжатыми — гость открывает ссылку с телефона.
+  app.use(compressResponses());
 
   /* Главный адрес — тот, что в BASE_URL (nvate.uz). Старые ссылки и кнопки на
      *.up.railway.app переезжают на него постоянным редиректом, чтобы у
@@ -122,6 +125,17 @@ export function createServer({ onNewApplication, onPaid } = {}) {
      no-cache не запрещает кеш, а требует сверяться с сервером — ETag тут же
      отдаёт 304, когда ничего не менялось. */
   const freshStatic = { etag: true, setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache') };
+  /* Студию отдаёт свой слой: сжатие на лету и тег сборки в ссылках. Разметка
+     остаётся под no-cache, а ассеты с ?v= браузер держит вечно — повторный
+     вход с того же телефона стоит одного запроса вместо семи. */
+  const studio = createStatic(path.join(PUBLIC_DIR, 'app'));
+  studio.warm();
+  /* Без хвостового слеша относительные ссылки в разметке уехали бы в корень.
+     Express без strict routing отдаёт сюда и `/app/`, поэтому путь сверяем
+     сами — иначе редирект зациклится сам на себя. */
+  app.get('/app', (req, res, next) => (req.path === '/app' ? res.redirect(301, '/app/') : next()));
+  app.get(['/app/', '/app/index.html'], studio.shell('index.html'));
+  app.use('/app', studio.middleware);
   app.use('/app', express.static(path.join(PUBLIC_DIR, 'app'), freshStatic));
   app.use('/admin', express.static(path.join(PUBLIC_DIR, 'admin'), freshStatic));
   app.use('/demo', express.static(path.join(PUBLIC_DIR, 'demo')));

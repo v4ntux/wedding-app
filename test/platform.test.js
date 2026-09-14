@@ -533,6 +533,64 @@ test('the railway address moves to nvate.uz while health checks stay put', async
   assert.equal((await get('/app/', 'nvate.uz')).statusCode, 200);
 });
 
+test('the studio eraser drops comments and indentation but never changes what runs', async () => {
+  const vm = await import('node:vm');
+  const { minifyCss, minifyHtml, minifyJs } = await import('../src/minify.js');
+  // Регулярки, деление, шаблоны и ASI — места, где ластик мог бы спутать код с комментарием.
+  const cases = [
+    String.raw`const a = 6 / 2 / 3; const r = /\/\*x*\//.test('/*x*/'); [a, r]`,
+    String.raw`const s = '// no' + "/* no */"; s`,
+    'const t = `${ `${ { v: 1 }.v } // k` } /* w */`; t',
+    'function g() { return /* a\nb */ 1 } g()',
+    'let i = 1; const d = i++ / 2; [d, i]',
+    'const o = { in: 4 }; o.in / 2 / 1',
+    'let x = 1\n/2/1; x',
+    'var y = 5\n++y\ny',
+    "const rx = /[/*]+/g; 'a/*b'.replace(rx, '-')",
+  ];
+  for (const code of cases) {
+    assert.equal(JSON.stringify(vm.runInNewContext(minifyJs(code))), JSON.stringify(vm.runInNewContext(code)), code);
+  }
+  for (const file of ['app.js', 'sky.js', 'ui.js', 'map.js']) {
+    const source = readFileSync(new URL(`../public/app/${file}`, import.meta.url), 'utf8');
+    const slim = minifyJs(source);
+    assert.ok(slim.length < source.length * 0.8, `${file}: комментарии и отступы ушли`);
+    assert.doesNotThrow(() => new vm.Script(slim), `${file}: стёртый скрипт компилируется`);
+  }
+  assert.equal(minifyJs('const broken = ('), 'const broken = (', 'некомпилируемый исходник уходит как есть');
+
+  assert.equal(
+    minifyCss('@media (min-width: 760px) { /* note */ a :hover , b { color : red ; } }'),
+    '@media (min-width: 760px){a :hover,b{color : red}}',
+    'пробел перед :hover и перед скобкой медиазапроса значим',
+  );
+  assert.equal(minifyCss('a { background: url( data:x;y//z ) }'), 'a{background: url( data:x;y//z )}');
+  assert.equal(
+    minifyHtml('<p class="a  b">\n    Hi <b>there</b>\n</p>\n<!-- note -->\n<style>\n  a { color: red; }\n</style>\n<pre>  keep\n    this</pre>'),
+    '<p class="a  b">\nHi <b>there</b>\n</p>\n<style>a{color: red}</style>\n<pre>  keep\n    this</pre>',
+  );
+});
+
+test('HTTP: the studio arrives erased and compressed, and only the current build is cached forever', async () => {
+  const page = await fetch(`${baseUrl}/app/`, { headers: { 'Accept-Encoding': 'br' } });
+  assert.equal(page.headers.get('content-encoding'), 'br');
+  assert.equal(page.headers.get('cache-control'), 'no-cache', 'разметку всегда сверяем с сервером');
+  const html = await page.text();
+  assert.doesNotMatch(html, /<!--|__V__/, 'в разметке ни комментариев, ни шаблонного тега');
+  assert.match(html, /<link rel="preload" href="\/api\/config" as="fetch" crossorigin>/, 'настройки едут вместе со стилями');
+  const tag = html.match(/app\.js\?v=([\w-]+)/)?.[1];
+  assert.ok(tag, 'скрипт студии помечен тегом сборки');
+
+  const script = await fetch(`${baseUrl}/app/app.js?v=${tag}`);
+  assert.match(script.headers.get('cache-control'), /max-age=31536000, immutable/);
+  const code = await script.text();
+  assert.ok(code.length < readFileSync(new URL('../public/app/app.js', import.meta.url), 'utf8').length * 0.8);
+
+  const stale = await fetch(`${baseUrl}/app/app.js?v=stale0000`);
+  await stale.arrayBuffer();
+  assert.equal(stale.headers.get('cache-control'), 'no-cache', 'файл под чужим тегом навечно не кешируем');
+});
+
 test('the invitation map shows only the chosen place, glowing, with no foreign widget', async () => {
   const { mapEmbed } = await import('../src/blocks.js');
   const html = mapEmbed({

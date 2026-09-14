@@ -68,12 +68,24 @@ window.UI = (function () {
     }, ms);
   }
 
+  /* ── Сцена под сплошной шторкой ──
+     Экран языка и полноэкранный пример закрывают сцену целиком: сквозь их фон
+     просвечивает меньше четырёх процентов. А под ними небо рисовалось каждый
+     кадр, лепестки падали, и стекло шторки заново размывало всё это на весь
+     экран. Пока сцену не видно, она стоит; шторка поехала прочь — сцена
+     оживает раньше, чем её станет видно. */
+  function stageRest(on) {
+    document.documentElement.classList.toggle('stage-rest', on);
+    window.Sky?.rest(on);
+  }
+
   /* ── Полноэкранная шторка предпросмотра (live-демо и настоящий превью) ── */
   // Закрытие идёт полторы секунды. За это время до него успевают дотянуться
   // сразу несколько рук: «долистал до конца», крестик и системная кнопка
   // «назад». Раньше каждая запускала свою анимацию, и шторка закрывалась
   // дважды подряд. Теперь закрытие одно: повторный вызов ждёт тот же исход.
   let closing = null;
+  let restTimer = 0;
   const sheet = {
     open({ src = null, srcdoc = null, actionLabel = null, onAction = null }) {
       const s = $('sheet');
@@ -97,12 +109,17 @@ window.UI = (function () {
       }
       s.hidden = false;
       requestAnimationFrame(() => s.classList.add('in'));
+      // Шторка въезжает за --motion-scene (1400 мс). Встала — сцена за ней замирает.
+      clearTimeout(restTimer);
+      restTimer = setTimeout(() => { if (!s.hidden && !closing) stageRest(true); }, 1500);
       haptic.impact('light');
     },
     close({ gentle = false } = {}) {
       const s = $('sheet');
       if (closing) return closing;
       if (s.hidden) return Promise.resolve();
+      clearTimeout(restTimer);
+      stageRest(false);
       if (gentle) s.classList.add('closing-slow');
       else s.classList.remove('in');
       const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -172,5 +189,5 @@ window.UI = (function () {
     }
   }
 
-  return { $, h, debounce, toast, sheet, skeletons, countUp, revealOnScroll, petals, haptic, tg };
+  return { $, h, debounce, toast, sheet, stageRest, skeletons, countUp, revealOnScroll, petals, haptic, tg };
 })();
