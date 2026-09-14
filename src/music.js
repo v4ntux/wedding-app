@@ -115,6 +115,12 @@ async function fetchYoutubeSong(id, { download, info, top }) {
   }
 }
 
+/* Какие песни из выдачи уже лежат у нас: их слушают сразу, без скачивания. */
+export async function downloadedSongs(ids) {
+  const rows = await db.tracksBySource('youtube', ids);
+  return new Map(rows.map((row) => [row.source_id, publicTrack(row)]));
+}
+
 /* TikTok, Instagram: звук из ролика становится личной песней пары. */
 export async function linkSong(url, ownerId, { download = downloadAudio } = {}) {
   const file = await download(url, { maxBytes: MAX_TRACK_BYTES });

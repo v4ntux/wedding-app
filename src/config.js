@@ -45,11 +45,14 @@ export const GOOGLE_MAPS_API_KEY = (process.env.GOOGLE_MAPS_API_KEY ?? '').trim(
 export const YOUTUBE_API_KEY = (process.env.YOUTUBE_API_KEY ?? '').trim();
 
 // yt-dlp забирает песню целиком с YouTube, TikTok и Instagram. В Docker-образе он
-// уже в PATH; без него песни с YouTube играют официальным плеером, без волны.
+// уже в PATH; без него студия находит песни, но послушать и выбрать их нельзя.
 export const YTDLP_BIN = (process.env.YTDLP_BIN ?? '').trim() || 'yt-dlp';
-// Содержимое cookies.txt (формат Netscape) — если YouTube начнёт просить сервер
-// подтвердить, что он не бот. Берите cookies запасного аккаунта.
+// Содержимое cookies.txt (формат Netscape) — когда YouTube просит сервер
+// подтвердить, что он не бот (адресам Railway он так и отвечает). Берите cookies
+// запасного аккаунта; обновлённую сессию сервер хранит в NVATE_DATA_DIR/ytdlp.
 export const YTDLP_COOKIES = process.env.YTDLP_COOKIES ?? '';
+// Прокси для yt-dlp (http://… или socks5://…) — другой способ уйти от проверки.
+export const YTDLP_PROXY = (process.env.YTDLP_PROXY ?? '').trim();
 
 // Шаблоны открыток живут в templates/<id>/ (см. src/templateStore.js) —
 // новый дизайн добавляется папкой, без правок кода.

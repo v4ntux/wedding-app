@@ -154,6 +154,14 @@ export async function trackBySource(source, sourceId) {
     .get(source, sourceId)) ?? null;
 }
 
+// Выдача поиска спрашивает обо всех своих роликах одним запросом.
+export async function tracksBySource(source, sourceIds) {
+  const ids = [...new Set((Array.isArray(sourceIds) ? sourceIds : []).map(String))].slice(0, 50);
+  if (!ids.length) return [];
+  return db.prepare(`SELECT t.*, ${TRACK_USES} AS uses FROM tracks t
+    WHERE t.source = ? AND t.source_id IN (${ids.map(() => '?').join(', ')})`).all(source, ...ids);
+}
+
 // Снятая админом песня (-1) не возвращается на полку сама, даже если её выбирают.
 export async function setTrackLibrary(id, on) {
   return (await db.prepare('UPDATE tracks SET library = ? WHERE id = ?').run(on ? 1 : -1, id)).changes === 1;

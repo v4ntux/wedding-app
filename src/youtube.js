@@ -2,9 +2,10 @@
 //
 // Узбекская музыка живёт на YouTube, а музыкальные API (iTunes, Deezer, Spotify)
 // отдают только тридцатисекундные превью. Поэтому YouTube служит каталогом, а
-// звук выбранной песни сервер забирает к себе целиком (src/download.js): так у
-// неё есть волна и выбор начала. Без yt-dlp песня играет официальным плеером —
-// тогда годится только то, что автор разрешил встраивать.
+// звук песни сервер забирает к себе целиком (src/download.js), как только пара
+// захочет её послушать: в студии она звучит нашим файлом, и у выбранной есть
+// волна и выбор начала. Запрет автора на встраивание файлу не мешает, поэтому
+// выдачу через oEmbed не фильтруем.
 //
 // С ключом YOUTUBE_API_KEY поиск идёт через Data API v3 (официально, 10 000
 // единиц квоты в сутки бесплатно, запрос стоит ~101). Без ключа — через страницу
@@ -12,7 +13,7 @@
 
 import { YOUTUBE_API_KEY } from './config.js';
 
-const SEARCH_TTL = 10 * 60_000;
+const SEARCH_TTL = 60 * 60_000;       // выдача по песне за час не меняется, а подборки студии спрашивают все пары
 const EMBED_TTL = 24 * 60 * 60_000;
 const TOP_TTL = 24 * 60 * 60_000;
 const MAX_SECONDS = 15 * 60;          // часовые миксы и концерты свадьбе не нужны
@@ -115,14 +116,14 @@ async function searchPage(q) {
 async function searchOfficial(q) {
   const key = YOUTUBE_API_KEY;
   const search = await fetch(`https://www.googleapis.com/youtube/v3/search?${new URLSearchParams({
-    part: 'snippet', type: 'video', maxResults: '12', regionCode: 'UZ', q, key,
+    part: 'snippet', type: 'video', maxResults: '15', regionCode: 'UZ', q, key,
   })}`, { signal: AbortSignal.timeout(8000) });
   const found = await search.json();
   if (!search.ok) throw new Error(found?.error?.message || `search ${search.status}`);
   const ids = (found.items ?? []).map((item) => item.id?.videoId).filter(Boolean);
   if (!ids.length) return [];
   const details = await fetch(`https://www.googleapis.com/youtube/v3/videos?${new URLSearchParams({
-    part: 'snippet,contentDetails,status', id: ids.join(','), key,
+    part: 'snippet,contentDetails', id: ids.join(','), key,
   })}`, { signal: AbortSignal.timeout(8000) });
   const videos = await details.json();
   if (!details.ok) throw new Error(videos?.error?.message || `videos ${details.status}`);
@@ -131,12 +132,12 @@ async function searchOfficial(q) {
     title: text(v.snippet?.title, 140),
     channel: text(v.snippet?.channelTitle, 80),
     duration: isoDuration(v.contentDetails?.duration),
-    embeddable: v.status?.embeddable === true,
   })).filter((v) => v.duration);
 }
 
-/* Можно ли встроить ролик: oEmbed отвечает 401, если автор запретил показ на
-   других сайтах, и 404, если ролика нет. Сетевую ошибку не кешируем. */
+/* Название и канал ролика по oEmbed — для песни, скачанной не из поиска.
+   401 (автор запретил встраивание) и 404 (ролика нет) имени не дают, тогда оно
+   берётся из файла. Сетевую ошибку не кешируем. */
 export async function embedInfo(id) {
   const hit = embedCache.get(id);
   if (hit && hit.until > Date.now()) return hit.info;
@@ -160,12 +161,10 @@ export async function embedInfo(id) {
   return info;
 }
 
-/* embeddable: false — песню скачиваем к себе, и запрет автора на встраивание ей
-   не мешает; проверять каждый ролик через oEmbed тогда незачем. */
-export async function searchYoutube(query, { embeddable = true } = {}) {
+export async function searchYoutube(query) {
   const q = text(query, 100);
   if (q.length < 2) return [];
-  const key = `${embeddable ? 'embed' : 'any'}:${q.toLowerCase()}`;
+  const key = q.toLowerCase();
   const hit = searchCache.get(key);
   if (hit && hit.until > Date.now()) return hit.results;
 
@@ -177,25 +176,13 @@ export async function searchYoutube(query, { embeddable = true } = {}) {
     try { found = await searchPage(q); } catch (error) { console.error('[youtube] page search failed:', error.message); }
   }
 
-  const candidates = found.filter((video) => video.duration <= MAX_SECONDS).slice(0, 12);
-  const allowed = await Promise.all(candidates.map((video) => (!embeddable || video.embeddable ? true : embedInfo(video.id))));
-  const results = candidates.filter((_, i) => allowed[i]).slice(0, 10).map(card);
+  const results = found.filter((video) => video.duration <= MAX_SECONDS).slice(0, 15).map(card);
   results.forEach(remember);
   if (results.length) {
     searchCache.set(key, { results, until: Date.now() + SEARCH_TTL });
     if (searchCache.size > 300) searchCache.delete(searchCache.keys().next().value);
   }
   return results;
-}
-
-/* Ссылка, вставленная парой: проверяем, что ролик есть и его можно встроить. */
-export async function youtubeVideo(url) {
-  const id = youtubeIdOf(url);
-  if (!id) return { status: 'bad-link' };
-  const info = await embedInfo(id);
-  if (info === null) return { status: 'unavailable' };
-  if (info === false) return { status: 'blocked' };
-  return { status: 'ok', video: card({ id, title: info.title, channel: info.channel, duration: null }) };
 }
 
 /* Имя скачанной песни: из недавнего поиска, иначе у oEmbed. */
