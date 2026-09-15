@@ -339,6 +339,16 @@ var scene=document.querySelector('[data-envelope-scene]'),legacy=document.getEle
 var force=(location.hostname==='localhost'||location.hostname==='127.0.0.1')&&new URLSearchParams(location.search).has('__motion_test');
 var rm=!force&&window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+/* Кадр под пропорцию снимка: рамка с data-fit берёт соотношение сторон самой
+   фотографии в пределах 3:4…3:2. Горизонтальный кадр больше не режется в
+   высокий портрет, а вертикальный не превращается в полосу. Считаем сразу, до
+   открытия конверта, чтобы к первому скроллу рамки уже стояли на местах. */
+[].forEach.call(document.querySelectorAll('.shot[data-fit] img'),function(img){
+  function fit(){var w=img.naturalWidth,h=img.naturalHeight;if(!w||!h)return;
+    img.parentNode.style.setProperty('--ratio',Math.min(1.5,Math.max(.75,w/h)).toFixed(3))}
+  if(img.complete)fit();else img.addEventListener('load',fit);
+});
+
 function reveal(){
   // Текст, проявляющийся по словам: разбиваем один раз при инициализации.
   [].forEach.call(document.querySelectorAll('.words'),function(w){

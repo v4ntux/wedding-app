@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0c0508">
-<title>{{groom}} &amp; {{bride}} — {{L.sub}}</title>
+<title>{{groom}} &amp; {{bride}} · {{L.sub}}</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Italianno&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
 {{{experienceCSS}}}
@@ -22,6 +22,7 @@
   --stars-opacity:.82;
   --glass-edge:rgba(255,243,228,.2);
   --glass-face:linear-gradient(158deg,rgba(255,246,236,.1),rgba(226,189,133,.05) 46%,rgba(12,5,8,.3));
+  --shot-edge:transparent;
 
   --bg-veil:linear-gradient(180deg,rgba(12,5,8,.94),rgba(12,5,8,.86) 46%,rgba(12,5,8,.96));
   --mote:rgba(255,224,198,.92);
@@ -39,31 +40,25 @@ body{background:
   radial-gradient(80% 52% at 6% 84%,rgba(74,14,32,.5),transparent 72%),
   linear-gradient(176deg,#1d0a13 0%,#10060a 52%,#050203 100%)}
 .inv{position:relative;z-index:1}
-.sec--solid{background:linear-gradient(180deg,rgba(12,5,8,.6),rgba(12,5,8,.74))}
-.sec--tint{background:linear-gradient(180deg,rgba(21,8,16,.52),rgba(9,4,6,.68))}
+.inv{--veil:rgba(12,5,8,.67)}
 .made{background:rgba(3,2,2,.84);border-top:1px solid var(--line-soft)}
 .hero{background:transparent}
 .card{width:min(100%,620px);margin:0 auto}
 .cd-card .cd{width:100%}
-.mapbox{border-radius:18px}
 .mapbox iframe{filter:grayscale(.5) sepia(.24) brightness(.6) contrast(1.06)}
-.shot img{filter:saturate(.82) contrast(1.05) brightness(.86)}
-.routes a{border-color:var(--line);color:var(--ink);border-radius:999px;
-  background:linear-gradient(160deg,rgba(255,248,232,.09),rgba(255,240,214,.03))}
+.shot img{filter:saturate(.92) contrast(1.03) brightness(.95)}
 .cal td.on{color:var(--gold-hi)}
 .hero__names{color:transparent}
 
 /* ── Разворот ────────────────────────────────────────────────────────────
-   Журнальная подача: фотография во всю ширину с наложенным заголовком,
+   Журнальная подача: фотография во всю ширину, без подписи поверх снимка,
    крупная выносная цитата, дата набрана в строку как колонтитул. */
 .sec{padding-inline:clamp(20px,6vw,38px)}
 /* Во всю ширину — через отрицательные поля, а не через transform:
    transform на .shot забирал параллакс и появление, и кадр уезжал в сторону.
    Поля гасят ровно отступы секции. Через 100vw делать нельзя: на экране с
    полосой прокрутки vw шире доступной ширины, и кадр уезжает вбок. */
-.shot{width:auto;max-width:none;margin-inline:calc(-1 * clamp(20px,6vw,38px));border-radius:0;aspect-ratio:4/5}
-.shot__cap{right:clamp(22px,7vw,44px);left:clamp(22px,7vw,44px);bottom:clamp(22px,7vw,40px)}
-.shot__cap b{font-size:clamp(1.8rem,8vw,3rem)}
+.shot{width:auto;max-width:none;margin-inline:calc(-1 * clamp(20px,6vw,38px));border-radius:0}
 .lead{max-width:34ch;font-size:clamp(1rem,4vw,1.14rem)}
 
 /* Колонтитул с датой: одна строка, разделённая тонкими линиями. */
@@ -80,11 +75,7 @@ body{background:
 .hero__date{display:flex;align-items:center;justify-content:center;gap:clamp(12px,4vw,20px);margin-top:.5em;
   color:var(--muted);font:500 .68rem/1 var(--sans);letter-spacing:.26em;text-transform:uppercase}
 .hero__date b{font-weight:500}
-.hero__date s{width:5px;height:5px;border-radius:50%;background:var(--accent);text-decoration:none;opacity:.75}
-.hero__scroll{position:absolute;bottom:clamp(22px,5vh,38px);left:50%;transform:translateX(-50%);
-  width:1px;height:46px;overflow:hidden;background:var(--line)}
-.hero__scroll:after{content:'';position:absolute;inset:0;background:var(--accent);animation:drip 2.8s var(--e-signature) infinite}
-@keyframes drip{0%{transform:translateY(-100%)}55%,100%{transform:translateY(100%)}}
+.hero__date s{width:1px;height:.95em;background:var(--accent);text-decoration:none;opacity:.5}
 /* Бархат: свет ложится на ворс полосами и медленно перекатывается. */
 .hero__velvet{position:absolute;inset:0;pointer-events:none;opacity:.55;
   background:
@@ -97,7 +88,6 @@ body{background:
 .hero__frame:before,.hero__frame:after{border-color:rgba(var(--gold-rgb),.5)}
 @media (prefers-reduced-motion:reduce){.hero__velvet{animation:none}}
 
-@media (prefers-reduced-motion:reduce){.hero__scroll:after{animation:none}}
 
 /* Паспарту: рамка обводит имена двумя встречными штрихами. */
 .hero__frame{position:relative;padding:clamp(34px,9vw,54px) clamp(22px,7vw,44px)}
@@ -125,12 +115,10 @@ body{background:
       <div class="hero__date fx" style="--d:.34s"><b>{{day}} {{monthName}} {{year}}</b><s></s><b>{{time}}</b></div>
     </div>
     </div>
-    <div class="hero__scroll" aria-hidden="true"></div>
   </section>
 
   <section class="sec sec--solid">
     <div class="wrap">
-      <div class="num">01 · {{L.sub}}</div>
       {{#if guestName}}
         <div class="h2 fx" style="--d:.1s">{{L.greet}}</div>
         <div class="h2 fx gilt" style="--d:.16s">{{guestName}}</div>
@@ -147,9 +135,8 @@ body{background:
   {{#if photos.0}}
   <section class="sec">
     <div class="wrap">
-      <figure class="shot" data-parallax="0.04">
+      <figure class="shot" data-parallax="0.04" data-fit>
         <img src="{{photos.0}}" alt="{{groom}} &amp; {{bride}}" loading="lazy">
-        <figcaption class="shot__cap"><span>02 · {{L.gallery}}</span><b>{{groom}} {{L.and}} {{bride}}</b></figcaption>
       </figure>
       <div class="gold-rule" style="--d:.2s"></div>
       <p class="lead words" style="--d:.24s">{{L.emo}}</p>
@@ -159,7 +146,7 @@ body{background:
 
   <section class="sec sec--tint">
     <div class="wrap">
-      <div class="num">03 · {{L.when}}</div>
+      <div class="num">{{L.when}}</div>
       <div class="nafis-date fx" style="--d:.12s">
         <div class="nafis-row"><b>{{day}} {{monthName}}</b><span>{{year}}<br>{{weekday}} · {{time}}</span></div>
         <table class="cal" data-cal="{{dateIso}}"><caption>{{monthName}} {{year}}</caption></table>
@@ -169,7 +156,7 @@ body{background:
 
   <section class="sec sec--solid">
     <div class="wrap">
-      <div class="num">04 · {{L.until}}</div>
+      <div class="num">{{L.until}}</div>
       <div class="cd-card glass card fx" style="--d:.14s">
       <div class="cd" style="--d:.2s">
         <div><b id="cd">0</b><span>{{L.days}}</span></div>
@@ -183,17 +170,19 @@ body{background:
 
   <section class="sec sec--tint">
     <div class="wrap">
-      <div class="num">05 · {{L.where}}</div>
+      <div class="num">{{L.where}}</div>
       <div class="venue-card glass card fx" style="--d:.14s">
-        <h2 class="venue__name">{{address}}</h2>
-        {{#if venueLine}}<p class="venue__meta">{{venueLine}}</p>{{/if}}
-        <div>{{{map}}}</div>
-        {{#if gmaps}}
-        <div class="routes">
-          <a href="{{gmaps}}" target="_blank" rel="noopener">{{L.gmaps}}</a>
-          <a href="{{ymaps}}" target="_blank" rel="noopener">{{L.ymaps}}</a>
+        <div class="venue__map">{{{map}}}</div>
+        <div class="venue__body">
+          <h2 class="venue__name">{{address}}</h2>
+          {{#if venueLine}}<p class="venue__meta">{{venueLine}}</p>{{/if}}
+          {{#if gmaps}}
+          <div class="routes">
+            <a href="{{gmaps}}" target="_blank" rel="noopener"><span>{{L.gmaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+            <a href="{{ymaps}}" target="_blank" rel="noopener"><span>{{L.ymaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+          </div>
+          {{/if}}
         </div>
-        {{/if}}
       </div>
     </div>
   </section>
@@ -201,7 +190,7 @@ body{background:
   {{#if photos.1}}
   <section class="sec sec--solid">
     <div class="wrap">
-      <figure class="shot shot--wide" data-parallax="0.05">
+      <figure class="shot shot--wide" data-parallax="0.05" data-fit>
         <img src="{{photos.1}}" alt="{{groom}} &amp; {{bride}}" loading="lazy">
       </figure>
     </div>

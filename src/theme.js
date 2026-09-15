@@ -39,10 +39,13 @@ body{min-width:320px;overflow-x:hidden;background:transparent;color:var(--ink,#2
 
 /* ── Каркас ────────────────────────────────────────────────────────────── */
 .inv{position:relative;width:100%;overflow:clip}
-.sec{position:relative;padding:clamp(78px,17vw,140px) clamp(20px,6vw,40px);text-align:center}
-.sec--solid{background:var(--paper,#f4efe6)}
-.sec--tint{background:linear-gradient(180deg,color-mix(in srgb,var(--paper,#f4efe6) 74%,transparent),color-mix(in srgb,var(--paper-2,#eae3d6) 92%,transparent))}
-.sec--solid:before,.sec--tint:before{content:'';position:absolute;inset:0;pointer-events:none;background-image:var(--grain)}
+/* Секции прозрачные, а вуаль под текстом — один слой на всём .inv: титул
+   открыт живому фону, дальше вуаль плавно набирает плотность (--veil темы).
+   Раньше каждая секция несла свою заливку, и на стыках проступали полосы. */
+.inv{background:linear-gradient(180deg,transparent 0,transparent 70vh,var(--veil,transparent) 100vh);
+  background:linear-gradient(180deg,transparent 0,transparent 70svh,var(--veil,transparent) 100svh)}
+.sec{position:relative;padding:clamp(66px,15vw,128px) clamp(20px,6vw,40px);text-align:center}
+.sec:before{content:'';position:absolute;inset:0;pointer-events:none;background-image:var(--grain)}
 .wrap{position:relative;z-index:1;width:min(100%,720px);margin:0 auto}
 
 /* Полоса прочитанного: тончайший индикатор, вторичный слой навигации. */
@@ -51,7 +54,9 @@ body{min-width:320px;overflow-x:hidden;background:transparent;color:var(--ink,#2
   opacity:.75;pointer-events:none;will-change:transform}
 
 /* ── Типографика ───────────────────────────────────────────────────────── */
-.num{display:inline-flex;align-items:center;gap:11px;color:var(--accent-2,#7a8b6f);
+/* Надзаголовок держит воздух до своего блока: карточка вплотную под словом
+   читалась как налипшая подпись. */
+.num{display:inline-flex;align-items:center;gap:11px;margin-bottom:clamp(16px,4.6vw,22px);color:var(--accent-2,#7a8b6f);
   font:500 .58rem/1 var(--sans);letter-spacing:.34em;text-transform:uppercase}
 .num:before,.num:after{content:'';width:0;height:1px;background:currentColor;opacity:.55;
   transition:width var(--t-slow) var(--e-signature) var(--d,0s)}
@@ -116,27 +121,25 @@ body{min-width:320px;overflow-x:hidden;background:transparent;color:var(--ink,#2
    или вправо тема не может — иначе на телефоне лицо уезжает за край.
    Шторку на clip-path не используем: она мешала темам со своей формой кадра
    (арка, медальон, ар-деко) и стоила лишней перерисовки на каждом кадре. */
-.shot{position:relative;width:min(100%,560px);margin-inline:auto;aspect-ratio:4/5;overflow:hidden;
+.shot{position:relative;width:min(100%,560px);margin-inline:auto;aspect-ratio:var(--ratio,4/5);overflow:hidden;
   background:var(--paper-3,#ded5c4);opacity:0;box-shadow:0 0 0 rgba(44,53,45,0)}
 .shot.in{opacity:1;box-shadow:0 26px 60px -34px rgba(44,53,45,.5);
   transition:opacity var(--t-slow) ease var(--d,0s),box-shadow var(--t-slow) ease calc(var(--d,0s) + .3s)}
 /* Точка внимания чуть выше центра: на свадебном снимке лица стоят в верхней
    половине кадра, и обрезка «по центру» в широкой рамке срезала головы.
    Тема может сдвинуть её своей --shot-focus, если у неё другая пропорция. */
-.shot img{width:100%;height:100%;object-fit:cover;object-position:var(--shot-focus,50% 38%);
+.shot img{display:block;width:100%;height:100%;object-fit:cover;object-position:var(--shot-focus,50% 38%);
   filter:saturate(.86) contrast(1.02);
   transform:scale(1.08);transition:transform 1.9s var(--e-signature) var(--d,0s)}
 .shot.in img{transform:scale(1)}
-.shot:before{content:'';position:absolute;inset:14px;z-index:2;border:1px solid rgba(255,255,255,.6);pointer-events:none;
-  opacity:0;transition:opacity var(--t-slow) ease calc(var(--d,0s) + .5s)}
-.shot.in:before{opacity:1}
-.shot:after{content:'';position:absolute;inset:0;z-index:1;pointer-events:none;
-  background:linear-gradient(180deg,rgba(20,26,20,.14),transparent 34% 60%,rgba(20,26,20,.4))}
-.shot--wide{aspect-ratio:3/4;width:min(100%,640px)}
-.shot__cap{position:absolute;right:clamp(20px,6vw,30px);bottom:clamp(18px,5vw,26px);left:clamp(20px,6vw,30px);
-  z-index:3;color:#fff;text-align:left;text-shadow:0 2px 18px rgba(0,0,0,.45)}
-.shot__cap span{display:block;font:500 .56rem/1 var(--sans);letter-spacing:.3em;text-transform:uppercase;opacity:.88}
-.shot__cap b{display:block;margin-top:8px;font:300 clamp(1.5rem,6vw,2.2rem)/1.1 var(--display)}
+/* Край кадра — волосяная линия ровно по кромке, в тон темы (--shot-edge).
+   Внутренняя белая рамка, затемнение и подпись поверх снимка убраны: рамка
+   не совпадала со скруглением кадра, а текст на фотографии спорил с лицами. */
+.shot:after{content:'';position:absolute;inset:0;z-index:1;border-radius:inherit;pointer-events:none;
+  box-shadow:inset 0 0 0 1px var(--shot-edge,rgba(255,255,255,.1))}
+/* Рамка с data-fit принимает пропорцию самой фотографии, от 3:4 до 3:2
+   (см. experienceScript): горизонтальный снимок больше не режется в портрет. */
+.shot--wide{width:min(100%,640px)}
 
 /* ── Дата и календарь ──────────────────────────────────────────────────── */
 .when{display:grid;gap:clamp(26px,6vw,38px);justify-items:center}
@@ -146,9 +149,12 @@ body{min-width:320px;overflow-x:hidden;background:transparent;color:var(--ink,#2
   letter-spacing:.24em;text-transform:uppercase}
 .when__time{color:var(--accent,#b08968);font:400 clamp(1.5rem,6vw,2rem)/1 var(--display);font-style:italic}
 
-.cal{width:min(100%,360px);border-collapse:collapse;color:var(--muted);font:400 .8rem/1 var(--sans)}
-.cal caption{padding-bottom:16px;color:var(--accent-2,#7a8b6f);font:500 .58rem/1 var(--sans);letter-spacing:.3em;text-transform:uppercase}
-.cal th{padding:0 0 12px;color:var(--accent-2,#7a8b6f);font:600 .56rem/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;opacity:.72}
+.cal{width:min(100%,360px);margin-inline:auto;border-collapse:collapse;color:var(--muted);font:400 .8rem/1 var(--sans)}
+/* Месяц и год уже набраны крупно над календарём, поэтому подпись таблицы
+   остаётся только для экранного диктора, а не повторяется третий раз. */
+.cal caption{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.wrap>.cal{margin-top:clamp(30px,8vw,44px)}
+.cal th{padding:0 0 12px;text-align:center;color:var(--accent-2,#7a8b6f);font:600 .56rem/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;opacity:.72}
 .cal td{position:relative;padding:8px 0;text-align:center}
 /* Числа месяца проступают волной слева направо — каскад по 18 мс. */
 .cal td span{display:inline-block;opacity:0;transform:translateY(6px)}
@@ -166,7 +172,7 @@ body{min-width:320px;overflow-x:hidden;background:transparent;color:var(--ink,#2
    держат ячейку в её доле, а размер цифр подобран так, чтобы три знака дней
    («365») умещались в колонку на узком телефоне. Иначе разряд вылезал на
    соседний и перекрывал секунды. */
-.cd{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:min(100%,600px);margin:0 auto}
+.cd{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:min(100%,600px);margin:0 auto;text-align:center}
 .cd>div{position:relative;min-width:0;padding:clamp(14px,4vw,22px) 4px;opacity:0;transform:translateY(20px)}
 .cd.in>div{opacity:1;transform:none;
   transition:opacity var(--t-base) ease,transform var(--t-slow) var(--e-enter);
@@ -182,24 +188,28 @@ body{min-width:320px;overflow-x:hidden;background:transparent;color:var(--ink,#2
 .cd>div>span{display:block;margin-top:12px;color:var(--muted);font:500 .54rem/1 var(--sans);letter-spacing:.2em;text-transform:uppercase}
 
 /* ── Место ─────────────────────────────────────────────────────────────── */
-.venue__name{margin:.3em auto .5em;max-width:20ch;color:var(--ink);
-  font:300 clamp(2rem,8.4vw,3.1rem)/1.1 var(--display);text-wrap:balance}
+.venue__name{margin:0 auto .32em;max-width:20ch;color:var(--ink);
+  font:300 clamp(1.9rem,8vw,2.9rem)/1.1 var(--display);text-wrap:balance}
 /* Вид и ориентир тойхоны из справочника: гость понимает, куда именно ехать. */
-.venue__meta{margin:-.1em auto 1.2em;max-width:34ch;color:var(--muted);
+.venue__meta{margin:0 auto;max-width:34ch;color:var(--muted);
   font:500 .72rem/1.6 var(--sans);letter-spacing:.14em;text-transform:uppercase;text-wrap:balance}
 .mapbox{position:relative;width:min(100%,720px);margin:0 auto;overflow:hidden;background:var(--paper-3,#ded5c4)}
 .mapbox iframe{display:block;width:100%;height:clamp(260px,42vh,360px);border:0;filter:grayscale(.5) sepia(.16) contrast(.96)}
 .mapbox:after{content:'';position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 0 1px var(--line,rgba(44,53,45,.16))}
 .mapbox .nvmap{display:block;width:100%;height:clamp(260px,42vh,360px)}
-.routes{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:26px}
-/* Кнопка: заливка приходит снизу, нажатие даёт короткую отдачу. */
-.routes a{position:relative;overflow:hidden;padding:14px 28px;border:1px solid var(--line);color:var(--ink);
-  text-decoration:none;font:500 .6rem/1 var(--sans);letter-spacing:.22em;text-transform:uppercase;
-  transition:color var(--t-base) var(--e-signature),border-color var(--t-base) var(--e-signature),transform var(--t-quick) var(--e-signature)}
-.routes a:before{content:'';position:absolute;inset:0;z-index:-1;background:var(--accent,#b08968);
-  transform:translateY(101%);transition:transform var(--t-base) var(--e-signature)}
-.routes a:hover{color:var(--paper,#f4efe6);border-color:var(--accent,#b08968)}
-.routes a:hover:before{transform:none}
+/* Маршрут — два равных столбца во всю ширину карточки: подпись в одну строку,
+   палец попадает с первого раза. На совсем узком экране кнопки встают друг под
+   друга сами (auto-fit), а не переносят текст. */
+.routes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,128px),1fr));gap:10px;margin-top:clamp(18px,5vw,24px)}
+.routes a{display:flex;align-items:center;justify-content:center;gap:7px;min-width:0;min-height:48px;padding:0 12px;
+  border:1px solid var(--line);border-radius:999px;background:color-mix(in srgb,var(--ink) 6%,transparent);
+  color:var(--ink);text-decoration:none;white-space:nowrap;font:500 .78rem/1 var(--sans);letter-spacing:.03em;
+  -webkit-tap-highlight-color:transparent;
+  transition:background-color var(--t-base) var(--e-signature),border-color var(--t-base) var(--e-signature),transform var(--t-quick) var(--e-signature)}
+.routes a span{overflow:hidden;text-overflow:ellipsis}
+.routes a svg{flex:none;width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;opacity:.7}
+.routes a:hover{border-color:var(--accent,#b08968);background:color-mix(in srgb,var(--accent,#b08968) 16%,transparent)}
+.routes a:focus-visible{outline:2px solid var(--accent,#b08968);outline-offset:2px}
 .routes a:active{transform:scale(.97)}
 
 /* ── Финал ─────────────────────────────────────────────────────────────── */
@@ -323,6 +333,26 @@ body{min-width:320px;overflow-x:hidden;background:transparent;color:var(--ink,#2
              transform 1.35s var(--e-settle) var(--d,0s)}
 @keyframes glassSweep{0%{left:-60%;opacity:0}18%{opacity:.9}100%{left:120%;opacity:0}}
 .glass--tight{padding:clamp(20px,5vw,30px)}
+
+/* Карточка места: карта во всю ширину по верхнему краю, под ней адрес и
+   маршрут. Скругление карточки само обрезает карту — свой радиус ей не нужен. */
+.venue-card{padding:0}
+.venue__map .mapbox{border-radius:0}
+.venue__map .mapbox:after{box-shadow:inset 0 -1px 0 var(--line-soft,rgba(44,53,45,.09))}
+.venue__map .venue-type{margin:0;border-block:0}
+.venue__body{padding:clamp(22px,6vw,34px) clamp(18px,5vw,32px) clamp(20px,5.4vw,30px)}
+/* Без карты адрес уже набран крупно в самом блоке — второй раз не повторяем. */
+.venue__map:has(.venue-type)+.venue__body .venue__name{display:none}
+.venue__map:has(.venue-type)+.venue__body:not(:has(.routes,.venue__meta)){display:none}
+/* Финальная карточка всегда по центру, даже в темах с текстом по левому краю:
+   монограмма над цитатой иначе висела отдельно от строк. */
+.final-card{text-align:center}
+.final-card .gold-rule{margin-inline:auto}
+/* Светлая карта в приглашении: кнопки масштаба и подпись в тон бумаге, а не
+   чёрные плашки поверх светлых тайлов. */
+.mapbox .nvmap--light .nvmap-zoom{box-shadow:0 4px 16px rgba(60,48,30,.18)}
+.mapbox .nvmap--light .nvmap-btn{background:rgba(255,255,255,.9);color:var(--ink,#2c352d)}
+.mapbox .nvmap--light .nvmap-credit{background:rgba(255,255,255,.72);color:rgba(40,36,30,.62)}
 
 /* Золотая надпись: настоящий градиент металла, а не плоский цвет. Блик стоит
    на месте — бегущий градиент по тексту заставлял телефон перерисовывать

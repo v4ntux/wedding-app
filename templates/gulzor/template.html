@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0a1a12">
-<title>{{groom}} &amp; {{bride}} — {{L.sub}}</title>
+<title>{{groom}} &amp; {{bride}} · {{L.sub}}</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Karla:wght@300;400;500&display=swap" rel="stylesheet">
 {{{experienceCSS}}}
@@ -23,6 +23,7 @@
   --stars-opacity:.7;
   --glass-edge:rgba(240,255,232,.2);
   --glass-face:linear-gradient(158deg,rgba(238,255,232,.1),rgba(143,180,127,.05) 46%,rgba(6,16,10,.3));
+  --shot-edge:rgba(240,255,232,.16);
 
   --bg-veil:linear-gradient(180deg,rgba(10,26,18,.92),rgba(10,26,18,.84) 46%,rgba(10,26,18,.95));
   --mote:rgba(226,255,214,.9);
@@ -39,8 +40,7 @@ body{background:
   radial-gradient(60% 40% at 4% 40%,rgba(64,110,74,.35),transparent 72%),
   linear-gradient(178deg,#0f2a1c 0%,#0a1a12 54%,#040c08 100%)}
 .inv{position:relative;z-index:1}
-.sec--solid{background:linear-gradient(180deg,rgba(10,26,18,.6),rgba(10,26,18,.76))}
-.sec--tint{background:linear-gradient(180deg,rgba(15,38,25,.52),rgba(7,18,12,.7))}
+.inv{--veil:rgba(10,26,18,.68)}
 .made{background:rgba(5,14,9,.86);border-top:1px solid var(--line-soft)}
 
 /* -- Титул ------------------------------------------------------------- */
@@ -50,11 +50,7 @@ body{background:
 .hero__names i{display:block;margin:.04em 0;font:400 .46em/1 var(--script);font-style:italic}
 .hero__date{display:flex;align-items:center;justify-content:center;gap:clamp(12px,4vw,20px);margin-top:.6em;
   color:var(--muted);font:500 .66rem/1 var(--sans);letter-spacing:.26em;text-transform:uppercase}
-.hero__date s{width:5px;height:5px;border-radius:50%;background:var(--accent);text-decoration:none;opacity:.8}
-.hero__scroll{position:absolute;bottom:clamp(22px,5vh,38px);left:50%;transform:translateX(-50%);
-  width:1px;height:46px;overflow:hidden;background:var(--line)}
-.hero__scroll:after{content:'';position:absolute;inset:0;background:var(--accent);animation:drip 3.6s var(--e-signature) infinite}
-@keyframes drip{0%{transform:translateY(-100%)}55%,100%{transform:translateY(100%)}}
+.hero__date s{width:1px;height:.95em;background:var(--accent);text-decoration:none;opacity:.5}
 
 /* Листопад: несколько листьев планируют сверху вниз, покачиваясь. */
 .leaves{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
@@ -70,7 +66,7 @@ body{background:
   100%{opacity:0;transform:translate3d(calc(var(--dx,60px) * -.4),108vh,0) rotate(420deg)}}
 
 /* Ветвь в титуле: прорастает вверх, когда секция появляется. */
-.hero__vine{position:absolute;bottom:0;left:50%;width:min(80vw,420px);height:46%;
+.hero__vine{position:absolute;bottom:0;left:50%;width:min(80vw,420px);height:clamp(130px,26vh,240px);
   transform:translateX(-50%);pointer-events:none;opacity:.5}
 .hero__vine svg{width:100%;height:100%;overflow:visible}
 .hero__vine path{fill:none;stroke:var(--accent);stroke-width:1.2;stroke-linecap:round;
@@ -81,23 +77,19 @@ body{background:
 .glass:before{background:linear-gradient(122deg,rgba(255,255,255,.22) 0%,rgba(207,216,138,.08) 22%,transparent 46%)}
 
 /* ── Ботанический дневник ────────────────────────────────────────────────
-   Развороты слегка асимметричны: блоки сдвинуты, фотография приколота с
-   наклоном, подписи идут курсивом на полях. */
+   Текст набран по левому краю, как записи в дневнике; дата — пометка на
+   полях: крупное число и строка курсивом рядом. */
 .sec{text-align:left;padding-inline:clamp(22px,7vw,44px)}
 .wrap{width:min(100%,600px)}
 .num{justify-content:flex-start}
 .h2{margin-left:0;font-size:clamp(1.8rem,7.6vw,2.7rem)}
-.lead{margin:0 0 0 clamp(0px,4vw,26px);max-width:34ch}
+.lead{margin:0;max-width:34ch}
+.cal{margin-inline:0}
 .gold-rule{margin-inline:0;width:min(46%,190px)}
 
-/* Снимок приколот к странице с лёгким наклоном. Текст в теме набран по левому
-   краю, но кадр остаётся по центру колонки: прижатый влево снимок на телефоне
-   читается как ошибка верстки. */
-.shot{width:min(94%,520px);margin-inline:auto;border-radius:4px;transform:rotate(-1.6deg);
-  box-shadow:0 24px 54px -34px rgba(4,14,9,.9)}
-.shot.in{transform:rotate(-1.6deg)}
-.shot:before{inset:8px;border-color:rgba(240,255,232,.32)}
-.shot__cap span{color:var(--gold-hi)}
+/* Снимок во всю колонку, скругление в тон карточкам. Наклон убран: повёрнутый
+   кадр на телефоне срезал подпись и читался как ошибка вёрстки. */
+.shot{width:100%;border-radius:18px}
 
 /* Дата — как запись на полях: число, а рядом строка курсивом. */
 .gulzor-date{display:flex;align-items:flex-end;gap:clamp(14px,5vw,26px);padding:clamp(20px,6vw,30px) 0}
@@ -105,21 +97,17 @@ body{background:
 .gulzor-note{display:grid;gap:6px;padding-bottom:6px}
 .gulzor-note b{color:var(--ink);font:400 1.05rem/1.2 var(--display);font-style:italic}
 .gulzor-note span{color:var(--muted);font:400 .72rem/1.4 var(--sans);letter-spacing:.2em;text-transform:uppercase}
-.cal{margin-left:0}
 .venue__name{margin-inline:0;text-align:left}
-.routes{justify-content:flex-start}
 .final .wrap{text-align:center}
 
-.card{width:min(100%,620px);margin:0 auto}
+.card{width:100%;margin:0}
 .cd-card .cd{width:100%}
-.mapbox{border-radius:18px}
 .mapbox iframe{filter:grayscale(.44) sepia(.24) brightness(.66) contrast(1.04)}
-.shot img{filter:saturate(.86) contrast(1.04) brightness(.9)}
-.routes a{border-color:var(--line);color:var(--ink);border-radius:999px;background:linear-gradient(160deg,rgba(240,255,232,.09),rgba(143,180,127,.04))}
+.shot img{filter:saturate(.94) contrast(1.02) brightness(.96)}
 .cal td.on{color:var(--gold-hi)}
 
 @media (prefers-reduced-motion:reduce){
-  .hero__scroll:after,.leaf,.hero__vine:after{animation:none}
+  .leaf,.hero__vine:after{animation:none}
 }
 </style>
 </head>
@@ -149,12 +137,10 @@ body{background:
       <h1 class="hero__names fx fx--rise gilt" style="--d:.22s">{{groom}}<i>&amp;</i>{{bride}}</h1>
       <div class="hero__date fx" style="--d:.34s"><b>{{day}} {{monthName}} {{year}}</b><s></s><b>{{time}}</b></div>
     </div>
-    <div class="hero__scroll" aria-hidden="true"></div>
   </section>
 
   <section class="sec sec--solid">
     <div class="wrap">
-      <div class="num">01 · {{L.sub}}</div>
       {{#if guestName}}
         <div class="h2 fx" style="--d:.1s">{{L.greet}}</div>
         <div class="h2 fx gilt" style="--d:.16s">{{guestName}}</div>
@@ -171,9 +157,8 @@ body{background:
   {{#if photos.0}}
   <section class="sec">
     <div class="wrap">
-      <figure class="shot" data-parallax="0.04">
+      <figure class="shot" data-parallax="0.04" data-fit>
         <img src="{{photos.0}}" alt="{{groom}} &amp; {{bride}}" loading="lazy">
-        <figcaption class="shot__cap"><span>02 · {{L.gallery}}</span><b>{{groom}} {{L.and}} {{bride}}</b></figcaption>
       </figure>
       <div class="gold-rule" style="--d:.2s"></div>
       <p class="lead words" style="--d:.24s">{{L.emo}}</p>
@@ -183,7 +168,7 @@ body{background:
 
   <section class="sec sec--tint">
     <div class="wrap">
-      <div class="num">03 · {{L.when}}</div>
+      <div class="num">{{L.when}}</div>
       <div class="gulzor-date fx" style="--d:.12s">
         <span class="gulzor-day">{{day}}</span>
         <span class="gulzor-note">
@@ -197,7 +182,7 @@ body{background:
 
   <section class="sec sec--solid">
     <div class="wrap">
-      <div class="num">04 · {{L.until}}</div>
+      <div class="num">{{L.until}}</div>
       <div class="cd-card glass card fx" style="--d:.14s">
         <div class="cd" style="--d:.2s">
           <div><b id="cd">0</b><span>{{L.days}}</span></div>
@@ -211,17 +196,19 @@ body{background:
 
   <section class="sec sec--tint">
     <div class="wrap">
-      <div class="num">05 · {{L.where}}</div>
+      <div class="num">{{L.where}}</div>
       <div class="venue-card glass card fx" style="--d:.14s">
-        <h2 class="venue__name">{{address}}</h2>
-        {{#if venueLine}}<p class="venue__meta">{{venueLine}}</p>{{/if}}
-        <div>{{{map}}}</div>
-        {{#if gmaps}}
-        <div class="routes">
-          <a href="{{gmaps}}" target="_blank" rel="noopener">{{L.gmaps}}</a>
-          <a href="{{ymaps}}" target="_blank" rel="noopener">{{L.ymaps}}</a>
+        <div class="venue__map">{{{map}}}</div>
+        <div class="venue__body">
+          <h2 class="venue__name">{{address}}</h2>
+          {{#if venueLine}}<p class="venue__meta">{{venueLine}}</p>{{/if}}
+          {{#if gmaps}}
+          <div class="routes">
+            <a href="{{gmaps}}" target="_blank" rel="noopener"><span>{{L.gmaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+            <a href="{{ymaps}}" target="_blank" rel="noopener"><span>{{L.ymaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+          </div>
+          {{/if}}
         </div>
-        {{/if}}
       </div>
     </div>
   </section>
@@ -229,7 +216,7 @@ body{background:
   {{#if photos.1}}
   <section class="sec sec--solid">
     <div class="wrap">
-      <figure class="shot shot--wide" data-parallax="0.05">
+      <figure class="shot shot--wide" data-parallax="0.05" data-fit>
         <img src="{{photos.1}}" alt="{{groom}} &amp; {{bride}}" loading="lazy">
       </figure>
     </div>
