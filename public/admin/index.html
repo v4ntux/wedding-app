@@ -163,15 +163,6 @@ body{background:
 .tabs{overflow-x:auto;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
 .tabs button{flex:1 0 auto;padding:0 14px}
-.ml audio{width:100%;height:40px;color-scheme:dark}
-.ml-meta{font-size:.76rem;color:var(--soft)}
-.ml-upload{display:grid;place-items:center;cursor:pointer;color:var(--gold)}
-.ml-top{display:flex;align-items:center;gap:10px}
-.ml-names{flex:1;min-width:0}
-.ml-cover{display:grid;width:64px;height:64px;flex:0 0 64px;overflow:hidden;place-items:center;border:1px dashed var(--line);
-  border-radius:12px;color:var(--gold);font-size:1.4rem;cursor:pointer}
-.ml-cover img{width:100%;height:100%;object-fit:cover}
-@media(max-width:420px){.ml-names{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -188,7 +179,6 @@ body{background:
     <button data-tab="orders"></button>
     <button data-tab="pricing"></button>
     <button data-tab="venues"></button>
-    <button data-tab="music"></button>
   </div>
   <div id="content"><div class="empty">…</div></div>
 </div>
@@ -238,12 +228,6 @@ const I18N = {
     vnMoveTip:'Yangi nuqtani xaritada bosing',
     vnNew:'Yangi to‘yxona', vnOk:'Tasdiqlash', vnCancel:'Bekor qilish',
     vnMove:'Nuqtani ko‘chirish', vnNoName:'Avval nomini yozing',
-    tabMusic:'Musiqa', mlTitle:'nVate kutubxonasi',
-    mlNote:'Juftlar studiyada ko‘radigan to‘liq qo‘shiqlar. Qo‘shish oson: faylni shu yerga yuklang yoki qo‘shiqni botga yuborib, ostidagi «Kutubxonaga» tugmasini bosing. O‘chirilgan qo‘shiq studiyada ko‘rinmaydi, lekin uni tanlagan taklifnomalarda yangrashda davom etadi.',
-    mlUpload:'+ Qo‘shiq yuklash', mlEmpty:'Kutubxona bo‘sh. Qo‘shiqni shu yerga yuklang yoki botga yuboring.',
-    mlUses:'tanlangan', mlActive:'Studiyada ko‘rinadi', mlCategory:'Kategoriya', mlLicense:'Litsenziya', mlCover:'Muqova yuklash',
-    mlTitlePh:'Nomi', mlArtistPh:'Ijrochi', mlUploading:'Yuklanmoqda', mlBad:'Bu fayl ovoz emas', mlCoverBad:'Muqova — JPG, PNG yoki WebP, 4 MB gacha',
-    mlCats:{ wedding:'To‘y', romantic:'Romantik', uzbek:'O‘zbekcha', piano:'Pianino', classic:'Klassik', emotional:'Hissiyotli', chill:'Sokin' },
   },
   ru: {
     refresh:'↻ Обновить', sum:'сум',
@@ -279,18 +263,14 @@ const I18N = {
     vnMoveTip:'Нажмите на карте новую точку',
     vnNew:'Новая тойхона', vnOk:'Подтвердить', vnCancel:'Отмена',
     vnMove:'Переставить точку', vnNoName:'Сначала впишите название',
-    tabMusic:'Музыка', mlTitle:'Библиотека nVate',
-    mlNote:'Полные песни, которые пары видят в студии. Добавить просто: загрузите файл сюда или пришлите песню боту и нажмите под ней «В библиотеку». Скрытая песня пропадает из студии, но продолжает играть в приглашениях, где её уже выбрали.',
-    mlUpload:'+ Загрузить песню', mlEmpty:'Библиотека пуста. Загрузите песню сюда или пришлите её боту.',
-    mlUses:'выбрали', mlActive:'Видна в студии', mlCategory:'Категория', mlLicense:'Лицензия', mlCover:'Загрузить обложку',
-    mlTitlePh:'Название', mlArtistPh:'Исполнитель', mlUploading:'Загружаем', mlBad:'Этот файл — не звук', mlCoverBad:'Обложка — JPG, PNG или WebP до 4 МБ',
-    mlCats:{ wedding:'Свадебные', romantic:'Романтика', uzbek:'Узбекские', piano:'Пианино', classic:'Классика', emotional:'Трогательные', chill:'Спокойные' },
   },
 };
 let LANG = localStorage.getItem('nv_admin_lang') || 'uz';
 const t = (k) => (I18N[LANG][k] ?? k);
 let DATA = null;
 let TAB = localStorage.getItem('nv_admin_tab') || 'overview';
+// Вкладки «Музыка» больше нет: запомненная она открывает показатели.
+if (TAB === 'music') TAB = 'overview';
 let FILTER = 'all';
 let proofObjectUrls = [];
 
@@ -561,151 +541,7 @@ function vnMountMap(){
   vnPaintMap();
 }
 
-/* ── Вкладка «Музыка»: полка nvate ──
-   Полные песни, которые видят все пары. Пополняется кнопкой под песней,
-   присланной боту, или загрузкой отсюда; снять с полки — не удалить файл. */
-const clock = (s) => (s ? `${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,'0')}` : '—');
-
-function renderMusic(){
-  const list = DATA?.library || [];
-  const cats = DATA?.musicCategories?.length ? DATA.musicCategories : Object.keys(t('mlCats'));
-  let h = `<h2>${esc(t('mlTitle'))}</h2><p class="note">${esc(t('mlNote'))}</p>`;
-  h += `<label class="vn-add ml-upload" style="margin-top:14px">${esc(t('mlUpload'))}<input type="file" id="ml-file" accept="audio/*,.mp3,.m4a,.ogg,.wav" multiple hidden></label>`;
-  h += `<p class="note" id="ml-status" hidden></p>`;
-  if (!list.length) return h + `<div class="card"><div class="empty">${esc(t('mlEmpty'))}</div></div>`;
-  for (const tr of list){
-    const options = cats.map((c)=>`<option value="${esc(c)}"${c === tr.category ? ' selected' : ''}>${esc(t('mlCats')[c] || c)}</option>`).join('');
-    h += `<div class="vn ml${tr.active ? '' : ' draft'}" data-ml="${esc(tr.id)}">
-      <div class="ml-top">
-        <label class="ml-cover" title="${esc(t('mlCover'))}">${tr.cover ? `<img src="${esc(tr.cover)}" alt="">` : '♫'}<input type="file" data-ml-cover="${esc(tr.id)}" accept="image/jpeg,image/png,image/webp" hidden></label>
-        <div class="vn-row ml-names">
-          <input data-m="title" value="${esc(tr.title)}" placeholder="${esc(t('mlTitlePh'))}" aria-label="${esc(t('mlTitlePh'))}">
-          <input data-m="artist" value="${esc(tr.artist)}" placeholder="${esc(t('mlArtistPh'))}" aria-label="${esc(t('mlArtistPh'))}">
-        </div>
-      </div>
-      <div class="vn-row">
-        <select data-m="category" aria-label="${esc(t('mlCategory'))}">${options}</select>
-        <input data-m="license" value="${esc(tr.license)}" placeholder="${esc(t('mlLicense'))}" aria-label="${esc(t('mlLicense'))}">
-      </div>
-      <audio controls preload="none" src="${esc(tr.audioUrl)}"></audio>
-      <div class="vn-foot"><label><input type="checkbox" data-m="active"${tr.active ? ' checked' : ''}> ${esc(t('mlActive'))}</label>
-        <span class="ml-meta">${esc(clock(tr.duration))} · ${esc(t('mlUses'))}: ${esc(tr.uses)}</span></div>
-    </div>`;
-  }
-  h += `<div class="price-save"><button class="act act--pay" id="ml-save">${esc(t('save'))}</button><span class="saved" id="ml-saved" hidden>${esc(t('saved'))}</span></div>`;
-  return h;
-}
-
-function collectLibrary(){
-  return [...document.querySelectorAll('[data-ml]')].map((card)=>({
-    id: card.dataset.ml,
-    title: card.querySelector('[data-m="title"]').value,
-    artist: card.querySelector('[data-m="artist"]').value,
-    category: card.querySelector('[data-m="category"]').value,
-    license: card.querySelector('[data-m="license"]').value,
-    active: card.querySelector('[data-m="active"]').checked,
-  }));
-}
-
-// Правки из карточек переносим в данные, чтобы перерисовка их не стёрла.
-function keepLibraryEdits(){
-  const edits = new Map(collectLibrary().map((x)=>[x.id, x]));
-  DATA.library = (DATA.library || []).map((tr)=>({ ...tr, ...(edits.get(tr.id) || {}) }));
-}
-
-// Длительность панель читает из самого файла: серверу для этого не нужен ffmpeg.
-function fileDuration(file){
-  return new Promise((resolve)=>{
-    const url = URL.createObjectURL(file);
-    const probe = new Audio();
-    let settled = false;
-    const done = (value)=>{ if (settled) return; settled = true; URL.revokeObjectURL(url); resolve(value); };
-    probe.preload = 'metadata';
-    probe.onloadedmetadata = ()=>done(Number.isFinite(probe.duration) ? probe.duration : 0);
-    probe.onerror = ()=>done(0);
-    setTimeout(()=>done(0), 10000);
-    probe.src = url;
-  });
-}
-
-async function reloadLibrary(){
-  const lib = await (await fetch('/api/admin/music', { headers:{ 'X-Init-Data': initData() } })).json();
-  if (lib.ok) { DATA.library = lib.tracks; DATA.musicCategories = lib.categories; }
-}
-
-async function saveLibrary(list = collectLibrary()){
-  const button = $('ml-save');
-  if (button) button.disabled = true;
-  try {
-    const res = await fetch('/api/admin/music', {
-      method:'PUT',
-      headers:{ 'Content-Type':'application/json', 'X-Init-Data': initData() },
-      body: JSON.stringify({ tracks: list }),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.ok) throw new Error(data.error || 'error');
-    DATA.library = data.tracks;
-    render();
-    const saved = $('ml-saved');
-    if (saved) { saved.hidden = false; setTimeout(()=>{ const el=$('ml-saved'); if (el) el.hidden = true; }, 2600); }
-  } catch(e){
-    alert(e.message || t('loadErr'));
-  } finally {
-    const el = $('ml-save');
-    if (el) el.disabled = false;
-  }
-}
-
-async function uploadLibrary(files){
-  const status = $('ml-status');
-  if (DATA.library?.length) keepLibraryEdits();
-  let done = 0;
-  for (const file of files){
-    if (status) { status.hidden = false; status.textContent = `${t('mlUploading')} ${done + 1}/${files.length}: ${file.name}`; }
-    try {
-      const duration = await fileDuration(file);
-      const res = await fetch('/api/admin/music', {
-        method:'POST',
-        headers:{
-          'X-Init-Data': initData(),
-          'X-File-Name': encodeURIComponent(file.name.slice(0, 160)),
-          'X-Duration': duration > 0 ? String(Math.round(duration * 100) / 100) : '',
-          'X-Category': 'wedding',
-        },
-        body: file,
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || t('mlBad'));
-    } catch(e){ alert(`${file.name}: ${e.message || t('loadErr')}`); }
-    done += 1;
-  }
-  try { await reloadLibrary(); } catch (_) { /* покажем, что есть */ }
-  render();
-}
-
-async function uploadCover(id, file){
-  keepLibraryEdits();
-  try {
-    const res = await fetch(`/api/admin/music/${encodeURIComponent(id)}/cover`, {
-      method:'POST',
-      headers:{ 'X-Init-Data': initData() },
-      body: file,
-    });
-    const data = await res.json();
-    if (!res.ok || !data.ok) throw new Error(data.error || t('mlCoverBad'));
-    DATA.library = DATA.library.map((tr)=>(tr.id === data.track.id ? { ...tr, cover: data.track.cover } : tr));
-    render();
-  } catch(e){ alert(e.message || t('mlCoverBad')); }
-}
-
-document.addEventListener('change', (e)=>{
-  const cover = e.target.closest?.('[data-ml-cover]');
-  if (cover && cover.files.length) { uploadCover(cover.dataset.mlCover, cover.files[0]); return; }
-  if (e.target.id !== 'ml-file' || !e.target.files.length) return;
-  uploadLibrary([...e.target.files]);
-});
-
-const TAB_LABEL = { overview:'tabOverview', orders:'tabOrders', pricing:'tabPricing', venues:'tabVenues', music:'tabMusic' };
+const TAB_LABEL = { overview:'tabOverview', orders:'tabOrders', pricing:'tabPricing', venues:'tabVenues' };
 
 function render(){
   if (!DATA) return;
@@ -716,7 +552,6 @@ function render(){
   $('content').innerHTML = TAB==='orders' ? renderOrders()
     : TAB==='pricing' ? renderPricing()
     : TAB==='venues' ? renderVenues()
-    : TAB==='music' ? renderMusic()
     : renderOverview();
   if (TAB==='orders') loadProofs();
   if (TAB==='venues'){
@@ -799,10 +634,6 @@ async function load(){
       DATA.city = catalog.city || null;
       DATA.mapTiles = catalog.mapTiles || null;
     } catch (_) { DATA.venues = []; }
-    try {
-      DATA.library = [];
-      await reloadLibrary();
-    } catch (_) { DATA.library = []; }
     render();
   } catch(e){ $('content').innerHTML = `<div class="err-screen"><div class="big">📡</div>${t('loadErr')}</div>`; }
 }
@@ -910,7 +741,6 @@ document.addEventListener('click', (e)=>{
     return;
   }
   if (e.target.closest('#vn-save')) saveVenues();
-  if (e.target.closest('#ml-save')) saveLibrary();
 });
 
 function applyLang(){

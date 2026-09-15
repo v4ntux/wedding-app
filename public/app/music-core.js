@@ -1,9 +1,10 @@
 /* nvate studio — музыка: ядро без DOM.
 
    Одно состояние музыкального шага и один редьюсер вместо россыпи флагов по
-   обработчикам; поиск, которому не страшны гонки ответов; перевод черновиков
-   прошлых версий студии. Разметки и звука здесь нет — поэтому ядро проверяется
-   тестами в Node так же, как сервер (test/platform.test.js). */
+   обработчикам; поиск, которому не страшны гонки ответов; задачи импорта
+   (ссылка, видео, звук ролика YouTube); перевод черновиков прошлых версий
+   студии. Разметки и звука здесь нет — поэтому ядро проверяется тестами в Node
+   так же, как сервер (test/platform.test.js). */
 (function (root) {
   'use strict';
 
@@ -12,6 +13,7 @@
     SEARCHING: 'SEARCHING',
     RESULTS: 'RESULTS',
     PREVIEWING: 'PREVIEWING',
+    IMPORTING: 'IMPORTING',
     SELECTED: 'SELECTED',
     CHOOSING_START: 'CHOOSING_START',
     SAVING: 'SAVING',
@@ -19,7 +21,10 @@
     ERROR: 'ERROR',
   });
 
+  // Все источники, чьи песни ещё играют в приглашениях. Выбирают новые — только из двух.
   const PROVIDERS = ['nvate', 'audius', 'youtube', 'upload'];
+  const STUDIO_PROVIDERS = ['youtube', 'upload'];
+  const JOB_STATUS = ['uploading', 'queued', 'working', 'done', 'error'];
   const MIN_QUERY = 2;
   const VOLUME = Object.freeze({ min: 0.1, max: 1 });
   const round2 = (n) => Math.round(n * 100) / 100;
@@ -131,6 +136,27 @@
     return null;
   }
 
+  /* Задача импорта глазами студии: загрузка файла, очередь, извлечение, итог. */
+  function cleanJob(raw) {
+    if (!raw || typeof raw !== 'object' || typeof raw.id !== 'string' || !raw.id) return null;
+    const status = JOB_STATUS.includes(raw.status) ? raw.status : 'queued';
+    const progress = Number(raw.progress);
+    return {
+      id: raw.id,
+      kind: raw.kind === 'video' ? 'video' : raw.kind === 'file' ? 'file' : 'link',
+      site: String(raw.site || ''),
+      label: String(raw.label || '').slice(0, 120),
+      status,
+      stage: String(raw.stage || status),
+      progress: raw.progress === null || raw.progress === undefined || !Number.isFinite(progress) ? null : Math.min(1, Math.max(0, progress)),
+      error: status === 'error' ? String(raw.error || 'failed') : '',
+      track: validTrack(raw.track) ? raw.track : null,
+      auto: raw.auto === true,
+    };
+  }
+
+  const jobActive = (job) => ['uploading', 'queued', 'working'].includes(job.status);
+
   /* ── Состояние ── */
 
   const IDLE_SEARCH = Object.freeze({ key: '', status: 'idle', items: [], next: null, more: false });
@@ -141,12 +167,13 @@
     return {
       open: false,
       view: 'library',          // library | start
-      provider: 'nvate',
+      provider: 'youtube',
       query: '',
       category: '',
       search: IDLE_SEARCH,      // status: idle | loading | ready | error
       preview: IDLE_PREVIEW,    // status: idle | loading | playing | paused | error
       draft: null,              // { track, startAt, ready }
+      imports: [],              // задачи импорта, свежие сверху
       saving: false,
       saved: clean,
       phase: clean ? PHASE.SAVED : PHASE.IDLE,
@@ -160,6 +187,7 @@
       return s.draft?.ready ? PHASE.CHOOSING_START : PHASE.SELECTED;
     }
     if (s.preview.key && ['loading', 'playing', 'paused'].includes(s.preview.status)) return PHASE.PREVIEWING;
+    if (s.imports.some(jobActive)) return PHASE.IMPORTING;
     if (s.search.status === 'loading' && !s.search.more) return PHASE.SEARCHING;
     if (s.search.status === 'error') return PHASE.ERROR;
     if (s.search.status === 'ready') return PHASE.RESULTS;
@@ -180,11 +208,12 @@
     const s = { ...state };
     switch (action.type) {
       case 'open':
+        if (s.open && !action.provider) return state;
         s.open = true;
         s.view = 'library';
         s.draft = null;
         s.saving = false;
-        if (PROVIDERS.includes(action.provider)) s.provider = action.provider;
+        if (STUDIO_PROVIDERS.includes(action.provider)) s.provider = action.provider;
         break;
       case 'close':
         s.open = false;
@@ -194,7 +223,7 @@
         s.preview = IDLE_PREVIEW;
         break;
       case 'provider':
-        if (!PROVIDERS.includes(action.provider) || action.provider === s.provider) return state;
+        if (!STUDIO_PROVIDERS.includes(action.provider) || action.provider === s.provider) return state;
         s.provider = action.provider;
         s.category = '';
         s.search = IDLE_SEARCH;
@@ -248,6 +277,7 @@
         break;
       case 'select':
         if (!validTrack(action.track)) return state;
+        s.open = true;
         s.view = 'start';
         s.preview = IDLE_PREVIEW;
         s.draft = { track: action.track, startAt: clampStart(action.startAt, action.track.duration), ready: false };
@@ -258,6 +288,16 @@
         if (!duration) return state;
         const track = { ...s.draft.track, duration };
         s.draft = { track, startAt: clampStart(s.draft.startAt, duration), ready: true };
+        break;
+      }
+      /* Звук ролика YouTube скачан: черновик переезжает на свою песню с тем же
+         началом — у неё есть настоящая волна, и гости услышат файл, а не плеер. */
+      case 'draft:swap': {
+        if (!s.draft || action.key !== trackKey(s.draft.track) || !validTrack(action.track)) return state;
+        const own = Number(action.track.duration);
+        const duration = Number.isFinite(own) && own > 0 ? round2(own) : s.draft.track.duration;
+        const track = { ...action.track, duration };
+        s.draft = { track, startAt: clampStart(s.draft.startAt, duration), ready: s.draft.ready || Boolean(duration > 0) };
         break;
       }
       case 'start':
@@ -288,6 +328,23 @@
         break;
       case 'saved':
         s.saved = normalizeSelection(action.selection);
+        break;
+      case 'import:add': {
+        const job = cleanJob(action.job);
+        if (!job) return state;
+        s.imports = [job, ...s.imports.filter((item) => item.id !== job.id)].slice(0, 6);
+        break;
+      }
+      case 'import:update': {
+        const index = s.imports.findIndex((item) => item.id === action.job?.id);
+        if (index < 0) return state;
+        const job = cleanJob({ ...s.imports[index], ...action.job, auto: s.imports[index].auto });
+        s.imports = s.imports.map((item, i) => (i === index ? job : item));
+        break;
+      }
+      case 'import:remove':
+        if (!s.imports.some((item) => item.id === action.id)) return state;
+        s.imports = s.imports.filter((item) => item.id !== action.id);
         break;
       default:
         return state;
@@ -414,8 +471,8 @@
   }
 
   root.NvMusicCore = Object.freeze({
-    PHASE, PROVIDERS, MIN_QUERY, clock, trackKey, validTrack, clampStart,
-    normalizeSelection, toSelection, trackFromSelection, migrateDraftMusic,
+    PHASE, PROVIDERS, STUDIO_PROVIDERS, MIN_QUERY, clock, trackKey, validTrack, clampStart,
+    normalizeSelection, toSelection, trackFromSelection, migrateDraftMusic, cleanJob, jobActive,
     initialState, reduce, createStore, searchParams, searchKey, createSearch,
   });
 })(typeof window !== 'undefined' ? window : globalThis);

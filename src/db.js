@@ -103,8 +103,8 @@ export async function insertTrack(t) {
   const duration = Number(t.duration);
   const top = t.topStart === null || t.topStart === undefined ? NaN : Number(t.topStart);
   const res = (await db.prepare(
-    `INSERT INTO tracks (owner_id, file, title, artist, duration, source, source_id, top_start, tg_unique_id, library)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO tracks (owner_id, file, title, artist, duration, source, source_id, top_start, tg_unique_id, library, cover)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     t.ownerId ?? null,
     t.file,
@@ -115,9 +115,20 @@ export async function insertTrack(t) {
     t.sourceId ?? null,
     Number.isFinite(top) && top >= 0 ? top : null,
     t.tgUniqueId ?? null,
-    t.library ? 1 : 0
+    t.library ? 1 : 0,
+    t.cover ?? null
   ));
   return Number(res.lastInsertRowid);
+}
+
+// Песня, уже извлечённая из этой ссылки или видео: у пары или (owner = null) у кого угодно.
+export async function trackBySource(ownerId, source, sourceId) {
+  if (ownerId === null || ownerId === undefined) {
+    return (await db.prepare('SELECT * FROM tracks WHERE source = ? AND source_id = ? ORDER BY id DESC LIMIT 1')
+      .get(source, sourceId)) ?? null;
+  }
+  return (await db.prepare('SELECT * FROM tracks WHERE owner_id = ? AND source = ? AND source_id = ? ORDER BY id DESC LIMIT 1')
+    .get(ownerId, source, sourceId)) ?? null;
 }
 
 // Сколько заявок уже играет этот файл — по нему полка сортируется.

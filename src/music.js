@@ -34,7 +34,7 @@ export function personalTrack(row) {
     title: row.title,
     artist: row.artist ?? '',
     duration: row.duration == null ? null : Number(row.duration),
-    cover: null,
+    cover: row.cover ?? null,
     playback: 'audio',
     audioUrl: `/uploads/${row.file}`,
   };
@@ -53,6 +53,7 @@ export async function registerTrack(file, meta = {}) {
     topStart: meta.topStart ?? null,
     tgUniqueId: meta.tgUniqueId ?? null,
     library: meta.library === true,
+    cover: meta.cover ?? null,
   });
   return db.getTrack(id);
 }

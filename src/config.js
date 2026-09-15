@@ -44,6 +44,18 @@ export const GOOGLE_MAPS_API_KEY = (process.env.GOOGLE_MAPS_API_KEY ?? '').trim(
 // поиск песен идёт через страницу выдачи youtube.com.
 export const YOUTUBE_API_KEY = (process.env.YOUTUBE_API_KEY ?? '').trim();
 
+// Импорт песни по ссылке и из видео (src/extract.js). Программы ставятся в
+// Docker-образ; локально можно указать полный путь. С серверов в дата-центре
+// YouTube иногда требует «докажите, что вы не бот» — тогда помогают резидентный
+// прокси (YTDLP_PROXY) или cookies браузера в формате Netscape (YTDLP_COOKIES:
+// путь к файлу, его текст или base64 от него).
+export const YTDLP_BIN = (process.env.YTDLP_BIN ?? '').trim() || 'yt-dlp';
+export const FFMPEG_BIN = (process.env.FFMPEG_BIN ?? '').trim() || 'ffmpeg';
+export const YTDLP_PROXY = (process.env.YTDLP_PROXY ?? '').trim();
+export const YTDLP_COOKIES = (process.env.YTDLP_COOKIES ?? '').trim();
+// Ролики YouTube yt-dlp разбирает JS-движком; node в образе уже есть. none — не передавать.
+export const YTDLP_JS_RUNTIME = (process.env.YTDLP_JS_RUNTIME ?? '').trim() || 'node';
+
 // Где лежат файлы библиотеки nVate. local — папка uploads на volume; s3 —
 // Cloudflare R2 или другое S3-совместимое хранилище. Ключи — только здесь, в
 // переменных сервера: студия получает адреса песен через API.

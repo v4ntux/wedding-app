@@ -427,53 +427,25 @@ test('a song sent to the bot lands whole in the couple’s studio and never twic
   assert.deepEqual(music.metaFromFileName('Shahzoda - Yor-yor_remix.mp3'), { artist: 'Shahzoda', title: 'Yor-yor remix' });
 });
 
-test('the nVate library: admin uploads, couples browse, the order trusts the library, not the client', async () => {
-  const library = await import('../src/musicLibrary.js');
-  const created = await library.createLibraryTrack(id3('kelin-salom'), { title: 'Kelin salom', artist: 'Ansambl', category: 'wedding', duration: 201.5 });
-  assert.equal(created.provider, 'nvate');
-  assert.match(created.audioUrl, /^\/api\/music\/audio\/nvate\/\d+$/);
-  assert.equal(await library.createLibraryTrack(Buffer.from('definitely not audio'), { title: 'x' }), null);
-  const piano = await library.createLibraryTrack(id3('piano'), { title: 'Moonlight', artist: 'Piano', category: 'piano', duration: 180 });
+test('nVate songs already in invitations keep playing, but the studio no longer offers them', async () => {
+  const { saveUpload } = await import('../src/upload.js');
+  const saved = saveUpload(id3('kelin-salom'));
+  const id = await dbModule.insertLibraryTrack({
+    title: 'Kelin salom', artist: 'Ansambl', category: 'wedding', duration: 201.5, storage: 'local', audioKey: saved.file, source: 'nvate',
+  });
+  assert.equal((await fetch(`${baseUrl}/api/music/search?provider=nvate`)).status, 400, 'в студии nVate больше нет');
+  assert.notEqual((await fetch(`${baseUrl}/api/music/tracks`)).status, 200, 'полки библиотеки больше нет');
 
-  assert.deepEqual((await library.searchLibraryTracks('kelin')).items.map((t) => t.id), [created.id]);
-  assert.deepEqual((await library.searchLibraryTracks('', { category: 'piano' })).items.map((t) => t.id), [piano.id]);
-  assert.deepEqual((await library.searchLibraryTracks('100%_')).items, [], 'знаки LIKE в запросе — просто буквы');
-
-  for (const [i, startAt] of [[1, 42.5], [2, 43]]) {
-    await submitApplication(baseForm({
-      music: { provider: 'nvate', trackId: created.id, title: 'forged title', duration: 999, startAt },
-      submissionKey: `4234567${i}-1234-4123-8123-123456789abc`,
-    }), { id: 8100 + i, username: `shelf_${i}` });
-  }
-  const order = await dbModule.db.prepare('SELECT * FROM applications WHERE tg_user_id = ?').get(8101);
-  const meta = JSON.parse(order.music_meta);
-  assert.deepEqual(
-    [order.music_type, order.music_value, Number(order.music_start), meta.title, meta.duration],
-    ['nvate', created.id, 42.5, 'Kelin salom', 201.5],
-    'название и длительность — из библиотеки, а не из формы',
-  );
-  assert.equal((await library.searchLibraryTracks('')).items[0].id, created.id, 'песни, которые выбирают, — выше');
-  assert.deepEqual(await dbModule.popularCut('nvate', created.id), { start: 42, uses: 2 });
-
-  // Длительность из формы не спасает начало за концом настоящей песни.
-  await assert.rejects(submitApplication(baseForm({
-    music: { provider: 'nvate', trackId: created.id, duration: 999, startAt: 500 },
-    submissionKey: '42345679-1234-4123-8123-123456789abc',
-  }), { id: 8109 }), /Начало/);
-
-  // Снять с полки — не удалить: приглашения, где песню выбрали, продолжают играть.
-  await library.saveLibraryEdits([{ id: created.id, active: false, title: '<i>Kelin</i>' }]);
-  assert.equal((await library.searchLibraryTracks('kelin')).items.length, 0);
-  await assert.rejects(submitApplication(baseForm({
-    music: { provider: 'nvate', trackId: created.id, startAt: 1 },
-    submissionKey: '42345678-1234-4123-8123-123456789abc',
-  }), { id: 8110 }), /недоступна/);
-  const audio = await fetch(`${baseUrl}/api/music/audio/nvate/${created.id}`, { redirect: 'manual' });
+  const audio = await fetch(`${baseUrl}/api/music/audio/nvate/${id}`, { redirect: 'manual' });
   assert.equal(audio.status, 302);
-  assert.match(audio.headers.get('location'), /^\/uploads\/[0-9a-f-]{36}\.mp3$/);
+  assert.equal(audio.headers.get('location'), `/uploads/${saved.file}`);
   const file = await fetch(`${baseUrl}${audio.headers.get('location')}`);
   assert.equal(file.status, 200);
   assert.match(file.headers.get('cache-control'), /immutable/);
+
+  const base = buildPreviewApp(baseForm({ music: null }));
+  const html = renderInvitation({ ...base, music_type: 'nvate', music_value: String(id), music_start: 42.5 });
+  assert.match(html, new RegExp(`src="/api/music/audio/nvate/${id}#t=42\\.5"`));
 });
 
 test('the old shelf moves into the library once, and YouTube downloads stay out', async () => {
@@ -486,20 +458,17 @@ test('the old shelf moves into the library once, and YouTube downloads stay out'
   assert.equal(await dbModule.libraryTrackByLegacy(downloaded.track.id), null);
 });
 
-test('HTTP: music goes through one door; personal music and the admin need Telegram', async () => {
+test('HTTP: the studio offers YouTube and the couple’s own music; importing needs Telegram', async () => {
   const config = await (await fetch(`${baseUrl}/api/config`)).json();
-  assert.deepEqual(config.music.providers.map((p) => p.id), ['nvate', 'audius', 'youtube', 'upload']);
-  assert.ok(config.music.categories.includes('wedding'));
-  assert.equal(config.downloadEnabled, undefined, 'скачивания с YouTube больше нет');
+  assert.deepEqual(config.music.providers.map((p) => p.id), ['youtube', 'upload']);
+  assert.equal(typeof config.music.import.link, 'boolean');
+  assert.equal(typeof config.music.import.video, 'boolean');
+  assert.equal(config.music.maxMediaMb, 60);
+  assert.equal(config.downloadEnabled, undefined);
 
-  const shelf = await (await fetch(`${baseUrl}/api/music/search?provider=nvate`)).json();
-  assert.ok(shelf.ok && Array.isArray(shelf.items) && shelf.items.length);
-  assert.ok(shelf.items.every((t) => t.audioUrl.startsWith('/api/music/audio/nvate/')), 'адрес звука — только наш');
-  const byId = await (await fetch(`${baseUrl}/api/music/tracks/${shelf.items[0].id}`)).json();
-  assert.equal(byId.track.id, shelf.items[0].id);
-  assert.equal((await fetch(`${baseUrl}/api/music/tracks/999999`)).status, 404);
-
-  assert.equal((await fetch(`${baseUrl}/api/music/search?provider=spotify&q=hi`)).status, 400);
+  for (const provider of ['nvate', 'audius', 'spotify']) {
+    assert.equal((await fetch(`${baseUrl}/api/music/search?provider=${provider}&q=hi`)).status, 400, provider);
+  }
   assert.equal((await fetch(`${baseUrl}/api/music/search?provider=upload`)).status, 401);
   const mine = await (await fetch(`${baseUrl}/api/music/search?provider=upload`, {
     headers: { 'x-init-data': signedInitData({ id: 8001, first_name: 'Bot' }) },
@@ -509,9 +478,12 @@ test('HTTP: music goes through one door; personal music and the admin need Teleg
   for (const route of ['/api/music/audio/youtube/EFUAY_KiRt0', '/api/music/audio/nvate/abc', '/api/music/audio/audius/..%2F..', '/api/music/audio/upload/evil.mp3']) {
     assert.equal((await fetch(`${baseUrl}${route}`, { redirect: 'manual' })).status, 404, route);
   }
-  assert.equal((await fetch(`${baseUrl}/api/admin/music`)).status, 403);
-  assert.equal((await fetch(`${baseUrl}/api/admin/music`, { method: 'POST', body: id3('x') })).status, 403);
-  assert.equal((await fetch(`${baseUrl}/api/music/link`, { method: 'POST' })).status, 404, 'загрузчика ссылок больше нет');
+  assert.notEqual((await fetch(`${baseUrl}/api/admin/music`)).status, 200, 'библиотеки в админке больше нет');
+  assert.equal((await fetch(`${baseUrl}/api/music/link`, { method: 'POST' })).status, 404);
+  const json = { 'content-type': 'application/json' };
+  assert.equal((await fetch(`${baseUrl}/api/music/import`, { method: 'POST', headers: json, body: JSON.stringify({ url: 'https://vt.tiktok.com/x/' }) })).status, 401);
+  assert.equal((await fetch(`${baseUrl}/api/music/import/abc`)).status, 401);
+  assert.equal((await fetch(`${baseUrl}/api/music/upload`, { method: 'POST', body: id3('x') })).status, 401);
 });
 
 test('YouTube search reads the results page and keeps only songs the author lets us embed', async () => {
@@ -548,7 +520,7 @@ test('YouTube search reads the results page and keeps only songs the author lets
 });
 
 test('«Топ выбор» с YouTube — пик пересмотров после вступления, а не первая секунда', async () => {
-  const { parseHeatmap, peakMoment, songMeta } = await import('../src/youtube.js');
+  const { parseHeatmap, peakMoment, songMeta, heatCurve } = await import('../src/youtube.js');
   // Сто точек по 2,25 с: начало смотрят все, а переслушивают припев на 1:07.
   const markers = Array.from({ length: 100 }, (_, i) => ({
     startMillis: String(i * 2250),
@@ -559,11 +531,15 @@ test('«Топ выбор» с YouTube — пик пересмотров пос�
   assert.equal(peakMoment(parseHeatmap(html)), 65, 'на две секунды раньше пика');
   assert.equal(peakMoment(markers.map((m) => ({ ...m, intensityScoreNormalized: 0.5 }))), null, 'ровный график пика не даёт');
   assert.equal(parseHeatmap('<html>капча</html>'), null);
+  // Весь график — для шкалы выбора начала, пока звук ролика не скачан.
+  const curve = heatCurve(markers);
+  assert.deepEqual([curve.values.length, curve.end, curve.values[30]], [100, 225, 0.9]);
+  assert.equal(heatCurve([]), null);
   assert.deepEqual(songMeta('Shahzoda - Yomg‘ir | Шахзода - Ёмгир (AUDIO)', 'Shahzoda'), { title: 'Yomg‘ir', artist: 'Shahzoda' });
   assert.deepEqual(songMeta('Kelin salom [Official Video]', 'Ansambl - Topic'), { title: 'Kelin salom', artist: 'Ansambl' });
 });
 
-test('Audius: one card shape, sound through our address, closed and broken tracks hidden', async () => {
+test('Audius songs already chosen keep one card shape and play through our address', async () => {
   const raw = (id, extra = {}) => ({
     id, title: `Song ${id}`, duration: 201, user: { name: 'Artist' },
     artwork: { '480x480': `https://cdn.example/${id}.jpg` }, is_streamable: true, access: { stream: true }, ...extra,
@@ -571,7 +547,8 @@ test('Audius: one card shape, sound through our address, closed and broken track
   REMOTE.set('https://api.audius.co/v1/tracks/search', (url) => (new URL(url).searchParams.get('app_name') === 'nvate'
     ? json({ data: [raw('D7KyD'), raw('Gated', { is_stream_gated: true }), raw('NoLen', { duration: 0 })] })
     : new Response('no app name', { status: 400 })));
-  const found = await (await fetch(`${baseUrl}/api/music/search?provider=audius&q=piano`)).json();
+  const { searchAudius } = await import('../src/audius.js');
+  const found = await searchAudius('piano');
   assert.deepEqual(found.items, [{
     id: 'D7KyD', provider: 'audius', title: 'Song D7KyD', artist: 'Artist', duration: 201,
     cover: 'https://cdn.example/D7KyD.jpg', playback: 'audio', audioUrl: '/api/music/audio/audius/D7KyD',
@@ -596,8 +573,7 @@ test('Audius: one card shape, sound through our address, closed and broken track
     submissionKey: '62345672-1234-4123-8123-123456789abc',
   }), { id: 8502 }), /недоступна/);
 
-  REMOTE.set('https://api.audius.co/v1/tracks/search', () => new Response('down', { status: 503 }));
-  assert.equal((await fetch(`${baseUrl}/api/music/search?provider=audius&q=other`)).status, 502);
+  assert.equal((await fetch(`${baseUrl}/api/music/search?provider=audius&q=other`)).status, 400, 'в студии Audius больше нет');
 });
 
 test('studio music core: listening never selects, one phase at a time, no search races', async () => {
@@ -610,6 +586,8 @@ test('studio music core: listening never selects, one phase at a time, no search
 
   assert.equal(Core.clock(74.35), '01:14');
   assert.equal(Core.clock(74.35, true), '01:14.3');
+  assert.deepEqual(plain(Core.STUDIO_PROVIDERS), ['youtube', 'upload']);
+  assert.equal(Core.initialState().provider, 'youtube', 'студия открывается на YouTube');
 
   const store = Core.createStore(Core.initialState());
   const phases = [];
@@ -693,6 +671,127 @@ test('studio music core: listening never selects, one phase at a time, no search
   assert.equal(Core.trackFromSelection({ provider: 'nvate', trackId: '7', duration: 100 }).audioUrl, '/api/music/audio/nvate/7');
   assert.equal(Core.trackFromSelection({ provider: 'youtube', trackId: 'EFUAY_KiRt0' }).audioUrl, undefined);
   assert.equal(Core.normalizeSelection({ provider: 'nvate', trackId: '7', cover: 'javascript:alert(1)' }).cover, null);
+
+  // Звук ролика скачан: черновик переезжает на свою песню с тем же началом.
+  const file = '44444444-4444-4444-8444-444444444444.mp3';
+  const own = { id: file, provider: 'upload', title: 'Oh sevaman yor', artist: 'Ibrohim Nurmatov', duration: 221.4, cover: null, playback: 'audio', audioUrl: `/uploads/${file}` };
+  const swap = Core.createStore(Core.initialState());
+  swap.dispatch({ type: 'select', track: yt('EFUAY_KiRt0', 'Oh sevaman yor'), startAt: 64 });
+  swap.dispatch({ type: 'draft:ready', key: 'youtube:EFUAY_KiRt0', duration: 222 });
+  swap.dispatch({ type: 'draft:swap', key: 'youtube:stale000000', track: own });
+  assert.equal(swap.get().draft.track.provider, 'youtube', 'ответ для другой песни черновик не трогает');
+  swap.dispatch({ type: 'draft:swap', key: 'youtube:EFUAY_KiRt0', track: own });
+  assert.deepEqual(plain([swap.get().draft.track.provider, swap.get().draft.startAt, swap.get().draft.ready]), ['upload', 64, true]);
+  swap.dispatch({ type: 'provider', provider: 'nvate' });
+  assert.equal(swap.get().provider, 'youtube', 'nVate в студии не выбрать');
+
+  // Задачи импорта: одна очередь в состоянии шага, прогресс в пределах 0…1.
+  swap.dispatch({ type: 'import:add', job: { id: 'j1', status: 'working', progress: 2, label: 'TikTok', auto: true } });
+  assert.equal(swap.get().imports[0].progress, 1);
+  swap.dispatch({ type: 'back' });
+  assert.equal(swap.get().phase, 'IMPORTING');
+  swap.dispatch({ type: 'import:update', job: { id: 'j1', status: 'done', track: own, auto: false } });
+  assert.deepEqual(plain([swap.get().imports[0].status, swap.get().imports[0].auto, swap.get().imports[0].track.id]), ['done', true, file]);
+  swap.dispatch({ type: 'import:remove', id: 'j1' });
+  assert.equal(swap.get().imports.length, 0);
+});
+
+test('magic import: a link or a video becomes the couple’s own song and is never fetched twice', async () => {
+  const { readFile, writeFile } = await import('node:fs/promises');
+  const extract = await import('../src/extract.js');
+  const imports = await import('../src/musicImport.js');
+  const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, ...Array(40).fill(7)]);
+  const brand = (name) => Buffer.concat([Buffer.from([0, 0, 0, 32]), Buffer.from(`ftyp${name}`), Buffer.alloc(20)]);
+  const runs = [];
+  extract.useLookup(async (host) => [{ address: host.endsWith('.lan.example') ? '192.168.1.20' : '203.0.113.9', family: 4 }]);
+  extract.useRunner(async (bin, args, { onLine } = {}) => {
+    if (args.includes('--version') || args.includes('-version')) return { code: 0, stdout: 'test', stderr: '' };
+    runs.push([bin, args]);
+    if (bin === 'ffmpeg' && !args.includes('-map')) {
+      return { code: 1, stdout: '', stderr: '  Duration: 00:03:21.50, start: 0.000000, bitrate: 128 kb/s' };
+    }
+    if (bin === 'ffmpeg') {
+      const input = await readFile(args[args.indexOf('-i') + 1]);
+      if (input.includes('silent')) return { code: 1, stdout: '', stderr: "Stream map '0:a:0' matches no streams." };
+      await writeFile(args.at(-1), id3('from-video'));
+      return { code: 0, stdout: '', stderr: '' };
+    }
+    const url = args.at(-1);
+    if (url.includes('private')) return { code: 1, stdout: '', stderr: 'ERROR: [Instagram] p1: Requested content is not available, login required' };
+    const template = args[args.indexOf('-o') + 1];
+    await writeFile(template.replace('%(ext)s', 'mp3'), id3(`link-${url}`));
+    await writeFile(template.replace('%(ext)s', 'jpg'), jpeg);
+    onLine?.('[download]  42.0% of 3.10MiB at 1.20MiB/s');
+    onLine?.('[ExtractAudio] Destination: media.mp3');
+    onLine?.(JSON.stringify({ id: 'v1', title: 'Yor-yor', uploader: 'Shahzoda', duration: 201 }));
+    return { code: 0, stdout: '', stderr: '' };
+  });
+  try {
+    const first = await imports.importLink(9101, 'смотрите https://vt.tiktok.com/ZSabc123/ #fyp');
+    assert.equal(first.site, 'tiktok');
+    const done = await imports.waitForImport(first.id);
+    assert.equal(done.status, 'done', done.error);
+    assert.deepEqual([done.track.provider, done.track.title, done.track.artist, done.track.duration], ['upload', 'Yor-yor', 'Shahzoda', 201.5]);
+    assert.match(done.track.audioUrl, /^\/uploads\/[0-9a-f-]{36}\.mp3$/);
+    assert.match(done.track.cover, /^\/uploads\/[0-9a-f-]{36}\.jpg$/, 'обложка — картинка ролика у нас, а не чужая ссылка');
+    const ytdlp = runs.find(([bin]) => bin === 'yt-dlp')[1];
+    assert.ok(ytdlp.includes('default,-generic'), 'произвольные страницы yt-dlp не открывает');
+    assert.equal(ytdlp.at(-2), '--', 'ссылка не может стать ключом команды');
+
+    const fetched = runs.filter(([bin]) => bin === 'yt-dlp').length;
+    const again = await imports.importLink(9101, 'https://vt.tiktok.com/ZSabc123/');
+    assert.deepEqual([again.status, again.track.id], ['done', done.track.id]);
+    const other = await imports.importLink(9102, 'https://vt.tiktok.com/ZSabc123/');
+    assert.equal(other.track.id, done.track.id, 'другая пара получает тот же файл без скачивания');
+    assert.equal(runs.filter(([bin]) => bin === 'yt-dlp').length, fetched);
+    assert.equal(imports.importJob(9102, first.id), null, 'чужую задачу не показываем');
+
+    const yt = await imports.waitForImport((await imports.importLink(9101, 'https://youtu.be/EFUAY_KiRt0?t=3')).id);
+    assert.equal(yt.track.cover, 'https://i.ytimg.com/vi/EFUAY_KiRt0/mqdefault.jpg');
+    assert.equal((await imports.importYoutube(9101, 'EFUAY_KiRt0')).track.id, yt.track.id, 'ссылка и id ролика — одна песня');
+
+    const closed = await imports.waitForImport((await imports.importLink(9101, 'https://www.instagram.com/p/private1/')).id);
+    assert.deepEqual([closed.status, closed.error], ['error', 'private']);
+    for (const bad of ['ftp://example.com/a.mp3', 'http://127.0.0.1:3000/x', 'http://10.1.2.3/v.mp4', 'https://cam.lan.example/v', 'http://localhost/x', 'просто текст']) {
+      await assert.rejects(imports.importLink(9101, bad), (error) => error.code === 'link', bad);
+    }
+
+    const video = await imports.waitForImport((await imports.importVideo(9101, Buffer.from('fake mp4 with sound'), { title: 'To‘y video' })).id);
+    assert.deepEqual([video.status, video.track.title, video.track.duration], ['done', 'To‘y video', 201.5]);
+    const silent = await imports.waitForImport((await imports.importVideo(9101, Buffer.from('silent clip'), {})).id);
+    assert.deepEqual([silent.status, silent.error], ['error', 'noaudio']);
+
+    assert.equal(extract.mediaKind(brand('M4A ')), 'audio');
+    assert.equal(extract.mediaKind(brand('isom')), 'video');
+    assert.equal(extract.mediaKind(Buffer.from([0x1a, 0x45, 0xdf, 0xa3, ...Array(20).fill(0)])), 'video');
+    assert.equal(extract.mediaKind(id3('x')), 'audio');
+    assert.equal(extract.mediaKind(jpeg), null);
+    assert.equal(extract.importErrorOf({ stderr: 'ERROR: [youtube] x: Sign in to confirm you’re not a bot' }), 'blocked');
+    assert.equal(extract.importErrorOf({ error: Object.assign(new Error('spawn'), { code: 'ENOENT' }) }), 'unavailable');
+    assert.equal(extract.siteOf('https://www.instagram.com/reel/abc/'), 'instagram');
+
+    const auth = { 'x-init-data': signedInitData({ id: 9103, first_name: 'Import' }) };
+    const json = { ...auth, 'content-type': 'application/json' };
+    const started = await (await fetch(`${baseUrl}/api/music/import`, { method: 'POST', headers: json, body: JSON.stringify({ url: 'https://www.tiktok.com/@a/video/42' }) })).json();
+    assert.equal(started.ok, true);
+    await imports.waitForImport(started.job.id);
+    const polled = await (await fetch(`${baseUrl}/api/music/import/${started.job.id}`, { headers: auth })).json();
+    assert.equal(polled.job.status, 'done');
+    const stranger = { 'x-init-data': signedInitData({ id: 9104, first_name: 'Other' }) };
+    assert.equal((await fetch(`${baseUrl}/api/music/import/${started.job.id}`, { headers: stranger })).status, 404);
+    const badLink = await fetch(`${baseUrl}/api/music/import`, { method: 'POST', headers: json, body: JSON.stringify({ url: 'http://localhost/x' }) });
+    assert.deepEqual([badLink.status, (await badLink.json()).error], [400, 'link']);
+    const song = await (await fetch(`${baseUrl}/api/music/upload`, {
+      method: 'POST', headers: { ...auth, 'x-file-name': encodeURIComponent('Ansambl - Yor-yor.mp3') }, body: id3('upload-song'),
+    })).json();
+    assert.deepEqual([song.track.provider, song.track.title, song.track.artist], ['upload', 'Yor-yor', 'Ansambl']);
+    const clip = await (await fetch(`${baseUrl}/api/music/upload`, { method: 'POST', headers: auth, body: brand('isom') })).json();
+    assert.equal(clip.job.kind, 'video');
+    assert.equal((await imports.waitForImport(clip.job.id)).status, 'done');
+  } finally {
+    extract.useRunner(null);
+    extract.useLookup(null);
+  }
 });
 
 test('R2/S3 links are signed on the server with AWS Signature V4', async () => {

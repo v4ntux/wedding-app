@@ -27,11 +27,11 @@ export const PROVIDERS = Object.freeze({
     validId: audiusIdValid, search: searchAudius, get: getAudiusTrack, audioLocation: audiusStreamUrl,
   },
   youtube: {
-    label: 'YouTube', playback: 'youtube', browse: false,
+    label: 'YouTube', playback: 'youtube', browse: false, studio: true,
     validId: youtubeIdValid, search: searchYoutube, get: youtubeTrack,
   },
   upload: {
-    label: 'Mening', playback: 'audio', browse: true, personal: true,
+    label: 'Mening', playback: 'audio', browse: true, personal: true, studio: true,
     validId: uploadIdValid, search: searchUserTracks, get: uploadTrack, audioLocation: (id) => `/uploads/${id}`,
   },
 });
@@ -40,9 +40,14 @@ export const providerOf = (id) => (typeof id === 'string' && Object.hasOwn(PROVI
 
 export const validTrackId = (provider, id) => Boolean(providerOf(provider)?.validId(id));
 
+/* В студии пара выбирает только из YouTube и своей музыки (ссылка, файл, бот).
+   nVate и Audius остались за фасадом ради уже оформленных приглашений: их песни
+   играют, но новых из этих источников студия не ищет. */
+export const studioProvider = (id) => (providerOf(id)?.studio ? providerOf(id) : null);
+
 /* Что студии нужно знать об источниках, чтобы нарисовать вкладки. */
 export function publicProviders() {
-  return Object.entries(PROVIDERS).map(([id, p]) => ({
+  return Object.entries(PROVIDERS).filter(([, p]) => p.studio).map(([id, p]) => ({
     id,
     label: p.label,
     playback: p.playback,

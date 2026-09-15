@@ -241,19 +241,38 @@ export function peakMoment(markers) {
   return Math.max(0, Math.floor(best.at - 2));
 }
 
-export async function topMoment(id) {
+/* Тот же график целиком — для шкалы выбора начала, пока звук ролика не
+   скачан: { end, values } — сотня точек 0…1 от начала до конца ролика. */
+export function heatCurve(markers) {
+  const points = (Array.isArray(markers) ? markers : [])
+    .map((m) => ({ at: Number(m.startMillis) / 1000, len: Number(m.durationMillis) / 1000, v: Number(m.intensityScoreNormalized) }))
+    .filter((p) => Number.isFinite(p.at) && Number.isFinite(p.v));
+  if (points.length < 20) return null;
+  const last = points.at(-1);
+  const end = last.at + (Number.isFinite(last.len) ? last.len : 0);
+  if (!(end > 0)) return null;
+  return { end: Math.round(end * 100) / 100, values: points.map((p) => Math.round(Math.min(1, Math.max(0, p.v)) * 1000) / 1000) };
+}
+
+/* «Топ выбор» и график ролика одним походом на страницу. null — YouTube не ответил. */
+export async function youtubeMoments(id) {
   if (!youtubeIdValid(id)) return null;
   const hit = topCache.get(id);
-  if (hit && hit.until > Date.now()) return hit.top;
-  let top;
+  if (hit && hit.until > Date.now()) return hit.moments;
+  let moments;
   try {
     const response = await fetch(`https://www.youtube.com/watch?v=${id}`, { headers: BROWSER, signal: AbortSignal.timeout(8000) });
     if (!response.ok) return null;
-    top = peakMoment(parseHeatmap(await response.text()));
+    const markers = parseHeatmap(await response.text());
+    moments = { top: peakMoment(markers), heat: heatCurve(markers) };
   } catch {
     return null;
   }
-  topCache.set(id, { top, until: Date.now() + TOP_TTL });
+  topCache.set(id, { moments, until: Date.now() + TOP_TTL });
   if (topCache.size > 2000) topCache.delete(topCache.keys().next().value);
-  return top;
+  return moments;
+}
+
+export async function topMoment(id) {
+  return (await youtubeMoments(id))?.top ?? null;
 }

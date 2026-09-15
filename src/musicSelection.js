@@ -35,6 +35,10 @@ function httpsUrl(value) {
   }
 }
 
+/* Обложка своей песни — картинка ролика в uploads или адрес https у источника. */
+const COVER_FILE_RE = /^\/uploads\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:jpg|png|webp)$/;
+export const safeCover = (value) => (COVER_FILE_RE.test(String(value ?? '')) ? String(value) : httpsUrl(value));
+
 /* Выбор из формы — к виду, в котором он хранится. Старые версии студии
    присылали musicType/musicValue/musicStart — их понимаем тоже. */
 export function readSelection(form) {
@@ -96,7 +100,7 @@ export async function resolveSelection(selection) {
     merged.title = text(track.title, 120) || merged.title;
     merged.artist = text(track.artist, 120) || merged.artist;
     if (Number(track.duration) > 0) merged.duration = round2(Number(track.duration));
-    if (selection.provider === 'audius') merged.cover = httpsUrl(track.cover);
+    if (selection.provider === 'audius' || selection.provider === 'upload') merged.cover = safeCover(track.cover);
   }
   if (merged.duration !== null && merged.startAt >= merged.duration) throw new MusicError('start');
   merged.title ||= 'Musiqa';

@@ -5,6 +5,8 @@ import { validateInitData } from './initData.js';
 import { submitApplication, buildPreviewApp, payApplication, cancelApplication, ValidationError } from './service.js';
 import { renderInvitation, renderDemo, renderNotFound, withWatermark } from './render.js';
 import { saveUpload, UPLOADS_DIR } from './upload.js';
+import { ImportError, MAX_MEDIA_BYTES, extractorStatus, mediaKind } from './extract.js';
+import { importJob, importLink, importVideo, importYoutube } from './musicImport.js';
 import * as db from './db.js';
 import { healthCheck } from './storage.js';
 import {
@@ -15,12 +17,8 @@ import { publicTemplates, publicEvents, allTemplates } from './templateStore.js'
 import { guestPrice, pricedAddons, pricingSnapshot, updatePricing } from './pricing.js';
 import { publicVenues, allVenues, saveVenues, cityCenter } from './venues.js';
 import { RESERVED_SLUGS } from './slug.js';
-import { topMoment } from './youtube.js';
-import { providerOf, publicProviders, validTrackId } from './musicProviders.js';
-import {
-  MUSIC_CATEGORIES, MAX_COVER_BYTES, activeLibraryTrack, adminLibrary, createLibraryTrack,
-  saveLibraryEdits, searchLibraryTracks, setLibraryCover } from './musicLibrary.js';
-import { storageInfo } from './objectStore.js';
+import { youtubeIdValid, youtubeMoments } from './youtube.js';
+import { providerOf, publicProviders, studioProvider, validTrackId } from './musicProviders.js';
 import { createStatic, compressResponses } from './static.js';
 
 const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
@@ -199,7 +197,7 @@ export function createServer({ onNewApplication, onPaid } = {}) {
       city: cityCenter(),
       mapTiles: MAP_TILES,
       googleGeoEnabled: Boolean(GOOGLE_MAPS_API_KEY),
-      music: { providers: publicProviders(), categories: MUSIC_CATEGORIES },
+      music: { providers: publicProviders(), import: await extractorStatus(), maxMediaMb: MAX_MEDIA_BYTES / 1024 / 1024 },
     });
   });
 
@@ -299,51 +297,6 @@ export function createServer({ onNewApplication, onPaid } = {}) {
       res.status(400).json({ ok: false, error: e.message || 'Не удалось сохранить каталог' });
     }
   });
-
-  /* Библиотека nVate в админке: все песни, включая снятые с полки. Звук
-     загружается сюда (длительность панель читает из файла сама) или кнопкой
-     «В библиотеку» под песней, присланной боту. */
-  app.get('/api/admin/music', async (req, res) => {
-    if (!adminUser(req.get('x-init-data') ?? '')) return res.status(403).json({ ok: false, error: 'forbidden' });
-    res.json({ ok: true, tracks: await adminLibrary(), categories: MUSIC_CATEGORIES, storage: storageInfo() });
-  });
-
-  app.put('/api/admin/music', express.json({ limit: '128kb' }), async (req, res) => {
-    if (!adminUser(req.get('x-init-data') ?? '')) return res.status(403).json({ ok: false, error: 'forbidden' });
-    res.json({ ok: true, tracks: await saveLibraryEdits(req.body?.tracks ?? []) });
-  });
-
-  // Права проверяем до того, как принять двадцать мегабайт тела.
-  const adminOnly = (req, res, next) => (adminUser(req.get('x-init-data') ?? '')
-    ? next()
-    : res.status(403).json({ ok: false, error: 'forbidden' }));
-
-  app.post('/api/admin/music', adminOnly, uploadLimit, express.raw({ type: () => true, limit: uploadMb }), async (req, res) => {
-    try {
-      const track = await createLibraryTrack(req.body, {
-        ...metaFromFileName(fileNameHeader(req)),
-        duration: Number(req.get('x-duration')),
-        category: String(req.get('x-category') ?? ''),
-      });
-      if (!track) return res.status(400).json({ ok: false, error: 'Нужен звуковой файл: MP3, M4A, OGG или WAV' });
-      res.json({ ok: true, track });
-    } catch (e) {
-      console.error('[server] library upload failed:', e.message);
-      res.status(502).json({ ok: false, error: 'Хранилище не приняло файл — попробуйте ещё раз' });
-    }
-  });
-
-  app.post('/api/admin/music/:id/cover', adminOnly, uploadLimit,
-    express.raw({ type: () => true, limit: `${MAX_COVER_BYTES / 1024 / 1024}mb` }), async (req, res) => {
-      try {
-        const track = await setLibraryCover(req.params.id, req.body);
-        if (!track) return res.status(400).json({ ok: false, error: 'Нужна картинка JPG, PNG или WebP до 4 МБ' });
-        res.json({ ok: true, track });
-      } catch (e) {
-        console.error('[server] cover upload failed:', e.message);
-        res.status(502).json({ ok: false, error: 'Хранилище не приняло файл — попробуйте ещё раз' });
-      }
-    });
 
   app.get('/api/admin/proofs/:filename', (req, res) => {
     const u = adminUser(req.get('x-init-data') ?? '');
@@ -553,31 +506,16 @@ export function createServer({ onNewApplication, onPaid } = {}) {
   });
 
   /* ── Музыка ──
-     Библиотека nVate, Audius, YouTube и личная музыка пары — за одним фасадом
-     (src/musicProviders.js). Студия получает карточки Track и адрес
-     /api/music/audio/…, а не ключи хранилища и не API источников. Звук с
-     YouTube не скачиваем: он играет официальным плеером. */
+     В студии два источника за одним фасадом (src/musicProviders.js): поиск по
+     YouTube и своя музыка пары — песни из бота, загруженные файлы и всё, что
+     извлечено по ссылке или из видео (src/musicImport.js). Студия получает
+     карточки Track и наши адреса звука, а не ключи хранилищ и API источников. */
 
-  // Библиотека nVate: полка, поиск по ней и категории.
-  app.get('/api/music/tracks', musicLimit, async (req, res) => {
-    res.set('Cache-Control', 'no-cache');
-    const found = await searchLibraryTracks(String(req.query.q ?? ''), {
-      page: pageOf(req.query.page), category: String(req.query.category ?? ''),
-    });
-    res.json({ ok: true, items: found.items, next: found.next, categories: MUSIC_CATEGORIES });
-  });
-
-  app.get('/api/music/tracks/:id', musicLimit, async (req, res) => {
-    const track = await activeLibraryTrack(req.params.id);
-    if (!track) return res.status(404).json({ ok: false, error: 'not-found' });
-    res.json({ ok: true, track });
-  });
-
-  // Поиск в любом источнике. Личная музыка — только своя, поэтому через Telegram.
+  // Поиск. Своя музыка — только своя, поэтому через Telegram.
   app.get('/api/music/search', async (req, res) => {
     res.set('Cache-Control', 'no-store');
     const id = String(req.query.provider ?? '');
-    const provider = providerOf(id);
+    const provider = studioProvider(id);
     if (!provider) return res.status(400).json({ ok: false, error: 'provider' });
     let owner = null;
     if (provider.personal) {
@@ -585,13 +523,11 @@ export function createServer({ onNewApplication, onPaid } = {}) {
       if (!user) return res.status(401).json({ ok: false, error: 'auth' });
       owner = user.id;
     }
-    // Студия переспрашивает «что пришло в бот», пока открыта вкладка своей музыки.
+    // Студия переспрашивает «что пришло в бот», пока открыта своя музыка.
     const limiter = provider.personal ? mineLimit : musicLimit;
     if (!limiter.take(req, res)) return res.status(429).json({ ok: false, error: 'too_many_requests' });
     try {
-      const found = await provider.search(String(req.query.q ?? '').slice(0, 100), {
-        page: pageOf(req.query.page), category: String(req.query.category ?? ''), owner,
-      });
+      const found = await provider.search(String(req.query.q ?? '').slice(0, 100), { page: pageOf(req.query.page), owner });
       res.json({ ok: true, items: found.items, next: found.next });
     } catch (e) {
       console.error(`[music] ${id} search failed:`, e.message);
@@ -601,7 +537,7 @@ export function createServer({ onNewApplication, onPaid } = {}) {
 
   /* Звук песни. Адрес один для всех источников со звуком: сервер сам решает,
      куда вести — в uploads, в R2 со свежей подписью или на поток Audius. Так в
-     приглашении не протухает ни подпись, ни адрес узла. */
+     уже оформленных приглашениях не протухает ни подпись, ни адрес узла. */
   app.get('/api/music/audio/:provider/:id', async (req, res) => {
     const { provider: id, id: trackId } = req.params;
     const provider = providerOf(id);
@@ -618,20 +554,90 @@ export function createServer({ onNewApplication, onPaid } = {}) {
   });
 
   /* «Top tanlov»: откуда эту песню обычно запускают пары. Одна чужая обрезка —
-     ещё не рекомендация, поэтому, пока пар меньше двух, у YouTube подсказывает
-     сам ролик: самый переслушиваемый момент песни. */
+     ещё не рекомендация, поэтому, пока пар меньше двух, у ролика YouTube (и у
+     песни, извлечённой из него) подсказывает сам ролик: самый переслушиваемый
+     момент. Там же — весь график, чтобы шкале было что рисовать до звука. */
   app.get('/api/music/hint', musicLimit, async (req, res) => {
     const provider = String(req.query.provider ?? '');
     const id = String(req.query.id ?? '');
     if (!validTrackId(provider, id)) return res.status(400).json({ ok: false, error: 'track' });
     let hint = await db.popularCut(provider, id);
-    if (!hint && provider === 'youtube') {
-      const top = await topMoment(id);
-      if (top !== null && top !== undefined) hint = { start: Number(top), uses: 0 };
+    let videoId = provider === 'youtube' ? id : null;
+    if (provider === 'upload') {
+      const row = await db.trackByFile(id);
+      if (row?.source === 'youtube' && youtubeIdValid(row.source_id)) videoId = row.source_id;
+    }
+    let heat = null;
+    if (videoId) {
+      const moments = await youtubeMoments(videoId);
+      if (!hint && moments?.top !== null && moments?.top !== undefined) hint = { start: Number(moments.top), uses: 0 };
+      heat = moments?.heat ?? null;
     }
     res.set('Cache-Control', 'public, max-age=300');
-    res.json({ ok: true, hint });
+    res.json({ ok: true, hint, heat });
   });
+
+  /* Magic import: ссылка на ролик или песню → своя песня пары. Извлечение идёт
+     в фоне, поэтому ответ — задача; студия переспрашивает её по номеру. */
+  const authOnly = (req, res, next) => (authUser(req.get('x-init-data') ?? '')
+    ? next()
+    : res.status(401).json({ ok: false, error: 'auth' }));
+  const importLimit = rateLimit({ windowMs: 10 * 60_000, max: 30 });
+  const jobLimit = rateLimit({ windowMs: 60_000, max: 150 });
+  const MAX_UPLOAD_AUDIO = 40 * 1024 * 1024;
+  function importFailed(res, error) {
+    if (error instanceof ImportError) {
+      const status = error.code === 'busy' ? 429 : error.code === 'unavailable' ? 503 : 400;
+      return res.status(status).json({ ok: false, error: error.code });
+    }
+    console.error('[music] import failed:', error.message);
+    return res.status(500).json({ ok: false, error: 'failed' });
+  }
+
+  app.post('/api/music/import', authOnly, importLimit, express.json({ limit: '16kb' }), async (req, res) => {
+    const user = authUser(req.get('x-init-data') ?? '');
+    try {
+      const body = req.body ?? {};
+      const job = body.provider === 'youtube'
+        ? await importYoutube(user.id, String(body.id ?? ''))
+        : await importLink(user.id, String(body.url ?? ''));
+      res.json({ ok: true, job });
+    } catch (error) {
+      importFailed(res, error);
+    }
+  });
+
+  app.get('/api/music/import/:id', authOnly, jobLimit, (req, res) => {
+    const user = authUser(req.get('x-init-data') ?? '');
+    const job = importJob(user.id, req.params.id);
+    res.set('Cache-Control', 'no-store');
+    if (!job) return res.status(404).json({ ok: false, error: 'not-found' });
+    res.json({ ok: true, job });
+  });
+
+  /* Своя песня файлом. Звук, который браузер сыграет, ложится сразу; из видео
+     (и из звука в редком формате) дорожку извлекает ffmpeg в фоне. */
+  app.post('/api/music/upload', authOnly, uploadLimit,
+    express.raw({ type: () => true, limit: `${MAX_MEDIA_BYTES / 1024 / 1024}mb` }), async (req, res) => {
+      const user = authUser(req.get('x-init-data') ?? '');
+      const body = Buffer.isBuffer(req.body) && req.body.length ? req.body : null;
+      if (!body) return res.status(400).json({ ok: false, error: 'format' });
+      const named = metaFromFileName(fileNameHeader(req));
+      try {
+        if (mediaKind(body) === 'audio') {
+          if (body.length > MAX_UPLOAD_AUDIO) return res.status(400).json({ ok: false, error: 'big' });
+          const saved = saveUpload(body);
+          if (saved?.kind !== 'audio') return res.status(400).json({ ok: false, error: 'format' });
+          const row = await registerTrack(saved.file, {
+            ...named, ownerId: user.id, source: 'upload', duration: Number(req.get('x-duration')),
+          });
+          return res.json({ ok: true, track: personalTrack(row) });
+        }
+        res.json({ ok: true, job: await importVideo(user.id, body, named) });
+      } catch (error) {
+        importFailed(res, error);
+      }
+    });
 
   // Загрузка фото и аудио: сырые байты, тип определяем по сигнатуре.
   app.post('/api/upload', uploadLimit, express.raw({ type: () => true, limit: uploadMb }), async (req, res) => {

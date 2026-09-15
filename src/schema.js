@@ -122,4 +122,8 @@ export const migrations = [
   // Выбранная песня: название, исполнитель, обложка, длительность и громкость.
   // Сам источник и id песни — в music_type и music_value, начало — в music_start.
   ['music_meta', 'ALTER TABLE applications ADD COLUMN music_meta TEXT'],
+  // Обложка своей песни: картинка ролика, из которого извлечён звук.
+  ['tracks_cover', 'ALTER TABLE tracks ADD COLUMN cover TEXT'],
+  // Песня, уже извлечённая из ссылки или видео, второй раз не качается.
+  ['tracks_source_index', 'CREATE INDEX IF NOT EXISTS tracks_source ON tracks(source, source_id)'],
 ];

@@ -5,11 +5,12 @@ import path from 'node:path';
 import { payApplication, cancelApplication, ValidationError, mapsLinks } from './service.js';
 import { findMusicPreset, SUPPORT_URL, ADDONS, GUEST_LINK_PRICE, MAX_PHOTOS } from './config.js';
 import { findTemplate, publicTemplates } from './templateStore.js';
-import { markMainSent, markGuestSent, getApplication, listGuests, refreshSettings, getTrack, trackByTelegram, getApplicationBySlug, getGuestById, setGuestMessage } from './db.js';
+import { markMainSent, markGuestSent, getApplication, listGuests, refreshSettings, trackByTelegram, getApplicationBySlug, getGuestById, setGuestMessage } from './db.js';
 import { UPLOADS_DIR } from './upload.js';
 import { escapeHtml as esc } from './render.js';
 import { addTrack, metaFromFileName, trackLabel, MAX_TRACK_BYTES } from './music.js';
-import { inLibrary, toggleLibraryFromTrack } from './musicLibrary.js';
+import { importLink, importVideo, waitForImport } from './musicImport.js';
+import { siteOf } from './extract.js';
 import { parseMusicMeta } from './musicSelection.js';
 import { renderShareCard } from './share.js';
 
@@ -301,25 +302,72 @@ export function createBot({ token, adminIds = [], baseUrl }) {
 
   /* ── Музыка: песню присылают боту ──
      Узбекская музыка живёт в Telegram-каналах: переслать трек сюда быстрее,
-     чем искать его где-то ещё. Файл уходит в студию целиком — гости услышат
-     песню, а не тридцать секунд превью. Админ под треком видит кнопку
-     «в библиотеку»: полка nvate собирается из того, что пары несут сами. */
+     чем искать его где-то ещё. Бот берёт всё, из чего можно достать песню:
+     аудио и голосовые — как есть, из видео и кружков извлекает звук, ссылку на
+     YouTube, TikTok, Instagram и т.п. разбирает сам. Готовая песня появляется в
+     студии, в «Моей музыке», целиком — гости услышат песню, а не превью. */
   const AUDIO_DOC = /\.(mp3|m4a|ogg|oga|opus|wav)$/i;
+  const VIDEO_DOC = /\.(mp4|mov|m4v|webm|mkv|avi|3gp)$/i;
+  const IMPORT_ERRORS = {
+    link: ['Havolani o‘qib bo‘lmadi.', 'Не получилось прочитать ссылку.'],
+    unsupported: ['Bu saytdan musiqa olib bo‘lmaydi.', 'С этого сайта звук не достать.'],
+    blocked: ['YouTube hozir yuklab olishga ruxsat bermadi. Keyinroq urinib ko‘ring yoki qo‘shiqning o‘zini yuboring.', 'YouTube сейчас не отдаёт звук. Попробуйте позже или пришлите саму песню.'],
+    private: ['Video yopiq yoki kirishni talab qiladi.', 'Видео закрыто или требует входа.'],
+    long: ['Video 15 daqiqadan uzun.', 'Видео длиннее 15 минут.'],
+    big: ['Fayl juda katta.', 'Файл слишком большой.'],
+    gone: ['Video topilmadi.', 'Видео не найдено.'],
+    noaudio: ['Bu videoda ovoz yo‘q.', 'В этом видео нет звука.'],
+    format: ['Bu faylni o‘qiy olmadik.', 'Не получилось прочитать этот файл.'],
+    timeout: ['Juda uzoq davom etdi, yana urinib ko‘ring.', 'Слишком долго, попробуйте ещё раз.'],
+    busy: ['Hozir navbat katta, birozdan keyin yuboring.', 'Сейчас очередь, пришлите чуть позже.'],
+    unavailable: ['Import vaqtincha ishlamayapti.', 'Импорт временно недоступен.'],
+    failed: ['Musiqani ajratib bo‘lmadi, yana urinib ko‘ring.', 'Не удалось достать музыку, попробуйте ещё раз.'],
+  };
 
-  function trackKeyboard(track, fromId, listed = false) {
-    const kb = new InlineKeyboard();
-    if (https) kb.webApp('💌 Studiya · Студия', orderUrl);
-    if (isAdminId(fromId)) {
-      if (https) kb.row();
-      kb.text(listed ? '✅ Kutubxonada · В библиотеке' : '📚 Kutubxonaga · В библиотеку', `lib:${track.id}`);
-    }
-    return kb;
+  const studioKeyboard = () => (https ? new InlineKeyboard().webApp('💌 Studiya · Студия', orderUrl) : undefined);
+  const trackDone = (track) => `🎵 <b>${esc(track.title)}</b>${track.artist ? ` — ${esc(track.artist)}` : ''}\n\n✅ Studiyada: <i>Musiqa → Mening musiqam</i>\n✅ В студии: <i>Музыка → Моя музыка</i>`;
+
+  async function downloadMedia(ctx, media) {
+    const file = await ctx.api.getFile(media.file_id);
+    const response = await fetch(`https://api.telegram.org/file/bot${token}/${file.file_path}`, { signal: AbortSignal.timeout(90_000) });
+    if (!response.ok) throw new Error(`download ${response.status}`);
+    return Buffer.from(await response.arrayBuffer());
   }
 
-  bot.on(['message:audio', 'message:voice', 'message:document'], async (ctx, next) => {
+  /* Извлечение идёт минутами, а бот обрабатывает сообщения по очереди — поэтому
+     ждём его вне обработчика: сразу «достаём музыку», потом это же сообщение
+     переписываем готовой песней или понятной причиной. */
+  function importReply(ctx, replyTo, start) {
+    (async () => {
+      const wait = await ctx.reply('⏳ Musiqa ajratilmoqda…\n⏳ Достаём музыку…', replyTo);
+      let job = null;
+      try {
+        job = await start();
+        if (job.status === 'queued' || job.status === 'working') job = await waitForImport(job.id);
+      } catch (e) {
+        job = { status: 'error', error: e.code || 'failed' };
+        if (!e.code) console.error('[bot] import failed:', e.message ?? e);
+      }
+      const done = job?.status === 'done' && job.track;
+      const [uz, ru] = IMPORT_ERRORS[job?.error] ?? IMPORT_ERRORS.failed;
+      const body = done ? trackDone(job.track) : `⚠️ ${uz}\n⚠️ ${ru}`;
+      const keyboard = done ? studioKeyboard() : undefined;
+      const extra = { parse_mode: 'HTML', ...(keyboard ? { reply_markup: keyboard } : {}) };
+      try {
+        await ctx.api.editMessageText(ctx.chat.id, wait.message_id, body, extra);
+      } catch {
+        await ctx.reply(body, { ...extra, ...replyTo });
+      }
+    })().catch((e) => console.error('[bot] import reply failed:', e.message ?? e));
+  }
+
+  bot.on(['message:audio', 'message:voice', 'message:document', 'message:video', 'message:video_note', 'message:animation'], async (ctx, next) => {
     const msg = ctx.message;
-    const media = msg.audio ?? msg.voice ?? msg.document;
-    if (msg.document && !String(media.mime_type ?? '').startsWith('audio/') && !AUDIO_DOC.test(media.file_name ?? '')) {
+    const media = msg.audio ?? msg.voice ?? msg.video ?? msg.video_note ?? msg.animation ?? msg.document;
+    const mime = String(media.mime_type ?? '');
+    const video = Boolean(msg.video || msg.video_note || msg.animation)
+      || Boolean(msg.document && (mime.startsWith('video/') || VIDEO_DOC.test(media.file_name ?? '')));
+    if (msg.document && !video && !mime.startsWith('audio/') && !AUDIO_DOC.test(media.file_name ?? '')) {
       return next();
     }
     const ownerId = ctx.from?.id;
@@ -329,14 +377,19 @@ export function createBot({ token, adminIds = [], baseUrl }) {
       await ctx.reply('⚠️ Fayl 20 MB dan katta — Telegram bunday fayllarni botlarga bermaydi.\n⚠️ Файл больше 20 МБ — Telegram не отдаёт такие ботам.', replyTo);
       return;
     }
+    if (video) {
+      const named = metaFromFileName(media.file_name ?? '');
+      importReply(ctx, replyTo, async () => importVideo(ownerId, await downloadMedia(ctx, media), {
+        title: named.title || String(msg.caption ?? '').slice(0, 120) || 'Video',
+        artist: named.artist,
+      }));
+      return;
+    }
     try {
       let track = await trackByTelegram(ownerId, media.file_unique_id);
       if (!track) {
         const named = metaFromFileName(media.file_name ?? '');
-        const file = await ctx.api.getFile(media.file_id);
-        const response = await fetch(`https://api.telegram.org/file/bot${token}/${file.file_path}`, { signal: AbortSignal.timeout(90_000) });
-        if (!response.ok) throw new Error(`download ${response.status}`);
-        const added = await addTrack(Buffer.from(await response.arrayBuffer()), {
+        const added = await addTrack(await downloadMedia(ctx, media), {
           ownerId,
           source: 'bot',
           tgUniqueId: media.file_unique_id,
@@ -350,29 +403,22 @@ export function createBot({ token, adminIds = [], baseUrl }) {
         }
         track = added.track;
       }
-      const name = `🎵 <b>${esc(track.title)}</b>${track.artist ? ` — ${esc(track.artist)}` : ''}`;
-      await ctx.reply(
-        `${name}\n\n✅ Studiyada: <i>Musiqa → Mening musiqam</i>\n✅ В студии: <i>Музыка → Моя музыка</i>`,
-        { parse_mode: 'HTML', ...replyTo, reply_markup: trackKeyboard(track, ownerId, isAdminId(ownerId) && await inLibrary(track.id)) }
-      );
+      const keyboard = studioKeyboard();
+      await ctx.reply(trackDone(track), { parse_mode: 'HTML', ...replyTo, ...(keyboard ? { reply_markup: keyboard } : {}) });
     } catch (e) {
       console.error('[bot] track receive failed:', e.message ?? e);
       await ctx.reply('⚠️ Qo‘shiqni yuklab bo‘lmadi, yana yuboring.\n⚠️ Не удалось сохранить песню, пришлите ещё раз.', replyTo);
     }
   });
 
-  // Кнопка админа: на полку и обратно — ошибку можно тут же исправить.
-  bot.callbackQuery(/^lib:(\d+)$/, async (ctx) => {
-    if (!isAdminId(ctx.from?.id)) {
-      return ctx.answerCallbackQuery({ text: 'Только для администратора', show_alert: true });
-    }
-    const track = await getTrack(Number(ctx.match[1]));
-    if (!track) return ctx.answerCallbackQuery({ text: 'Трек не найден', show_alert: true });
-    const on = await toggleLibraryFromTrack(track);
-    await ctx.answerCallbackQuery({ text: on ? '📚 В библиотеке nVate' : 'Снят с полки' });
-    try {
-      await ctx.editMessageReplyMarkup({ reply_markup: trackKeyboard(track, ctx.from.id, on) });
-    } catch { /* сообщение уже изменено */ }
+  /* Ссылка на ролик или песню текстом: YouTube, TikTok, Instagram… Обычный текст
+     и ссылки на прочие сайты идут дальше своим путём. */
+  bot.on('message:text', async (ctx, next) => {
+    const body = ctx.message.text ?? '';
+    const link = body.match(/https?:\/\/\S+/i)?.[0];
+    if (body.startsWith('/') || !link || siteOf(link) === 'web' || !ctx.from?.id) return next();
+    const replyTo = { reply_parameters: { message_id: ctx.message.message_id, allow_sending_without_reply: true } };
+    importReply(ctx, replyTo, () => importLink(ctx.from.id, body));
   });
 
   // Пара нажала «Поделиться» → помечаем отправленной, а через 2 секунды
