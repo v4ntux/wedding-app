@@ -88,7 +88,7 @@ export const db = {
       async get(...params) { return (await this.all(...params))[0]; },
       async run(...params) {
         if (!pool) return sqlite.prepare(sql).run(...params);
-        const insert = /^\s*INSERT INTO (applications|guests|tracks)\b/i.test(sql);
+        const insert = /^\s*INSERT INTO (applications|guests|tracks|music_tracks)\b/i.test(sql);
         const result = await query(insert ? `${sql} RETURNING id` : sql, params);
         return { changes: result.rowCount, lastInsertRowid: result.rows[0]?.id };
       },

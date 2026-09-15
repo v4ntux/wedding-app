@@ -4,6 +4,8 @@ import * as db from './db.js';
 import { lockPayments } from './storage.js';
 import { slugify, coupleSlugBase, uniqueSlug } from './slug.js';
 import { findMusicPreset, MAX_GUESTS, MAX_PHOTOS } from './config.js';
+import { MusicError, readSelection, resolveSelection, selectionColumns } from './musicSelection.js';
+import { youtubeIdOf } from './youtube.js';
 import { guestPrice, addonPrice, pricedAddons } from './pricing.js';
 import { findTemplate } from './templateStore.js';
 import { UPLOADS_DIR } from './upload.js';
@@ -18,8 +20,6 @@ export class ValidationError extends Error {
 }
 
 const PHOTO_NAME_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$/;
-const AUDIO_NAME_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(mp3|m4a|ogg|wav)$/;
-const YOUTUBE_RE = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/;
 
 function cleanStr(v, maxLen) {
   if (typeof v !== 'string') return '';
@@ -27,58 +27,40 @@ function cleanStr(v, maxLen) {
 }
 
 export function youtubeId(url) {
-  const m = String(url ?? '').match(YOUTUBE_RE);
-  return m ? m[1] : null;
+  return youtubeIdOf(url);
 }
 
-function validateMusic(form) {
-  const type = form.musicType;
-  if (type === 'itunes') {
-    const v = form.musicValue ?? {};
-    const name = cleanStr(v.name, 120);
-    const artist = cleanStr(v.artist, 120);
-    const url = cleanStr(v.url, 400);
-    if (!name || !/^https:\/\/\S+$/.test(url)) throw new ValidationError('Трек из каталога не распознан', 'music');
-    return { musicType: 'itunes', musicValue: JSON.stringify({ name, artist, url }) };
-  }
-  if (type === 'upload') {
-    const file = cleanStr(form.musicValue, 60);
-    if (!AUDIO_NAME_RE.test(file) || !existsSync(path.join(UPLOADS_DIR, file))) {
-      throw new ValidationError('Аудиофайл не найден — загрузите заново', 'music');
-    }
-    return { musicType: 'upload', musicValue: file };
-  }
-  if (type === 'youtube') {
-    const url = cleanStr(form.musicValue, 300);
-    if (!youtubeId(url)) throw new ValidationError('Не удалось распознать ссылку YouTube', 'music');
-    return { musicType: 'youtube', musicValue: url };
-  }
-  if (type === 'custom') {
-    const url = cleanStr(form.musicValue, 300);
-    if (!/^https?:\/\/\S+$/.test(url)) throw new ValidationError('Ссылка на музыку должна начинаться с http(s)://', 'music');
-    return { musicType: 'custom', musicValue: url };
-  }
-  return { musicType: 'none', musicValue: null };
+/* Музыку проверяет src/musicSelection.js; здесь — слова, которые увидит пара. */
+const MUSIC_ERRORS = {
+  uz: {
+    provider: 'Musiqani qaytadan tanlang',
+    track: 'Musiqani qaytadan tanlang',
+    duration: 'Qo‘shiq uzunligi aniqlanmadi — musiqani qaytadan tanlang',
+    start: 'Boshlanish vaqti qo‘shiq tugashidan oldin bo‘lsin',
+    volume: 'Ovoz balandligini qaytadan sozlang',
+    gone: 'Bu qo‘shiq endi mavjud emas — boshqasini tanlang',
+  },
+  ru: {
+    provider: 'Выберите музыку заново',
+    track: 'Выберите музыку заново',
+    duration: 'Не удалось определить длину песни — выберите музыку заново',
+    start: 'Начало должно быть раньше конца песни',
+    volume: 'Настройте громкость заново',
+    gone: 'Эта песня больше недоступна — выберите другую',
+  },
+};
+
+function musicError(error, lang) {
+  if (!(error instanceof MusicError)) return error;
+  const words = MUSIC_ERRORS[lang] ?? MUSIC_ERRORS.uz;
+  return new ValidationError(words[error.reason] ?? words.track, 'music');
 }
 
-function validateCut(form) {
-  let start = Number(form.musicStart);
-  let end = Number(form.musicEnd);
-  start = Number.isFinite(start) && start >= 0 && start < 7200 ? Math.round(start) : null;
-  end = Number.isFinite(end) && end > 0 && end <= 7200 ? Math.round(end) : null;
-  if (start !== null && end !== null && end <= start) end = null;
-  return { musicStart: start, musicEnd: end };
-}
-
-/* Канонический ключ трека — ровно та строка, что лежит в music_value.
-   Нужен, чтобы спросить у базы, откуда этот трек обычно запускают. У полных
-   треков ключ — имя файла: трек с полки nvate у всех пар один и тот же. */
-export function musicKey(form) {
+function validateMusic(form, lang) {
   try {
-    const { musicType, musicValue } = validateMusic(form);
-    return musicType === 'none' ? null : musicValue;
-  } catch (_) {
-    return null;
+    return readSelection(form);
+  } catch (error) {
+    throw musicError(error, lang);
   }
 }
 
@@ -146,8 +128,8 @@ export function validateForm(form, { requirePhone = false } = {}) {
   }
   if (photos.length > MAX_PHOTOS) throw new ValidationError(`Максимум ${MAX_PHOTOS} фото`, 'photos');
 
-  const { musicType, musicValue } = validateMusic(form);
-  const { musicStart, musicEnd } = validateCut(form);
+  const music = validateMusic(form, lang);
+  const { musicType, musicValue, musicStart, musicEnd, musicMeta } = selectionColumns(music);
 
   // Именные ссылки: каждая — GUEST_LINK_PRICE; список пуст → услуги нет.
   const rawGuests = Array.isArray(form.guestNames) ? form.guestNames : [];
@@ -203,7 +185,7 @@ export function validateForm(form, { requirePhone = false } = {}) {
 
   return {
     lang, groomName, brideName, weddingDate, weddingTime, address, lat, lng, mapEnabled,
-    photos, musicType, musicValue, musicStart, musicEnd,
+    photos, music, musicType, musicValue, musicStart, musicEnd, musicMeta,
     template, premium, guestNames, premiumPrice, domainEnabled, domainPrice,
     extras, addonsPrice,
     totalPrice: template.price + premiumPrice + addonsPrice,
@@ -217,6 +199,15 @@ export async function submitApplication(form, tgUser) {
 
   const existing = (await db.getApplicationBySubmissionKey(tgUser.id, v.submissionKey));
   if (existing) return { id: existing.id, app: existing, duplicate: true };
+
+  // Название, исполнителя и длительность песни берём у самого источника.
+  let music;
+  try {
+    music = await resolveSelection(v.music);
+  } catch (error) {
+    throw musicError(error, v.lang);
+  }
+  const song = selectionColumns(music);
 
   const application = {
     tgUserId: tgUser.id,
@@ -234,10 +225,11 @@ export async function submitApplication(form, tgUser) {
     lat: v.lat,
     lng: v.lng,
     mapEnabled: v.mapEnabled,
-    musicType: v.musicType,
-    musicValue: v.musicValue,
-    musicStart: v.musicStart,
-    musicEnd: v.musicEnd,
+    musicType: song.musicType,
+    musicValue: song.musicValue,
+    musicStart: song.musicStart,
+    musicEnd: song.musicEnd,
+    musicMeta: song.musicMeta,
     templateId: v.template.id,
     templatePrice: v.template.price,
     premium: v.premium,
@@ -283,6 +275,7 @@ export function buildPreviewApp(form) {
     music_value: v.musicValue,
     music_start: v.musicStart,
     music_end: v.musicEnd,
+    music_meta: v.musicMeta ? JSON.stringify(v.musicMeta) : null,
     template_id: v.template.id,
     photos: JSON.stringify(v.photos),
   };

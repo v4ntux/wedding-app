@@ -220,6 +220,10 @@ body.ev-handoff .inv{animation:evMeet 1400ms cubic-bezier(.5,0,.25,1) forwards}
 #mvol:focus-visible{outline:1px solid var(--accent,#b08968);outline-offset:6px}
 #mbtn.on{animation:mpulse 2s ease-in-out infinite}
 @keyframes mpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+/* Браузер не дал включить звук сам: кнопка мягко зовёт коснуться страницы. */
+#mbtn.wait::after{content:'';position:absolute;inset:-6px;border-radius:50%;border:1px solid var(--accent,#b08968);
+  pointer-events:none;animation:mwait 1.8s ease-out infinite}
+@keyframes mwait{0%{opacity:.9;transform:scale(.92)}100%{opacity:0;transform:scale(1.35)}}
 
 /* ── Legacy-конверт: страхует оплаченные ссылки на снятых с витрины темах ── */
 .envx{position:fixed;inset:0;z-index:9000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;background:var(--envx-bg,#1a1a1a);transition:opacity .9s ease}
@@ -237,7 +241,7 @@ body.ev-handoff .inv{animation:evMeet 1400ms cubic-bezier(.5,0,.25,1) forwards}
 .env-hint{font-size:.7rem;letter-spacing:3.5px;text-transform:uppercase;color:var(--env-hint,#ddd)}
 
 @media (prefers-reduced-motion:reduce){
-.ev-hint,#mbtn.on{animation:none}
+.ev-hint,#mbtn.on,#mbtn.wait::after{animation:none}
 .motes{display:none}
 .envx,.env-flap,.env-paper,.env-seal{transition:none!important}
 }

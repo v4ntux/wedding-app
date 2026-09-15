@@ -1,8 +1,9 @@
 // Рендер приглашений: шаблоны живут в templates/ (см. templateStore.js),
 // здесь — подготовка данных (buildData), демо и водяная сетка.
 
-import { findMusicPreset, MAP_TILES } from './config.js';
-import { mapsLinks, youtubeId } from './service.js';
+import { MAP_TILES } from './config.js';
+import { mapsLinks } from './service.js';
+import { invitationMusic } from './musicSelection.js';
 import { getTemplate } from './templateStore.js';
 import { renderTemplate, escapeHtml } from './templateEngine.js';
 import { GRAIN, audioWidget, mapEmbed, madeFooter, countdownScript } from './blocks.js';
@@ -93,28 +94,8 @@ export function buildData(app, guestName = null, tpl = null) {
   const mapEnabled = app.map_enabled === undefined ? true : Boolean(Number(app.map_enabled));
   const links = mapEnabled ? mapsLinks(app.lat, app.lng) : { google: '', yandex: '' };
 
-  let music = null;
-  if (app.music_type === 'preset') {
-    const preset = findMusicPreset(app.music_value);
-    if (preset) music = { url: preset.url, name: preset.name, playable: true };
-  } else if (app.music_type === 'itunes') {
-    try {
-      const v = JSON.parse(app.music_value);
-      music = { url: v.url, name: `${v.name} — ${v.artist}`, playable: true };
-    } catch { music = null; }
-  } else if (app.music_type === 'upload') {
-    music = { url: `/uploads/${app.music_value}`, name: L.music, playable: true };
-  } else if (app.music_type === 'youtube') {
-    const id = youtubeId(app.music_value);
-    if (id) music = { youtubeId: id, name: 'YouTube', url: app.music_value, playable: false };
-  } else if (app.music_type === 'custom') {
-    const url = app.music_value ?? '';
-    music = { url, name: L.music, playable: /\.(mp3|ogg|m4a|wav)(\?|$)/i.test(url) };
-  }
-  if (music) {
-    music.start = Number(app.music_start) || 0;
-    music.end = Number(app.music_end) || 0;
-  }
+  // Песня играет с выбранного парой места; как именно — решает источник.
+  const music = invitationMusic(app);
 
   // Дополнительные функции заказа (дресс-код, свой домен и т.п.). Хранятся
   // как JSON, чтобы новая опция не требовала миграции схемы.

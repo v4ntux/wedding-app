@@ -1,11 +1,9 @@
-// Песни с YouTube: поиск, названия и «Топ выбор».
+// YouTube: поиск песен, их имена и «Топ выбор».
 //
-// Узбекская музыка живёт на YouTube, а музыкальные API (iTunes, Deezer, Spotify)
-// отдают только тридцатисекундные превью. Поэтому YouTube служит каталогом, а
-// звук песни сервер забирает к себе целиком (src/download.js), как только пара
-// захочет её послушать: в студии она звучит нашим файлом, и у выбранной есть
-// волна и выбор начала. Запрет автора на встраивание файлу не мешает, поэтому
-// выдачу через oEmbed не фильтруем.
+// Узбекская музыка живёт на YouTube. Звук отсюда сервер не скачивает: песня
+// играет официальным плеером YouTube (IFrame Player API) — и в студии, и в
+// приглашении. Поэтому в выдачу попадают только ролики, которые автор разрешил
+// встраивать: остальные плеер всё равно не покажет.
 //
 // С ключом YOUTUBE_API_KEY поиск идёт через Data API v3 (официально, 10 000
 // единиц квоты в сутки бесплатно, запрос стоит ~101). Без ключа — через страницу
@@ -13,14 +11,14 @@
 
 import { YOUTUBE_API_KEY } from './config.js';
 
-const SEARCH_TTL = 60 * 60_000;       // выдача по песне за час не меняется, а подборки студии спрашивают все пары
+const SEARCH_TTL = 60 * 60_000;       // выдача по песне за час не меняется
 const EMBED_TTL = 24 * 60 * 60_000;
 const TOP_TTL = 24 * 60 * 60_000;
 const MAX_SECONDS = 15 * 60;          // часовые миксы и концерты свадьбе не нужны
+const PAGE = 10;
 const searchCache = new Map();
 const embedCache = new Map();
 const topCache = new Map();
-const cards = new Map();              // карточки из поиска: по ним скачанная песня получает имя
 
 const BROWSER = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36',
@@ -30,11 +28,19 @@ const BROWSER = {
 };
 
 const YOUTUBE_RE = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/;
+const ID_RE = /^[\w-]{11}$/;
 const text = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 
-export function youtubeIdOf(url) {
-  return String(url ?? '').match(YOUTUBE_RE)?.[1] ?? null;
+export const youtubeIdValid = (id) => ID_RE.test(String(id ?? ''));
+
+/* Id ролика из ссылки. Новые приглашения хранят сам id, старые — ссылку. */
+export function youtubeIdOf(value) {
+  const raw = String(value ?? '').trim();
+  if (ID_RE.test(raw)) return raw;
+  return raw.match(YOUTUBE_RE)?.[1] ?? null;
 }
+
+export const youtubeCover = (id) => `https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
 
 /* «3:45» или «1:02:03» → секунды. */
 export function parseDuration(value) {
@@ -63,16 +69,12 @@ export function songMeta(title, channel = '') {
 
 const card = (video) => ({
   id: video.id,
+  provider: 'youtube',
   ...songMeta(video.title, video.channel),
   duration: video.duration ?? null,
-  url: `https://www.youtube.com/watch?v=${video.id}`,
-  thumb: `https://i.ytimg.com/vi/${video.id}/mqdefault.jpg`,
+  cover: youtubeCover(video.id),
+  playback: 'youtube',
 });
-
-function remember(song) {
-  cards.set(song.id, song);
-  if (cards.size > 2000) cards.delete(cards.keys().next().value);
-}
 
 /* Страница выдачи: все данные лежат JSON-ом в ytInitialData. */
 export function parseResultsPage(html) {
@@ -84,7 +86,7 @@ export function parseResultsPage(html) {
   try { data = JSON.parse(html.slice(start, end)); } catch { return []; }
   const found = [];
   (function walk(node) {
-    if (!node || typeof node !== 'object' || found.length >= 30) return;
+    if (!node || typeof node !== 'object' || found.length >= 40) return;
     if (node.videoRenderer) {
       const v = node.videoRenderer;
       const duration = parseDuration(v.lengthText?.simpleText);
@@ -110,20 +112,23 @@ async function searchPage(q) {
     signal: AbortSignal.timeout(9000),
   });
   if (!response.ok) throw new Error(`results ${response.status}`);
-  return parseResultsPage(await response.text());
+  const html = await response.text();
+  // Капча или заглушка вместо выдачи — это «YouTube недоступен», а не «ничего не нашлось».
+  if (!html.includes('ytInitialData')) throw new Error('results page without data');
+  return parseResultsPage(html);
 }
 
 async function searchOfficial(q) {
   const key = YOUTUBE_API_KEY;
   const search = await fetch(`https://www.googleapis.com/youtube/v3/search?${new URLSearchParams({
-    part: 'snippet', type: 'video', maxResults: '15', regionCode: 'UZ', q, key,
+    part: 'snippet', type: 'video', videoEmbeddable: 'true', maxResults: '30', regionCode: 'UZ', q, key,
   })}`, { signal: AbortSignal.timeout(8000) });
   const found = await search.json();
   if (!search.ok) throw new Error(found?.error?.message || `search ${search.status}`);
   const ids = (found.items ?? []).map((item) => item.id?.videoId).filter(Boolean);
   if (!ids.length) return [];
   const details = await fetch(`https://www.googleapis.com/youtube/v3/videos?${new URLSearchParams({
-    part: 'snippet,contentDetails', id: ids.join(','), key,
+    part: 'snippet,contentDetails,status', id: ids.join(','), key,
   })}`, { signal: AbortSignal.timeout(8000) });
   const videos = await details.json();
   if (!details.ok) throw new Error(videos?.error?.message || `videos ${details.status}`);
@@ -132,12 +137,13 @@ async function searchOfficial(q) {
     title: text(v.snippet?.title, 140),
     channel: text(v.snippet?.channelTitle, 80),
     duration: isoDuration(v.contentDetails?.duration),
+    embeddable: v.status?.embeddable === true,
   })).filter((v) => v.duration);
 }
 
-/* Название и канал ролика по oEmbed — для песни, скачанной не из поиска.
-   401 (автор запретил встраивание) и 404 (ролика нет) имени не дают, тогда оно
-   берётся из файла. Сетевую ошибку не кешируем. */
+/* Можно ли показать ролик в чужом плеере: oEmbed отвечает 401, если автор
+   запретил встраивание, и 404, если ролика нет или он закрыт. info — название и
+   канал, false — показать нельзя, null — YouTube не ответил (не кешируем). */
 export async function embedInfo(id) {
   const hit = embedCache.get(id);
   if (hit && hit.until > Date.now()) return hit.info;
@@ -153,44 +159,59 @@ export async function embedInfo(id) {
   if (response.ok) {
     const data = await response.json().catch(() => ({}));
     info = { title: text(data.title, 140), channel: text(data.author_name, 80) };
-  } else if (response.status >= 500) {
+  } else if (response.status >= 500 || response.status === 429) {
     return null;
   }
   embedCache.set(id, { info, until: Date.now() + EMBED_TTL });
-  if (embedCache.size > 2000) embedCache.delete(embedCache.keys().next().value);
+  if (embedCache.size > 3000) embedCache.delete(embedCache.keys().next().value);
   return info;
 }
 
-export async function searchYoutube(query) {
-  const q = text(query, 100);
-  if (q.length < 2) return [];
+async function searchAll(q) {
   const key = q.toLowerCase();
   const hit = searchCache.get(key);
   if (hit && hit.until > Date.now()) return hit.results;
 
-  let found = [];
+  let found = null;
   if (YOUTUBE_API_KEY) {
     try { found = await searchOfficial(q); } catch (error) { console.error('[youtube] api search failed:', error.message); }
   }
-  if (!found.length) {
+  if (!found?.length) {
     try { found = await searchPage(q); } catch (error) { console.error('[youtube] page search failed:', error.message); }
   }
+  if (found === null) throw new Error('youtube unavailable');
 
-  const results = found.filter((video) => video.duration <= MAX_SECONDS).slice(0, 15).map(card);
-  results.forEach(remember);
-  if (results.length) {
-    searchCache.set(key, { results, until: Date.now() + SEARCH_TTL });
-    if (searchCache.size > 300) searchCache.delete(searchCache.keys().next().value);
-  }
+  const seen = new Set();
+  const candidates = found.filter((video) => {
+    if (seen.has(video.id) || !video.duration || video.duration > MAX_SECONDS) return false;
+    seen.add(video.id);
+    return true;
+  }).slice(0, 30);
+  const allowed = await Promise.all(candidates.map((video) => (
+    typeof video.embeddable === 'boolean' ? video.embeddable : embedInfo(video.id)
+  )));
+  // null — oEmbed моргнул: ролик оставляем, плеер сам промолчит, если он закрыт.
+  const results = candidates.filter((_, i) => allowed[i] !== false).map(card);
+  searchCache.set(key, { results, until: Date.now() + SEARCH_TTL });
+  if (searchCache.size > 300) searchCache.delete(searchCache.keys().next().value);
   return results;
 }
 
-/* Имя скачанной песни: из недавнего поиска, иначе у oEmbed. */
-export async function songInfo(id) {
-  const known = cards.get(id);
-  if (known) return known;
+export async function searchYoutube(query, { page = 0 } = {}) {
+  const q = text(query, 100);
+  if (q.length < 2) return { items: [], next: null };
+  const all = await searchAll(q);
+  const from = page * PAGE;
+  return { items: all.slice(from, from + PAGE), next: from + PAGE < all.length ? page + 1 : null };
+}
+
+/* Песня по id: Track, false — ролика нет, он закрыт или без встраивания,
+   null — YouTube не ответил. Длительность oEmbed не сообщает. */
+export async function youtubeTrack(id) {
+  if (!youtubeIdValid(id)) return false;
   const info = await embedInfo(id);
-  return info ? { ...songMeta(info.title, info.channel), duration: null } : {};
+  if (!info) return info;
+  return { id, provider: 'youtube', ...songMeta(info.title, info.channel), duration: null, cover: youtubeCover(id), playback: 'youtube' };
 }
 
 /* ── «Топ выбор» ──
@@ -221,7 +242,7 @@ export function peakMoment(markers) {
 }
 
 export async function topMoment(id) {
-  if (!/^[\w-]{11}$/.test(String(id ?? ''))) return null;
+  if (!youtubeIdValid(id)) return null;
   const hit = topCache.get(id);
   if (hit && hit.until > Date.now()) return hit.top;
   let top;

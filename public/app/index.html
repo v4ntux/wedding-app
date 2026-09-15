@@ -28,6 +28,11 @@
 <script defer src="https://telegram.org/js/telegram-web-app.js"></script>
 <script defer src="ui.js?v=__V__"></script>
 <script defer src="sky.js?v=__V__"></script>
+<!-- Музыка: ядро состояния, единый плеер, выбор начала и сама библиотека. -->
+<script defer src="music-core.js?v=__V__"></script>
+<script defer src="music-player.js?v=__V__"></script>
+<script defer src="music-start.js?v=__V__"></script>
+<script defer src="music.js?v=__V__"></script>
 <script defer src="app.js?v=__V__"></script>
 </head>
 <body>
@@ -228,85 +233,9 @@
       <p class="eyebrow"><b>04</b><span data-i18n="eMusic"></span></p>
       <h2 class="blk-title" data-i18n="tMusic"></h2>
 
-      <div id="music-pick">
-        <div class="segs">
-          <button type="button" class="seg is-on" data-ms="top" data-i18n="msTop"></button>
-          <button type="button" class="seg" data-ms="mine" data-i18n="msMine"></button>
-          <i class="segs-glide"></i>
-        </div>
-
-        <!-- Полка nvate: только полные треки, никаких тридцатисекундных превью. -->
-        <div id="ms-top">
-          <div class="field field--tight">
-            <input id="music-q" type="search" autocomplete="off" spellcheck="false" enterkeyhint="search" aria-label="Music search">
-          </div>
-          <div id="track-scroll" class="track-scroll"></div>
-        </div>
-
-        <!-- Своя музыка: главный путь — переслать песню боту из любого канала. -->
-        <div id="ms-mine" hidden>
-          <div class="bot-drop">
-            <span class="bot-drop-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 4L3 11l6.5 2.5L12 20l3-5.5L21 4z"/><path d="M9.5 13.5L21 4"/></svg></span>
-            <div class="bot-drop-copy"><b data-i18n="botDropTitle"></b><span data-i18n="botDropText"></span></div>
-            <button id="bot-open" type="button" class="btn btn--gold btn--block" hidden><span data-i18n="botOpen"></span></button>
-          </div>
-
-          <div id="mine-tracks" class="track-scroll track-scroll--mine"></div>
-
-          <button id="music-upload" type="button" class="btn btn--ghost btn--block"><span data-i18n="uploadMusic"></span></button>
-          <input id="music-file" type="file" accept="audio/*,.mp3,.m4a,.ogg,.wav" hidden>
-
-          <div class="field field--tight">
-            <label for="music-link" data-i18n="linkLbl"></label>
-            <div class="field-row">
-              <input id="music-link" type="url" maxlength="300" autocomplete="off" spellcheck="false" enterkeyhint="go">
-              <button id="music-link-go" type="button" class="btn btn--gold btn--row" data-i18n="add"></button>
-            </div>
-          </div>
-          <p id="link-hint" class="hint"></p>
-        </div>
-
-        <button id="music-skip" type="button" class="btn btn--ghost btn--block music-skip" data-i18n="musicSkip"></button>
-      </div>
-
-      <div id="music-picked" class="picked" hidden>
-        <span class="picked-note"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V6l10-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg></span>
-        <div class="picked-info"><b id="picked-name"></b><span id="picked-artist"></span></div>
-        <button id="music-change" type="button" class="btn btn--ghost btn--tiny" data-i18n="change"></button>
-      </div>
-      <p id="music-note" class="hint music-note" hidden></p>
-
-      <!-- Лента: волна трека едет под золотой иглой. Что под иглой — с того
-           гости и услышат. Тянешь пальцем — сразу слышишь это место. -->
-      <div id="music-trim" class="tape" hidden>
-        <div class="tape-head">
-          <span class="tape-label" data-i18n="trimTitle"></span>
-          <p class="tape-read"><b id="tape-at">0:00</b><i id="tape-total"></i></p>
-        </div>
-
-        <div id="tape-deck" class="tape-deck">
-          <div id="tape-view" class="tape-view" role="slider" tabindex="0"
-               aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="0:00">
-            <div id="tape-strip" class="tape-strip">
-              <canvas id="tape-base" class="tape-canvas"></canvas>
-              <canvas id="tape-lit" class="tape-canvas tape-canvas--lit"></canvas>
-              <span id="tape-head" class="tape-playhead" aria-hidden="true"></span>
-            </div>
-          </div>
-          <span class="tape-shade" aria-hidden="true"></span>
-          <span class="tape-needle" aria-hidden="true"><i></i></span>
-        </div>
-
-        <div class="tape-bar">
-          <button id="trim-play" type="button" class="trim-play">
-            <svg class="ic-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
-            <svg class="ic-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12M16 6v12"/></svg>
-          </button>
-          <p id="trim-state" class="tape-state"></p>
-        </div>
-
-        <div id="tape-chips" class="tape-chips"></div>
-      </div>
+      <!-- Карточку песни и библиотеку (nVate, Audius, YouTube, своя музыка)
+           рисует music.js: сначала послушать, потом «Tanlash», потом начало. -->
+      <div id="music-card" class="mcard-slot"></div>
       <p class="blk-err" hidden></p>
     </section>
 

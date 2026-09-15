@@ -2,7 +2,7 @@ import express from 'express';
 import http from 'node:http';
 import path from 'node:path';
 import { validateInitData } from './initData.js';
-import { submitApplication, buildPreviewApp, payApplication, cancelApplication, musicKey, ValidationError } from './service.js';
+import { submitApplication, buildPreviewApp, payApplication, cancelApplication, ValidationError } from './service.js';
 import { renderInvitation, renderDemo, renderNotFound, withWatermark } from './render.js';
 import { saveUpload, UPLOADS_DIR } from './upload.js';
 import * as db from './db.js';
@@ -10,22 +10,26 @@ import { healthCheck } from './storage.js';
 import {
   BOT_TOKEN, RUNTIME, BASE_URL, DEV_NO_AUTH, isAdmin, MAX_GUESTS, MAX_PHOTOS,
   GOOGLE_MAPS_API_KEY, MAP_TILES } from './config.js';
-import {
-  addTrack, registerTrack, publicTrack, libraryTracks, userTracks, saveLibrary,
-  metaFromFileName, youtubeSong, linkSong, MAX_TRACK_BYTES } from './music.js';
+import { registerTrack, personalTrack, metaFromFileName, MAX_TRACK_BYTES } from './music.js';
 import { publicTemplates, publicEvents, allTemplates } from './templateStore.js';
 import { guestPrice, pricedAddons, pricingSnapshot, updatePricing } from './pricing.js';
 import { publicVenues, allVenues, saveVenues, cityCenter } from './venues.js';
 import { RESERVED_SLUGS } from './slug.js';
-import { searchYoutube, youtubeVideo, youtubeIdOf, topMoment } from './youtube.js';
-import { downloadReady } from './download.js';
+import { topMoment } from './youtube.js';
+import { providerOf, publicProviders, validTrackId } from './musicProviders.js';
+import {
+  MUSIC_CATEGORIES, MAX_COVER_BYTES, activeLibraryTrack, adminLibrary, createLibraryTrack,
+  saveLibraryEdits, searchLibraryTracks, setLibraryCover } from './musicLibrary.js';
+import { storageInfo } from './objectStore.js';
 import { createStatic, compressResponses } from './static.js';
 
 const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
 
+/* limiter.take(req, res) считает запрос прямо в обработчике: так лимит тратят
+   только запросы, которым действительно есть что нагружать. */
 function rateLimit({ windowMs, max }) {
   const clients = new Map();
-  return (req, res, next) => {
+  const take = (req, res) => {
     const now = Date.now();
     const key = req.ip || req.socket.remoteAddress || 'unknown';
     let state = clients.get(key);
@@ -35,12 +39,14 @@ function rateLimit({ windowMs, max }) {
     res.setHeader('RateLimit-Limit', String(max));
     res.setHeader('RateLimit-Remaining', String(Math.max(0, max - state.count)));
     res.setHeader('RateLimit-Reset', String(Math.ceil(state.resetAt / 1000)));
-    if (state.count > max) return res.status(429).json({ ok: false, error: 'too_many_requests' });
     if (clients.size > 2000 && state.count === 1) {
       for (const [client, value] of clients) if (value.resetAt <= now) clients.delete(client);
     }
-    next();
+    return state.count <= max;
   };
+  const limiter = (req, res, next) => (take(req, res) ? next() : res.status(429).json({ ok: false, error: 'too_many_requests' }));
+  limiter.take = take;
+  return limiter;
 }
 
 function authUser(initData) {
@@ -104,7 +110,9 @@ export function createServer({ onNewApplication, onPaid } = {}) {
   });
 
   const geoLimit = rateLimit({ windowMs: 60_000, max: 45 });
-  const musicLimit = rateLimit({ windowMs: 60_000, max: 30 });
+  // Поиск с паузой в набор, листание страниц и прослушивание — это десятки запросов в минуту.
+  const musicLimit = rateLimit({ windowMs: 60_000, max: 90 });
+  const pageOf = (value) => Math.min(50, Math.max(0, Math.floor(Number(value) || 0)));
   // Студия переспрашивает «что пришло в бот», пока открыта вкладка «Моя музыка».
   const mineLimit = rateLimit({ windowMs: 60_000, max: 40 });
   const uploadMb = `${MAX_TRACK_BYTES / 1024 / 1024}mb`;
@@ -143,11 +151,16 @@ export function createServer({ onNewApplication, onPaid } = {}) {
   app.use('/music', express.static(path.join(PUBLIC_DIR, 'music')));
   // Customer photos/music are public invitation assets. Payment proofs are not:
   // block them before the generic static handler and expose them only to admins.
+  // Имена файлов — случайные UUID, содержимое под именем не меняется. Браузер
+  // держит файл вечно: песня, которую послушали в списке, не едет второй раз,
+  // когда под ней рисуется волна.
   app.use('/uploads', (req, res, next) => {
     const name = path.basename(req.path);
     if (/^proof-\d+-(?:\d+|[0-9a-f-]{36})\.(?:jpe?g|png|webp)$/i.test(name)) return res.sendStatus(404);
     next();
-  }, express.static(UPLOADS_DIR));
+  }, express.static(UPLOADS_DIR, {
+    setHeaders: (res) => res.setHeader('Cache-Control', 'public, max-age=31536000, immutable'),
+  }));
 
   // Демо шаблона: подставляются имена и язык из формы, поверх — водяная сетка.
   app.get('/demo/:templateId', (req, res, next) => {
@@ -186,7 +199,7 @@ export function createServer({ onNewApplication, onPaid } = {}) {
       city: cityCenter(),
       mapTiles: MAP_TILES,
       googleGeoEnabled: Boolean(GOOGLE_MAPS_API_KEY),
-      downloadEnabled: await downloadReady(),
+      music: { providers: publicProviders(), categories: MUSIC_CATEGORIES },
     });
   });
 
@@ -287,18 +300,17 @@ export function createServer({ onNewApplication, onPaid } = {}) {
     }
   });
 
-  /* Полка nvate: полные треки, которые видят все пары. Пополняется кнопкой
-     под присланным боту треком или загрузкой прямо сюда. */
-  app.get('/api/admin/library', async (req, res) => {
-    const u = adminUser(req.get('x-init-data') ?? '');
-    if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
-    res.json({ ok: true, tracks: await libraryTracks() });
+  /* Библиотека nVate в админке: все песни, включая снятые с полки. Звук
+     загружается сюда (длительность панель читает из файла сама) или кнопкой
+     «В библиотеку» под песней, присланной боту. */
+  app.get('/api/admin/music', async (req, res) => {
+    if (!adminUser(req.get('x-init-data') ?? '')) return res.status(403).json({ ok: false, error: 'forbidden' });
+    res.json({ ok: true, tracks: await adminLibrary(), categories: MUSIC_CATEGORIES, storage: storageInfo() });
   });
 
-  app.put('/api/admin/library', express.json({ limit: '64kb' }), async (req, res) => {
-    const u = adminUser(req.get('x-init-data') ?? '');
-    if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
-    res.json({ ok: true, tracks: await saveLibrary(req.body?.tracks ?? []) });
+  app.put('/api/admin/music', express.json({ limit: '128kb' }), async (req, res) => {
+    if (!adminUser(req.get('x-init-data') ?? '')) return res.status(403).json({ ok: false, error: 'forbidden' });
+    res.json({ ok: true, tracks: await saveLibraryEdits(req.body?.tracks ?? []) });
   });
 
   // Права проверяем до того, как принять двадцать мегабайт тела.
@@ -306,13 +318,32 @@ export function createServer({ onNewApplication, onPaid } = {}) {
     ? next()
     : res.status(403).json({ ok: false, error: 'forbidden' }));
 
-  app.post('/api/admin/library', adminOnly, uploadLimit, express.raw({ type: () => true, limit: uploadMb }), async (req, res) => {
-    const u = adminUser(req.get('x-init-data') ?? '');
-    const added = await addTrack(req.body, { ...metaFromFileName(fileNameHeader(req)), ownerId: u.id, source: 'admin', library: true });
-    if (!added) return res.status(400).json({ ok: false, error: 'Нужен звуковой файл: MP3, M4A, OGG или WAV' });
-    if (!Number(added.track.library)) await db.setTrackLibrary(added.track.id, true);
-    res.json({ ok: true, track: publicTrack(await db.getTrack(added.track.id)) });
+  app.post('/api/admin/music', adminOnly, uploadLimit, express.raw({ type: () => true, limit: uploadMb }), async (req, res) => {
+    try {
+      const track = await createLibraryTrack(req.body, {
+        ...metaFromFileName(fileNameHeader(req)),
+        duration: Number(req.get('x-duration')),
+        category: String(req.get('x-category') ?? ''),
+      });
+      if (!track) return res.status(400).json({ ok: false, error: 'Нужен звуковой файл: MP3, M4A, OGG или WAV' });
+      res.json({ ok: true, track });
+    } catch (e) {
+      console.error('[server] library upload failed:', e.message);
+      res.status(502).json({ ok: false, error: 'Хранилище не приняло файл — попробуйте ещё раз' });
+    }
   });
+
+  app.post('/api/admin/music/:id/cover', adminOnly, uploadLimit,
+    express.raw({ type: () => true, limit: `${MAX_COVER_BYTES / 1024 / 1024}mb` }), async (req, res) => {
+      try {
+        const track = await setLibraryCover(req.params.id, req.body);
+        if (!track) return res.status(400).json({ ok: false, error: 'Нужна картинка JPG, PNG или WebP до 4 МБ' });
+        res.json({ ok: true, track });
+      } catch (e) {
+        console.error('[server] cover upload failed:', e.message);
+        res.status(502).json({ ok: false, error: 'Хранилище не приняло файл — попробуйте ещё раз' });
+      }
+    });
 
   app.get('/api/admin/proofs/:filename', (req, res) => {
     const u = adminUser(req.get('x-init-data') ?? '');
@@ -521,80 +552,85 @@ export function createServer({ onNewApplication, onPaid } = {}) {
     res.json({ ok: true, apps });
   });
 
-  /* Музыка — только полные треки. Каталог iTunes отдавал тридцать секунд
-     превью: с началом на 0:17 гости слышали тринадцать секунд и петлю.
-     Полка nvate — целые файлы на нашем сервере. */
-  app.get('/api/music', musicLimit, async (_req, res) => {
+  /* ── Музыка ──
+     Библиотека nVate, Audius, YouTube и личная музыка пары — за одним фасадом
+     (src/musicProviders.js). Студия получает карточки Track и адрес
+     /api/music/audio/…, а не ключи хранилища и не API источников. Звук с
+     YouTube не скачиваем: он играет официальным плеером. */
+
+  // Библиотека nVate: полка, поиск по ней и категории.
+  app.get('/api/music/tracks', musicLimit, async (req, res) => {
     res.set('Cache-Control', 'no-cache');
-    res.json({ ok: true, tracks: await libraryTracks() });
+    const found = await searchLibraryTracks(String(req.query.q ?? ''), {
+      page: pageOf(req.query.page), category: String(req.query.category ?? ''),
+    });
+    res.json({ ok: true, items: found.items, next: found.next, categories: MUSIC_CATEGORIES });
   });
 
-  // Личные треки пары: присланные боту и загруженные в студии.
-  app.get('/api/music/mine', mineLimit, async (req, res) => {
-    const user = authUser(req.get('x-init-data') ?? '');
-    if (!user) return res.status(401).json({ ok: false, error: 'Откройте форму через Telegram-бота' });
+  app.get('/api/music/tracks/:id', musicLimit, async (req, res) => {
+    const track = await activeLibraryTrack(req.params.id);
+    if (!track) return res.status(404).json({ ok: false, error: 'not-found' });
+    res.json({ ok: true, track });
+  });
+
+  // Поиск в любом источнике. Личная музыка — только своя, поэтому через Telegram.
+  app.get('/api/music/search', async (req, res) => {
     res.set('Cache-Control', 'no-store');
-    res.json({ ok: true, tracks: await userTracks(user.id) });
+    const id = String(req.query.provider ?? '');
+    const provider = providerOf(id);
+    if (!provider) return res.status(400).json({ ok: false, error: 'provider' });
+    let owner = null;
+    if (provider.personal) {
+      const user = authUser(req.get('x-init-data') ?? '');
+      if (!user) return res.status(401).json({ ok: false, error: 'auth' });
+      owner = user.id;
+    }
+    // Студия переспрашивает «что пришло в бот», пока открыта вкладка своей музыки.
+    const limiter = provider.personal ? mineLimit : musicLimit;
+    if (!limiter.take(req, res)) return res.status(429).json({ ok: false, error: 'too_many_requests' });
+    try {
+      const found = await provider.search(String(req.query.q ?? '').slice(0, 100), {
+        page: pageOf(req.query.page), category: String(req.query.category ?? ''), owner,
+      });
+      res.json({ ok: true, items: found.items, next: found.next });
+    } catch (e) {
+      console.error(`[music] ${id} search failed:`, e.message);
+      res.status(502).json({ ok: false, error: 'unavailable' });
+    }
   });
 
-  // Поиск песен на YouTube. Песню сервер скачивает к себе, и запрет автора на
-  // встраивание ей не мешает; без yt-dlp она играет плеером — тогда запрет важен.
-  app.get('/api/music/youtube/search', musicLimit, async (req, res) => {
-    res.set('Cache-Control', 'no-store');
-    const embeddable = !(await downloadReady());
-    res.json({ ok: true, results: await searchYoutube(String(req.query.q ?? ''), { embeddable }) });
+  /* Звук песни. Адрес один для всех источников со звуком: сервер сам решает,
+     куда вести — в uploads, в R2 со свежей подписью или на поток Audius. Так в
+     приглашении не протухает ни подпись, ни адрес узла. */
+  app.get('/api/music/audio/:provider/:id', async (req, res) => {
+    const { provider: id, id: trackId } = req.params;
+    const provider = providerOf(id);
+    if (!provider?.audioLocation || !validTrackId(id, trackId)) return res.sendStatus(404);
+    try {
+      const location = await provider.audioLocation(trackId);
+      if (!location) return res.sendStatus(404);
+      res.set('Cache-Control', 'private, max-age=60');
+      res.redirect(302, location);
+    } catch (e) {
+      console.error(`[music] ${id} audio failed:`, e.message);
+      res.sendStatus(502);
+    }
   });
 
-  // Вставленная ссылка: название ролика и разрешение на показ в приглашении.
-  app.get('/api/music/youtube/info', musicLimit, async (req, res) => {
-    const found = await youtubeVideo(String(req.query.url ?? '').slice(0, 300));
-    if (found.status === 'ok') return res.json({ ok: true, video: found.video });
-    const code = { 'bad-link': 400, blocked: 422, unavailable: 502 }[found.status] ?? 502;
-    res.status(code).json({ ok: false, error: found.status });
-  });
-
-  /* «Топ выбор»: откуда этот трек обычно запускают. Пара услышит подсказку
-     раньше, чем начнёт искать нужный такт пальцем. Одна чужая обрезка — ещё не
-     рекомендация, поэтому, пока пар меньше двух, подсказывает YouTube: самый
-     переслушиваемый момент песни. */
-  app.get('/api/music/cut', musicLimit, async (req, res) => {
-    const type = String(req.query.type ?? '');
-    const key = musicKey({ musicType: type, musicValue: String(req.query.url ?? '').slice(0, 400) });
-    let cut = key ? await db.popularCut(key) : null;
-    if (!cut && key && (type === 'upload' || type === 'youtube')) {
-      const top = type === 'upload' ? (await db.trackByFile(key))?.top_start : await topMoment(youtubeIdOf(key));
-      if (top !== null && top !== undefined) cut = { start: Number(top), uses: 0 };
+  /* «Top tanlov»: откуда эту песню обычно запускают пары. Одна чужая обрезка —
+     ещё не рекомендация, поэтому, пока пар меньше двух, у YouTube подсказывает
+     сам ролик: самый переслушиваемый момент песни. */
+  app.get('/api/music/hint', musicLimit, async (req, res) => {
+    const provider = String(req.query.provider ?? '');
+    const id = String(req.query.id ?? '');
+    if (!validTrackId(provider, id)) return res.status(400).json({ ok: false, error: 'track' });
+    let hint = await db.popularCut(provider, id);
+    if (!hint && provider === 'youtube') {
+      const top = await topMoment(id);
+      if (top !== null && top !== undefined) hint = { start: Number(top), uses: 0 };
     }
     res.set('Cache-Control', 'public, max-age=300');
-    res.json({ ok: true, cut });
-  });
-
-  /* Песня по ссылке или из поиска — целиком, чтобы у неё были волна и выбор
-     начала. YouTube скачивается один раз на всех, звук из TikTok и Instagram
-     становится личной песней пары. Другие адреса yt-dlp не отдаём: сервер пошёл
-     бы за ними куда угодно, в том числе во внутреннюю сеть. */
-  const songLimit = rateLimit({ windowMs: 10 * 60_000, max: 30 });
-  const SONG_HOSTS = /(^|\.)(instagram\.com|tiktok\.com)$/i;
-  app.post('/api/music/link', songLimit, express.json({ limit: '4kb' }), async (req, res) => {
-    const user = authUser(req.get('x-init-data') ?? req.body?.initData ?? '');
-    if (!user) return res.status(401).json({ ok: false, error: 'Откройте форму через Telegram-бота' });
-    const url = String(req.body?.url ?? '').trim().slice(0, 300);
-    const id = youtubeIdOf(url);
-    let host = '';
-    try {
-      const parsed = new URL(url);
-      host = parsed.protocol === 'https:' ? parsed.hostname : '';
-    } catch { /* не ссылка */ }
-    if (!id && !SONG_HOSTS.test(host)) return res.status(400).json({ ok: false, error: 'bad-link' });
-    if (!(await downloadReady())) return res.status(501).json({ ok: false, error: 'download-off' });
-    try {
-      const track = id ? await youtubeSong(id) : await linkSong(url, user.id);
-      if (!track) return res.status(502).json({ ok: false, error: 'download-failed' });
-      res.json({ ok: true, track: publicTrack(track) });
-    } catch (e) {
-      console.error('[server] song download failed:', e.message);
-      res.status(502).json({ ok: false, error: 'download-failed' });
-    }
+    res.json({ ok: true, hint });
   });
 
   // Загрузка фото и аудио: сырые байты, тип определяем по сигнатуре.
@@ -608,7 +644,9 @@ export function createServer({ onNewApplication, onPaid } = {}) {
     if (!saved) return res.status(400).json({ ok: false, error: 'Формат не поддерживается (JPG/PNG/WebP, MP3/M4A/OGG/WAV)' });
     // Звук остаётся в «Моей музыке»: сменил трек — к загруженному можно вернуться.
     const track = saved.kind === 'audio'
-      ? publicTrack(await registerTrack(saved.file, { ...metaFromFileName(fileNameHeader(req)), ownerId: user.id, source: 'upload' }))
+      ? personalTrack(await registerTrack(saved.file, {
+        ...metaFromFileName(fileNameHeader(req)), ownerId: user.id, source: 'upload', duration: Number(req.get('x-duration')),
+      }))
       : null;
     res.json({ ok: true, file: saved.file, kind: saved.kind, track });
   });

@@ -25,9 +25,9 @@ export async function insertApplication(a) {
     .prepare(
       `INSERT INTO applications
         (tg_user_id, tg_username, phone, phone2, contact_tg, event_type, lang, groom_name, bride_name, wedding_date, wedding_time,
-         address, lat, lng, map_enabled, music_type, music_value, music_start, music_end,
+         address, lat, lng, map_enabled, music_type, music_value, music_start, music_end, music_meta,
          template_id, template_price, premium, premium_price, domain_enabled, domain_price, guest_names, photos, extras, submission_key, total_price, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')`
     )
     .run(
       a.tgUserId,
@@ -49,6 +49,7 @@ export async function insertApplication(a) {
       a.musicValue ?? null,
       a.musicStart ?? null,
       a.musicEnd ?? null,
+      a.musicMeta ? JSON.stringify(a.musicMeta) : null,
       a.templateId,
       a.templatePrice,
       a.premium ? 1 : 0,
@@ -141,34 +142,84 @@ export async function listTracksByOwner(ownerId, limit = 40) {
     .all(ownerId, limit);
 }
 
-// Полка nvate: песни от админа и песни с YouTube, которые пары уже поставили в
-// приглашение. Сверху то, что выбирают чаще.
-export async function listLibrary() {
-  return db.prepare(`SELECT t.*, ${TRACK_USES} AS uses FROM tracks t
-    WHERE t.library = 1 OR (t.library = 0 AND t.source = 'youtube' AND ${TRACK_USES} > 0)
-    ORDER BY uses DESC, t.id DESC LIMIT 120`).all();
+/* ── Библиотека nVate ── */
+
+// Сколько заявок уже играет песню библиотеки — по этому полка сортируется.
+const LIBRARY_USES = "(SELECT COUNT(*) FROM applications a WHERE a.music_type = 'nvate' AND a.music_value = CAST(m.id AS TEXT))";
+
+export async function insertLibraryTrack(t) {
+  const duration = Number(t.duration);
+  const res = await db.prepare(
+    `INSERT INTO music_tracks (title, artist, category, duration, storage, audio_key, cover_key, cover_storage, source, license, is_active, legacy_track_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    t.title,
+    t.artist || null,
+    t.category,
+    Number.isFinite(duration) && duration > 0 ? duration : null,
+    t.storage,
+    t.audioKey,
+    t.coverKey ?? null,
+    t.coverStorage ?? null,
+    t.source ?? 'nvate',
+    t.license || null,
+    t.active === false ? 0 : 1,
+    t.legacyTrackId ?? null
+  );
+  return Number(res.lastInsertRowid);
 }
 
-export async function trackBySource(source, sourceId) {
-  return (await db.prepare(`SELECT t.*, ${TRACK_USES} AS uses FROM tracks t WHERE t.source = ? AND t.source_id = ?`)
-    .get(source, sourceId)) ?? null;
+export async function getLibraryTrack(id) {
+  return (await db.prepare(`SELECT m.*, ${LIBRARY_USES} AS uses FROM music_tracks m WHERE m.id = ?`).get(id)) ?? null;
 }
 
-// Выдача поиска спрашивает обо всех своих роликах одним запросом.
-export async function tracksBySource(source, sourceIds) {
-  const ids = [...new Set((Array.isArray(sourceIds) ? sourceIds : []).map(String))].slice(0, 50);
-  if (!ids.length) return [];
-  return db.prepare(`SELECT t.*, ${TRACK_USES} AS uses FROM tracks t
-    WHERE t.source = ? AND t.source_id IN (${ids.map(() => '?').join(', ')})`).all(source, ...ids);
+export async function libraryTrackByLegacy(trackId) {
+  return (await db.prepare('SELECT * FROM music_tracks WHERE legacy_track_id = ?').get(trackId)) ?? null;
 }
 
-// Снятая админом песня (-1) не возвращается на полку сама, даже если её выбирают.
-export async function setTrackLibrary(id, on) {
-  return (await db.prepare('UPDATE tracks SET library = ? WHERE id = ?').run(on ? 1 : -1, id)).changes === 1;
+/* Полка для студии и админки: поиск по названию и исполнителю, категория и
+   страницы. Сверху то, что пары выбирают чаще. */
+export async function searchLibrary({ query = '', category = null, activeOnly = true, limit = 20, offset = 0 } = {}) {
+  const where = [];
+  const params = [];
+  if (activeOnly) where.push('m.is_active = 1');
+  if (category) { where.push('m.category = ?'); params.push(category); }
+  const needle = String(query ?? '').trim().toLowerCase();
+  if (needle) {
+    const like = `%${needle.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    where.push("(LOWER(m.title) LIKE ? ESCAPE '\\' OR LOWER(COALESCE(m.artist, '')) LIKE ? ESCAPE '\\')");
+    params.push(like, like);
+  }
+  return db.prepare(`SELECT m.*, ${LIBRARY_USES} AS uses FROM music_tracks m
+    ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+    ORDER BY uses DESC, m.id DESC LIMIT ? OFFSET ?`).all(...params, limit, offset);
 }
 
-export async function updateTrackMeta(id, title, artist) {
-  (await db.prepare('UPDATE tracks SET title = ?, artist = ? WHERE id = ?').run(title, artist || null, id));
+const LIBRARY_FIELDS = {
+  title: 'title', artist: 'artist', category: 'category', license: 'license', duration: 'duration',
+  active: 'is_active', coverKey: 'cover_key', coverStorage: 'cover_storage',
+};
+
+export async function updateLibraryTrack(id, patch) {
+  const sets = [];
+  const params = [];
+  for (const [field, column] of Object.entries(LIBRARY_FIELDS)) {
+    if (!Object.hasOwn(patch, field)) continue;
+    sets.push(`${column} = ?`);
+    params.push(field === 'active' ? (patch.active ? 1 : 0) : (patch[field] ?? null));
+  }
+  if (!sets.length) return false;
+  sets.push("updated_at = datetime('now')");
+  return (await db.prepare(`UPDATE music_tracks SET ${sets.join(', ')} WHERE id = ?`).run(...params, id)).changes === 1;
+}
+
+// Старая полка (tracks.library = 1) переезжает в библиотеку один раз. Песни,
+// скачанные когда-то с YouTube, туда не попадают: их звук не наш.
+export async function migrateLegacyShelf() {
+  return (await db.prepare(`INSERT INTO music_tracks (title, artist, category, duration, storage, audio_key, source, legacy_track_id)
+    SELECT t.title, t.artist, 'wedding', t.duration, 'local', t.file, t.source, t.id FROM tracks t
+     WHERE t.library = 1 AND t.source <> 'youtube'
+       AND NOT EXISTS (SELECT 1 FROM music_tracks m WHERE m.legacy_track_id = t.id)`).run()).changes;
 }
 
 /* Откуда пары запускают этот самый трек. Один и тот же куплет нравится многим,
@@ -176,18 +227,18 @@ export async function updateTrackMeta(id, title, artist) {
    чтобы каждый раз искать её пальцем заново. Считаем по пятисекундным корзинам
    (совпадение до кадра ничего не значит), а предлагаем самую раннюю секунду из
    корзины: начать чуть раньше не страшно, начать позже — значит срезать фразу. */
-export async function popularCut(musicValue, { minUses = 2 } = {}) {
-  if (!musicValue) return null;
+export async function popularCut(musicType, musicValue, { minUses = 2 } = {}) {
+  if (!musicType || !musicValue) return null;
   const row = (await db
     .prepare(
       `SELECT CAST(MIN(music_start) AS INTEGER) AS start, COUNT(*) AS c
          FROM applications
-        WHERE music_value = ? AND music_start IS NOT NULL AND music_start > 0
+        WHERE music_type = ? AND music_value = ? AND music_start IS NOT NULL AND music_start > 0
         GROUP BY CAST(music_start / 5 AS INTEGER)
         ORDER BY c DESC, start ASC
         LIMIT 1`
     )
-    .get(musicValue));
+    .get(musicType, musicValue));
   if (!row || Number(row.c) < minUses) return null;
   return { start: Number(row.start), uses: Number(row.c) };
 }
@@ -246,23 +297,34 @@ export async function adminStats() {
      FROM applications GROUP BY template_id ORDER BY c DESC`
   ).all()).map((r) => ({ id: r.id, count: Number(r.c), revenue: Number(r.revenue) }));
 
-  let topMusic = [];
+  // Название песни: у новых заявок — в music_meta, у старых — в самом значении
+  // (iTunes) или в таблице tracks (загруженный файл).
+  const topMusic = [];
   for (const r of (await db.prepare(
-    "SELECT music_value, COUNT(*) c FROM applications WHERE music_type='itunes' GROUP BY music_value ORDER BY c DESC LIMIT 5"
+    `SELECT music_type, music_value, MAX(music_meta) AS meta, COUNT(*) c FROM applications
+      WHERE music_type <> 'none' AND music_value IS NOT NULL
+      GROUP BY music_type, music_value ORDER BY c DESC LIMIT 12`
   ).all())) {
+    let name = '';
+    let artist = '';
     try {
-      const v = JSON.parse(r.music_value);
-      topMusic.push({ name: v.name, artist: v.artist, count: Number(r.c) });
-    } catch { /* пропускаем битые */ }
+      const meta = JSON.parse(r.meta || 'null');
+      if (meta?.title) {
+        name = meta.title;
+        artist = meta.artist ?? '';
+      } else if (r.music_type === 'itunes') {
+        const v = JSON.parse(r.music_value);
+        name = v.name;
+        artist = v.artist ?? '';
+      } else if (r.music_type === 'upload') {
+        const track = await trackByFile(r.music_value);
+        name = track?.title ?? '';
+        artist = track?.artist ?? '';
+      }
+    } catch { /* битые сведения пропускаем */ }
+    if (name) topMusic.push({ name, artist, count: Number(r.c) });
+    if (topMusic.length === 5) break;
   }
-  // Полные треки: название берём из tracks, в заявке лежит только имя файла.
-  for (const r of (await db.prepare(
-    "SELECT music_value, COUNT(*) c FROM applications WHERE music_type='upload' GROUP BY music_value ORDER BY c DESC LIMIT 5"
-  ).all())) {
-    const track = await trackByFile(r.music_value);
-    if (track) topMusic.push({ name: track.title, artist: track.artist ?? '', count: Number(r.c) });
-  }
-  topMusic = topMusic.sort((a, b) => b.count - a.count).slice(0, 5);
 
   const byDay = (await db.prepare(
     `SELECT substr(created_at,1,10) d, COUNT(*) c,

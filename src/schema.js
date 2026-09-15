@@ -75,6 +75,31 @@ export const schema = `
   CREATE INDEX IF NOT EXISTS tracks_owner ON tracks(owner_id);
   CREATE INDEX IF NOT EXISTS tracks_file ON tracks(file);
   CREATE UNIQUE INDEX IF NOT EXISTS tracks_telegram ON tracks(owner_id, tg_unique_id) WHERE tg_unique_id IS NOT NULL;
+
+  -- Библиотека nVate: курируемые полные песни, которые видят все пары. Звук и
+  -- обложка лежат в хранилище по ключам (storage: local - папка uploads, s3 -
+  -- Cloudflare R2); адрес для проигрывания сервер выдаёт сам. is_active = 0 -
+  -- песня снята с полки, но уже оформленные приглашения её играют.
+  -- legacy_track_id - песня перенесена со старой полки из таблицы tracks.
+  CREATE TABLE IF NOT EXISTS music_tracks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    artist TEXT,
+    category TEXT NOT NULL DEFAULT 'wedding',
+    duration REAL,
+    storage TEXT NOT NULL DEFAULT 'local',
+    audio_key TEXT NOT NULL,
+    cover_key TEXT,
+    cover_storage TEXT,
+    source TEXT NOT NULL DEFAULT 'nvate',
+    license TEXT,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    legacy_track_id INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS music_tracks_shelf ON music_tracks(is_active, category);
+  CREATE UNIQUE INDEX IF NOT EXISTS music_tracks_legacy ON music_tracks(legacy_track_id) WHERE legacy_track_id IS NOT NULL;
 `;
 export const migrations = [
   ['photos', 'ALTER TABLE applications ADD COLUMN photos TEXT'],
@@ -94,4 +119,7 @@ export const migrations = [
   ['domain_price', 'ALTER TABLE applications ADD COLUMN domain_price INTEGER NOT NULL DEFAULT 0'],
   ['extras', 'ALTER TABLE applications ADD COLUMN extras TEXT'],
   ['submission_key', 'ALTER TABLE applications ADD COLUMN submission_key TEXT'],
+  // Выбранная песня: название, исполнитель, обложка, длительность и громкость.
+  // Сам источник и id песни — в music_type и music_value, начало — в music_start.
+  ['music_meta', 'ALTER TABLE applications ADD COLUMN music_meta TEXT'],
 ];

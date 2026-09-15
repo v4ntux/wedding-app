@@ -44,15 +44,24 @@ export const GOOGLE_MAPS_API_KEY = (process.env.GOOGLE_MAPS_API_KEY ?? '').trim(
 // поиск песен идёт через страницу выдачи youtube.com.
 export const YOUTUBE_API_KEY = (process.env.YOUTUBE_API_KEY ?? '').trim();
 
-// yt-dlp забирает песню целиком с YouTube, TikTok и Instagram. В Docker-образе он
-// уже в PATH; без него студия находит песни, но послушать и выбрать их нельзя.
-export const YTDLP_BIN = (process.env.YTDLP_BIN ?? '').trim() || 'yt-dlp';
-// Содержимое cookies.txt (формат Netscape) — когда YouTube просит сервер
-// подтвердить, что он не бот (адресам Railway он так и отвечает). Берите cookies
-// запасного аккаунта; обновлённую сессию сервер хранит в NVATE_DATA_DIR/ytdlp.
-export const YTDLP_COOKIES = process.env.YTDLP_COOKIES ?? '';
-// Прокси для yt-dlp (http://… или socks5://…) — другой способ уйти от проверки.
-export const YTDLP_PROXY = (process.env.YTDLP_PROXY ?? '').trim();
+// Где лежат файлы библиотеки nVate. local — папка uploads на volume; s3 —
+// Cloudflare R2 или другое S3-совместимое хранилище. Ключи — только здесь, в
+// переменных сервера: студия получает адреса песен через API.
+export const MUSIC_STORAGE = (process.env.MUSIC_STORAGE ?? '').trim().toLowerCase() === 's3' ? 's3' : 'local';
+export const S3 = Object.freeze({
+  endpoint: (process.env.S3_ENDPOINT ?? '').trim().replace(/\/+$/, ''),   // https://<account>.r2.cloudflarestorage.com
+  region: (process.env.S3_REGION ?? '').trim() || 'auto',
+  bucket: (process.env.S3_BUCKET ?? '').trim(),
+  accessKeyId: (process.env.S3_ACCESS_KEY_ID ?? '').trim(),
+  secretAccessKey: (process.env.S3_SECRET_ACCESS_KEY ?? '').trim(),
+  // Публичный домен бакета (необязательно). Без него сервер выдаёт ссылки с подписью.
+  publicUrl: (process.env.S3_PUBLIC_URL ?? '').trim().replace(/\/+$/, ''),
+  urlTtl: Math.min(7 * 24 * 3600, Math.max(300, Number(process.env.S3_URL_TTL) || 12 * 3600)),
+});
+
+// Audius: открытый каталог полных песен. Ключ не нужен, API узнаёт нас по имени приложения.
+export const AUDIUS_API = (process.env.AUDIUS_API_URL ?? '').trim().replace(/\/+$/, '') || 'https://api.audius.co';
+export const AUDIUS_APP_NAME = (process.env.AUDIUS_APP_NAME ?? '').trim() || 'nvate';
 
 // Шаблоны открыток живут в templates/<id>/ (см. src/templateStore.js) —
 // новый дизайн добавляется папкой, без правок кода.

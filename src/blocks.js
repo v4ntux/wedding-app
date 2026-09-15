@@ -27,53 +27,84 @@ function player(musicLabel, volumeLabel) {
     + `<button id="mbtn" aria-label="${musicLabel}">${MUSIC_ICON}</button></div>`;
 }
 
+/* Громкость гостя запоминается: второй раз подбирать её не придётся. Песня
+   звучит в доле от неё, которую задала пара (mv). */
+const VOLUME_JS = `var stored=null;try{stored=localStorage.getItem('nv_volume')}catch(_){}
+// Number(null) — это 0: без этой проверки первый визит начинался с немого регулятора.
+var saved=stored===null||stored===''?NaN:Number(stored);
+vol.value=Number.isFinite(saved)&&saved>=0&&saved<=100?saved:70;paint();
+function paint(){vol.style.setProperty('--vol',vol.value+'%')}
+function remember(){try{localStorage.setItem('nv_volume',vol.value)}catch(_){}}
+function showVol(){box.classList.add('vol-open');clearTimeout(hide);hide=setTimeout(function(){box.classList.remove('vol-open')},5000)}
+// Песня пропала (снята, удалена, закрыта автором) — кнопку убираем молча.
+function gone(){box.style.display='none';box.classList.remove('vol-open')}
+vol.addEventListener('click',function(ev){ev.stopPropagation()});`;
+
+/* Браузер не дал включить звук без касания: кнопка мягко зовёт, а первое же
+   касание страницы включает песню. Касание самой кнопки она обработает сама. */
+const WAIT_JS = `var waiting=null;
+function waitTap(go){if(waiting)return;b.classList.add('wait');
+waiting=function(ev){document.removeEventListener('pointerdown',waiting,true);document.removeEventListener('keydown',waiting,true);
+waiting=null;b.classList.remove('wait');if(!box.contains(ev.target))go()};
+document.addEventListener('pointerdown',waiting,true);document.addEventListener('keydown',waiting,true)}`;
+
+const num = (value) => Number((Number(value) || 0).toFixed(2));
+
 export function audioWidget(music, lang = 'uz') {
   if (!music) return '';
   const musicLabel = lang === 'ru' ? 'Музыка' : 'Musiqa';
   const volumeLabel = lang === 'ru' ? 'Громкость' : 'Ovoz balandligi';
-  const start = Number(music.start) || 0;
-  const end = Number(music.end) || 0;
-  if (music.youtubeId) {
-    const src = `https://www.youtube.com/embed/${music.youtubeId}?autoplay=1&start=${start}${end > start ? '&end=' + end : ''}&loop=1&playlist=${music.youtubeId}`;
-    return `${player(musicLabel, volumeLabel)}<div id="ytbox" style="position:fixed;width:1px;height:1px;overflow:hidden;opacity:0;bottom:0;right:0"></div>
-<script>(function(){var on=false,b=document.getElementById('mbtn'),x=document.getElementById('ytbox'),
-box=document.getElementById('mplayer'),vol=document.getElementById('mvol'),hide=null,frame=null;
-var saved=Number(localStorage.getItem('nv_volume'));
-var level=Number.isFinite(saved)&&saved>=0&&saved<=100?saved:70;
-vol.value=level;paint();
-function paint(){vol.style.setProperty('--vol',vol.value+'%')}
-function send(cmd,args){try{frame&&frame.contentWindow&&frame.contentWindow.postMessage(JSON.stringify({event:'command',func:cmd,args:args||[]}),'*')}catch(e){}}
-function showVol(){box.classList.add('vol-open');clearTimeout(hide);hide=setTimeout(function(){box.classList.remove('vol-open')},5000)}
-function play(){x.innerHTML='<iframe id="ytframe" src="${src}&enablejsapi=1" allow="autoplay" width="1" height="1"></iframe>';
-frame=document.getElementById('ytframe');b.classList.add('on');on=true;
-setTimeout(function(){send('setVolume',[Number(vol.value)])},1200);showVol()}
-function stop(){x.innerHTML='';frame=null;b.classList.remove('on');on=false;box.classList.remove('vol-open')}
-b.addEventListener('click',function(e){e.stopPropagation();on?stop():play()});
-vol.addEventListener('input',function(){paint();send('setVolume',[Number(vol.value)]);
-try{localStorage.setItem('nv_volume',vol.value)}catch(e){}showVol()});
-vol.addEventListener('click',function(e){e.stopPropagation()});
+  const start = Math.max(0, num(music.start));
+  const end = Math.max(0, num(music.end));
+  const volume = Math.min(1, Math.max(0.1, Number(music.volume) || 1));
+  const videoId = music.kind === 'youtube' ? music.videoId : music.youtubeId;
+  if (videoId) {
+    if (!/^[\w-]{11}$/.test(String(videoId))) return '';
+    /* Официальный плеер YouTube (IFrame Player API). Создаём его сразу при
+       загрузке страницы: когда гость откроет конверт, playVideo() прозвучит без
+       ожидания сети — у браузера меньше поводов счесть звук автозапуском. */
+    return `${player(musicLabel, volumeLabel)}<div id="ytbox" aria-hidden="true" style="position:fixed;left:0;bottom:0;width:200px;height:200px;overflow:hidden;opacity:0;pointer-events:none;z-index:-1"><div id="ytp"></div></div>
+<script>(function(){var id='${videoId}',s=${start},mv=${volume},b=document.getElementById('mbtn'),
+box=document.getElementById('mplayer'),vol=document.getElementById('mvol'),hide=null,p=null,ready=false,want=false,on=false,guard=null;
+${VOLUME_JS}
+${WAIT_JS}
+function level(){return Math.round(Math.max(0,Math.min(100,Number(vol.value)*mv)))}
+function go(){if(!ready)return;try{p.setVolume(level());p.seekTo(s,true);p.playVideo()}catch(_){}
+clearTimeout(guard);guard=setTimeout(function(){if(want&&!on)waitTap(go)},2600)}
+function build(){if(p||!window.YT||!YT.Player)return;
+p=new YT.Player('ytp',{width:200,height:200,videoId:id,
+playerVars:{start:Math.floor(s),playsinline:1,controls:0,disablekb:1,fs:0,rel:0,iv_load_policy:3},
+events:{onReady:function(){ready=true;if(want)go()},
+onStateChange:function(ev){if(ev.data===1){on=true;clearTimeout(guard);b.classList.add('on');b.classList.remove('wait');showVol()}
+else if(ev.data===2){on=false;b.classList.remove('on')}
+else if(ev.data===0){try{p.seekTo(s,true);p.playVideo()}catch(_){}}},
+onError:function(){want=false;gone()}}})}
+if(window.YT&&YT.Player)build();else{var prior=window.onYouTubeIframeAPIReady;
+window.onYouTubeIframeAPIReady=function(){if(typeof prior==='function')prior();build()};
+var tag=document.createElement('script');tag.src='https://www.youtube.com/iframe_api';tag.async=true;tag.onerror=gone;document.head.appendChild(tag)}
 ${LIFT_JS}
-window.__music={start:function(){if(!on)play()}};
+window.__music={start:function(){want=true;go()}};
+b.addEventListener('click',function(ev){ev.stopPropagation();
+if(on){want=false;try{p.pauseVideo()}catch(_){}box.classList.remove('vol-open')}else{want=true;go()}});
+vol.addEventListener('input',function(){paint();try{if(p&&ready)p.setVolume(level())}catch(_){}remember();showVol()});
 })();</script>`;
   }
-  if (!music.playable) return '';
-  /* #t=17 — медиафрагмент: браузер сам начнёт загрузку с нужного места. Без него
-     iOS молча игнорирует currentTime до метаданных, и гость слышал вступление. */
+  if (!music.url || music.playable === false) return '';
+  /* #t=74.35 — медиафрагмент: браузер сам начнёт загрузку с нужного места. Без
+     него iOS молча игнорирует currentTime до метаданных, и гость слышал вступление. */
   const src = start > 0 && !String(music.url).includes('#') ? `${music.url}#t=${start}` : music.url;
   return `<audio id="bgm" preload="auto" src="${escapeHtml(src)}"></audio>${player(musicLabel, volumeLabel)}
 <script>(function(){var a=document.getElementById('bgm'),b=document.getElementById('mbtn'),
-box=document.getElementById('mplayer'),vol=document.getElementById('mvol'),s=${start},e=${end},tm=null,hide=null,tail=false;
-// Громкость гостя запоминается: второй раз подбирать её не придётся.
-var saved=Number(localStorage.getItem('nv_volume'));
-var level=Number.isFinite(saved)&&saved>=0&&saved<=100?saved:70;
-vol.value=level;paint();
-function paint(){vol.style.setProperty('--vol',vol.value+'%')}
-function target(){return Number(vol.value)/100}
+box=document.getElementById('mplayer'),vol=document.getElementById('mvol'),s=${start},e=${end},mv=${volume},tm=null,hide=null,tail=false;
+${VOLUME_JS}
+${WAIT_JS}
+function target(){return Math.max(0,Math.min(1,Number(vol.value)/100*mv))}
 // Конца у отрывка нет: трек доигрывает до последней секунды и начинается
 // снова с выбранного места. Прежняя петля a.loop возвращала его на 0:00 —
 // в обход начала, которое пара отметила в студии.
-function seek(){try{if(s&&a.currentTime<s-.5)a.currentTime=s}catch(_){}}
+function seek(){try{if(s&&a.currentTime<s-.3)a.currentTime=s}catch(_){}}
 a.addEventListener('loadedmetadata',seek);
+a.addEventListener('error',gone);
 if(e>s){a.addEventListener('timeupdate',function(){if(a.currentTime>=e){a.currentTime=s;a.play()}})}
 else{
 // Последние полторы секунды трек уходит в тишину и возвращается к началу
@@ -82,16 +113,14 @@ a.addEventListener('timeupdate',function(){if(!tail&&a.duration&&a.duration-a.cu
 a.addEventListener('ended',function(){tail=false;a.currentTime=s;a.play().then(function(){fade(target(),2000)}).catch(function(){})})}
 function fade(to,ms){if(tm)clearInterval(tm);var f0=a.volume,t0=Date.now();
 tm=setInterval(function(){var k=Math.min(1,(Date.now()-t0)/ms);a.volume=Math.max(0,Math.min(1,f0+(to-f0)*k));if(k>=1){clearInterval(tm);tm=null}},50)}
-function showVol(){box.classList.add('vol-open');clearTimeout(hide);hide=setTimeout(function(){box.classList.remove('vol-open')},5000)}
 function play(ms){seek();a.volume=0;
-a.play().then(function(){b.classList.add('on');fade(target(),ms);showVol()}).catch(function(){})}
+a.play().then(function(){b.classList.add('on');b.classList.remove('wait');fade(target(),ms);showVol()})
+.catch(function(err){if(err&&err.name==='NotAllowedError')waitTap(function(){play(600)})})}
 ${LIFT_JS}
 window.__music={start:function(){play(2500)}};
 b.addEventListener('click',function(ev){ev.stopPropagation();
 if(a.paused){play(600)}else{a.pause();b.classList.remove('on');box.classList.remove('vol-open')}});
-vol.addEventListener('input',function(){paint();if(tm){clearInterval(tm);tm=null}a.volume=target();
-try{localStorage.setItem('nv_volume',vol.value)}catch(e2){}showVol()});
-vol.addEventListener('click',function(ev){ev.stopPropagation()});
+vol.addEventListener('input',function(){paint();if(tm){clearInterval(tm);tm=null}a.volume=target();remember();showVol()});
 })();</script>`;
 }
 

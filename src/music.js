@@ -1,21 +1,23 @@
-// Полные треки платформы.
+// Личная музыка пары: песни, присланные боту, и файлы, загруженные в студии.
 //
-// iTunes, Deezer и Spotify отдают по API только 30-секундные превью: пара
-// ставила начало на 0:17, и гости слышали тринадцать секунд и петлю. Поэтому
-// звук живёт у нас. Песню находят поиском по YouTube — сервер забирает её
-// целиком, одну на всех. Её же можно переслать боту (узбекская музыка и так
-// ходит по Telegram-каналам) или загрузить файлом. Сам звук лежит в uploads,
-// сведения о нём — в таблице tracks.
+// Узбекская музыка ходит по Telegram-каналам: переслать песню боту быстрее, чем
+// искать её где-то ещё. Звук лежит в uploads, сведения — в таблице tracks. В
+// студии это источник «Mening» — та же карточка Track, что у библиотеки nVate,
+// Audius и YouTube.
 
-import { detectFileType, saveUpload } from './upload.js';
-import { downloadAudio } from './download.js';
-import { songInfo, songMeta, topMoment } from './youtube.js';
+import { existsSync } from 'node:fs';
+import path from 'node:path';
+import { detectFileType, saveUpload, UPLOADS_DIR } from './upload.js';
 import * as db from './db.js';
 
 // Больше Bot API скачать не даст, и в студии держим тот же предел.
 export const MAX_TRACK_BYTES = 20 * 1024 * 1024;
+const PAGE = 20;
+const AUDIO_NAME_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(mp3|m4a|ogg|wav)$/;
 
 const text = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+
+export const uploadIdValid = (id) => AUDIO_NAME_RE.test(String(id ?? ''));
 
 /* «Artist - Title.mp3» → { artist, title }. Без дефиса всё имя — название. */
 export function metaFromFileName(name) {
@@ -25,21 +27,20 @@ export function metaFromFileName(name) {
   return { artist: '', title: text(base, 120) };
 }
 
-export function publicTrack(row) {
+export function personalTrack(row) {
   return {
-    id: Number(row.id),
+    id: row.file,
+    provider: 'upload',
     title: row.title,
     artist: row.artist ?? '',
     duration: row.duration == null ? null : Number(row.duration),
-    file: row.file,
-    url: `/uploads/${row.file}`,
-    uses: Number(row.uses) || 0,
-    library: Number(row.library) === 1,
-    youtubeId: row.source === 'youtube' ? row.source_id : null,
+    cover: null,
+    playback: 'audio',
+    audioUrl: `/uploads/${row.file}`,
   };
 }
 
-/* Файл уже лежит в uploads (загрузка из студии, извлечение по ссылке). */
+/* Файл уже лежит в uploads (загрузка из студии). */
 export async function registerTrack(file, meta = {}) {
   const id = await db.insertTrack({
     ownerId: meta.ownerId ?? null,
@@ -76,90 +77,26 @@ export async function addTrack(buffer, meta = {}) {
   }
 }
 
-/* Песня с YouTube одна на всех: первая пара ждёт скачивания, следующие получают
-   готовый файл сразу. Владельца у неё нет — это общая песня, а не чья-то личная. */
-const fetching = new Map();
-
-export async function youtubeSong(id, { download = downloadAudio, info = songInfo, top = topMoment } = {}) {
-  const known = await db.trackBySource('youtube', id);
-  if (known) return known;
-  if (!fetching.has(id)) {
-    fetching.set(id, fetchYoutubeSong(id, { download, info, top }).finally(() => fetching.delete(id)));
-  }
-  return fetching.get(id);
+/* Своя музыка пары — только своя: без владельца список пуст. */
+export async function searchUserTracks(query, { owner = null, page = 0 } = {}) {
+  if (owner === null || owner === undefined) return { items: [], next: null };
+  const needle = text(query, 100).toLowerCase();
+  const rows = await db.listTracksByOwner(owner, 200);
+  const all = rows
+    .filter((row) => !needle || `${row.title} ${row.artist ?? ''}`.toLowerCase().includes(needle))
+    .map(personalTrack);
+  const from = page * PAGE;
+  return { items: all.slice(from, from + PAGE), next: from + PAGE < all.length ? page + 1 : null };
 }
 
-async function fetchYoutubeSong(id, { download, info, top }) {
-  const [file, meta, topStart] = await Promise.all([
-    download(`https://www.youtube.com/watch?v=${id}`, { maxBytes: MAX_TRACK_BYTES }),
-    info(id).catch(() => ({})),
-    top(id).catch(() => null),
-  ]);
-  if (!file) return null;
-  const named = songMeta(file.name.replace(/\.[a-z0-9]{2,5}$/i, ''));
-  try {
-    const added = await addTrack(file.buffer, {
-      source: 'youtube',
-      sourceId: id,
-      title: meta.title || named.title,
-      artist: meta.artist || named.artist,
-      duration: meta.duration,
-      topStart,
-    });
-    return added?.track ?? null;
-  } catch (error) {
-    // Вторая копия сервера скачала ту же песню чуть раньше.
-    const raced = await db.trackBySource('youtube', id);
-    if (raced) return raced;
-    throw error;
-  }
-}
-
-/* Какие песни из выдачи уже лежат у нас: их слушают сразу, без скачивания. */
-export async function downloadedSongs(ids) {
-  const rows = await db.tracksBySource('youtube', ids);
-  return new Map(rows.map((row) => [row.source_id, publicTrack(row)]));
-}
-
-/* TikTok, Instagram: звук из ролика становится личной песней пары. */
-export async function linkSong(url, ownerId, { download = downloadAudio } = {}) {
-  const file = await download(url, { maxBytes: MAX_TRACK_BYTES });
-  if (!file) return null;
-  const named = metaFromFileName(file.name);
-  const added = await addTrack(file.buffer, {
-    ownerId,
-    source: 'link',
-    title: named.title || new URL(url).hostname.replace(/^www\./, ''),
-    artist: named.artist,
-  });
-  return added?.track ?? null;
-}
-
-export async function libraryTracks() {
-  return (await db.listLibrary()).map(publicTrack);
-}
-
-export async function userTracks(ownerId) {
-  return (await db.listTracksByOwner(ownerId)).map(publicTrack);
-}
-
-/* Правки полки из админки: названия и состав. Кого нет в списке — снят с полки,
-   но файл остаётся: его уже могут играть оформленные приглашения. */
-export async function saveLibrary(list) {
-  const incoming = new Map();
-  for (const item of Array.isArray(list) ? list : []) {
-    const id = Number(item?.id);
-    if (Number.isInteger(id)) incoming.set(id, item);
-  }
-  for (const row of await db.listLibrary()) {
-    const item = incoming.get(Number(row.id));
-    if (!item) {
-      await db.setTrackLibrary(row.id, false);
-      continue;
-    }
-    await db.updateTrackMeta(row.id, text(item.title, 120) || row.title, text(item.artist, 120));
-  }
-  return libraryTracks();
+/* Файл по имени. Файлы, загруженные до таблицы tracks, сведений не имеют — но
+   играть обязаны. */
+export async function uploadTrack(file) {
+  if (!uploadIdValid(file)) return false;
+  const row = await db.trackByFile(file);
+  if (row) return personalTrack(row);
+  if (!existsSync(path.join(UPLOADS_DIR, file))) return false;
+  return personalTrack({ file, title: 'Musiqa', artist: '', duration: null });
 }
 
 /* Подпись трека для карточки заявки: «Название — Исполнитель». */

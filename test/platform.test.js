@@ -13,14 +13,32 @@ process.env.ADMIN_CHAT_IDS = '';
 process.env.NVATE_DISABLE_WATCH = '1';
 process.env.BASE_URL = 'https://nvate.uz';
 process.env.YOUTUBE_API_KEY = '';
-process.env.YTDLP_BIN = 'nvate-missing-ytdlp';
 // Only an explicitly named disposable database may be used by tests.
 process.env.DATABASE_URL = process.env.NVATE_TEST_DATABASE_URL || '';
 delete process.env.NVATE_MIGRATE_SQLITE;
 delete process.env.RAILWAY_ENVIRONMENT;
+delete process.env.MUSIC_STORAGE;
+
+/* Наружу тесты не ходят: YouTube и Audius отвечают подготовленными ответами.
+   Незаданный адрес ведёт себя как упавший источник. */
+const REMOTE = new Map();
+const realFetch = globalThis.fetch;
+globalThis.fetch = async (input, init) => {
+  const url = String(input?.url ?? input);
+  if (!/^https:\/\/(?:www\.youtube\.com|api\.audius\.co)\//.test(url)) return realFetch(input, init);
+  const handler = [...REMOTE].find(([prefix]) => url.startsWith(prefix))?.[1];
+  return handler ? handler(url, init) : new Response('offline', { status: 503 });
+};
+const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+REMOTE.set('https://www.youtube.com/oembed', (url) => {
+  const id = new URL(url).searchParams.get('url').slice(-11);
+  return id === 'privatevid1'
+    ? new Response('', { status: 401 })
+    : json({ title: 'Ibrohim Nurmatov - Oh sevaman yor', author_name: 'Ibrohim Nurmatov' });
+});
 
 const dbModule = await import('../src/db.js');
-const { validateForm, buildPreviewApp, submitApplication, musicKey, ValidationError } = await import('../src/service.js');
+const { validateForm, buildPreviewApp, submitApplication, ValidationError } = await import('../src/service.js');
 const { renderInvitation, renderDemo } = await import('../src/render.js');
 const { publicTemplates, allTemplates } = await import('../src/templateStore.js');
 const { slugify, coupleSlugBase } = await import('../src/slug.js');
@@ -48,14 +66,10 @@ const baseForm = (overrides = {}) => ({
   lng: 69.2797,
   address: 'Дворец торжеств, Ташкент',
   photos: photoNames,
-  musicType: 'itunes',
-  musicValue: {
-    name: 'Preview Song',
-    artist: 'Preview Artist',
-    url: 'https://audio-ssl.itunes.apple.com/example.m4a',
+  music: {
+    provider: 'youtube', trackId: 'EFUAY_KiRt0', title: 'Oh sevaman yor', artist: 'Ibrohim Nurmatov',
+    duration: 222, startAt: 74.35, volume: 1,
   },
-  musicStart: 7,
-  musicEnd: null,
   templateId: 'oqshom',
   guestNames: [],
   addons: [],
@@ -63,6 +77,14 @@ const baseForm = (overrides = {}) => ({
   submissionKey: '12345678-1234-4123-8123-123456789abc',
   ...overrides,
 });
+
+const signedInitData = (user) => {
+  const params = new URLSearchParams({ auth_date: String(Math.floor(Date.now() / 1000)), user: JSON.stringify(user) });
+  const check = [...params.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${k}=${v}`).join('\n');
+  const secret = crypto.createHmac('sha256', 'WebAppData').update(process.env.BOT_TOKEN).digest();
+  params.set('hash', crypto.createHmac('sha256', secret).update(check).digest('hex'));
+  return params.toString();
+};
 
 let server;
 let baseUrl;
@@ -155,7 +177,7 @@ test('personalized preview uses the exact production renderer and order data', (
   const html = renderInvitation(app);
   for (const expected of [
     'Алишер', 'Зебо', `10 октября ${nextYear}`, '19:45', 'Дворец торжеств, Ташкент',
-    photoNames[0], 'https://audio-ssl.itunes.apple.com/example.m4a', 'data-envelope-scene',
+    photoNames[0], "var id='EFUAY_KiRt0',s=74.35", 'seekTo(s,true)', 'data-envelope-scene',
   ]) assert.ok(html.includes(expected), `missing personalized value: ${expected}`);
 });
 
@@ -233,35 +255,50 @@ test('phone is the only contact we ask for — Telegram comes from the bot', asy
   assert.equal(created.tg_username, 'from_bot');
 });
 
-test('the cut keeps a start and runs to the end of the track', () => {
-  const clean = validateForm(baseForm({ musicStart: 12, musicEnd: null }));
-  assert.equal(clean.musicStart, 12);
-  assert.equal(clean.musicEnd, null);
+test('a chosen song keeps its provider, id and exact start — nothing else is trusted', () => {
+  const clean = validateForm(baseForm());
+  assert.deepEqual(
+    [clean.musicType, clean.musicValue, clean.musicStart, clean.musicEnd, clean.musicMeta.volume],
+    ['youtube', 'EFUAY_KiRt0', 74.35, null, 1],
+  );
+  assert.equal(clean.musicMeta.cover, 'https://i.ytimg.com/vi/EFUAY_KiRt0/mqdefault.jpg', 'обложка YouTube — по id, а не от клиента');
+
+  const song = (patch) => baseForm({ music: { ...baseForm().music, ...patch } });
+  const rejects = (patch, pattern) => assert.throws(
+    () => validateForm(song(patch)),
+    (error) => error instanceof ValidationError && error.step === 'music' && pattern.test(error.message),
+    JSON.stringify(patch),
+  );
+  rejects({ provider: 'spotify' }, /заново/);
+  rejects({ trackId: 'not a video' }, /заново/);
+  rejects({ provider: 'audius', trackId: '../../etc' }, /заново/);
+  rejects({ startAt: -1 }, /Начало/);
+  rejects({ startAt: 222 }, /Начало/);
+  rejects({ startAt: 'soon' }, /Начало/);
+  rejects({ duration: 0 }, /длину/);
+  rejects({ volume: 3 }, /громкость/);
+  // Произвольный адрес звука не принимается ни в каком виде.
+  assert.throws(() => validateForm(baseForm({ music: null, musicType: 'custom', musicValue: 'https://evil.example/a.mp3' })), ValidationError);
+  assert.equal(validateForm(baseForm({ music: null })).musicType, 'none');
+  assert.equal(validateForm(song({ title: `<b>${'x'.repeat(300)}` })).musicMeta.title.length, 120);
 });
 
 test('a popular start point is only suggested once several couples agree', async () => {
-  const track = {
-    name: 'Shared Song',
-    artist: 'Shared Artist',
-    url: 'https://audio-ssl.itunes.apple.com/shared.m4a',
-  };
-  const key = musicKey({ musicType: 'itunes', musicValue: track });
-  assert.ok(key);
-  assert.equal((await dbModule.popularCut(key)), null, 'без заявок подсказки быть не должно');
-
-  const submit = async (id, start) => (await submitApplication(baseForm({
-    musicValue: track,
-    musicStart: start,
+  const submit = async (id, startAt) => submitApplication(baseForm({
+    music: { ...baseForm().music, trackId: 'popularSong', startAt },
     submissionKey: `3234567${id}-1234-4123-8123-123456789abc`,
-  }), { id: 7200 + id, username: `cut_${id}` }));
+  }), { id: 7200 + id, username: `cut_${id}` });
+  assert.equal(await dbModule.popularCut('youtube', 'popularSong'), null, 'без заявок подсказки быть не должно');
 
-  await submit(1, 18);
-  assert.equal((await dbModule.popularCut(key)), null, 'одна пара — ещё не рекомендация');
+  await submit(1, 18.4);
+  assert.equal(await dbModule.popularCut('youtube', 'popularSong'), null, 'одна пара — ещё не рекомендация');
 
-  await submit(2, 19);   // та же пятисекундная корзина, что и 18
+  await submit(2, 19);   // та же пятисекундная корзина, что и 18.4
   await submit(3, 44);
-  const cut = (await dbModule.popularCut(key));
-  assert.deepEqual(cut, { start: 18, uses: 2 }, 'предлагаем самую раннюю секунду корзины');
+  assert.deepEqual(await dbModule.popularCut('youtube', 'popularSong'), { start: 18, uses: 2 }, 'предлагаем самую раннюю секунду корзины');
+  const hint = await (await fetch(`${baseUrl}/api/music/hint?provider=youtube&id=popularSong`)).json();
+  assert.deepEqual(hint.hint, { start: 18, uses: 2 });
+  assert.equal((await fetch(`${baseUrl}/api/music/hint?provider=youtube&id=bad`)).status, 400);
 });
 
 test('the venue catalog hides drafts from couples and keeps them for the admin', async () => {
@@ -316,28 +353,58 @@ test('admin pricing overrides the manifest and falls back when cleared', async (
   await assert.rejects(updatePricing({ templates: { deco: -5 } }, ['deco']), /цена/i);
 });
 
-test('music player ships a volume control that remembers the guest choice', async () => {
+test('the invitation player starts at the exact second and waits for a tap when autoplay is blocked', async () => {
   const { audioWidget } = await import('../src/blocks.js');
-  const widget = audioWidget({ url: 'https://example.com/song.mp3', playable: true, start: 0, end: 0 }, 'ru');
+  const widget = audioWidget({ kind: 'audio', url: '/api/music/audio/nvate/7', start: 74.35, end: 0, volume: 0.6 }, 'ru');
   assert.match(widget, /id="mplayer"/);
   assert.match(widget, /id="mvol"[^>]*type="range"/);
-  assert.match(widget, /nv_volume/, 'громкость должна запоминаться между визитами');
+  assert.match(widget, /nv_volume/, 'громкость гостя запоминается между визитами');
+  // Первый визит: в хранилище пусто, и регулятор обязан встать на 70, а не на Number(null) === 0.
+  const vm = await import('node:vm');
+  const volumeScript = widget.match(/<script>([\s\S]*?)<\/script>/)[1];
+  const nodes = {};
+  const element = (id) => (nodes[id] ??= {
+    id, value: '', style: { setProperty() {} }, classList: { add() {}, remove() {}, contains: () => false },
+    addEventListener() {}, getBoundingClientRect: () => ({ top: 0 }), play: () => Promise.resolve(), pause() {},
+  });
+  vm.runInNewContext(volumeScript, {
+    document: { getElementById: element, querySelector: () => null, addEventListener() {}, removeEventListener() {} },
+    localStorage: { getItem: () => null, setItem() {} },
+    window: {}, addEventListener() {}, innerHeight: 800, requestAnimationFrame() {}, setTimeout, clearTimeout, setInterval, clearInterval, Date,
+  });
+  assert.equal(Number(nodes.mvol.value), 70, 'первый визит гостя — не немой');
   assert.match(widget, /aria-label="Громкость"/);
-  // YouTube-режим управляет громкостью через postMessage к плееру.
-  const yt = audioWidget({ youtubeId: 'abc123', playable: false, start: 0, end: 0 }, 'ru');
-  assert.match(yt, /setVolume/);
-  assert.match(yt, /enablejsapi=1/);
-});
-
-test('a cut track plays from its start to the very end and returns to that start', async () => {
-  const { audioWidget } = await import('../src/blocks.js');
-  const widget = audioWidget({ url: 'https://example.com/song.mp3', playable: true, start: 20, end: 0 }, 'ru');
+  // iOS не перематывает до метаданных: старт задаётся и фрагментом, и после loadedmetadata.
+  assert.match(widget, /src="\/api\/music\/audio\/nvate\/7#t=74\.35"/);
+  assert.match(widget, /s=74\.35/);
+  assert.match(widget, /addEventListener\('loadedmetadata',seek\)/);
+  assert.match(widget, /mv=0\.6/, 'громкость, заданная парой, — доля от громкости гостя');
+  assert.match(widget, /NotAllowedError[\s\S]*waitTap/, 'запрет автозапуска ждёт касания, а не молчит');
   assert.doesNotMatch(widget, /a\.loop=true/, 'петля с 0:00 перескакивала через выбранное начало');
   assert.match(widget, /addEventListener\('ended'/);
-  assert.match(widget, /s=20/);
-  // iOS не перематывает до метаданных: старт задаётся и фрагментом, и после loadedmetadata.
-  assert.match(widget, /song\.mp3#t=20/);
-  assert.match(widget, /addEventListener\('loadedmetadata',seek\)/);
+
+  const yt = audioWidget({ kind: 'youtube', videoId: 'EFUAY_KiRt0', start: 74.35, volume: 1 }, 'uz');
+  assert.match(yt, /youtube\.com\/iframe_api/, 'официальный IFrame Player API');
+  assert.match(yt, /new YT\.Player/);
+  assert.match(yt, /start:Math\.floor\(s\)/);
+  assert.match(yt, /seekTo\(s,true\)/, 'дробное начало — через seekTo');
+  assert.match(yt, /setVolume/);
+  assert.doesNotMatch(yt, /to‘lqin|волн/i, 'никаких технических оговорок для гостя');
+  assert.equal(audioWidget({ kind: 'youtube', videoId: `'"><script>`, start: 0 }), '', 'разметка вместо id не проходит');
+});
+
+test('old invitations keep playing: uploaded files, YouTube links, iTunes and direct mp3', () => {
+  const base = buildPreviewApp(baseForm({ music: null }));
+  const render = (patch) => renderInvitation({ ...base, ...patch });
+  assert.match(render({ music_type: 'upload', music_value: '33333333-3333-4333-8333-333333333333.mp3', music_start: 20 }),
+    /src="\/uploads\/33333333-3333-4333-8333-333333333333\.mp3#t=20"/);
+  assert.match(render({ music_type: 'youtube', music_value: 'https://www.youtube.com/watch?v=EFUAY_KiRt0', music_start: 12 }), /var id='EFUAY_KiRt0',s=12/);
+  assert.match(render({
+    music_type: 'itunes', music_value: JSON.stringify({ name: 'a', artist: 'b', url: 'https://audio-ssl.itunes.apple.com/x.m4a' }), music_start: 7,
+  }), /x\.m4a#t=7/);
+  assert.match(render({ music_type: 'custom', music_value: 'https://cdn.example/song.mp3' }), /src="https:\/\/cdn\.example\/song\.mp3"/);
+  assert.doesNotMatch(render({ music_type: 'nvate', music_value: 'not-an-id' }), /id="mplayer"/, 'битый id — без плеера, а не с ошибкой');
+  assert.doesNotMatch(render({ music_type: 'none', music_value: null }), /id="mplayer"/);
 });
 
 const id3 = (tag) => Buffer.concat([Buffer.from('ID3'), Buffer.from(tag.padEnd(61, '.'))]);
@@ -351,50 +418,103 @@ test('a song sent to the bot lands whole in the couple’s studio and never twic
   assert.equal(again.duplicate, true, 'повторная пересылка не плодит копии');
   assert.equal(again.track.id, first.track.id);
 
-  const mine = await music.userTracks(8001);
-  assert.deepEqual(mine.map((t) => [t.title, t.artist, t.duration]), [['Yor-yor', 'Ansambl', 214]]);
-  assert.equal(mine[0].url, `/uploads/${first.track.file}`);
-  assert.equal((await music.userTracks(8002)).length, 0, 'чужие треки не видны');
+  const mine = await music.searchUserTracks('', { owner: 8001 });
+  assert.deepEqual(mine.items.map((t) => [t.provider, t.title, t.artist, t.duration]), [['upload', 'Yor-yor', 'Ansambl', 214]]);
+  assert.equal(mine.items[0].audioUrl, `/uploads/${first.track.file}`);
+  assert.equal((await music.searchUserTracks('', { owner: 8002 })).items.length, 0, 'чужие треки не видны');
+  assert.equal((await music.searchUserTracks('', {})).items.length, 0, 'без владельца — ничего');
   assert.equal(await music.addTrack(Buffer.from('definitely not an audio file'), { ownerId: 8001, title: 'x' }), null);
   assert.deepEqual(music.metaFromFileName('Shahzoda - Yor-yor_remix.mp3'), { artist: 'Shahzoda', title: 'Yor-yor remix' });
 });
 
-test('the nvate shelf is shared: popularity and start points come from real orders', async () => {
-  const music = await import('../src/music.js');
-  const { track } = await music.addTrack(id3('shelf-song'), { ownerId: 1, title: 'Kelin salom', source: 'admin', library: true });
-  const [shelf] = await music.libraryTracks();
-  assert.equal(shelf.id, Number(track.id));
+test('the nVate library: admin uploads, couples browse, the order trusts the library, not the client', async () => {
+  const library = await import('../src/musicLibrary.js');
+  const created = await library.createLibraryTrack(id3('kelin-salom'), { title: 'Kelin salom', artist: 'Ansambl', category: 'wedding', duration: 201.5 });
+  assert.equal(created.provider, 'nvate');
+  assert.match(created.audioUrl, /^\/api\/music\/audio\/nvate\/\d+$/);
+  assert.equal(await library.createLibraryTrack(Buffer.from('definitely not audio'), { title: 'x' }), null);
+  const piano = await library.createLibraryTrack(id3('piano'), { title: 'Moonlight', artist: 'Piano', category: 'piano', duration: 180 });
 
-  const key = musicKey({ musicType: 'upload', musicValue: track.file });
-  assert.equal(key, track.file, 'ключ полного трека — имя файла');
-  for (const [i, start] of [[1, 42], [2, 43]]) {
+  assert.deepEqual((await library.searchLibraryTracks('kelin')).items.map((t) => t.id), [created.id]);
+  assert.deepEqual((await library.searchLibraryTracks('', { category: 'piano' })).items.map((t) => t.id), [piano.id]);
+  assert.deepEqual((await library.searchLibraryTracks('100%_')).items, [], 'знаки LIKE в запросе — просто буквы');
+
+  for (const [i, startAt] of [[1, 42.5], [2, 43]]) {
     await submitApplication(baseForm({
-      musicType: 'upload', musicValue: track.file, musicStart: start,
+      music: { provider: 'nvate', trackId: created.id, title: 'forged title', duration: 999, startAt },
       submissionKey: `4234567${i}-1234-4123-8123-123456789abc`,
     }), { id: 8100 + i, username: `shelf_${i}` });
   }
-  assert.equal((await music.libraryTracks())[0].uses, 2);
-  assert.deepEqual(await dbModule.popularCut(key), { start: 42, uses: 2 });
-  assert.equal(await music.trackLabel(track.file), 'Kelin salom');
+  const order = await dbModule.db.prepare('SELECT * FROM applications WHERE tg_user_id = ?').get(8101);
+  const meta = JSON.parse(order.music_meta);
+  assert.deepEqual(
+    [order.music_type, order.music_value, Number(order.music_start), meta.title, meta.duration],
+    ['nvate', created.id, 42.5, 'Kelin salom', 201.5],
+    'название и длительность — из библиотеки, а не из формы',
+  );
+  assert.equal((await library.searchLibraryTracks('')).items[0].id, created.id, 'песни, которые выбирают, — выше');
+  assert.deepEqual(await dbModule.popularCut('nvate', created.id), { start: 42, uses: 2 });
 
-  // Снять с полки — не удалить: заказы, которые уже играют файл, не ломаются.
-  await music.saveLibrary([]);
-  assert.equal((await music.libraryTracks()).length, 0);
-  assert.equal((await dbModule.getTrack(track.id)).file, track.file);
+  // Длительность из формы не спасает начало за концом настоящей песни.
+  await assert.rejects(submitApplication(baseForm({
+    music: { provider: 'nvate', trackId: created.id, duration: 999, startAt: 500 },
+    submissionKey: '42345679-1234-4123-8123-123456789abc',
+  }), { id: 8109 }), /Начало/);
+
+  // Снять с полки — не удалить: приглашения, где песню выбрали, продолжают играть.
+  await library.saveLibraryEdits([{ id: created.id, active: false, title: '<i>Kelin</i>' }]);
+  assert.equal((await library.searchLibraryTracks('kelin')).items.length, 0);
+  await assert.rejects(submitApplication(baseForm({
+    music: { provider: 'nvate', trackId: created.id, startAt: 1 },
+    submissionKey: '42345678-1234-4123-8123-123456789abc',
+  }), { id: 8110 }), /недоступна/);
+  const audio = await fetch(`${baseUrl}/api/music/audio/nvate/${created.id}`, { redirect: 'manual' });
+  assert.equal(audio.status, 302);
+  assert.match(audio.headers.get('location'), /^\/uploads\/[0-9a-f-]{36}\.mp3$/);
+  const file = await fetch(`${baseUrl}${audio.headers.get('location')}`);
+  assert.equal(file.status, 200);
+  assert.match(file.headers.get('cache-control'), /immutable/);
 });
 
-test('HTTP: the shelf is public, personal music and shelf edits need Telegram', async () => {
-  const shelf = await fetch(`${baseUrl}/api/music`);
-  assert.equal(shelf.status, 200);
-  const body = await shelf.json();
-  assert.ok(Array.isArray(body.tracks));
-  assert.ok(body.tracks.every((t) => t.url.startsWith('/uploads/')), 'только наши полные файлы, без чужих превью');
-  assert.equal((await fetch(`${baseUrl}/api/music/mine`)).status, 401);
-  assert.equal((await fetch(`${baseUrl}/api/admin/library`)).status, 403);
-  assert.equal((await fetch(`${baseUrl}/api/admin/library`, { method: 'POST', body: id3('x') })).status, 403);
+test('the old shelf moves into the library once, and YouTube downloads stay out', async () => {
+  const music = await import('../src/music.js');
+  const shelf = await music.addTrack(id3('old-shelf'), { ownerId: 1, title: 'Eski', source: 'admin', library: true });
+  const downloaded = await music.addTrack(id3('old-yt'), { title: 'Downloaded', source: 'youtube', library: true });
+  assert.equal(await dbModule.migrateLegacyShelf(), 1);
+  assert.equal(await dbModule.migrateLegacyShelf(), 0, 'повторный запуск ничего не дублирует');
+  assert.ok(await dbModule.libraryTrackByLegacy(shelf.track.id));
+  assert.equal(await dbModule.libraryTrackByLegacy(downloaded.track.id), null);
 });
 
-test('YouTube search reads the results page and keeps only real songs', async () => {
+test('HTTP: music goes through one door; personal music and the admin need Telegram', async () => {
+  const config = await (await fetch(`${baseUrl}/api/config`)).json();
+  assert.deepEqual(config.music.providers.map((p) => p.id), ['nvate', 'audius', 'youtube', 'upload']);
+  assert.ok(config.music.categories.includes('wedding'));
+  assert.equal(config.downloadEnabled, undefined, 'скачивания с YouTube больше нет');
+
+  const shelf = await (await fetch(`${baseUrl}/api/music/search?provider=nvate`)).json();
+  assert.ok(shelf.ok && Array.isArray(shelf.items) && shelf.items.length);
+  assert.ok(shelf.items.every((t) => t.audioUrl.startsWith('/api/music/audio/nvate/')), 'адрес звука — только наш');
+  const byId = await (await fetch(`${baseUrl}/api/music/tracks/${shelf.items[0].id}`)).json();
+  assert.equal(byId.track.id, shelf.items[0].id);
+  assert.equal((await fetch(`${baseUrl}/api/music/tracks/999999`)).status, 404);
+
+  assert.equal((await fetch(`${baseUrl}/api/music/search?provider=spotify&q=hi`)).status, 400);
+  assert.equal((await fetch(`${baseUrl}/api/music/search?provider=upload`)).status, 401);
+  const mine = await (await fetch(`${baseUrl}/api/music/search?provider=upload`, {
+    headers: { 'x-init-data': signedInitData({ id: 8001, first_name: 'Bot' }) },
+  })).json();
+  assert.equal(mine.items[0].title, 'Yor-yor');
+
+  for (const route of ['/api/music/audio/youtube/EFUAY_KiRt0', '/api/music/audio/nvate/abc', '/api/music/audio/audius/..%2F..', '/api/music/audio/upload/evil.mp3']) {
+    assert.equal((await fetch(`${baseUrl}${route}`, { redirect: 'manual' })).status, 404, route);
+  }
+  assert.equal((await fetch(`${baseUrl}/api/admin/music`)).status, 403);
+  assert.equal((await fetch(`${baseUrl}/api/admin/music`, { method: 'POST', body: id3('x') })).status, 403);
+  assert.equal((await fetch(`${baseUrl}/api/music/link`, { method: 'POST' })).status, 404, 'загрузчика ссылок больше нет');
+});
+
+test('YouTube search reads the results page and keeps only songs the author lets us embed', async () => {
   const { parseResultsPage, parseDuration, youtubeIdOf } = await import('../src/youtube.js');
   const data = { contents: { list: [
     { videoRenderer: { videoId: 'abcdefghijk', title: { runs: [{ text: 'Yor-yor' }] }, ownerText: { runs: [{ text: 'Shahzoda' }] }, lengthText: { simpleText: '3:45' } } },
@@ -406,8 +526,25 @@ test('YouTube search reads the results page and keeps only real songs', async ()
   assert.deepEqual(parseResultsPage('<html>капча</html>'), []);
   assert.equal(parseDuration('1:02:03'), 3723);
   assert.equal(youtubeIdOf('https://youtu.be/abcdefghijk?t=3'), 'abcdefghijk');
-  const bad = await fetch(`${baseUrl}/api/music/youtube/info?url=${encodeURIComponent('https://example.com/song')}`);
-  assert.equal(bad.status, 400);
+  assert.equal(youtubeIdOf('EFUAY_KiRt0'), 'EFUAY_KiRt0', 'новые заявки хранят сам id');
+
+  const results = { contents: { list: [
+    { videoRenderer: { videoId: 'EFUAY_KiRt0', title: { runs: [{ text: 'Ibrohim Nurmatov - Oh sevaman yor' }] }, ownerText: { runs: [{ text: 'Ibrohim Nurmatov' }] }, lengthText: { simpleText: '3:42' } } },
+    // Автор запретил встраивание — плеер его не покажет, в выдачу не берём.
+    { videoRenderer: { videoId: 'privatevid1', title: { runs: [{ text: 'Closed' }] }, lengthText: { simpleText: '3:00' } } },
+    { videoRenderer: { videoId: 'longconcert', title: { runs: [{ text: 'Concert' }] }, lengthText: { simpleText: '1:20:00' } } },
+  ] } };
+  REMOTE.set('https://www.youtube.com/results', () => new Response(`<script>var ytInitialData = ${JSON.stringify(results)};</script>`));
+  const found = await (await fetch(`${baseUrl}/api/music/search?provider=youtube&q=${encodeURIComponent('oh sevaman')}`)).json();
+  assert.deepEqual(
+    found.items.map((t) => [t.id, t.title, t.artist, t.duration, t.playback, t.audioUrl]),
+    [['EFUAY_KiRt0', 'Oh sevaman yor', 'Ibrohim Nurmatov', 222, 'youtube', undefined]],
+    'звук YouTube через сервер не идёт',
+  );
+  assert.deepEqual((await (await fetch(`${baseUrl}/api/music/search?provider=youtube&q=o`)).json()).items, [], 'одна буква — не запрос');
+  REMOTE.set('https://www.youtube.com/results', () => new Response('<html>капча</html>'));
+  const down = await fetch(`${baseUrl}/api/music/search?provider=youtube&q=${encodeURIComponent('boshqa qoshiq')}`);
+  assert.equal(down.status, 502, 'заглушка вместо выдачи — «недоступно», а не «ничего не нашлось»');
 });
 
 test('«Топ выбор» с YouTube — пик пересмотров после вступления, а не первая секунда', async () => {
@@ -426,65 +563,149 @@ test('«Топ выбор» с YouTube — пик пересмотров пос�
   assert.deepEqual(songMeta('Kelin salom [Official Video]', 'Ansambl - Topic'), { title: 'Kelin salom', artist: 'Ansambl' });
 });
 
-test('a YouTube song is downloaded once for everyone and joins the shelf once a couple picks it', async () => {
-  const music = await import('../src/music.js');
-  let downloads = 0;
-  const m4a = Buffer.concat([Buffer.alloc(4), Buffer.from('ftypM4A '), Buffer.alloc(40)]);
-  const fake = {
-    download: async () => {
-      downloads += 1;
-      await new Promise((resolve) => setTimeout(resolve, 20));
-      return { buffer: m4a, name: 'Yor-yor.m4a' };
-    },
-    info: async () => ({ title: 'Yor-yor', artist: 'Shahzoda', duration: 214 }),
-    top: async () => 66,
-  };
-  const [first, second] = await Promise.all([music.youtubeSong('yoryor00001', fake), music.youtubeSong('yoryor00001', fake)]);
-  assert.equal(downloads, 1, 'две пары разом — одно скачивание');
-  assert.equal(second.id, first.id);
-  assert.equal((await music.youtubeSong('yoryor00001', fake)).id, first.id);
-  assert.equal(downloads, 1, 'скачанная песня отдаётся сразу');
-  const song = music.publicTrack(first);
-  assert.deepEqual([song.title, song.artist, song.duration, song.youtubeId], ['Yor-yor', 'Shahzoda', 214, 'yoryor00001']);
-  const onShelf = async () => (await music.libraryTracks()).some((t) => t.id === song.id);
-  assert.equal(await onShelf(), false, 'на полку — только после выбора парой');
+test('Audius: one card shape, sound through our address, closed and broken tracks hidden', async () => {
+  const raw = (id, extra = {}) => ({
+    id, title: `Song ${id}`, duration: 201, user: { name: 'Artist' },
+    artwork: { '480x480': `https://cdn.example/${id}.jpg` }, is_streamable: true, access: { stream: true }, ...extra,
+  });
+  REMOTE.set('https://api.audius.co/v1/tracks/search', (url) => (new URL(url).searchParams.get('app_name') === 'nvate'
+    ? json({ data: [raw('D7KyD'), raw('Gated', { is_stream_gated: true }), raw('NoLen', { duration: 0 })] })
+    : new Response('no app name', { status: 400 })));
+  const found = await (await fetch(`${baseUrl}/api/music/search?provider=audius&q=piano`)).json();
+  assert.deepEqual(found.items, [{
+    id: 'D7KyD', provider: 'audius', title: 'Song D7KyD', artist: 'Artist', duration: 201,
+    cover: 'https://cdn.example/D7KyD.jpg', playback: 'audio', audioUrl: '/api/music/audio/audius/D7KyD',
+  }]);
+  const stream = await fetch(`${baseUrl}/api/music/audio/audius/D7KyD`, { redirect: 'manual' });
+  assert.equal(stream.status, 302);
+  assert.equal(stream.headers.get('location'), 'https://api.audius.co/v1/tracks/D7KyD/stream?app_name=nvate');
 
-  const cut = await (await fetch(`${baseUrl}/api/music/cut?type=upload&url=${encodeURIComponent(song.file)}`)).json();
-  assert.deepEqual(cut.cut, { start: 66, uses: 0 }, 'пока пар мало — подсказывает YouTube');
+  REMOTE.set('https://api.audius.co/v1/tracks/D7KyD', () => json({ data: raw('D7KyD') }));
+  REMOTE.set('https://api.audius.co/v1/tracks/Remvd', () => new Response('', { status: 404 }));
+  const created = await submitApplication(baseForm({
+    music: { provider: 'audius', trackId: 'D7KyD', title: 'x', cover: 'javascript:alert(1)', duration: 201, startAt: 30.25, volume: 0.8 },
+    submissionKey: '62345671-1234-4123-8123-123456789abc',
+  }), { id: 8501 });
+  const meta = JSON.parse(created.app.music_meta);
+  assert.deepEqual([meta.title, meta.cover, meta.volume], ['Song D7KyD', 'https://cdn.example/D7KyD.jpg', 0.8]);
+  const html = renderInvitation(created.app);
+  assert.match(html, /src="\/api\/music\/audio\/audius\/D7KyD#t=30\.25"/);
+  assert.match(html, /mv=0\.8/);
+  await assert.rejects(submitApplication(baseForm({
+    music: { provider: 'audius', trackId: 'Remvd', startAt: 0 },
+    submissionKey: '62345672-1234-4123-8123-123456789abc',
+  }), { id: 8502 }), /недоступна/);
 
-  await submitApplication(baseForm({
-    musicType: 'upload', musicValue: song.file, musicStart: 66,
-    submissionKey: '52345671-1234-4123-8123-123456789abc',
-  }), { id: 8301, username: 'yt_song' });
-  assert.equal(await onShelf(), true);
-  await music.saveLibrary((await music.libraryTracks()).filter((t) => t.id !== song.id));
-  assert.equal(await onShelf(), false, 'снятая админом песня сама не возвращается');
-  assert.equal(await music.youtubeSong('failed00001', { ...fake, download: async () => null }), null);
+  REMOTE.set('https://api.audius.co/v1/tracks/search', () => new Response('down', { status: 503 }));
+  assert.equal((await fetch(`${baseUrl}/api/music/search?provider=audius&q=other`)).status, 502);
 });
 
-const signedInitData = (user) => {
-  const params = new URLSearchParams({ auth_date: String(Math.floor(Date.now() / 1000)), user: JSON.stringify(user) });
-  const check = [...params.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${k}=${v}`).join('\n');
-  const secret = crypto.createHmac('sha256', 'WebAppData').update(process.env.BOT_TOKEN).digest();
-  params.set('hash', crypto.createHmac('sha256', secret).update(check).digest('hex'));
-  return params.toString();
-};
+test('studio music core: listening never selects, one phase at a time, no search races', async () => {
+  const vm = await import('node:vm');
+  const sandbox = { setTimeout, clearTimeout, AbortController, console };
+  vm.runInNewContext(readFileSync(new URL('../public/app/music-core.js', import.meta.url), 'utf8'), sandbox);
+  const Core = sandbox.NvMusicCore;
+  const plain = (value) => JSON.parse(JSON.stringify(value));
+  const yt = (id, title, duration = 222) => ({ id, provider: 'youtube', title, artist: 'Ibrohim Nurmatov', duration, cover: null, playback: 'youtube' });
 
-test('HTTP: songs by link need Telegram and only ever reach YouTube, Instagram or TikTok', async () => {
-  const post = (url, initData = '') => fetch(`${baseUrl}/api/music/link`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-init-data': initData },
-    body: JSON.stringify({ url }),
+  assert.equal(Core.clock(74.35), '01:14');
+  assert.equal(Core.clock(74.35, true), '01:14.3');
+
+  const store = Core.createStore(Core.initialState());
+  const phases = [];
+  store.subscribe((s) => phases.push(s.phase));
+  store.dispatch({ type: 'open' });
+  store.dispatch({ type: 'search:start', key: 'k1' });
+  assert.equal(store.get().phase, 'SEARCHING');
+  store.dispatch({ type: 'search:done', key: 'k1', items: [yt('EFUAY_KiRt0', 'Oh sevaman yor'), yt('GYK4g5HNeVo', 'Oh sevaman yor (live)')], next: null });
+  assert.equal(store.get().phase, 'RESULTS');
+  store.dispatch({ type: 'search:done', key: 'stale', items: [], next: null });
+  assert.equal(store.get().search.items.length, 2, 'ответ на старый запрос выдачу не трогает');
+
+  // Послушать A, пауза, послушать B — выбора так и нет.
+  store.dispatch({ type: 'preview:load', key: 'youtube:EFUAY_KiRt0' });
+  store.dispatch({ type: 'preview:playing', key: 'youtube:EFUAY_KiRt0' });
+  store.dispatch({ type: 'preview:paused', key: 'youtube:EFUAY_KiRt0' });
+  store.dispatch({ type: 'preview:load', key: 'youtube:GYK4g5HNeVo' });
+  store.dispatch({ type: 'preview:playing', key: 'youtube:EFUAY_KiRt0' });
+  assert.equal(store.get().preview.status, 'loading', 'событие прежней песни не оживляет новую');
+  assert.equal(store.get().phase, 'PREVIEWING');
+  assert.equal(store.get().draft, null, 'прослушивание не выбирает песню');
+  assert.equal(store.get().saved, null);
+
+  const b = store.get().search.items[1];
+  store.dispatch({ type: 'select', track: b, startAt: 0 });
+  assert.equal(store.get().phase, 'SELECTED');
+  store.dispatch({ type: 'draft:ready', key: 'youtube:GYK4g5HNeVo', duration: 222 });
+  assert.equal(store.get().phase, 'CHOOSING_START');
+  store.dispatch({ type: 'start', startAt: 500 });
+  assert.equal(store.get().draft.startAt, 221.5, 'начало не заходит за конец песни');
+  store.dispatch({ type: 'start', startAt: 74.354 });
+  assert.equal(store.get().draft.startAt, 74.35);
+  store.dispatch({ type: 'save:start' });
+  assert.equal(store.get().phase, 'SAVING');
+  const selection = Core.toSelection(store.get().draft.track, store.get().draft.startAt);
+  store.dispatch({ type: 'save:done', selection });
+  assert.equal(store.get().phase, 'SAVED');
+  assert.deepEqual(plain(store.get().saved), {
+    provider: 'youtube', trackId: 'GYK4g5HNeVo', title: 'Oh sevaman yor (live)', artist: 'Ibrohim Nurmatov',
+    cover: null, duration: 222, startAt: 74.35, volume: 1,
   });
-  assert.equal((await post('https://youtu.be/abcdefghijk')).status, 401);
-  const couple = signedInitData({ id: 8401, first_name: 'Test' });
-  // Внутренняя сеть и чужие сайты — не песня: yt-dlp за ними не ходит.
-  for (const url of ['http://nvate-postgres.railway.internal/', 'https://example.com/song.mp4', 'http://www.tiktok.com/@a/video/1']) {
-    assert.equal((await post(url, couple)).status, 400, url);
-  }
-  assert.equal((await post('https://www.tiktok.com/@nvate/video/1', couple)).status, 501, 'без yt-dlp скачивать нечем');
-  const config = await (await fetch(`${baseUrl}/api/config`)).json();
-  assert.equal(config.downloadEnabled, false);
+  assert.ok(phases.indexOf('PREVIEWING') < phases.indexOf('SELECTED'), 'сначала слушают, потом выбирают');
+
+  // Быстрый набор: ответ «oh s» пришёл позже ответа «oh sevaman» — и выброшен.
+  const calls = [];
+  const flow = Core.createStore(Core.initialState());
+  const search = Core.createSearch({
+    store: flow,
+    browses: (provider) => provider !== 'youtube',
+    request: (params, signal) => new Promise((resolve, reject) => {
+      calls.push({ params, signal, resolve });
+      signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+    }),
+  });
+  flow.dispatch({ type: 'open' });
+  flow.dispatch({ type: 'provider', provider: 'youtube' });
+  flow.dispatch({ type: 'query', query: 'o' });
+  await search.now();
+  assert.equal(calls.length, 0, 'одна буква — не запрос');
+  assert.equal(flow.get().search.status, 'idle');
+  flow.dispatch({ type: 'query', query: 'oh s' });
+  const early = search.now();
+  flow.dispatch({ type: 'query', query: 'oh sevaman' });
+  const late = search.now();
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].signal.aborted, true, 'старый запрос отменён');
+  calls[1].resolve({ items: [yt('EFUAY_KiRt0', 'Oh sevaman yor')], next: 1 });
+  calls[0].resolve({ items: [yt('staleResul1', 'stale')], next: null });
+  await Promise.all([early, late]);
+  assert.deepEqual(plain(flow.get().search.items.map((t) => t.id)), ['EFUAY_KiRt0']);
+  const more = search.more();
+  assert.equal(calls[2].params.page, 1);
+  calls[2].resolve({ items: [yt('EFUAY_KiRt0', 'dup'), yt('GYK4g5HNeVo', 'next')], next: null });
+  await more;
+  assert.deepEqual(plain(flow.get().search.items.map((t) => t.id)), ['EFUAY_KiRt0', 'GYK4g5HNeVo'], '«Yana ko‘rsatish» дописывает без повторов');
+
+  // Черновики прошлых версий и адрес звука из выбора.
+  assert.equal(Core.migrateDraftMusic({ type: 'itunes', value: {} }, 7), null);
+  assert.equal(Core.migrateDraftMusic({ type: 'youtube', value: 'https://youtu.be/EFUAY_KiRt0', name: 'Oh', artist: 'YouTube · Ibrohim' }, 12).trackId, 'EFUAY_KiRt0');
+  assert.equal(Core.migrateDraftMusic({ type: 'upload', value: '33333333-3333-4333-8333-333333333333.mp3', name: 'Yor', duration: 200 }, 30).startAt, 30);
+  assert.equal(Core.trackFromSelection({ provider: 'nvate', trackId: '7', duration: 100 }).audioUrl, '/api/music/audio/nvate/7');
+  assert.equal(Core.trackFromSelection({ provider: 'youtube', trackId: 'EFUAY_KiRt0' }).audioUrl, undefined);
+  assert.equal(Core.normalizeSelection({ provider: 'nvate', trackId: '7', cover: 'javascript:alert(1)' }).cover, null);
+});
+
+test('R2/S3 links are signed on the server with AWS Signature V4', async () => {
+  const { presign, validKey } = await import('../src/objectStore.js');
+  // Пример из документации AWS «Authenticating Requests: Using Query Parameters».
+  const url = presign({
+    host: 'examplebucket.s3.amazonaws.com', pathname: '/test.txt', region: 'us-east-1',
+    accessKeyId: 'AKIAIOSFODNN7EXAMPLE', secretAccessKey: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
+    expires: 86400, now: new Date('2013-05-24T00:00:00Z'),
+  });
+  assert.match(url, /X-Amz-Signature=aeeed9bbccd4d02ee5c0109b86d86835f995330da4c265957d157751f604d404$/);
+  assert.equal(validKey('music/0b9c3b9e-1f5a-4c7e-9d1a-2b3c4d5e6f70.mp3'), true);
+  assert.equal(validKey('../secret.txt'), false);
 });
 
 test('an invitation names the venue kind and landmark from the catalog, not from the form', async () => {
@@ -555,6 +776,12 @@ test('the studio eraser drops comments and indentation but never changes what ru
     const source = readFileSync(new URL(`../public/app/${file}`, import.meta.url), 'utf8');
     const slim = minifyJs(source);
     assert.ok(slim.length < source.length * 0.8, `${file}: комментарии и отступы ушли`);
+    assert.doesNotThrow(() => new vm.Script(slim), `${file}: стёртый скрипт компилируется`);
+  }
+  for (const file of ['music-core.js', 'music-player.js', 'music-start.js', 'music.js']) {
+    const source = readFileSync(new URL(`../public/app/${file}`, import.meta.url), 'utf8');
+    const slim = minifyJs(source);
+    assert.ok(slim.length < source.length, `${file}: ластик прошёлся`);
     assert.doesNotThrow(() => new vm.Script(slim), `${file}: стёртый скрипт компилируется`);
   }
   assert.equal(minifyJs('const broken = ('), 'const broken = (', 'некомпилируемый исходник уходит как есть');

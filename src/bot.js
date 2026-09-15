@@ -5,17 +5,26 @@ import path from 'node:path';
 import { payApplication, cancelApplication, ValidationError, mapsLinks } from './service.js';
 import { findMusicPreset, SUPPORT_URL, ADDONS, GUEST_LINK_PRICE, MAX_PHOTOS } from './config.js';
 import { findTemplate, publicTemplates } from './templateStore.js';
-import { markMainSent, markGuestSent, getApplication, listGuests, refreshSettings, getTrack, setTrackLibrary, trackByTelegram, getApplicationBySlug, getGuestById, setGuestMessage } from './db.js';
+import { markMainSent, markGuestSent, getApplication, listGuests, refreshSettings, getTrack, trackByTelegram, getApplicationBySlug, getGuestById, setGuestMessage } from './db.js';
 import { UPLOADS_DIR } from './upload.js';
 import { escapeHtml as esc } from './render.js';
 import { addTrack, metaFromFileName, trackLabel, MAX_TRACK_BYTES } from './music.js';
+import { inLibrary, toggleLibraryFromTrack } from './musicLibrary.js';
+import { parseMusicMeta } from './musicSelection.js';
 import { renderShareCard } from './share.js';
 
 function money(n) {
   return `${Number(n).toLocaleString('ru-RU')} сум`;
 }
 
+const MUSIC_SOURCES = { nvate: 'nVate', audius: 'Audius', youtube: 'YouTube', upload: 'свой файл' };
+
 function musicLine(app, musicTitle = null) {
+  const meta = parseMusicMeta(app.music_meta);
+  if (meta?.title) {
+    const source = MUSIC_SOURCES[app.music_type];
+    return `${[meta.title, meta.artist].filter(Boolean).join(' — ')}${source ? ` · ${source}` : ''}`;
+  }
   if (app.music_type === 'upload' && musicTitle) return musicTitle;
   if (app.music_type === 'preset') return findMusicPreset(app.music_value)?.name ?? app.music_value;
   if (app.music_type === 'itunes') {
@@ -66,7 +75,7 @@ export function buildAdminText(app, { baseUrl, guests = [], musicTitle = null } 
     `👰 Невеста: <b>${esc(app.bride_name)}</b>`,
     `📅 ${esc(app.wedding_date)}  🕐 ${esc(app.wedding_time)}`,
     `📍 ${esc(app.address ?? 'адрес не указан')}`,
-    `🎵 ${esc(musicLine(app, musicTitle))}${app.music_start > 0 ? ` (с ${Math.floor(app.music_start / 60)}:${String(Math.round(app.music_start % 60)).padStart(2, '0')})` : ''}`,
+    `🎵 ${esc(musicLine(app, musicTitle))}${app.music_start > 0 ? ` (с ${Math.floor(app.music_start / 60)}:${String(Math.floor(app.music_start % 60)).padStart(2, '0')})` : ''}`,
     `📷 Фото: ${photoCount(app)} шт.`,
     `🎨 Шаблон: ${esc(template?.name ?? app.template_id)} — ${money(app.template_price)}`,
   ];
@@ -297,12 +306,12 @@ export function createBot({ token, adminIds = [], baseUrl }) {
      «в библиотеку»: полка nvate собирается из того, что пары несут сами. */
   const AUDIO_DOC = /\.(mp3|m4a|ogg|oga|opus|wav)$/i;
 
-  function trackKeyboard(track, fromId) {
+  function trackKeyboard(track, fromId, listed = false) {
     const kb = new InlineKeyboard();
     if (https) kb.webApp('💌 Studiya · Студия', orderUrl);
     if (isAdminId(fromId)) {
       if (https) kb.row();
-      kb.text(Number(track.library) === 1 ? '✅ Kutubxonada · В библиотеке' : '📚 Kutubxonaga · В библиотеку', `lib:${track.id}`);
+      kb.text(listed ? '✅ Kutubxonada · В библиотеке' : '📚 Kutubxonaga · В библиотеку', `lib:${track.id}`);
     }
     return kb;
   }
@@ -344,7 +353,7 @@ export function createBot({ token, adminIds = [], baseUrl }) {
       const name = `🎵 <b>${esc(track.title)}</b>${track.artist ? ` — ${esc(track.artist)}` : ''}`;
       await ctx.reply(
         `${name}\n\n✅ Studiyada: <i>Musiqa → Mening musiqam</i>\n✅ В студии: <i>Музыка → Моя музыка</i>`,
-        { parse_mode: 'HTML', ...replyTo, reply_markup: trackKeyboard(track, ownerId) }
+        { parse_mode: 'HTML', ...replyTo, reply_markup: trackKeyboard(track, ownerId, isAdminId(ownerId) && await inLibrary(track.id)) }
       );
     } catch (e) {
       console.error('[bot] track receive failed:', e.message ?? e);
@@ -359,11 +368,10 @@ export function createBot({ token, adminIds = [], baseUrl }) {
     }
     const track = await getTrack(Number(ctx.match[1]));
     if (!track) return ctx.answerCallbackQuery({ text: 'Трек не найден', show_alert: true });
-    const on = Number(track.library) !== 1;
-    await setTrackLibrary(track.id, on);
-    await ctx.answerCallbackQuery({ text: on ? '📚 На полке nvate' : 'Снят с полки' });
+    const on = await toggleLibraryFromTrack(track);
+    await ctx.answerCallbackQuery({ text: on ? '📚 В библиотеке nVate' : 'Снят с полки' });
     try {
-      await ctx.editMessageReplyMarkup({ reply_markup: trackKeyboard({ ...track, library: on ? 1 : -1 }, ctx.from.id) });
+      await ctx.editMessageReplyMarkup({ reply_markup: trackKeyboard(track, ctx.from.id, on) });
     } catch { /* сообщение уже изменено */ }
   });
 
