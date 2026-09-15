@@ -17,6 +17,15 @@
         "C:/Users/van/AppData/Local/Temp/claude/D--code-vibe-wedding-app/c1664470-b15f-45e7-870c-ae6abb3a035a/scratchpad/preview-server.mjs"
       ],
       "port": 3012
+    },
+    {
+      "name": "nvate-dev",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "--env-file=C:/Users/van/AppData/Local/Temp/claude/D--code-vibe-wedding-app/cdf11df8-f730-42ac-b52d-cc4a494eb5f0/scratchpad/dev.env",
+        "src/index.js"
+      ],
+      "port": 3021
     }
   ]
 }
