@@ -5,8 +5,8 @@
    источника. YouTube — поиск: послушал несколько вариантов → «Tanlash».
    «Mening musiqam» — всё своё: magic import по ссылке (YouTube, TikTok,
    Instagram…), загрузка звука или видео и песни, пересланные боту. Выбрал,
-   загрузил или импортировал — открывается «катушка»: точный момент начала
-   (music-start.js), и только потом «Saqlash».
+   загрузил или импортировал — открывается «катушка» (music-start.js): сдвинул
+   начало — оно уже сохранено, кнопки «сохранить» нет.
 
    Звучит всегда что-то одно — единый плеер (music-player.js). Состояние шага
    одно — в music-core.js. */
@@ -33,11 +33,13 @@
       errorTitle: 'Qo‘shiqlar ochilmadi', errorText: 'Aloqani tekshirib, qayta urinib ko‘ring',
       trackError: 'Bu qo‘shiqni ochib bo‘lmadi — boshqasini tanlang', tapVideo: 'Tinglash uchun videoga bosing',
       startLabel: 'Boshlanish', startHint: 'Tasmani suring: igna ostidan mehmonlar eshitadi', playFrom: 'Shu yerdan tinglash',
-      back: 'Orqaga', save: 'Saqlash', saving: 'Saqlanmoqda…', top: 'Top tanlov', startSlider: 'Boshlanish vaqti',
+      top: 'Top tanlov', startSlider: 'Boshlanish vaqti',
       nudge: (d) => `${Math.abs(d)} soniya ${d < 0 ? 'oldinroq' : 'keyinroq'}`, waveCooking: 'To‘lqin tayyorlanmoqda',
       startsAt: (time) => `${time} dan boshlanadi`, fromStart: 'Boshidan boshlanadi',
-      chosen: 'Tanlangan qo‘shiq', changeStart: 'O‘zgartirish', remove: 'Musiqani olib tashlash',
+      chosen: 'Tanlangan qo‘shiq', change: 'O‘zgartirish', remove: 'Musiqani olib tashlash',
       skip: 'Musiqasiz davom etish',
+      topTitle: 'nVate’da ko‘p tanlanganlar', topText: 'Juftliklar taklifnomasiga qo‘ygan qo‘shiqlar',
+      uses: (n) => `${n} marta tanlangan`,
       magicTitle: 'Magic import', magicText: 'YouTube, TikTok, Instagram yoki boshqa havola — musiqasini o‘zimiz ajratib olamiz',
       linkPh: 'Havolani shu yerga qo‘ying', paste: 'Qo‘yish', importGo: 'Import', importOff: 'Import vaqtincha ishlamayapti',
       uploadTitle: 'Audio yoki video', uploadText: 'Fayl yuklash · 60 MB gacha',
@@ -63,11 +65,13 @@
       errorTitle: 'Не удалось загрузить песни', errorText: 'Проверьте связь и попробуйте ещё раз',
       trackError: 'Эту песню не удалось открыть — выберите другую', tapVideo: 'Нажмите на видео, чтобы послушать',
       startLabel: 'Начало', startHint: 'Тяните ленту: с иглы гости и услышат', playFrom: 'Слушать отсюда',
-      back: 'Назад', save: 'Сохранить', saving: 'Сохраняем…', top: 'Топ выбор', startSlider: 'Начало песни',
+      top: 'Топ выбор', startSlider: 'Начало песни',
       nudge: (d) => `На ${Math.abs(d)} с ${d < 0 ? 'раньше' : 'позже'}`, waveCooking: 'Готовим волну',
       startsAt: (time) => `Начинается с ${time}`, fromStart: 'Играет с начала',
-      chosen: 'Выбранная песня', changeStart: 'Изменить', remove: 'Убрать музыку',
+      chosen: 'Выбранная песня', change: 'Изменить', remove: 'Убрать музыку',
       skip: 'Продолжить без музыки',
+      topTitle: 'Популярное в nVate', topText: 'Песни, которые пары ставят в приглашения',
+      uses: (n) => `выбрали ${n} ${n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'раза' : 'раз'}`,
       magicTitle: 'Magic import', magicText: 'Ссылка на YouTube, TikTok, Instagram или другой сайт — музыку достанем сами',
       linkPh: 'Вставьте ссылку', paste: 'Вставить', importGo: 'Импорт', importOff: 'Импорт временно недоступен',
       uploadTitle: 'Аудио или видео', uploadText: 'Загрузить файл · до 60 МБ',
@@ -89,6 +93,7 @@
     play: ['M8 5.5v13l10.5-6.5z'],
     pause: ['M9 6v12', 'M15 6v12'],
     close: ['M6 6l12 12', 'M18 6L6 18'],
+    back: ['M15 5l-7 7 7 7'],
     search: ['M10.5 17a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13z', 'M15.5 15.5L20 20'],
     note: ['M9 18V6l10-2v12', 'M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', 'M16 19a3 3 0 1 0 0-6 3 3 0 0 0 0 6z'],
     upload: ['M12 16V4', 'M7 9l5-5 5 5', 'M5 20h14'],
@@ -111,6 +116,8 @@
   let poll = 0;
   let mineSeen = null;
   let ytQuery = '';
+  let browsing = false;          // пара сама ушла к списку — катушку ей не навязываем
+  let commitTimer = 0;
   const els = {};
   const jobTimers = new Map();
   const jobFailures = new Map();
@@ -332,10 +339,18 @@
     return block;
   }
 
+  /* Шапка топа: пока строка поиска пуста, YouTube показывает, что выбирают другие пары. */
+  function topHeader() {
+    return h('div', { class: 'mlib-top' },
+      h('span', { class: 'mlib-top-ic', 'aria-hidden': 'true' }, icon('spark')),
+      h('span', { class: 'mlib-top-copy' }, h('b', {}, w('topTitle')), h('span', {}, w('topText'))));
+  }
+
   function renderList() {
     const s = store.get();
     const list = listEl();
     const { status, items, next, more } = s.search;
+    const top = s.provider === 'youtube' && !Core.searchParams(s).query;
     const nodes = [];
     if (status === 'loading' && !more) {
       for (let i = 0; i < 4; i += 1) {
@@ -343,17 +358,18 @@
           h('span', { class: 'mlib-cover' }), h('span', { class: 'mrow-info' }, h('b', {}), h('span', {}))));
       }
     } else if (status === 'error') {
-      nodes.push(stateBlock('error'));
+      nodes.push(stateBlock(top ? 'youtube' : 'error'));
     } else if (status === 'idle') {
       if (s.provider === 'youtube') nodes.push(stateBlock('youtube'));
     } else if (!items.length) {
       if (personal(s.provider)) {
         if (!s.imports.length) nodes.push(stateBlock('mine'));
       } else {
-        nodes.push(stateBlock('empty'));
+        nodes.push(stateBlock(top ? 'youtube' : 'empty'));
       }
     } else {
-      items.forEach((track) => nodes.push(row(track)));
+      if (top) nodes.push(topHeader());
+      items.forEach((track, i) => nodes.push(row(track, top ? i + 1 : 0)));
       if (next !== null || more) {
         const button = h('button', { type: 'button', class: `btn btn--ghost btn--block mlib-more${more ? ' btn--wait' : ''}` }, w('more'));
         button.disabled = more;
@@ -365,11 +381,14 @@
     list.setAttribute('aria-busy', status === 'loading' ? 'true' : 'false');
   }
 
-  function row(track) {
+  function row(track, rank = 0) {
     const key = Core.trackKey(track);
+    const byline = [track.artist || w('providers')[track.provider], track.uses > 0 ? w('uses', track.uses) : ''].filter(Boolean).join(' · ');
     const main = h('button', { type: 'button', class: 'mrow-main' },
-      h('span', { class: 'mlib-cover' }, ...cover(track), h('span', { class: 'mrow-eq', 'aria-hidden': 'true' }, h('i', {}), h('i', {}), h('i', {}))),
-      h('span', { class: 'mrow-info' }, h('b', {}, track.title), h('span', {}, track.artist || w('providers')[track.provider])),
+      h('span', { class: 'mlib-cover' }, ...cover(track),
+        rank ? h('span', { class: 'mrow-rank', 'aria-hidden': 'true' }, String(rank)) : null,
+        h('span', { class: 'mrow-eq', 'aria-hidden': 'true' }, h('i', {}), h('i', {}), h('i', {}))),
+      h('span', { class: 'mrow-info' }, h('b', {}, track.title), h('span', {}, byline)),
       h('span', { class: 'mrow-time' }, track.duration ? Core.clock(track.duration) : ''));
     const listen = h('button', { type: 'button', class: 'mrow-listen' }, icon('play', true), icon('pause'));
     const take = h('button', { type: 'button', class: 'mrow-take' }, w('take'));
@@ -457,8 +476,13 @@
     const track = Core.trackFromSelection(sel);
     els.cardPlay = h('button', { type: 'button', class: 'mchosen-play' }, icon('play', true), icon('pause'));
     const remove = h('button', { type: 'button', class: 'mchosen-remove', 'aria-label': w('remove') }, icon('close'));
-    const edit = h('button', { type: 'button', class: 'mchosen-edit' },
-      h('span', {}, sel.startAt > 0 ? w('startsAt', Core.clock(sel.startAt)) : w('fromStart')), h('b', {}, w('changeStart')));
+    // Касание по песне возвращает к её катушке — поменять начало.
+    const open = h('button', { type: 'button', class: 'mchosen-open' },
+      h('span', { class: 'mlib-cover mchosen-cover' }, ...cover(track)),
+      h('span', { class: 'mchosen-info' },
+        h('b', {}, sel.title),
+        h('span', {}, sel.artist || w('providers')[sel.provider] || ''),
+        h('em', {}, sel.startAt > 0 ? w('startsAt', Core.clock(sel.startAt)) : w('fromStart'))));
     els.cardPlay.addEventListener('click', toggleCard);
     remove.addEventListener('click', () => {
       haptic.tap();
@@ -466,14 +490,10 @@
       owner = null;
       options.onSkip();
     });
-    edit.addEventListener('click', () => choose(track, sel.startAt));
+    open.addEventListener('click', () => choose(track, sel.startAt));
     els.chosen.replaceChildren(
       h('span', { class: 'mchosen-label' }, w('chosen')),
-      h('div', { class: 'mchosen-row' },
-        h('span', { class: 'mlib-cover mchosen-cover' }, ...cover(track)),
-        h('div', { class: 'mchosen-info' }, h('b', {}, sel.title), h('span', {}, sel.artist || w('providers')[sel.provider] || '')),
-        els.cardPlay, remove),
-      edit);
+      h('div', { class: 'mchosen-row' }, open, els.cardPlay, remove));
     paintCardPlay(owner === 'card' && Player.isPlaying() ? 'playing' : 'idle');
   }
 
@@ -488,8 +508,8 @@
     const onStart = store.get().view === 'start';
     els.library.hidden = onStart;
     start.el.hidden = !onStart;
-    // Пока выбирают начало, плавающая «к следующему шагу» не ложится на «Saqlash».
-    document.body.classList.toggle('is-music-reel', onStart);
+    // Пока настраивают начало, блок музыки не гаснет, даже если следующий шаг уже открыт.
+    options.root.closest('.blk')?.classList.toggle('is-editing', onStart);
     renderChosen();
     if (!onStart) return;
     start.render();
@@ -552,19 +572,28 @@
     Player.load(track, { at: 0, autoplay: true });
   }
 
-  function choose(track, startAt) {
-    haptic.tap();
+  function choose(track, startAt, { quiet = false } = {}) {
+    if (!quiet) haptic.tap();
     const s = store.get();
     const same = s.saved && s.saved.provider === track.provider && s.saved.trackId === track.id;
     if (owner) Player.stop();
     owner = null;
+    browsing = false;
     store.dispatch({ type: 'select', track, startAt: startAt ?? (same ? s.saved.startAt : 0) });
     start.prepare(track);
-    renderView(true);
+    renderView(!quiet);
+    // «Tanlash» нажата — студия сразу открывает следующий шаг, не дожидаясь, пока
+    // пара подвигает начало. Камера при этом остаётся на музыке.
+    if (!quiet && options.onPick) options.onPick();
   }
 
+  /* «O‘zgartirish»: к списку, чтобы выбрать другую песню. Выбранная остаётся. */
   function backToLibrary() {
-    haptic.tap();
+    if (commitTimer) {
+      clearTimeout(commitTimer);
+      commit();
+    }
+    browsing = true;
     if (owner === 'start') Player.stop();
     owner = null;
     start.abort();
@@ -587,22 +616,26 @@
     syncPoll();
   }
 
-  function save() {
+  /* Нажимать «сохранить» не нужно: песня и её начало уходят в черновик сами —
+     чуть погодя после последнего движения, а не на каждый кадр ленты. */
+  function scheduleCommit() {
+    clearTimeout(commitTimer);
+    commitTimer = setTimeout(commit, 320);
+  }
+
+  function commit() {
+    commitTimer = 0;
     const s = store.get();
     const draft = s.draft;
-    if (!draft || !draft.ready || s.saving) return;
+    if (s.view !== 'start' || !draft || !draft.ready) return;
     const selection = Core.toSelection(draft.track, draft.startAt);
-    if (!selection || !selection.duration || selection.startAt >= selection.duration) {
-      toast(w('trackError'), 'err');
-      return;
-    }
-    store.dispatch({ type: 'save:start' });
-    haptic.ok();
-    if (owner) Player.stop();
-    owner = null;
-    start.abort();
-    options.onSave(selection);
-    store.dispatch({ type: 'save:done', selection });
+    if (!selection || !selection.duration || selection.startAt >= selection.duration) return;
+    const prev = s.saved;
+    if (prev && prev.provider === selection.provider && prev.trackId === selection.trackId
+      && prev.startAt === selection.startAt && prev.duration === selection.duration) return;
+    store.dispatch({ type: 'saved', selection });
+    if (options.onChange) options.onChange(selection);
+    else options.onSave(selection);
   }
 
   function toggleCard() {
@@ -851,6 +884,7 @@
     if (s.view !== prev.view) { renderView(); syncPoll(); }
     else if (s.saved !== prev.saved) renderChosen();
     if (s.draft !== prev.draft || s.saving !== prev.saving) start.render();
+    if (s.draft !== prev.draft && s.view === 'start' && s.draft && s.draft.ready) scheduleCommit();
     options.root.dataset.phase = s.phase;
   }
 
@@ -889,6 +923,14 @@
     renderJobs();
     renderView();
     const s = store.get();
+    // Песня уже выбрана — шаг открывается сразу на её катушке, а не на списке.
+    if (s.view === 'library' && s.saved && !browsing && options.root.offsetParent !== null) {
+      const track = Core.trackFromSelection(s.saved);
+      if (track) {
+        choose(track, s.saved.startAt, { quiet: true });
+        return;
+      }
+    }
     if (s.view === 'library') {
       if (!s.search.key || s.search.status === 'error') search.now();
       if (s.provider === 'youtube') Player.warmYouTube();
@@ -902,7 +944,7 @@
     search = Core.createSearch({
       store,
       request,
-      browses: (id) => id === 'upload',
+      browses: (id) => id === 'upload' || id === 'youtube',
       personal,
       delay: 350,
     });
@@ -911,7 +953,6 @@
       getOwner: () => owner,
       setOwner: (next) => { owner = next; },
       back: backToLibrary,
-      save,
       upgrade: upgradeYoutube,
     });
     store.subscribe(onState);
@@ -933,7 +974,8 @@
       render,
       open: render,
       close() { if (store.get().view === 'start') backToLibrary(); },
-      isOpen: () => store.get().view === 'start',
+      // Катушка — обычное состояние шага, а не окно: «назад» Telegram она не перехватывает.
+      isOpen: () => false,
       hush() {
         if (owner) Player.stop();
         owner = null;

@@ -375,6 +375,10 @@ const FLOW = Object.freeze({
 /* Пара печатает — не торопим. Три секунды тишины после последней буквы, и
    только тогда клавиатура уходит, а камера едет дальше. */
 const TYPING_PAUSE = 3000;
+/* Именные приглашения держим на экране пять секунд: пара успевает прочитать и
+   решить. Тронула переключатель или печатает имена — отсчёт начинается заново,
+   камера не уезжает посреди слова. */
+const GUESTS_HOLD = 5000;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /* ════ Клавиатура ════
@@ -784,7 +788,7 @@ function activateStep(i) {
       }, 1250);
     }
   }
-  if (id === 'guests') autoAdvance(2600);
+  if (id === 'guests') autoAdvance(GUESTS_HOLD);
 }
 
 function onEnterStep(i) {
@@ -1162,6 +1166,7 @@ async function loadVenues() {
     $('venue-chosen').hidden = true;
     $('venue-pick').hidden = false;
     $('venue-body').hidden = false;
+    $('venue-own').hidden = false;
     paintMapNote();
   } else {
     openManual({ quiet: true });
@@ -1189,6 +1194,7 @@ function openManual({ quiet = false } = {}) {
   state.venueId = null;
   $('venue-pick').hidden = true;
   $('venue-body').hidden = true;
+  $('venue-own').hidden = true;
   $('venue-chosen').hidden = true;
   $('venue-manual').hidden = false;
   paintVenueMarks([]);
@@ -1213,6 +1219,7 @@ function reopenVenues() {
   $('venue-manual').hidden = true;
   $('venue-pick').hidden = false;
   $('venue-body').hidden = false;
+  $('venue-own').hidden = false;
   venueMap?.clearMark();
   renderVenues();
   fitVenues();
@@ -1226,6 +1233,7 @@ function renderVenueChoice() {
   if (venue) {
     $('venue-pick').hidden = true;
     $('venue-body').hidden = true;
+    $('venue-own').hidden = true;
     $('venue-manual').hidden = true;
     $('venue-chosen').hidden = false;
     $('venue-name').textContent = venue.name;
@@ -1235,6 +1243,7 @@ function renderVenueChoice() {
     if ($('address').value.trim() || !venues().length) {
       $('venue-pick').hidden = true;
       $('venue-body').hidden = true;
+      $('venue-own').hidden = true;
       $('venue-manual').hidden = false;
     }
   }
@@ -1421,6 +1430,7 @@ function showGeo(list) {
       box.hidden = true;
       $('venue-pick').hidden = true;
       $('venue-body').hidden = true;
+      $('venue-own').hidden = true;
       $('venue-chosen').hidden = true;
       $('venue-manual').hidden = false;
       paintMapNote();
@@ -1471,6 +1481,21 @@ const Music = window.NvMusic ? window.NvMusic.mount({
   botUrl: () => state.config?.botUrl || null,
   initData: () => (tg ? tg.initData : ''),
   selection: () => state.music,
+  /* Кнопки «сохранить» нет: выбранная песня и её начало ложатся в черновик
+     сами, как только пара их поменяла. Следующий шаг открывает сама пара. */
+  onChange(selection) {
+    state.music = selection;
+    state.previewHtml = '';
+    clearErr(stepIdx('music'));
+    saveDraft();
+    updateBill();
+  },
+  /* «Tanlash»: следующий блок открывается сразу. Переход тихий — камера не едет,
+     пара остаётся выбирать начало, а новый блок поднимется, когда до него долистают. */
+  onPick() {
+    const i = stepIdx('music');
+    if (state.open === i) unlock(i + 1, { quiet: STEPS[i].quiet === true });
+  },
   onSave(selection) {
     state.music = selection;
     state.previewHtml = '';
@@ -1872,6 +1897,7 @@ function renderGuests(focusIdx = -1) {
       updateTally();
       updateBill();
       saveDraft();
+      if (state.open === stepIdx('guests')) autoAdvance(GUESTS_HOLD);
       // первое слово в последнем поле — открываем следующее, не теряя фокуса
       if (wasBlank && input.value.trim() && i === state.guests.length - 1 && state.guests.length < max) {
         const caret = input.selectionStart ?? input.value.length;
@@ -2188,6 +2214,7 @@ function wire() {
     renderGuests();
     updateBill();
     saveDraft();
+    if (state.open === stepIdx('guests')) autoAdvance(GUESTS_HOLD);
   });
 
   $('phone').addEventListener('input', () => { markFilled($('phone')); clearErr(8); saveDraft(); });

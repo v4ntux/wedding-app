@@ -513,10 +513,38 @@ test('YouTube search reads the results page and keeps only songs the author lets
     [['EFUAY_KiRt0', 'Oh sevaman yor', 'Ibrohim Nurmatov', 222, 'youtube', undefined]],
     'звук YouTube через сервер не идёт',
   );
-  assert.deepEqual((await (await fetch(`${baseUrl}/api/music/search?provider=youtube&q=o`)).json()).items, [], 'одна буква — не запрос');
+  const shortQuery = await (await fetch(`${baseUrl}/api/music/search?provider=youtube&q=o`)).json();
+  assert.ok(shortQuery.items.every((t) => t.provider === 'youtube' && t.uses >= 1), 'одна буква — не запрос: вместо выдачи — топ nVate');
   REMOTE.set('https://www.youtube.com/results', () => new Response('<html>капча</html>'));
   const down = await fetch(`${baseUrl}/api/music/search?provider=youtube&q=${encodeURIComponent('boshqa qoshiq')}`);
   assert.equal(down.status, 502, 'заглушка вместо выдачи — «недоступно», а не «ничего не нашлось»');
+});
+
+test('«Топ nVate»: songs couples put into invitations, most chosen first, personal files stay private', async () => {
+  const { topSongs, forgetTopSongs } = await import('../src/musicTop.js');
+  const music = await import('../src/music.js');
+  const { saveUpload } = await import('../src/upload.js');
+  const choose = (i, song) => submitApplication(baseForm({ music: song, submissionKey: `7234567${i}-1234-4123-8123-123456789abc` }), { id: 8700 + i });
+  await choose(1, { provider: 'youtube', trackId: 'topSongAAAA', startAt: 12 });
+  await choose(2, { provider: 'youtube', trackId: 'topSongAAAA', startAt: 30 });
+  // Звук, скачанный из того же ролика, — та же песня.
+  const fromVideo = await music.registerTrack(saveUpload(id3('top-from-video')).file, {
+    ownerId: 8703, title: 'Oh sevaman yor', artist: 'Ibrohim', duration: 222, source: 'youtube', sourceId: 'topSongAAAA',
+  });
+  await choose(3, { provider: 'upload', trackId: fromVideo.file, startAt: 5 });
+  // Песня из бота — личная: чужим парам её не показываем.
+  const personal = await music.registerTrack(saveUpload(id3('top-personal')).file, { ownerId: 8704, title: 'Oilaviy', source: 'bot' });
+  for (const i of [4, 5, 6, 7]) await choose(i, { provider: 'upload', trackId: personal.file, startAt: 0 });
+
+  forgetTopSongs();
+  const { items } = await topSongs();
+  const song = items.find((item) => item.id === 'topSongAAAA');
+  assert.deepEqual([song.uses, song.provider, song.cover], [3, 'youtube', 'https://i.ytimg.com/vi/topSongAAAA/mqdefault.jpg']);
+  assert.ok(!items.some((item) => item.id === personal.file || item.title === 'Oilaviy'), 'личные файлы в топ не попадают');
+  const counts = items.map((item) => item.uses);
+  assert.deepEqual(counts, [...counts].sort((a, b) => b - a), 'сначала то, что выбирают чаще');
+  const http = await (await fetch(`${baseUrl}/api/music/search?provider=youtube`)).json();
+  assert.ok(http.items.some((item) => item.id === 'topSongAAAA' && item.uses === 3), 'пустой поиск YouTube — это топ');
 });
 
 test('«Топ выбор» с YouTube — пик пересмотров после вступления, а не первая секунда', async () => {
@@ -791,6 +819,28 @@ test('magic import: a link or a video becomes the couple’s own song and is nev
   } finally {
     extract.useRunner(null);
     extract.useLookup(null);
+  }
+});
+
+test('the database opens again after a restart: every migration can run twice', async () => {
+  const { spawnSync } = await import('node:child_process');
+  const dir = mkdtempSync(path.join(tmpdir(), 'nvate-restart-'));
+  try {
+    const env = { ...process.env, NVATE_DATA_DIR: dir, DATABASE_URL: '' };
+    const script = "const { db } = await import('./src/storage.js'); await db.close();";
+    for (const start of ['первый', 'второй']) {
+      const run = spawnSync(process.execPath, ['--input-type=module', '-e', script], { cwd: new URL('..', import.meta.url), env, encoding: 'utf8' });
+      assert.equal(run.status, 0, `${start} запуск: ${run.stderr}`);
+    }
+    const { DatabaseSync } = await import('node:sqlite');
+    const sqlite = new DatabaseSync(path.join(dir, 'wedding.db'), { readOnly: true });
+    const indexes = sqlite.prepare("SELECT name, sql FROM sqlite_master WHERE type = 'index' AND tbl_name = 'tracks'").all();
+    sqlite.close();
+    assert.ok(indexes.some((index) => index.name === 'tracks_by_source'));
+    assert.ok(!indexes.some((index) => /UNIQUE/i.test(index.sql || '') && /source_id/.test(index.sql || '')),
+      'одна ссылка у двух пар — две строки: уникального индекса по источнику нет');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 });
 

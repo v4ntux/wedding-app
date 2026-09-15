@@ -4,8 +4,11 @@
    Волна песни лежит лентой под неподвижной золотой иглой. Ленту тянут пальцем
    и бросают — она докатывается сама; короткое касание подвозит к игле тот
    момент, куда нажали. Всё, что правее иглы, светится золотом: это и услышат
-   гости. Под лентой — вся песня целиком с окошком видимого куска: по ней
-   прыгают через всю песню одним движением.
+   гости. Под лентой — вся песня целиком с окошком видимого куска.
+
+   Кнопки «сохранить» нет: сдвинул начало — оно уже выбрано, и песня сама
+   звучит с этого места пять секунд и плавно гаснет. Сверху — «O‘zgartirish»:
+   вернуться к списку и выбрать другую песню.
 
    Пока звук ролика YouTube скачивается, лента дышит; как только файл готов,
    волна вырастает из середины. Если скачать не вышло, шкала рисуется по
@@ -24,6 +27,8 @@
   const RULER_Y = 120;
   const MAP_H = 30;
   const NUDGES = [-1, -0.1, 0.1, 1];
+  const SNIPPET_MS = 5000;        // после сдвига начала песня звучит пять секунд…
+  const FADE_MS = 1600;           // …и плавно гаснет
   const MONO = '500 10px ui-monospace, "SF Mono", Menlo, Consolas, monospace';
 
   const reduced = () => Boolean(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -42,7 +47,11 @@
     let revealAt = 0;             // когда пришла волна: столбики растут из середины
     let glide = null;             // плавный подъезд: { from, to, t0, ms }
     let fling = null;             // инерция после броска: { v (px/мс), last }
-    let resumeAfter = false;      // песня играла до касания — продолжить после
+    let previewAfter = false;     // движение сделала пара — по его окончании прозвучать
+    let previewTimer = 0;
+    let snippetArmed = false;     // идёт пятисекундное прослушивание
+    let snippetTimer = 0;
+    let fading = false;
     let dragging = false;
     let motion = 0;
     let lastSecond = -1;
@@ -55,6 +64,7 @@
 
     /* ── Разметка ── */
 
+    els.change = h('button', { type: 'button', class: 'reel-change' }, icon('back'), h('span', {}));
     els.cover = h('span', { class: 'mlib-cover reel-cover' });
     els.title = h('b');
     els.artist = h('span');
@@ -80,10 +90,9 @@
       h('span', { class: 'reel-play-ring', 'aria-hidden': 'true' }), icon('play', true), icon('pause'));
     els.playTxt = h('span', { class: 'reel-play-txt' });
     els.top = h('button', { type: 'button', class: 'reel-top', hidden: true });
-    els.back = h('button', { type: 'button', class: 'btn btn--ghost reel-back' });
-    els.save = h('button', { type: 'button', class: 'btn btn--gold reel-save' });
 
     els.view = h('div', { class: 'mlib-view--start reel-view', hidden: true },
+      els.change,
       h('div', { class: 'reel-track' },
         els.cover,
         h('div', { class: 'reel-info' }, els.title, els.artist, els.note)),
@@ -95,8 +104,7 @@
         els.nudges[0], els.nudges[1],
         h('div', { class: 'reel-play-wrap' }, els.play, els.playTxt),
         els.nudges[2], els.nudges[3]),
-      els.top,
-      h('footer', { class: 'reel-foot' }, els.back, els.save));
+      els.top);
 
     /* ── Подготовка песни ── */
 
@@ -105,6 +113,11 @@
       job = null;
       if (upgrade) upgrade.cancel();
       upgrade = null;
+      clearTimeout(previewTimer);
+      previewTimer = 0;
+      previewAfter = false;
+      cancelSnippet();
+      fading = false;
       stopMotion();
       hint = null;
       heat = null;
@@ -207,6 +220,67 @@
       els.note.hidden = !value;
     }
 
+    /* ── Звук: пять секунд с выбранного места ── */
+
+    function cancelSnippet() {
+      clearTimeout(snippetTimer);
+      snippetTimer = 0;
+      snippetArmed = false;
+    }
+
+    function endSnippet() {
+      snippetTimer = 0;
+      snippetArmed = false;
+      if (!own() || !Player.isPlaying()) return;
+      fading = true;
+      Player.fade(0, FADE_MS).then((finished) => {
+        fading = false;
+        if (!finished || !own()) return;
+        Player.pause();
+        Player.setVolume(1);
+      });
+    }
+
+    function stopSound() {
+      clearTimeout(previewTimer);
+      previewTimer = 0;
+      cancelSnippet();
+      if (!own()) return;
+      if (Player.isPlaying()) Player.pause();
+      Player.setVolume(1);
+    }
+
+    function playFrom() {
+      const d = draft();
+      if (!d || !d.ready) return;
+      clearTimeout(previewTimer);
+      previewTimer = 0;
+      cancelSnippet();
+      ctx.setOwner('start');
+      snippetArmed = true;
+      Player.setVolume(1);
+      const current = Player.current();
+      if (current && Core.trackKey(current) === Core.trackKey(d.track)) {
+        Player.seek(d.startAt);
+        // Уже звучит — нового «playing» не будет: пять секунд считаем отсюда.
+        if (Player.isPlaying()) paintPlay(true);
+        else Player.play();
+      } else {
+        Player.load(d.track, { at: d.startAt, autoplay: true });
+      }
+      loop();
+    }
+
+    /* Прослушивание после движения — с короткой паузой: серию касаний «+0.1»
+       песня не перебивает на каждом. */
+    function preview(delay) {
+      clearTimeout(previewTimer);
+      previewTimer = setTimeout(() => {
+        previewTimer = 0;
+        playFrom();
+      }, delay);
+    }
+
     /* ── Движение ── */
 
     function wantsFrames(now) {
@@ -289,9 +363,9 @@
       const d = draft();
       if (!d) return;
       setStart(Math.round(d.startAt * 10) / 10);
-      if (resumeAfter) {
-        resumeAfter = false;
-        playFrom();
+      if (previewAfter) {
+        previewAfter = false;
+        preview(140);
       }
     }
 
@@ -537,24 +611,28 @@
       els.view.classList.toggle('is-playing', playing);
       els.playTxt.textContent = playing ? w('pause') : w('playFrom');
       els.play.setAttribute('aria-label', playing ? w('pause') : w('playFrom'));
-      if (playing) loop();
-      else paint();
+      if (playing) {
+        // Пять секунд считаем с первого звука, а не с касания: загрузку они не съедают.
+        if (snippetArmed && !snippetTimer) snippetTimer = setTimeout(endSnippet, SNIPPET_MS);
+        loop();
+      } else {
+        if (!fading) cancelSnippet();
+        paint();
+      }
     }
 
     function render() {
       const s = store.get();
       const d = s.draft;
+      els.change.lastChild.textContent = w('change');
       els.label.textContent = w('startLabel');
       els.sub.textContent = w('startHint');
-      els.back.textContent = w('back');
-      els.save.textContent = s.saving ? w('saving') : w('save');
       els.reel.setAttribute('aria-label', w('startSlider'));
       els.nudges.forEach((button, i) => button.setAttribute('aria-label', w('nudge', NUDGES[i])));
       if (!d) return;
       els.reel.classList.toggle('is-loading', !d.ready);
       els.read.textContent = Core.clock(d.startAt, true);
       els.end.textContent = d.ready ? Core.clock(d.track.duration) : '';
-      els.save.disabled = !d.ready || s.saving;
       els.play.disabled = !d.ready;
       els.nudges.forEach((button) => { button.disabled = !d.ready; });
       els.reel.setAttribute('aria-valuenow', String(d.startAt));
@@ -575,27 +653,13 @@
       glide = null;
       fling = null;
       setStart(Math.round((d.startAt + delta) * 100) / 100);
-      if (own() && Player.isPlaying()) playFrom();
-    }
-
-    function playFrom() {
-      const d = draft();
-      if (!d || !d.ready) return;
-      ctx.setOwner('start');
-      const current = Player.current();
-      if (current && Core.trackKey(current) === Core.trackKey(d.track)) {
-        Player.seek(d.startAt);
-        Player.play();
-      } else {
-        Player.load(d.track, { at: d.startAt, autoplay: true });
-      }
-      loop();
+      preview(380);
     }
 
     function togglePlay() {
       if (!ready()) return;
       haptic.tap();
-      if (own() && Player.isPlaying()) Player.pause();
+      if (own() && Player.isPlaying()) stopSound();
       else playFrom();
     }
 
@@ -606,8 +670,7 @@
       try { els.reel.setPointerCapture(event.pointerId); } catch (_) { /* старый браузер */ }
       glide = null;
       fling = null;
-      const resume = own() && Player.isPlaying();
-      if (resume) Player.pause();
+      stopSound();
       dragging = true;
       els.reel.classList.add('is-dragging');
       const t0 = performance.now();
@@ -631,7 +694,7 @@
         els.reel.removeEventListener('pointercancel', up);
         dragging = false;
         els.reel.classList.remove('is-dragging');
-        resumeAfter = resume;
+        previewAfter = true;
         const now = performance.now();
         if (e.type === 'pointerup' && moved < 6 && now - t0 < 320) {
           // Касание: этот момент подъезжает к игле.
@@ -666,7 +729,9 @@
       event.preventDefault();
       glide = null;
       fling = null;
+      stopSound();
       setStart(draft().startAt + delta / PX_PER_SEC, true);
+      preview(700);
     }, { passive: false });
 
     els.reel.addEventListener('keydown', (event) => {
@@ -681,6 +746,7 @@
       if (next === null) return;
       event.preventDefault();
       setStart(Math.round(next * 100) / 100);
+      preview(650);
     });
 
     // Вся песня: касание или ведение пальцем переносит иглу в это место.
@@ -688,8 +754,7 @@
       if (!ready() || (event.pointerType === 'mouse' && event.button !== 0)) return;
       event.preventDefault();
       try { els.map.setPointerCapture(event.pointerId); } catch (_) { /* — */ }
-      const resume = own() && Player.isPlaying();
-      if (resume) Player.pause();
+      stopSound();
       const at = (clientX) => {
         const rect = els.map.getBoundingClientRect();
         return clamp01((clientX - rect.left) / Math.max(1, rect.width)) * draft().track.duration;
@@ -703,7 +768,7 @@
         els.map.removeEventListener('pointermove', move);
         els.map.removeEventListener('pointerup', up);
         els.map.removeEventListener('pointercancel', up);
-        resumeAfter = resume;
+        previewAfter = true;
         if (!glide) finishMove();
       };
       els.map.addEventListener('pointermove', move);
@@ -714,12 +779,16 @@
     els.top.addEventListener('click', () => {
       if (hint === null) return;
       haptic.tap();
-      resumeAfter = true;
+      stopSound();
+      previewAfter = true;
       glideTo(hint, 620);
     });
     els.play.addEventListener('click', togglePlay);
-    els.back.addEventListener('click', () => { haptic.tap(); ctx.back(); });
-    els.save.addEventListener('click', () => ctx.save());
+    els.change.addEventListener('click', () => {
+      haptic.tap();
+      stopSound();
+      ctx.back();
+    });
 
     if ('ResizeObserver' in window) {
       new ResizeObserver(() => { if (!els.view.hidden) paint(); }).observe(els.reel);

@@ -124,6 +124,8 @@ export const migrations = [
   ['music_meta', 'ALTER TABLE applications ADD COLUMN music_meta TEXT'],
   // Обложка своей песни: картинка ролика, из которого извлечён звук.
   ['tracks_cover', 'ALTER TABLE tracks ADD COLUMN cover TEXT'],
-  // Песня, уже извлечённая из ссылки или видео, второй раз не качается.
-  ['tracks_source_index', 'CREATE INDEX IF NOT EXISTS tracks_source ON tracks(source, source_id)'],
+  // Одна песня из ссылки или видео — у каждой пары своя строка с тем же файлом.
+  // Уникальный индекс старого загрузчика YouTube (одна строка на ролик на всех)
+  // такое запрещал, поэтому он уступает место обычному индексу для поиска.
+  ['tracks_source_unique_drop', 'DROP INDEX IF EXISTS tracks_source'],
 ];

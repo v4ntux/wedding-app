@@ -2,15 +2,15 @@
 /* nvate studio — единый плеер музыки.
 
    Во всей студии звучит что-то одно: плеер один, и новая песня сначала глушит
-   прежнюю. Движков два. Обычный звук (библиотека nVate, Audius, своя музыка)
-   играет одним переиспользуемым <audio>. YouTube — официальным IFrame Player
-   API: звук оттуда никуда не скачивается. Снаружи разницы нет: load, play,
-   pause, seek, time, duration и события playing / paused / ended / loading /
-   duration / error / stopped.
+   прежнюю. Движков два. Обычный звук (своя музыка, песни уже оформленных
+   приглашений) играет одним переиспользуемым <audio>. YouTube — официальным
+   IFrame Player API. Снаружи разницы нет: load, play, pause, seek, time,
+   duration, громкость с плавным затуханием и события playing / paused / ended /
+   loading / duration / error / stopped.
 
    Здесь же — рисунок волны: файл декодируется в браузере, и если источник не
-   пустил (CORS) или декодер не справился, это не ошибка — шаг выбора начала
-   просто покажет шкалу времени. */
+   пустил (CORS) или декодер не справился, это не ошибка — выбор начала просто
+   покажет шкалу времени. */
 (function () {
   'use strict';
 
@@ -31,6 +31,9 @@
     let apiPromise = null;
     let blockTimer = 0;
     let onBlocked = null;
+    let level = 1;             // громкость 0…1, одна на оба движка
+    let fadeTimer = 0;
+    let fadeDone = null;
 
     const emit = (type, detail = {}) => {
       const payload = { track, ...detail };
@@ -50,6 +53,66 @@
     audio.addEventListener('error', () => {
       if (engine === 'audio' && audio.getAttribute('src')) emit('error', { code: 'unavailable' });
     });
+
+    /* ── Громкость ──
+       Затухание — плавная кривая, а не прямая: на слух прямая «обрывается» в
+       самом конце. Где браузер громкость не отдаёт (iOS держит <audio> на
+       максимуме), затухание просто молча длится своё время. */
+
+    function applyVolume(value) {
+      level = Math.min(1, Math.max(0, value));
+      if (engine === 'audio') {
+        try { audio.volume = level; } catch (_) { /* громкость только для чтения */ }
+      } else if (engine === 'youtube' && yt && ytReady) {
+        try { yt.setVolume(Math.round(level * 100)); } catch (_) { /* плеер пересоздаётся */ }
+      }
+    }
+
+    function clearFade() {
+      clearTimeout(fadeTimer);
+      fadeTimer = 0;
+      if (fadeDone) {
+        const done = fadeDone;
+        fadeDone = null;
+        done(false);
+      }
+    }
+
+    function setVolume(value) {
+      clearFade();
+      applyVolume(value);
+    }
+
+    /* Плавно к громкости to за ms. true — дошли до конца, false — прервали. */
+    function fade(to, ms) {
+      clearFade();
+      const from = level;
+      const target = Math.min(1, Math.max(0, to));
+      const began = Date.now();
+      const mine = seq;
+      return new Promise((resolve) => {
+        fadeDone = resolve;
+        const tick = () => {
+          if (mine !== seq) {
+            fadeTimer = 0;
+            fadeDone = null;
+            resolve(false);
+            return;
+          }
+          const p = Math.min(1, (Date.now() - began) / Math.max(1, ms));
+          const rest = 1 - p * p * (3 - 2 * p);
+          applyVolume(target + (from - target) * rest * rest);
+          if (p < 1) {
+            fadeTimer = setTimeout(tick, 40);
+            return;
+          }
+          fadeTimer = 0;
+          fadeDone = null;
+          resolve(true);
+        };
+        tick();
+      });
+    }
 
     /* ── YouTube ── */
 
@@ -79,6 +142,7 @@
       if (event.data === S.PLAYING) {
         clearTimeout(blockTimer);
         reveal(false);
+        try { yt.setVolume(Math.round(level * 100)); } catch (_) { /* — */ }
         emit('playing');
         try { emit('duration', { duration: yt.getDuration() }); } catch (_) { /* плеер ещё не знает */ }
       } else if (event.data === S.PAUSED || event.data === S.CUED) emit('paused');
@@ -179,9 +243,11 @@
 
     async function load(next, { at = 0, autoplay = true } = {}) {
       const mine = ++seq;
+      clearFade();
       halt();
       track = next;
       engine = next.playback === 'youtube' ? 'youtube' : 'audio';
+      applyVolume(1);
       emit('loading');
       if (engine === 'audio') {
         if (yt && ytReady) { try { yt.stopVideo(); } catch (_) { /* — */ } }
@@ -198,6 +264,7 @@
         return;
       }
       if (mine !== seq) return;
+      applyVolume(level);
       const options = { videoId: next.id, startSeconds: Math.max(0, at) };
       try {
         if (autoplay) {
@@ -254,6 +321,7 @@
 
     function stop() {
       seq += 1;
+      clearFade();
       halt();
       if (audio.getAttribute('src')) { audio.removeAttribute('src'); audio.load(); }
       const was = track;
@@ -282,7 +350,8 @@
     }
 
     return {
-      load, play, pause, seek, time, duration, isPlaying, stop, youtubeDuration,
+      load, play, pause, seek, time, duration, isPlaying, stop, youtubeDuration, setVolume, fade,
+      volume: () => level,
       warmYouTube: () => ensureYouTube().catch(() => null),
       destroyYouTube,
       destroy() { stop(); destroyYouTube(); },

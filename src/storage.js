@@ -58,7 +58,8 @@ if (connectionString) {
     await client.query('ALTER TABLE guests ADD COLUMN IF NOT EXISTS message_id BIGINT');
     await client.query('ALTER TABLE tracks ADD COLUMN IF NOT EXISTS source_id TEXT');
     await client.query('ALTER TABLE tracks ADD COLUMN IF NOT EXISTS top_start DOUBLE PRECISION');
-    await client.query('CREATE UNIQUE INDEX IF NOT EXISTS tracks_source ON tracks(source, source_id) WHERE source_id IS NOT NULL');
+    // Индекс по источнику строится, когда колонка source_id уже точно есть.
+    await client.query('CREATE INDEX IF NOT EXISTS tracks_by_source ON tracks(source, source_id)');
     await client.query('CREATE UNIQUE INDEX IF NOT EXISTS applications_submission_key ON applications(tg_user_id, submission_key) WHERE submission_key IS NOT NULL');
     await client.query('CREATE TABLE IF NOT EXISTS nvate_migrations (name TEXT PRIMARY KEY, completed_at TIMESTAMPTZ NOT NULL DEFAULT now())');
     await client.query('COMMIT');
@@ -67,8 +68,15 @@ if (connectionString) {
 } else {
   sqlite = new DatabaseSync(path.join(dataDir, 'wedding.db'));
   sqlite.exec(schema);
-  const columns = sqlite.prepare('PRAGMA table_info(applications)').all().map((c) => c.name);
-  for (const [col, ddl] of migrations) if (!columns.includes(col)) sqlite.exec(ddl);
+  /* ALTER TABLE … ADD COLUMN в SQLite не умеет IF NOT EXISTS: колонку сверяем
+     с её собственной таблицей. Остальные миграции (индексы) идемпотентны сами
+     и выполняются при каждом старте. Раньше все сверялись с колонками
+     applications — миграция другой таблицы падала на втором запуске. */
+  const columnsOf = (table) => sqlite.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+  for (const [, ddl] of migrations) {
+    const added = /^ALTER TABLE (\w+) ADD COLUMN (\w+)/i.exec(ddl);
+    if (!added || !columnsOf(added[1]).includes(added[2])) sqlite.exec(ddl);
+  }
   const guestColumns = sqlite.prepare('PRAGMA table_info(guests)').all().map((c) => c.name);
   if (!guestColumns.includes('sent')) sqlite.exec('ALTER TABLE guests ADD COLUMN sent INTEGER NOT NULL DEFAULT 0');
   // Сообщение бота с одноразовой кнопкой «Отправить»: её снимают после отправки.
@@ -76,7 +84,7 @@ if (connectionString) {
   const trackColumns = sqlite.prepare('PRAGMA table_info(tracks)').all().map((c) => c.name);
   if (!trackColumns.includes('source_id')) sqlite.exec('ALTER TABLE tracks ADD COLUMN source_id TEXT');
   if (!trackColumns.includes('top_start')) sqlite.exec('ALTER TABLE tracks ADD COLUMN top_start REAL');
-  sqlite.exec('CREATE UNIQUE INDEX IF NOT EXISTS tracks_source ON tracks(source, source_id) WHERE source_id IS NOT NULL');
+  sqlite.exec('CREATE INDEX IF NOT EXISTS tracks_by_source ON tracks(source, source_id)');
   sqlite.exec('CREATE UNIQUE INDEX IF NOT EXISTS applications_submission_key ON applications(tg_user_id, submission_key) WHERE submission_key IS NOT NULL');
 }
 

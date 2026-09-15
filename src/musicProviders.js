@@ -16,6 +16,7 @@ import { activeLibraryTrack, libraryAudioLocation, libraryIdValid, searchLibrary
 import { audiusIdValid, audiusStreamUrl, getAudiusTrack, searchAudius } from './audius.js';
 import { searchYoutube, youtubeIdValid, youtubeTrack } from './youtube.js';
 import { searchUserTracks, uploadIdValid, uploadTrack } from './music.js';
+import { topSongs } from './musicTop.js';
 
 export const PROVIDERS = Object.freeze({
   nvate: {
@@ -27,8 +28,11 @@ export const PROVIDERS = Object.freeze({
     validId: audiusIdValid, search: searchAudius, get: getAudiusTrack, audioLocation: audiusStreamUrl,
   },
   youtube: {
-    label: 'YouTube', playback: 'youtube', browse: false, studio: true,
-    validId: youtubeIdValid, search: searchYoutube, get: youtubeTrack,
+    // Пустая строка поиска — не пустой экран, а «Топ nVate»: что выбирают другие пары.
+    label: 'YouTube', playback: 'youtube', browse: true, studio: true,
+    validId: youtubeIdValid,
+    search: (query, options) => (String(query ?? '').trim().length >= 2 ? searchYoutube(query, options) : topSongs(options)),
+    get: youtubeTrack,
   },
   upload: {
     label: 'Mening', playback: 'audio', browse: true, personal: true, studio: true,

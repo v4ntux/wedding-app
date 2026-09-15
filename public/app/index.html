@@ -198,16 +198,10 @@
         </div>
       </div>
 
-      <!-- Потом карта: своя, с метками каталога и ровно двумя кнопками. -->
-      <div class="mapframe">
-        <div id="map"></div>
-        <p id="map-note" class="map-note" hidden></p>
-      </div>
-
+      <!-- Под поиском — названия тойхон: каталог и найденные места. -->
       <div id="venue-body">
         <div id="venue-list" class="venue-list"></div>
         <div id="geo-list" class="geo-list" hidden></div>
-        <button id="venue-own" type="button" class="btn btn--ghost btn--block venue-own" data-i18n="venueOwn"></button>
       </div>
 
       <!-- Выбранное место: карточка вместо списка. -->
@@ -224,6 +218,15 @@
           <input id="address" type="text" maxlength="140" autocomplete="off" enterkeyhint="done">
         </div>
       </div>
+
+      <!-- Потом карта: своя, с метками каталога и ровно двумя кнопками. -->
+      <div class="mapframe">
+        <div id="map"></div>
+        <p id="map-note" class="map-note" hidden></p>
+      </div>
+
+      <!-- И последним — своего места в списке нет. -->
+      <button id="venue-own" type="button" class="btn btn--ghost btn--block venue-own" data-i18n="venueOwn"></button>
       <p class="blk-err" hidden></p>
     </section>
 

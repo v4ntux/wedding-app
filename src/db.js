@@ -121,6 +121,19 @@ export async function insertTrack(t) {
   return Number(res.lastInsertRowid);
 }
 
+// Какие песни пары уже поставили в приглашения (отменённые заявки не в счёт) —
+// сырьё для «Топ nVate» (src/musicTop.js).
+export async function topMusicRows(limit = 200) {
+  return db.prepare(
+    `SELECT music_type AS type, music_value AS value, MAX(music_meta) AS meta, COUNT(*) AS uses, MAX(created_at) AS last
+       FROM applications
+      WHERE music_type IN ('youtube', 'upload') AND music_value IS NOT NULL AND status <> 'cancelled'
+      GROUP BY music_type, music_value
+      ORDER BY uses DESC, last DESC
+      LIMIT ?`
+  ).all(limit);
+}
+
 // Песня, уже извлечённая из этой ссылки или видео: у пары или (owner = null) у кого угодно.
 export async function trackBySource(ownerId, source, sourceId) {
   if (ownerId === null || ownerId === undefined) {

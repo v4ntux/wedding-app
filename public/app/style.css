@@ -1982,25 +1982,10 @@ html[data-motion='full'] #sky { opacity: .92; }
 .mchosen-play.is-loading { animation: mBreath 1.2s var(--ease-silk) infinite alternate; }
 .mchosen-remove { display: grid; width: 40px; height: 40px; flex: 0 0 40px; place-items: center; color: var(--mute); border-radius: 50%; transition: color 300ms var(--ease-silk), background 300ms var(--ease-silk); }
 .mchosen-remove .mic { width: 17px; height: 17px; }
-.mchosen-edit {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-height: 44px;
-  padding: 0 14px;
-  color: var(--silk-2);
-  border: 1px solid rgba(255, 248, 232, .12);
-  border-radius: 14px;
-  background: rgba(255, 248, 232, .04);
-  font-size: .84rem;
-  text-align: left;
-  transition: border-color 300ms var(--ease-silk), transform var(--motion-fast) var(--ease-silk);
-}
-.mchosen-edit span { min-width: 0; overflow: hidden; color: var(--gold-hi); font: 500 .76rem/1.2 var(--mono); font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
-.mchosen-edit b { flex: 0 0 auto; color: var(--silk); font-weight: 600; white-space: nowrap; }
+.mchosen-open { display: flex; min-width: 0; flex: 1; align-items: center; gap: 12px; padding: 0; color: inherit; text-align: left; border-radius: 16px; transition: transform var(--motion-fast) var(--ease-silk); }
+.mchosen-info em { display: block; margin-top: 5px; overflow: hidden; color: var(--gold-hi); font: 500 .76rem/1.2 var(--mono); font-style: normal; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
 .mchosen-play:active,
-.mchosen-edit:active { transform: scale(.96); }
+.mchosen-open:active { transform: scale(.97); }
 
 /* ── Два источника ── */
 .mseg {
@@ -2191,6 +2176,15 @@ html[data-motion='full'] #sky { opacity: .92; }
 .mrow--ghost b { width: 62%; height: 12px; border-radius: 6px; }
 .mrow--ghost .mrow-info span { width: 38%; height: 10px; margin-top: 9px; border-radius: 6px; }
 @keyframes mShimmer { from { background-position: 100% 0; } to { background-position: -150% 0; } }
+
+/* «Топ nVate»: шапка над списком и место песни на обложке. */
+.mlib-top { display: flex; align-items: center; gap: 11px; padding: 4px 2px 10px; }
+.mlib-top-ic { display: grid; width: 36px; height: 36px; flex: 0 0 36px; place-items: center; color: var(--ink); border-radius: 11px; background: linear-gradient(135deg, var(--gold-hi), var(--gold)); box-shadow: 0 8px 20px -12px rgba(var(--scene-rgb), .9), inset 0 1px rgba(255, 255, 255, .5); }
+.mlib-top-ic .mic { width: 17px; height: 17px; }
+.mlib-top-copy { min-width: 0; }
+.mlib-top-copy b { display: block; color: var(--silk); font: 400 1.08rem/1.2 var(--display); }
+.mlib-top-copy span { display: block; margin-top: 2px; color: var(--mute); font-size: .78rem; }
+.mrow-rank { position: absolute; left: 3px; top: 3px; z-index: 3; display: grid; min-width: 17px; height: 17px; padding: 0 4px; place-items: center; color: var(--ink); border-radius: 9px; background: linear-gradient(135deg, var(--gold-hi), var(--gold)); box-shadow: 0 2px 8px rgba(0, 0, 0, .45); font: 700 .64rem/1 var(--body); }
 
 .mlib-state { display: grid; justify-items: center; gap: 8px; padding: 30px 18px; text-align: center; animation: mcardIn 520ms var(--ease-silk) both; }
 .mlib-state-ic { display: grid; width: 52px; height: 52px; margin-bottom: 4px; place-items: center; color: var(--gold-hi); border: 1px solid rgba(var(--scene-rgb), .3); border-radius: 50%; background: rgba(var(--scene-rgb), .08); }
@@ -2497,9 +2491,26 @@ html[data-motion='full'] #sky { opacity: .92; }
 .reel-top:active { transform: scale(.95); }
 .reel-top b { color: var(--gold-hi); font: 600 .84rem/1 var(--mono); font-variant-numeric: tabular-nums; }
 .reel-top-star { width: 9px; height: 9px; border-radius: 2px; background: var(--gold-hi); box-shadow: 0 0 10px rgba(var(--scene-rgb), .9); transform: rotate(45deg); }
-.reel-foot { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 10px; }
-.reel-foot .btn { min-height: 52px; }
-body.is-music-reel .next-cue { opacity: 0; pointer-events: none; }
+/* «O‘zgartirish» над песней: назад к списку, чтобы выбрать другую. */
+.reel-change {
+  display: inline-flex;
+  justify-self: start;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 16px 0 10px;
+  color: var(--silk);
+  border: 1px solid rgba(255, 248, 232, .16);
+  border-radius: 999px;
+  background: rgba(255, 248, 232, .05);
+  font: 600 .88rem/1 var(--body);
+  transition: border-color 300ms var(--ease-silk), background 300ms var(--ease-silk), transform var(--motion-fast) var(--ease-silk);
+}
+.reel-change .mic { width: 18px; height: 18px; color: var(--gold-hi); }
+/* Следующий шаг уже открыт, а пара ещё двигает начало: музыка остаётся яркой. */
+.blk.is-done.is-editing { opacity: 1; transform: none; }
+.blk.is-done.is-editing::after { opacity: 0; }
+.reel-change:active { transform: scale(.96); }
 
 /* На телефоне поле ссылки получает всю ширину, а «Import» встаёт под ним:
    рядом с кнопкой в поле помещалось четыре буквы подсказки. */
@@ -2534,7 +2545,7 @@ body.is-music-reel .next-cue { opacity: 0; pointer-events: none; }
   .mseg-btn:not(.is-on):hover,
   .reel-nudge:hover { color: var(--gold-hi); }
   .mtile:hover,
-  .mchosen-edit:hover { border-color: rgba(var(--scene-rgb), .45); }
+  .reel-change:hover { border-color: rgba(var(--scene-rgb), .45); }
   .mchosen-remove:hover { color: var(--danger); background: rgba(255, 248, 232, .05); }
 }
 
