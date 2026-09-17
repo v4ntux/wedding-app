@@ -404,3 +404,63 @@ export async function listRecentOrders(limit = 30) {
       .map((g) => ({ name: g.name, slug: g.slug, sent: Boolean(g.sent) })),
   })));
 }
+
+/* ── Пользователи ──
+   Строка заводится при первом касании: /start в боте или открытие студии.
+   Дальше она только дополняется — имя и язык обновляем, флаги не гасим. */
+export async function touchUser({ id, username = null, firstName = null, lang = null, source = 'bot' }) {
+  const tgId = Number(id);
+  if (!Number.isFinite(tgId) || tgId <= 0) return;
+  const started = source === 'bot' ? 1 : 0;
+  const opened = source === 'studio' ? 1 : 0;
+  await db.prepare(
+    `INSERT INTO users (tg_user_id, username, first_name, lang, started, opened, first_seen, last_seen)
+     VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+     ON CONFLICT(tg_user_id) DO UPDATE SET
+       username = COALESCE(excluded.username, users.username),
+       first_name = COALESCE(excluded.first_name, users.first_name),
+       lang = COALESCE(excluded.lang, users.lang),
+       started = CASE WHEN excluded.started = 1 THEN 1 ELSE users.started END,
+       opened = CASE WHEN excluded.opened = 1 THEN 1 ELSE users.opened END,
+       last_seen = excluded.last_seen`
+  ).run(tgId, username, firstName, lang, started, opened);
+}
+
+/* Черновик студии: step — номер незаконченного шага, null — черновика больше
+   нет (отправили заявку или начали заново). Пишем только по живой строке. */
+export async function setUserDraft(id, step) {
+  const tgId = Number(id);
+  if (!Number.isFinite(tgId) || tgId <= 0) return;
+  const value = Number.isInteger(step) && step >= 0 ? step : null;
+  if (value === null) {
+    await db.prepare("UPDATE users SET draft_step = NULL, draft_at = NULL, last_seen = datetime('now') WHERE tg_user_id = ?").run(tgId);
+    return;
+  }
+  await db.prepare("UPDATE users SET draft_step = ?, draft_at = datetime('now'), last_seen = datetime('now') WHERE tg_user_id = ?")
+    .run(value, tgId);
+}
+
+/* Показатели по людям, а не по заявкам: сколько всего заходило, сколько
+   бросило на полпути и на каком шаге, сколько дошло до заявки и до оплаты. */
+export async function userStats() {
+  const one = async (sql, ...params) => Number((await db.prepare(sql).get(...params))?.c ?? 0);
+  const total = await one('SELECT COUNT(*) c FROM users');
+  const started = await one('SELECT COUNT(*) c FROM users WHERE started = 1');
+  const opened = await one('SELECT COUNT(*) c FROM users WHERE opened = 1');
+  const drafts = await one('SELECT COUNT(*) c FROM users WHERE draft_step IS NOT NULL');
+  const ordered = await one('SELECT COUNT(DISTINCT tg_user_id) c FROM applications');
+  const buyers = await one("SELECT COUNT(DISTINCT tg_user_id) c FROM applications WHERE status = 'paid'");
+  const today = await one("SELECT COUNT(*) c FROM users WHERE substr(first_seen,1,10) = substr(datetime('now'),1,10)");
+  // Границу недели считаем здесь: у SQLite и PostgreSQL разный синтаксис сдвига дат.
+  const weekAgo = new Date(Date.now() - 7 * 86400_000).toISOString().slice(0, 19).replace('T', ' ');
+  const week = await one('SELECT COUNT(*) c FROM users WHERE first_seen >= ?', weekAgo);
+  // Брошенные черновики: те, у кого черновик есть, а заявки так и не случилось.
+  const stuck = await one(
+    `SELECT COUNT(*) c FROM users u WHERE u.draft_step IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM applications a WHERE a.tg_user_id = u.tg_user_id)`
+  );
+  const draftSteps = (await db.prepare(
+    'SELECT draft_step AS step, COUNT(*) c FROM users WHERE draft_step IS NOT NULL GROUP BY draft_step ORDER BY draft_step'
+  ).all()).map((r) => ({ step: Number(r.step), count: Number(r.c) }));
+  return { total, started, opened, drafts, stuck, draftSteps, ordered, buyers, today, week };
+}

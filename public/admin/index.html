@@ -160,6 +160,21 @@ body{background:
 .price-save{display:flex;align-items:center;gap:12px;margin-top:16px}
 .note{margin-top:10px;font-size:.78rem;color:var(--soft);line-height:1.5}
 .saved{color:var(--ok);font-size:.82rem}
+.tx{padding:13px;margin-bottom:10px;border:1px solid var(--line);border-radius:14px}
+.tx.edited{border-color:rgba(230,207,154,.5)}
+.tx-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.tx-h .nm{flex:1;min-width:0;font-size:.88rem;font-weight:600}
+.tx-h .key{font-size:.7rem;color:var(--soft);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.tx textarea{width:100%;min-height:118px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;
+  background:rgba(255,248,232,.06);color:var(--ink);font:inherit;font-size:.82rem;line-height:1.5;resize:vertical}
+.tx textarea:focus{outline:0;border-color:var(--gold);background:rgba(230,207,154,.1)}
+.tx-vars{margin-top:7px;font-size:.72rem;color:var(--soft);word-break:break-word}
+.tx-vars code{padding:1px 5px;margin-right:4px;border-radius:5px;background:rgba(230,207,154,.12);color:var(--gold)}
+.tx-reset{min-height:34px;padding:0 12px;border:1px solid var(--line);border-radius:999px;
+  background:transparent;color:var(--soft);font:inherit;font-size:.74rem;cursor:pointer}
+.tx-save{position:sticky;bottom:10px;z-index:4;display:flex;align-items:center;gap:12px;margin-top:16px;
+  padding:10px;border-radius:999px;background:rgba(12,10,6,.86);backdrop-filter:blur(8px)}
+.tx-save .act{flex:1}
 .tabs{overflow-x:auto;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
 .tabs button{flex:1 0 auto;padding:0 14px}
@@ -179,6 +194,7 @@ body{background:
     <button data-tab="orders"></button>
     <button data-tab="pricing"></button>
     <button data-tab="venues"></button>
+    <button data-tab="texts"></button>
   </div>
   <div id="content"><div class="empty">…</div></div>
 </div>
@@ -197,6 +213,14 @@ const I18N = {
   uz: {
     refresh:'↻ Yangilash', sum:'so‘m',
     tabOverview:'Ko‘rsatkichlar', tabOrders:'Arizalar', tabPricing:'Narxlar', tabVenues:'To‘yxonalar',
+    tabTexts:'Matnlar',
+    hUsers:'Foydalanuvchilar',
+    uAll:'Jami odam', uDraft:'Qoralama bor', uStuck:'Tashlab ketilgan', uOrdered:'Ariza qoldirgan',
+    uBuyers:'To‘lagan', uToday:'Bugun kelgan', uWeek:'7 kunda', uBot:'Botni ochgan', uStudio:'Studiyani ochgan',
+    uSteps:'Qoralamalar qaysi qadamda qolgan', uStep:'qadam', uNoDrafts:'Tugallanmagan qoralama yo‘q',
+    txNote:'Bot yuboradigan har bir xabar shu yerda. Maydonni bo‘sh qoldirsangiz — zavod matni qaytadi. '
+      + 'Jingalak qavsdagi {o‘zgaruvchilar} yuborishda almashadi, ularni o‘zgartirmang.',
+    txVars:'O‘zgaruvchilar:', txReset:'Zavod matni', txSave:'Matnlarni saqlash', txDefault:'zavod matni',
     kAll:'Jami arizalar', kPaid:'To‘langan', kNew:'Kutilmoqda', kCancel:'Rad etilgan',
     kRev:'Tushum', kConv:'Konversiya', kAvg:'O‘rtacha chek', kGuests:'Nomli havolalar', kGuestRev:'Ulardan tushum',
     hTpl:'Shablonlar', hDays:'So‘nggi kunlar', hMusic:'Top musiqa', hOrders:'Buyurtmalar',
@@ -232,6 +256,14 @@ const I18N = {
   ru: {
     refresh:'↻ Обновить', sum:'сум',
     tabOverview:'Показатели', tabOrders:'Заявки', tabPricing:'Цены', tabVenues:'Тойхоны',
+    tabTexts:'Тексты',
+    hUsers:'Пользователи',
+    uAll:'Всего людей', uDraft:'С черновиком', uStuck:'Бросили на полпути', uOrdered:'Дошли до заявки',
+    uBuyers:'Оплатили', uToday:'Пришли сегодня', uWeek:'За 7 дней', uBot:'Открыли бот', uStudio:'Открыли студию',
+    uSteps:'На каком шаге стоят черновики', uStep:'шаг', uNoDrafts:'Незаконченных черновиков нет',
+    txNote:'Здесь всё, что бот отправляет сообщением. Пустое поле возвращает заводской текст. '
+      + '{Переменные} в фигурных скобках подставляются при отправке — их лучше не трогать.',
+    txVars:'Переменные:', txReset:'Заводской текст', txSave:'Сохранить тексты', txDefault:'заводской текст',
     kAll:'Всего заявок', kPaid:'Оплачено', kNew:'Ожидают', kCancel:'Отклонено',
     kRev:'Выручка', kConv:'Конверсия', kAvg:'Средний чек', kGuests:'Именных ссылок', kGuestRev:'Из них выручка',
     hTpl:'Шаблоны', hDays:'Последние дни', hMusic:'Топ музыки', hOrders:'Заказы',
@@ -274,6 +306,14 @@ if (TAB === 'music') TAB = 'overview';
 let FILTER = 'all';
 let proofObjectUrls = [];
 
+/* Шаги студии по порядку — тот же список, что и STEPS в public/app/app.js.
+   Номер шага приходит с автосохранением черновика. */
+const STEP_NAMES = {
+  uz:['Ismlar','Sana','Manzil','Musiqa','Shablon','Suratlar','Ko‘rish','Mehmonlar','Aloqa'],
+  ru:['Имена','Дата','Локация','Музыка','Шаблон','Фото','Просмотр','Гости','Контакты'],
+};
+const stepName = (i) => STEP_NAMES[LANG][i] || `${t('uStep')} ${i + 1}`;
+
 function kpi(v, l, cls, badge){ return `<div class="kpi ${cls||''}"><div class="v">${esc(v)}</div><div class="l">${esc(l)}</div>${badge||''}</div>`; }
 
 function statusBadge(s){
@@ -305,6 +345,8 @@ function renderOverview(){
   h += kpi(money(s.premiumRevenue), t('kGuestRev'), 'k-rev');
   h += '</div>';
 
+  h += renderUsers();
+
   const maxT = Math.max(1, ...s.templates.map(x=>x.count));
   h += `<h2>${esc(t('hTpl'))}</h2><div class="card">`;
   if (!s.templates.length) h += `<div class="empty">${esc(t('noData'))}</div>`;
@@ -328,6 +370,62 @@ function renderOverview(){
   if (!s.topMusic.length) h += `<div class="empty">${esc(t('noMusic'))}</div>`;
   s.topMusic.forEach((m,i)=>{ h += `<div class="mline"><span class="n">${i+1}</span><div class="t"><b>${esc(m.name)}</b><span>${esc(m.artist)}</span></div><span class="c">${esc(m.count)}×</span></div>`; });
   h += '</div>';
+  return h;
+}
+
+/* Люди, а не заявки: сколько всего заходило, у скольких висит незаконченный
+   черновик и на каком шаге они остановились. */
+function renderUsers(){
+  const u = DATA.users;
+  if (!u) return '';
+  let h = `<h2>${esc(t('hUsers'))}</h2><div class="kpis">`;
+  h += kpi(u.total, t('uAll'));
+  h += kpi(u.drafts, t('uDraft'), '', '<span class="badge b-new">✎</span>');
+  h += kpi(u.stuck, t('uStuck'));
+  h += kpi(u.ordered, t('uOrdered'));
+  h += '</div><div class="kpis" style="margin-top:12px">';
+  h += kpi(u.buyers, t('uBuyers'), '', '<span class="badge b-paid">✓</span>');
+  h += kpi(u.today, t('uToday'));
+  h += kpi(u.week, t('uWeek'));
+  h += '</div><div class="kpis" style="margin-top:12px">';
+  h += kpi(u.started, t('uBot'));
+  h += kpi(u.opened, t('uStudio'));
+  h += '</div>';
+
+  h += `<h2>${esc(t('uSteps'))}</h2><div class="card">`;
+  const steps = u.draftSteps || [];
+  if (!steps.length) h += `<div class="empty">${esc(t('uNoDrafts'))}</div>`;
+  else {
+    const max = Math.max(1, ...steps.map(x=>x.count));
+    for (const x of steps) h += `<div class="row"><div class="nm">${esc(stepName(x.step))}</div>
+      <div class="track"><div class="fill" style="width:${(x.count/max*100).toFixed(1)}%"></div></div>
+      <div class="val">${esc(x.count)}</div></div>`;
+  }
+  h += '</div>';
+  return h;
+}
+
+/* ── Вкладка «Тексты»: всё, что бот отправляет сообщением ── */
+function renderTexts(){
+  const data = DATA.texts;
+  if (!data) return `<div class="card"><div class="empty">${esc(t('noData'))}</div></div>`;
+  let h = `<p class="note">${esc(t('txNote'))}</p>`;
+  for (const group of data.groups){
+    const items = data.items.filter(x=>x.group===group.id);
+    if (!items.length) continue;
+    h += `<h2>${esc(group[LANG] || group.ru)}</h2>`;
+    for (const item of items){
+      const label = item.label[LANG] || item.label.ru;
+      h += `<div class="tx${item.value?' edited':''}" data-tx="${esc(item.key)}">
+        <div class="tx-h"><div class="nm">${esc(label)}</div><span class="key">${esc(item.key)}</span>
+          <button class="tx-reset" data-tx-reset="${esc(item.key)}">${esc(t('txReset'))}</button></div>
+        <textarea rows="6" data-tx-value="${esc(item.key)}" placeholder="${esc(item.defaultValue)}">${esc(item.value)}</textarea>`;
+      if (item.vars.length) h += `<div class="tx-vars">${esc(t('txVars'))} ${item.vars.map(v=>`<code>{${esc(v)}}</code>`).join('')}</div>`;
+      h += '</div>';
+    }
+  }
+  h += `<div class="tx-save"><button class="act act--pay" id="texts-save">${esc(t('txSave'))}</button>
+    <span class="saved" id="texts-saved" hidden>${esc(t('saved'))}</span></div>`;
   return h;
 }
 
@@ -541,7 +639,7 @@ function vnMountMap(){
   vnPaintMap();
 }
 
-const TAB_LABEL = { overview:'tabOverview', orders:'tabOrders', pricing:'tabPricing', venues:'tabVenues' };
+const TAB_LABEL = { overview:'tabOverview', orders:'tabOrders', pricing:'tabPricing', venues:'tabVenues', texts:'tabTexts' };
 
 function render(){
   if (!DATA) return;
@@ -552,6 +650,7 @@ function render(){
   $('content').innerHTML = TAB==='orders' ? renderOrders()
     : TAB==='pricing' ? renderPricing()
     : TAB==='venues' ? renderVenues()
+    : TAB==='texts' ? renderTexts()
     : renderOverview();
   if (TAB==='orders') loadProofs();
   if (TAB==='venues'){
@@ -686,6 +785,33 @@ async function savePricing(){
   }
 }
 
+/* Правки собираем из полей в момент сохранения — как и в ценах: следить за
+   каждым нажатием незачем, а пустое поле возвращает заводской текст. */
+async function saveTexts(){
+  const patch = {};
+  document.querySelectorAll('[data-tx-value]').forEach(area=>{ patch[area.dataset.txValue] = area.value; });
+  const button = $('texts-save');
+  button.disabled = true;
+  try {
+    const res = await fetch('/api/admin/texts', {
+      method:'PUT',
+      headers:{ 'Content-Type':'application/json', 'X-Init-Data': initData() },
+      body: JSON.stringify(patch),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || 'error');
+    DATA.texts = data.texts;
+    render();
+    const saved = $('texts-saved');
+    if (saved){ saved.hidden = false; setTimeout(()=>{ const el=$('texts-saved'); if (el) el.hidden = true; }, 2600); }
+  } catch(e){
+    alert(e.message || t('loadErr'));
+  } finally {
+    const el = $('texts-save');
+    if (el) el.disabled = false;
+  }
+}
+
 document.addEventListener('click', (e)=>{
   const tab = e.target.closest('#tabs button');
   if (tab){ TAB = tab.dataset.tab; localStorage.setItem('nv_admin_tab', TAB); render(); return; }
@@ -696,6 +822,13 @@ document.addEventListener('click', (e)=>{
   const cancel = e.target.closest('[data-cancel]');
   if (cancel){ act(cancel.dataset.cancel, 'cancel'); return; }
   if (e.target.closest('#price-save')) { savePricing(); return; }
+  const txReset = e.target.closest('[data-tx-reset]');
+  if (txReset){
+    const area = document.querySelector(`[data-tx-value="${txReset.dataset.txReset}"]`);
+    if (area){ area.value = ''; area.closest('.tx')?.classList.remove('edited'); }
+    return;
+  }
+  if (e.target.closest('#texts-save')) { saveTexts(); return; }
   const del = e.target.closest('[data-vn-del]');
   if (del){
     const edited = collectVenues();

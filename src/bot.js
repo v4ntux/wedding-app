@@ -5,7 +5,8 @@ import path from 'node:path';
 import { payApplication, cancelApplication, ValidationError, mapsLinks } from './service.js';
 import { findMusicPreset, SUPPORT_URL, ADDONS, GUEST_LINK_PRICE, MAX_PHOTOS } from './config.js';
 import { findTemplate, publicTemplates } from './templateStore.js';
-import { markMainSent, markGuestSent, getApplication, listGuests, refreshSettings, trackByTelegram, getApplicationBySlug, getGuestById, setGuestMessage } from './db.js';
+import { markMainSent, markGuestSent, getApplication, listGuests, refreshSettings, trackByTelegram, getApplicationBySlug, getGuestById, setGuestMessage, touchUser } from './db.js';
+import { text, textLang } from './texts.js';
 import { UPLOADS_DIR } from './upload.js';
 import { escapeHtml as esc } from './render.js';
 import { addTrack, metaFromFileName, trackLabel, MAX_TRACK_BYTES } from './music.js';
@@ -138,22 +139,19 @@ export function createBot({ token, adminIds = [], baseUrl }) {
   const orderUrl = `${baseUrl}/app/`;
   const pendingProof = new Map(); // adminId -> appId (ждём скриншот чека)
 
-  const WELCOME = {
-    uz:
-      '✨ <b>nvate</b> — onlayn taklifnomalar\n\n' +
-      'Bu bot orqali siz:\n' +
-      '• To‘y uchun chiroyli onlayn taklifnoma yaratasiz\n' +
-      '• Sana, manzil (jonli xarita), musiqa va suratlar qo‘shasiz\n' +
-      '• Har bir mehmonga alohida nomli havola olasiz\n\n' +
-      'Boshlash uchun quyidagi tugmani bosing 👇',
-    ru:
-      '✨ <b>nvate</b> — онлайн приглашения\n\n' +
-      'С помощью этого бота вы:\n' +
-      '• Создадите красивое онлайн-приглашение на свадьбу\n' +
-      '• Добавите дату, локацию (живая карта), музыку и фото\n' +
-      '• Получите личную ссылку для каждого гостя\n\n' +
-      'Нажмите кнопку ниже, чтобы начать 👇',
+  /* Ссылку паре показываем без «https://» — короче и читается как адрес:
+     nvate.uz/aziz-nilufar. Telegram сам делает её кликабельной. */
+  const showLink = (url) => String(url).replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+
+  /* Кто заходил в бот. Пишем мимоходом: ошибка записи не должна мешать ответу. */
+  const seen = (ctx, lang = null) => {
+    const from = ctx.from;
+    if (!from?.id) return;
+    touchUser({ id: from.id, username: from.username ?? null, firstName: from.first_name ?? null, lang, source: 'bot' })
+      .catch((e) => console.error('[bot] touchUser failed:', e.message ?? e));
   };
+  // Любое касание бота заводит человека в статистике — не только /start.
+  bot.use(async (ctx, next) => { seen(ctx); await next(); });
 
   // Меню после выбора языка: одна большая кнопка «Заказать» (Web App) + Support/FAQ.
   function welcomeMenu(lang, fromId) {
@@ -181,18 +179,21 @@ export function createBot({ token, adminIds = [], baseUrl }) {
 
   // /start → выбор языка.
   bot.command(['start', 'menu'], async (ctx) => {
-    await ctx.reply('🇺🇿 Tilni tanlang · 🇷🇺 Выберите язык', {
+    seen(ctx);
+    await ctx.reply(text('langPrompt'), {
       reply_markup: new InlineKeyboard().text('O‘zbekcha 🇺🇿', 'lang:uz').text('Русский 🇷🇺', 'lang:ru'),
     });
   });
 
   bot.callbackQuery(/^lang:(uz|ru)$/, async (ctx) => {
     const lang = ctx.match[1];
+    seen(ctx, lang);
     await ctx.answerCallbackQuery();
     const extra = https ? '' : `\n\n⚠️ BASE_URL не HTTPS — форма: ${orderUrl}`;
     const opts = { parse_mode: 'HTML', link_preview_options: { is_disabled: true }, reply_markup: welcomeMenu(lang, ctx.from?.id) };
-    try { await ctx.editMessageText(WELCOME[lang] + extra, opts); }
-    catch { await ctx.reply(WELCOME[lang] + extra, opts); }
+    const welcome = textLang('welcome', lang) + extra;
+    try { await ctx.editMessageText(welcome, opts); }
+    catch { await ctx.reply(welcome, opts); }
   });
 
   bot.callbackQuery(/^faq:(uz|ru)$/, async (ctx) => {
@@ -202,32 +203,16 @@ export function createBot({ token, adminIds = [], baseUrl }) {
     const minPrice = Math.min(...prices);
     const maxPrice = Math.max(...prices);
     const priceRange = minPrice === maxPrice ? money(minPrice) : `${money(minPrice)}–${money(maxPrice)}`;
-    const guestPrice = money(GUEST_LINK_PRICE);
-    const text = uz
-      ? '<b>❔ Ko‘p so‘raladigan savollar</b>\n\n' +
-        `💰 <b>Narx:</b> shablonga qarab ${priceRange}. Nomli havola — har bir mehmon uchun ${guestPrice}.\n` +
-        '🔗 <b>Havola:</b> to‘lovdan so‘ng shaxsiy havola beriladi va o‘chirilmaydi.\n' +
-        '🎵 <b>Musiqa:</b> qo‘shiqni shu botga yuboring yoki kutubxonadan tanlang — to‘liq yangraydi.\n' +
-        `📷 <b>Suratlar:</b> 1–${MAX_PHOTOS} ta.\n` +
-        '⏱ <b>Vaqt:</b> to‘ldirish ~5 daqiqa.'
-      : '<b>❔ Частые вопросы</b>\n\n' +
-        `💰 <b>Цена:</b> ${priceRange} в зависимости от шаблона. Именная ссылка — ${guestPrice} за гостя.\n` +
-        '🔗 <b>Ссылка:</b> выдаётся после оплаты и не удаляется.\n' +
-        '🎵 <b>Музыка:</b> пришлите песню этому боту или выберите из библиотеки — звучит целиком.\n' +
-        `📷 <b>Фото:</b> 1–${MAX_PHOTOS} шт.\n` +
-        '⏱ <b>Время:</b> заполнение ~5 минут.';
-    await ctx.reply(text, { parse_mode: 'HTML', reply_markup: welcomeMenu(uz ? 'uz' : 'ru', ctx.from?.id) });
+    const body = textLang('faq', uz ? 'uz' : 'ru', {
+      price: priceRange, guestPrice: money(GUEST_LINK_PRICE), photos: MAX_PHOTOS,
+    });
+    await ctx.reply(body, { parse_mode: 'HTML', reply_markup: welcomeMenu(uz ? 'uz' : 'ru', ctx.from?.id) });
   });
 
   bot.callbackQuery(/^support:(uz|ru)$/, async (ctx) => {
     const uz = ctx.match[1] === 'uz';
     await ctx.answerCallbackQuery();
-    await ctx.reply(
-      uz
-        ? '💬 <b>Yordam</b>\n\nSavolingizni shu yerga yozing — tez orada javob beramiz.'
-        : '💬 <b>Поддержка</b>\n\nНапишите ваш вопрос сюда — ответим в ближайшее время.',
-      { parse_mode: 'HTML' }
-    );
+    await ctx.reply(textLang('support', uz ? 'uz' : 'ru'), { parse_mode: 'HTML' });
   });
 
   // ── Оплата: подтверждаем ТОЛЬКО после скриншота чека ──
@@ -254,14 +239,12 @@ export function createBot({ token, adminIds = [], baseUrl }) {
       });
       await ctx.answerCallbackQuery({ text: 'Заявка отклонена' });
       try {
-        await ctx.api.sendMessage(app.tg_user_id, app.lang === 'ru'
-          ? 'К сожалению, ваша заявка отклонена. Свяжитесь с поддержкой для уточнения.'
-          : 'Afsuski, arizangiz rad etildi. Aniqlik uchun yordam xizmatiga yozing.');
+        await ctx.api.sendMessage(app.tg_user_id, textLang('cancelled', app.lang));
       } catch { /* пара могла заблокировать бота */ }
     } catch (e) {
-      const text = e instanceof ValidationError ? e.message : 'Ошибка, попробуйте ещё раз';
+      const reason = e instanceof ValidationError ? e.message : 'Ошибка, попробуйте ещё раз';
       if (!(e instanceof ValidationError)) console.error('[bot] cancel error:', e);
-      await ctx.answerCallbackQuery({ text, show_alert: true });
+      await ctx.answerCallbackQuery({ text: reason, show_alert: true });
     }
   });
 
@@ -325,7 +308,10 @@ export function createBot({ token, adminIds = [], baseUrl }) {
   };
 
   const studioKeyboard = () => (https ? new InlineKeyboard().webApp('💌 Studiya · Студия', orderUrl) : undefined);
-  const trackDone = (track) => `🎵 <b>${esc(track.title)}</b>${track.artist ? ` — ${esc(track.artist)}` : ''}\n\n✅ Studiyada: <i>Musiqa → Mening musiqam</i>\n✅ В студии: <i>Музыка → Моя музыка</i>`;
+  const trackDone = (track) => text('musicDone', {
+    title: esc(track.title),
+    artist: track.artist ? ` — ${esc(track.artist)}` : '',
+  });
 
   async function downloadMedia(ctx, media) {
     const file = await ctx.api.getFile(media.file_id);
@@ -339,7 +325,7 @@ export function createBot({ token, adminIds = [], baseUrl }) {
      переписываем готовой песней или понятной причиной. */
   function importReply(ctx, replyTo, start) {
     (async () => {
-      const wait = await ctx.reply('⏳ Musiqa ajratilmoqda…\n⏳ Достаём музыку…', replyTo);
+      const wait = await ctx.reply(text('musicWait'), replyTo);
       let job = null;
       try {
         job = await start();
@@ -374,7 +360,7 @@ export function createBot({ token, adminIds = [], baseUrl }) {
     if (!ownerId) return;
     const replyTo = { reply_parameters: { message_id: msg.message_id, allow_sending_without_reply: true } };
     if (media.file_size && media.file_size > MAX_TRACK_BYTES) {
-      await ctx.reply('⚠️ Fayl 20 MB dan katta — Telegram bunday fayllarni botlarga bermaydi.\n⚠️ Файл больше 20 МБ — Telegram не отдаёт такие ботам.', replyTo);
+      await ctx.reply(text('musicBig'), replyTo);
       return;
     }
     if (video) {
@@ -445,17 +431,13 @@ export function createBot({ token, adminIds = [], baseUrl }) {
     const link = isMain ? `${baseUrl}/${app.slug}` : `${baseUrl}/${app.slug}/${guest.slug}`;
     const guestName = guest?.name ?? '';
 
-    const text = isMain
-      ? (uz
-        ? `🔗 <b>Umumiy havola:</b>\n${link}\n\n✅ <b>Yuborildi</b> — bu havola allaqachon yuborilgan.`
-        : `🔗 <b>Общая ссылка:</b>\n${link}\n\n✅ <b>Отправлено</b> — эта ссылка уже отправлена.`)
-      : (uz
-        ? `<b>${esc(guestName)}</b>\n${link}\n\n✅ <b>Yuborildi</b> — bu havola allaqachon yuborilgan.`
-        : `<b>${esc(guestName)}</b>\n${link}\n\n✅ <b>Отправлено</b> — эта ссылка уже отправлена.`);
+    const body = isMain
+      ? `🔗 <b>${uz ? 'Umumiy havola' : 'Общая ссылка'}</b>\n${showLink(link)}\n\n${textLang('guestSent', app.lang)}`
+      : `👤 <b>${esc(guestName)}</b>\n🔗 ${showLink(link)}\n\n${textLang('guestSent', app.lang)}`;
 
     setTimeout(async () => {
       try {
-        await ctx.editMessageText(text, {
+        await ctx.editMessageText(body, {
           parse_mode: 'HTML',
           link_preview_options: { is_disabled: true },
           reply_markup: { inline_keyboard: [] },
@@ -481,13 +463,8 @@ export function createBot({ token, adminIds = [], baseUrl }) {
     const couple = `${esc(app.groom_name)} &amp; ${esc(app.bride_name)}`;
     const when = `📅 ${weddingDate(app)}  ·  🕰 ${esc(app.wedding_time)}`;
     const where = app.address ? `\n📍 ${esc(app.address)}` : '';
-    const head = guest
-      ? (uz
-        ? `💌 <b>Hurmatli ${esc(guest.name)}!</b>\n\n💍 <b>${couple}</b> sizni to‘yiga taklif qiladi.`
-        : `💌 <b>${esc(guest.name)}, здравствуйте!</b>\n\n💍 <b>${couple}</b> приглашают вас на свадьбу.`)
-      : (uz
-        ? `💌 <b>Taklifnoma</b>\n\n💍 <b>${couple}</b>\nSizni to‘yimizga taklif qilamiz!`
-        : `💌 <b>Приглашение на свадьбу</b>\n\n💍 <b>${couple}</b>\nПриглашаем вас разделить с нами этот день!`);
+    const vars = { couple, when, where, link: showLink(link), name: guest ? esc(guest.name) : '' };
+    const body = guest ? textLang('inviteGuest', app.lang, vars) : textLang('invite', app.lang, vars);
     const couplePlain = `${app.groom_name} & ${app.bride_name}`;
     return {
       type: 'article',
@@ -495,9 +472,9 @@ export function createBot({ token, adminIds = [], baseUrl }) {
       title: guest
         ? (uz ? `💌 ${guest.name} uchun taklifnoma` : `💌 Приглашение: ${guest.name}`)
         : (uz ? `💌 ${couplePlain} — taklifnoma` : `💌 ${couplePlain} — приглашение`),
-      description: `${weddingDate(app)} · ${link}`,
+      description: `${weddingDate(app)} · ${showLink(link)}`,
       input_message_content: {
-        message_text: `${head}\n\n${when}${where}\n\n🔗 ${link}`,
+        message_text: body,
         parse_mode: 'HTML',
         link_preview_options: { is_disabled: true },
       },
@@ -509,10 +486,9 @@ export function createBot({ token, adminIds = [], baseUrl }) {
     if (Number(guest.sent)) return;
     await markGuestSent(app.id, guest.slug);
     if (!guest.message_id) return;
-    const uz = app.lang !== 'ru';
     try {
       await api.editMessageText(app.tg_user_id, Number(guest.message_id),
-        `${guestCard(app, guest)}\n\n✅ <b>${uz ? 'Yuborildi' : 'Отправлено'}</b>`,
+        `${guestCard(app, guest)}\n\n${textLang('guestSent', app.lang)}`,
         { parse_mode: 'HTML', link_preview_options: { is_disabled: true }, reply_markup: { inline_keyboard: [] } });
     } catch { /* сообщение удалено или уже изменено */ }
   }
@@ -543,6 +519,20 @@ export function createBot({ token, adminIds = [], baseUrl }) {
     }
   });
 
+  /* Выбор чата уже снял кнопку; это — подтверждение, что приглашение
+     действительно ушло. Повторная отметка ничего не меняет. */
+  bot.on('chosen_inline_result', async (ctx) => {
+    const id = /^g-(\d+)$/.exec(ctx.chosenInlineResult.result_id ?? '')?.[1];
+    if (!id) return;
+    try {
+      const guest = await getGuestById(Number(id));
+      const app = guest ? await getApplication(guest.application_id) : null;
+      if (guest && app && Number(app.tg_user_id) === Number(ctx.from.id)) await consumeGuestButton(ctx.api, app, guest);
+    } catch (e) {
+      console.error('[bot] chosen inline result failed:', e.message ?? e);
+    }
+  });
+
   // Прочие сообщения: подсказка chat id, пока ADMIN_CHAT_IDS не настроен.
   bot.on('message', async (ctx) => {
     if (!adminIds.length) {
@@ -563,8 +553,41 @@ export function createBot({ token, adminIds = [], baseUrl }) {
   const inlineShare = () => {
     try { return Boolean(bot.botInfo?.supports_inline_queries); } catch { return false; }
   };
-  const shareLink = (link, text) => `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
-  const guestCard = (app, guest) => `👤 <b>${esc(guest.name)}</b>\n🔗 ${baseUrl}/${app.slug}/${guest.slug}`;
+  const shareLink = (link, caption) => `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(caption)}`;
+  const guestLink = (app, guest) => `${baseUrl}/${app.slug}/${guest.slug}`;
+  // Сначала имя, потом адрес — и адрес без «https://».
+  const guestCard = (app, guest) => text('guestCard', {
+    name: esc(guest.name), link: showLink(guestLink(app, guest)),
+  });
+
+  /* Именная кнопка без инлайн-режима. Инлайн-кнопка гаснет сама, когда пара
+     выбрала чат; обычная ссылка так не умеет — поэтому здесь кнопка сначала
+     приходит в бот: он снимает её с сообщения, ставит отметку «отправлено» и
+     тут же присылает готовое приглашение с кнопкой «Поделиться». Одно нажатие
+     на гостя — как и просили. */
+  bot.callbackQuery(/^share:(\d+)$/, async (ctx) => {
+    const guest = await getGuestById(Number(ctx.match[1]));
+    const app = guest ? await getApplication(guest.application_id) : null;
+    if (!guest || !app?.slug || Number(app.tg_user_id) !== Number(ctx.from?.id)) {
+      return ctx.answerCallbackQuery({ text: 'Havola topilmadi · Ссылка не найдена', show_alert: true });
+    }
+    await ctx.answerCallbackQuery({ text: '✅' });
+    const link = guestLink(app, guest);
+    if (!Number(guest.sent)) {
+      await markGuestSent(app.id, guest.slug);
+      try {
+        await ctx.editMessageText(`${guestCard(app, guest)}\n\n${textLang('guestSent', app.lang)}`,
+          { parse_mode: 'HTML', link_preview_options: { is_disabled: true }, reply_markup: { inline_keyboard: [] } });
+      } catch { /* сообщение уже изменено */ }
+    }
+    const uz = app.lang !== 'ru';
+    await ctx.reply(guestCard(app, guest), {
+      parse_mode: 'HTML',
+      link_preview_options: { is_disabled: true },
+      reply_markup: new InlineKeyboard()
+        .url(uz ? '📤 Ulashish' : '📤 Поделиться', shareLink(link, guestInvite(app, guest.name))),
+    });
+  });
 
   async function notifyCouplePaid(api, app) {
     const uz = app.lang !== 'ru';
@@ -578,9 +601,7 @@ export function createBot({ token, adminIds = [], baseUrl }) {
     try {
       await api.sendPhoto(chat, new InputFile(renderShareCard(link), `nvate-${app.slug}.png`), {
         parse_mode: 'HTML',
-        caption: uz
-          ? `🎉 <b>Tabriklaymiz! Taklifnomangiz tayyor</b>\n\n💍 <b>${couple}</b>\n${when}${where}\n\n📲 QR-kodni telefon kamerasida skanerlang — taklifnoma darhol ochiladi.\n🖨 Kartochkani chop etib, stollarga yoki konvertlarga qo‘yish mumkin.`
-          : `🎉 <b>Поздравляем! Ваше приглашение готово</b>\n\n💍 <b>${couple}</b>\n${when}${where}\n\n📲 Наведите камеру телефона на QR-код — приглашение откроется сразу.\n🖨 Карточку можно распечатать и поставить на столы или вложить в конверты.`,
+        caption: textLang('paidCard', app.lang, { couple, when, where }),
       });
     } catch (e) {
       // Без карточки пара всё равно получает ссылки ниже.
@@ -594,26 +615,23 @@ export function createBot({ token, adminIds = [], baseUrl }) {
     if (inlineShare()) main.switchInline(uz ? '📤 Ulashish' : '📤 Поделиться', `inv ${app.slug}`);
     else main.url(uz ? '📤 Ulashish' : '📤 Поделиться', shareLink(link, invite));
     main.row().url(uz ? '💌 Taklifnomani ochish' : '💌 Открыть приглашение', link);
-    await api.sendMessage(chat, uz
-      ? `🔗 <b>Umumiy havola</b> — barcha mehmonlar uchun\n${link}\n\n👇 «Ulashish» tugmasi bilan taklifnomani do‘stlar, qarindoshlar va guruhlarga yuboring — xohlagancha marta.`
-      : `🔗 <b>Общая ссылка</b> — для всех гостей\n${link}\n\n👇 Кнопкой «Поделиться» отправьте приглашение друзьям, родным и в группы — сколько угодно раз.`,
+    await api.sendMessage(chat, textLang('mainLink', app.lang, { link: showLink(link) }),
       { ...quiet, reply_markup: main });
 
     const guests = await listGuests(app.id);
     if (!guests.length) return;
-    const oneTime = inlineShare();
-    await api.sendMessage(chat, uz
-      ? `👥 <b>Ismli taklifnomalar</b> — ${guests.length} ta\nHar bir mehmon taklifnomani ochganda o‘z ismini ko‘radi.${oneTime ? '\n\n☝️ «Yuborish» tugmasi bir martalik: taklifnoma yuborilishi bilan u yo‘qoladi.' : ''}`
-      : `👥 <b>Именные приглашения</b> — ${guests.length}\nКаждый гость увидит в приглашении своё имя.${oneTime ? '\n\n☝️ Кнопка «Отправить» одноразовая: как только приглашение ушло, она исчезает.' : ''}`,
-      { parse_mode: 'HTML' });
+    await api.sendMessage(chat, textLang('guestsIntro', app.lang, { count: guests.length }), { parse_mode: 'HTML' });
+    /* Именная кнопка одноразовая в обоих режимах: с инлайном её гасит выбор
+       чата, без инлайна — callback «share:id», который снимает её сам. */
+    const inline = inlineShare();
     for (const guest of guests) {
       const name = String(guest.name).slice(0, 32);
       const label = uz ? `📨 Yuborish · ${name}` : `📨 Отправить · ${name}`;
-      const keyboard = oneTime
+      const keyboard = inline
         ? new InlineKeyboard().switchInline(label, `g ${guest.id}`)
-        : new InlineKeyboard().url(label, shareLink(`${baseUrl}/${app.slug}/${guest.slug}`, guestInvite(app, guest.name)));
+        : new InlineKeyboard().text(label, `share:${guest.id}`);
       const sent = await api.sendMessage(chat, guestCard(app, guest), { ...quiet, reply_markup: keyboard });
-      if (oneTime) await setGuestMessage(guest.id, sent.message_id);
+      if (inline) await setGuestMessage(guest.id, sent.message_id);
     }
   }
 
@@ -632,7 +650,7 @@ export async function notifyNewApplication(api, adminIds, app, baseUrl) {
     return;
   }
   const musicTitle = app.music_type === 'upload' ? await trackLabel(app.music_value) : null;
-  const text = buildAdminText(app, { baseUrl, musicTitle });
+  const card = buildAdminText(app, { baseUrl, musicTitle });
   const opts = {
     parse_mode: 'HTML',
     link_preview_options: { is_disabled: true },
@@ -643,7 +661,7 @@ export async function notifyNewApplication(api, adminIds, app, baseUrl) {
   // Заявка уходит всем админам — подтвердить может любой.
   for (const id of ids) {
     try {
-      await api.sendMessage(id, text, opts);
+      await api.sendMessage(id, card, opts);
     } catch (e) {
       console.error(`[bot] не удалось уведомить админа ${id}:`, e.message ?? e);
     }

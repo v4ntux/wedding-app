@@ -20,6 +20,7 @@ import { RESERVED_SLUGS } from './slug.js';
 import { youtubeIdValid, youtubeMoments } from './youtube.js';
 import { providerOf, publicProviders, studioProvider, validTrackId } from './musicProviders.js';
 import { createStatic, compressResponses } from './static.js';
+import { textsSnapshot, updateTexts } from './texts.js';
 
 const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
 
@@ -201,11 +202,30 @@ export function createServer({ onNewApplication, onPaid } = {}) {
     });
   });
 
+  /* Студия отмечается при запуске и при автосохранении: так админка видит не
+     только оформленные заявки, но и тех, кто открыл форму и застрял на шаге.
+     step = null — черновика нет (отправили заявку или начали заново). */
+  const sessionLimit = rateLimit({ windowMs: 60_000, max: 30 });
+  app.post('/api/session', sessionLimit, express.json({ limit: '4kb' }), async (req, res) => {
+    const u = authUser(req.body?.initData ?? req.get('x-init-data') ?? '');
+    if (!u?.id) return res.json({ ok: true });
+    const raw = req.body?.step;
+    const step = Number.isInteger(raw) && raw >= 0 ? raw : null;
+    try {
+      await db.touchUser({ id: u.id, username: u.username ?? null, firstName: u.first_name ?? null,
+        lang: typeof req.body?.lang === 'string' ? req.body.lang.slice(0, 2) : null, source: 'studio' });
+      await db.setUserDraft(u.id, step);
+    } catch (e) {
+      console.error('[server] session touch failed:', e.message ?? e);
+    }
+    res.json({ ok: true });
+  });
+
   // Статистика для админ-панели (только администратор).
   app.get('/api/admin/stats', async (req, res) => {
     const u = adminUser(req.get('x-init-data') ?? '');
     if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
-    res.json({ ok: true, stats: (await db.adminStats()), templates: publicTemplates(), orders: (await db.listRecentOrders(30)) });
+    res.json({ ok: true, stats: (await db.adminStats()), users: (await db.userStats()), templates: publicTemplates(), orders: (await db.listRecentOrders(30)) });
   });
 
   // Всё, что нужно панели одним запросом: показатели, заявки, каталог, прайс.
@@ -217,10 +237,23 @@ export function createServer({ onNewApplication, onPaid } = {}) {
       ok: true,
       admin: { id: u.id, username: u.username ?? null },
       stats: (await db.adminStats()),
+      users: (await db.userStats()),
       templates: publicTemplates(),
       orders: (await db.listRecentOrders(limit)),
       pricing: pricingSnapshot(allTemplates()),
+      texts: textsSnapshot(),
     });
+  });
+
+  /* Тексты бота. Пустое поле — заводской текст: правку просто убираем. */
+  app.put('/api/admin/texts', express.json({ limit: '256kb' }), async (req, res) => {
+    const u = adminUser(req.get('x-init-data') ?? '');
+    if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
+    try {
+      res.json({ ok: true, texts: (await updateTexts(req.body ?? {})) });
+    } catch (e) {
+      res.status(400).json({ ok: false, error: e.message || 'Не удалось сохранить тексты' });
+    }
   });
 
   // Подтверждение оплаты из панели: та же операция, что и кнопкой в боте.

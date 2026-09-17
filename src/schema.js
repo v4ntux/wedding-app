@@ -38,6 +38,23 @@ export const schema = `
     paid_at TEXT
   );
 
+  -- Кто заходил: каждый, кто нажал /start в боте или открыл студию. Нужна,
+  -- чтобы админка видела не только оформленные заявки, но и тех, кто дошёл до
+  -- середины и бросил. draft_step — номер шага незаконченного черновика
+  -- (NULL — черновика нет), он приходит из студии вместе с автосохранением.
+  CREATE TABLE IF NOT EXISTS users (
+    tg_user_id INTEGER PRIMARY KEY,
+    username TEXT,
+    first_name TEXT,
+    lang TEXT,
+    started INTEGER NOT NULL DEFAULT 0,
+    opened INTEGER NOT NULL DEFAULT 0,
+    draft_step INTEGER,
+    draft_at TEXT,
+    first_seen TEXT NOT NULL DEFAULT (datetime('now')),
+    last_seen TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,

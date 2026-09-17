@@ -54,9 +54,31 @@ const saveDraft = debounce(() => {
       submissionKey: state.submissionKey,
     }));
   } catch (_) { /* переполненное хранилище не критично */ }
+  pingSession(state.open);
 }, 400);
 
-function clearDraft() { try { localStorage.removeItem(DRAFT); } catch (_) { /* — */ } }
+function clearDraft() {
+  try { localStorage.removeItem(DRAFT); } catch (_) { /* — */ }
+  pingSession(null);
+}
+
+/* Отметка в статистике: кто открыл студию и на каком шаге стоит черновик.
+   Шлём только при смене шага — автосохранение срабатывает на каждый ввод. */
+let lastPing = 'init';
+function pingSession(step) {
+  const value = Number.isInteger(step) ? step : null;
+  const mark = String(value);
+  if (mark === lastPing) return;
+  lastPing = mark;
+  try {
+    fetch('/api/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData: tg ? tg.initData : '', step: value, lang: LANG }),
+      keepalive: true,
+    }).catch(() => { /* статистика не должна мешать студии */ });
+  } catch (_) { /* — */ }
+}
 
 function restoreDraft() {
   let d = null;
@@ -2285,6 +2307,7 @@ async function start() {
     resume = Math.max(0, Math.min(state.open, reachable));
   }
   state.open = testingTemplates ? stepIdx('template') : resume;
+  pingSession(restored ? state.open : null);
   if (state.templateId && state.photos.length > requiredPhotos()) state.photos = state.photos.slice(0, requiredPhotos());
   setScene(state.open, true);
   applyI18n();
