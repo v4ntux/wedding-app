@@ -109,202 +109,184 @@ function restoreDraft() {
 
 /* ════ Словарь ════ */
 
+/* ── Слова студии ──
+   Говорим с парой, а не с пользователем: короткими строками, без «образцов»,
+   «барабанов» и «глазков». Каждый шаг — одна мысль: заголовок говорит, о чём
+   он, подпись под ним — что сделать. Ключи одни на оба языка. */
 const I18N = {
   uz: {
-    eNames: 'Kim uylanmoqda', tNames: 'Ismlaringiz',
+    eNames: 'Ikkovingiz', tNames: 'Ismlaringiz',
+    leadNames: 'Taklifnomada ismlaringiz xuddi shunday turadi.',
     phGroom: 'Kuyov', phBride: 'Kelin', groom: 'Kuyov ismi', bride: 'Kelin ismi',
-    eDate: 'Qachon', tDate: 'To‘y sanasi', timeLbl: 'Boshlanish vaqti',
-    timePrompt: 'Vaqt barabanini suring — tanlangan vaqt shu yerda paydo bo‘ladi.',
-    eVenue: 'Qayerda', tVenue: 'To‘yxona', address: 'To‘yxona nomi',
+
+    eDate: 'Kun', tDate: 'To‘y qachon',
+    timeLbl: 'Boshlanish vaqti',
+    timePrompt: 'Soat va daqiqani suring — vaqt shu yerda chiqadi.',
+
+    eVenue: 'Joy', tVenue: 'Qayerda kutamiz',
+    address: 'To‘yxona nomi',
     leadVenue: 'To‘yxonani ro‘yxatdan tanlang. Sizniki yo‘q bo‘lsa — nomini o‘zingiz yozing.',
     seekLbl: 'To‘yxonani qidirish', seekPlace: 'Nomi yoki mo‘ljal',
     venueOwn: 'Mening joyim ro‘yxatda yo‘q',
-    venueEmpty: 'Bunday joy ro‘yxatda yo‘q — nomini o‘zingiz yozing',
+    venueEmpty: 'Bunday joy topilmadi — nomini o‘zingiz yozing',
     venueSeats: (n) => `${n} o‘rin`,
     venueKind: { toyxona: 'To‘yxona', restoran: 'Restoran', kafe: 'Kafe', bog: 'Bog‘' },
     geoHead: 'Umumiy xaritadan topildi',
-    mapPick: 'Bu joy ro‘yxatda yo‘q — taklifnomada xaritasiz, nomi bilan chiqadi.',
-    mapHint: 'Nuqtani aniqlashtirish uchun xaritada bosing',
-
+    mapPick: 'Bu joy ro‘yxatda yo‘q — taklifnomada xaritasiz, faqat nomi bilan chiqadi.',
+    mapHint: 'Nuqtani aniqlashtirish uchun xaritaga bosing',
     change: 'O‘zgartirish',
-    guestPh: 'Ism yozing…',
-    eMusic: 'Ovoz', tMusic: 'Musiqa',
 
-    add: 'Qo‘shish', lookDone: 'Ko‘rib chiqdim',
+    eMusic: 'Musiqa', tMusic: 'Sizning qo‘shig‘ingiz',
 
-
-
-
-
-
-
-    nextCue: 'Keyingi bosqich',
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    eTpl: 'Dizayn', tTpl: 'Taklifnoma uslubi',
-    leadTpl: 'Tanlash uchun uslubga bosing. Burchakdagi ko‘zcha to‘liq namunani ochadi.',
+    eTpl: 'Dizayn', tTpl: 'Uslubni tanlang',
+    leadTpl: 'Tanlash uchun kartaga bosing. Burchakdagi belgi taklifnomani to‘liq ochadi.',
     tplPhotos: (n) => `${n} ta surat`,
+
     ePhotos: 'Suratlar', tPhotos: 'Sizning suratlaringiz',
-    eReady: 'Tayyor', tReady: 'Hammasi tayyor',
-    leadReady: 'Taklifnomangiz yig‘ildi. Uni to‘liq ko‘rib chiqing.',
-    seeInvite: 'Qayta ko‘rish',
-    readyHint: 'Namuna o‘zi ochiladi. Oxirigacha suring — u sokin yopilib, studiyaga qaytaradi.',
+    photoNeed: (n) => `Bu uslubga <b>${n} ta</b> surat kerak`,
+    photoOf: (i, n) => `${i} / ${n}`,
+
+    eReady: 'Tayyor', tReady: 'Mana nima chiqdi',
+    leadReady: 'Taklifnoma yig‘ildi. Mehmonlar ko‘radigan holida qarang.',
+    seeInvite: 'Yana ko‘rish',
+    readyHint: 'Taklifnoma o‘zi ochiladi. Oxirigacha suring — studiyaga qaytasiz.',
     readyNext: 'Davom etish →',
-    eGuests: 'Qo‘shimcha', tGuests: 'Ismli taklifnomalar',
+    wmTitle: 'Bu hali namuna',
+    wmText: 'Ustida «nVate» to‘ri turibdi va matnni nusxalab bo‘lmaydi. To‘lovdan keyin to‘r yo‘qoladi, havola toza bo‘ladi.',
+
+    eGuests: 'Mehmonlar', tGuests: 'Ismli taklifnomalar',
     guestsSwTitle: 'Har bir mehmonga alohida havola',
     guestsSwOff: 'O‘chirilgan', guestsSwOn: 'Yoqilgan',
-    gHow1t: 'Ismlar ro‘yxati', gHow1: 'Mehmonlar ismini yozasiz — har biri alohida qatorga.',
-    gHow2t: 'Har kimga o‘z havolasi', gHow2: 'Taklifnoma ochilganda mehmon o‘z ismini ko‘radi.',
-    gHow3t: 'Havolalarni botdan olasiz', gHow3: 'To‘lovdan keyin tayyor havolalar ro‘yxati botga keladi.',
-    guestAdd: 'Ism qo‘shish', guestsUnit: 'ta ism',
-    wmTitle: 'Namuna himoyalangan',
-    wmText: 'Ustidagi «nVate» to‘ri va nusxa olish cheklovi faqat namunada. To‘lovdan so‘ng to‘r olib tashlanadi va sizga toza havola beriladi.',
-    total: 'Jami',
-    eContact: 'Aloqa', tContact: 'Siz bilan qanday bog‘lanamiz',
-    leadContact: 'Telegram’ingiz bizda bor. Faqat raqamingizni yozing.',
+    gHow1t: 'Ismlar ro‘yxati', gHow1: 'Mehmonlarni yozasiz — har birini alohida qatorga.',
+    gHow2t: 'Har kimga o‘z havolasi', gHow2: 'Mehmon taklifnomani ochadi va birinchi qatorda o‘z ismini ko‘radi.',
+    gHow3t: 'Havolalar botga keladi', gHow3: 'To‘lovdan keyin tayyor havolalar ro‘yxati botga tushadi.',
+    guestPh: 'Ismni yozing…', guestAdd: 'Ism qo‘shish', guestsUnit: 'ta ism',
+
+    eContact: 'To‘lov', tContact: 'Oxirgi qadam',
+    leadContact: 'Telegram’ingiz bizda bor. Faqat raqamingizni qoldiring.',
     phoneLbl: 'Telefon raqam',
     contactRule: 'To‘lovni tasdiqlash uchun shu raqamga qo‘ng‘iroq qilamiz.',
+    total: 'Jami', sum: 'so‘m',
+    pay: 'To‘lash va havola olish', sending: 'Yuborilmoqda',
+
+    doneTitle: 'Arizangiz bizda', doneNew: 'Yangi taklifnoma',
+    doneText: 'To‘lovni tasdiqlaymiz va toza havola botga keladi. Odatda bu 10 daqiqagacha vaqt oladi.',
     mineTitle: 'Mening taklifnomalarim',
+
+    add: 'Qo‘shish', lookDone: 'Ko‘rib chiqdim', nextCue: 'Keyingi bosqich',
+    nextUp: 'Keyingi bosqich ochildi',
+    demo: 'Ko‘rish', live: 'Jonli namuna', popular: 'Ko‘p tanlangan',
+    take: 'Tanlash', taken: 'Tanlandi', tplPlate: 'Taklifnoma',
+    copied: 'Nusxa olindi',
+
     mineAria: 'Mening taklifnomalarimni ochish', closeAria: 'Yopish', stepsAria: 'Studio bosqichlari',
     prevMonthAria: 'Oldingi oy', nextMonthAria: 'Keyingi oy', hoursAria: 'Soatlar', minutesAria: 'Daqiqalar',
-
     photoUploadAria: 'Surat yuklash', photoRemoveAria: 'Suratni o‘chirish', previewAria: 'Taklifnoma namunasi',
-    doneTitle: 'Qabul qilindi', doneNew: 'Yangi taklifnoma',
-    doneText: 'To‘lov tasdiqlangach, botga toza havolangiz keladi. Odatda bu 10 daqiqagacha vaqt oladi.',
-    beads: ['Ismlar', 'Sana', 'Joy', 'Musiqa', 'Dizayn', 'Suratlar', 'Tayyor', 'Mehmonlar', 'Aloqa'],
-    pay: 'To‘lash va havola olish', sending: 'Yuborilmoqda',
+
+    beads: ['Ismlar', 'Sana', 'Joy', 'Musiqa', 'Dizayn', 'Suratlar', 'Tayyor', 'Mehmonlar', 'To‘lov'],
     months: ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun', 'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr'],
     dow: ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'],
-    demo: 'Ochib ko‘rish', live: 'Jonli namuna', popular: 'Mashhur', take: 'Tanlash', taken: 'Tanlandi',
-    photoNeed: (n) => `Bu uslub uchun <b>${n} ta</b> surat kerak`,
-    photoOf: (i, n) => `${i} / ${n}`,
-    sum: 'so‘m',
-    eNames_: 'Ikkala ismni ham yozing', eDate_: 'Taqvimdan sanani tanlang',
-    eVenue_: 'To‘yxonani tanlang yoki nomini yozing', eTpl_: 'Uslubni tanlang',
-    ePhoto_: (n) => `Yana surat kerak: ${n} ta`,
-    eGuest_: 'Bo‘sh ismlarni to‘ldiring yoki o‘chiring',
+
+    eNames_: 'Ikkala ismni ham yozing',
+    eDate_: 'Taqvimdan kunni tanlang',
+    eVenue_: 'To‘yxonani tanlang yoki nomini yozing',
+    eTpl_: 'Uslubni tanlang',
+    ePhoto_: (n) => `Yana ${n} ta surat kerak`,
+    eGuest_: 'Bo‘sh qatorlarni to‘ldiring yoki o‘chiring',
     eContact_: 'Telefon raqamingizni yozing',
     eNet: 'Aloqa yo‘q. Qayta urinib ko‘ring', eNoFound: 'Hech narsa topilmadi',
-    eUpload: 'Fayl yuklanmadi. Yana urinib ko‘ring', eBig: 'Fayl juda katta',
-    eTooMany: 'Juda ko‘p urinish. Bir necha daqiqadan so‘ng qayta urining',
-    eFormat: 'Bu format qo‘llab-quvvatlanmaydi — JPG, PNG yoki HEIC yuboring',
+    eUpload: 'Surat yuklanmadi. Qayta urinib ko‘ring', eBig: 'Fayl juda katta',
+    eTooMany: 'Juda ko‘p urinish. Bir necha daqiqadan keyin urinib ko‘ring',
+    eFormat: 'Bu format o‘qilmadi — JPG, PNG yoki HEIC yuboring',
     eLink: 'Havola tanilmadi',
-    noGeo: 'Joylashuv aniqlanmadi', copied: 'Nusxa olindi',
-    nextUp: 'Keyingi bosqich ochildi',
-    tplPlate: 'Taklifnoma',
+    noGeo: 'Joylashuv aniqlanmadi',
   },
   ru: {
-    eNames: 'Кто женится', tNames: 'Ваши имена',
+    eNames: 'Двое', tNames: 'Ваши имена',
+    leadNames: 'Так они и будут стоять на приглашении.',
     phGroom: 'Жених', phBride: 'Невеста', groom: 'Имя жениха', bride: 'Имя невесты',
-    eDate: 'Когда', tDate: 'Дата свадьбы', timeLbl: 'Время начала',
-    timePrompt: 'Прокрутите барабан — выбранное время появится здесь.',
-    eVenue: 'Где', tVenue: 'Место', address: 'Название тойхоны',
-    leadVenue: 'Выберите тойхону из списка. Вашей нет — впишите название сами.',
+
+    eDate: 'День', tDate: 'Когда свадьба',
+    timeLbl: 'Время начала',
+    timePrompt: 'Прокрутите часы и минуты — время появится здесь.',
+
+    eVenue: 'Место', tVenue: 'Где встречаемся',
+    address: 'Название тойхоны',
+    leadVenue: 'Выберите тойхону из списка. Если вашей нет — впишите название сами.',
     seekLbl: 'Поиск тойхоны', seekPlace: 'Название или ориентир',
     venueOwn: 'Моего места нет в списке',
-    venueEmpty: 'Такого места в списке нет — впишите название сами',
+    venueEmpty: 'Такого места не нашлось — впишите название сами',
     venueSeats: (n) => `${n} мест`,
     venueKind: { toyxona: 'Тойхона', restoran: 'Ресторан', kafe: 'Кафе', bog: 'Сад' },
     geoHead: 'Найдено на общей карте',
-    mapPick: 'Этого места нет в каталоге — в приглашении будет название, без карты.',
+    mapPick: 'Этого места нет в списке — в приглашении будет только название, без карты.',
     mapHint: 'Нажмите на карту, чтобы уточнить точку',
-
     change: 'Изменить',
-    guestPh: 'Впишите имя…',
-    eMusic: 'Звук', tMusic: 'Музыка',
 
-    add: 'Добавить', lookDone: 'Посмотрел',
+    eMusic: 'Музыка', tMusic: 'Ваша песня',
 
-
-
-
-
-
-
-    nextCue: 'Следующий шаг',
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    eTpl: 'Дизайн', tTpl: 'Стиль приглашения',
-    leadTpl: 'Нажмите на стиль, чтобы выбрать. Глазок в углу открывает полный пример.',
+    eTpl: 'Дизайн', tTpl: 'Выберите стиль',
+    leadTpl: 'Нажмите на карточку, чтобы выбрать. Значок в углу открывает приглашение целиком.',
     tplPhotos: (n) => `${n} фото`,
+
     ePhotos: 'Фото', tPhotos: 'Ваши фотографии',
-    eReady: 'Готово', tReady: 'Всё готово',
-    leadReady: 'Приглашение собрано. Посмотрите его целиком.',
+    photoNeed: (n) => `Этому стилю нужно <b>${n} фото</b>`,
+    photoOf: (i, n) => `${i} / ${n}`,
+
+    eReady: 'Готово', tReady: 'Вот что получилось',
+    leadReady: 'Приглашение собрано. Посмотрите его так, как увидят гости.',
     seeInvite: 'Посмотреть ещё раз',
-    readyHint: 'Образец откроется сам. Долистайте до конца — он мягко закроется и вернёт вас в студию.',
+    readyHint: 'Приглашение откроется само. Долистайте до конца — и вернётесь в студию.',
     readyNext: 'Продолжить →',
-    eGuests: 'Дополнительно', tGuests: 'Именные приглашения',
+    wmTitle: 'Это пока образец',
+    wmText: 'Поверх лежит сетка «nVate», и текст нельзя скопировать. После оплаты сетка исчезнет, а ссылка станет чистой.',
+
+    eGuests: 'Гости', tGuests: 'Именные приглашения',
     guestsSwTitle: 'Персональная ссылка каждому гостю',
     guestsSwOff: 'Выключено', guestsSwOn: 'Включено',
     gHow1t: 'Список имён', gHow1: 'Вписываете гостей — каждого отдельной строкой.',
-    gHow2t: 'Каждому своя ссылка', gHow2: 'Гость открывает приглашение и видит своё имя.',
+    gHow2t: 'Каждому своя ссылка', gHow2: 'Гость откроет приглашение и первой строкой увидит своё имя.',
     gHow3t: 'Ссылки придут в бот', gHow3: 'После оплаты бот пришлёт готовый список ссылок.',
-    guestAdd: 'Добавить имя', guestsUnit: 'имён',
-    wmTitle: 'Образец защищён',
-    wmText: 'Сетка «nVate» поверх и запрет копирования — только в образце. После оплаты сетка снимается, и вы получаете чистую ссылку.',
-    total: 'Итого',
-    eContact: 'Контакты', tContact: 'Как с вами связаться',
+    guestPh: 'Впишите имя…', guestAdd: 'Добавить имя', guestsUnit: 'имён',
+
+    eContact: 'Оплата', tContact: 'Последний шаг',
     leadContact: 'Ваш Telegram у нас уже есть. Оставьте только номер.',
     phoneLbl: 'Номер телефона',
-    contactRule: 'По этому номеру мы свяжемся, чтобы подтвердить оплату.',
+    contactRule: 'Позвоним по нему, чтобы подтвердить оплату.',
+    total: 'Итого', sum: 'сум',
+    pay: 'Оплатить и получить ссылку', sending: 'Отправляем',
+
+    doneTitle: 'Заявка у нас', doneNew: 'Новое приглашение',
+    doneText: 'Подтвердим оплату — и чистая ссылка придёт в бот. Обычно это занимает до 10 минут.',
     mineTitle: 'Мои приглашения',
+
+    add: 'Добавить', lookDone: 'Посмотрел', nextCue: 'Следующий шаг',
+    nextUp: 'Следующий шаг открыт',
+    demo: 'Открыть', live: 'Живой пример', popular: 'Чаще выбирают',
+    take: 'Выбрать', taken: 'Выбрано', tplPlate: 'Приглашение',
+    copied: 'Скопировано',
+
     mineAria: 'Открыть мои приглашения', closeAria: 'Закрыть', stepsAria: 'Этапы студии',
     prevMonthAria: 'Предыдущий месяц', nextMonthAria: 'Следующий месяц', hoursAria: 'Часы', minutesAria: 'Минуты',
-
     photoUploadAria: 'Загрузить фотографию', photoRemoveAria: 'Удалить фотографию', previewAria: 'Предпросмотр приглашения',
-    doneTitle: 'Заявка принята', doneNew: 'Новое приглашение',
-    doneText: 'После подтверждения оплаты чистая ссылка придёт в бот. Обычно это занимает до 10 минут.',
-    beads: ['Имена', 'Дата', 'Место', 'Музыка', 'Дизайн', 'Фото', 'Готово', 'Гости', 'Контакты'],
-    pay: 'Оплатить и получить ссылку', sending: 'Отправляем',
+
+    beads: ['Имена', 'Дата', 'Место', 'Музыка', 'Дизайн', 'Фото', 'Готово', 'Гости', 'Оплата'],
     months: ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'],
     dow: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
-    demo: 'Открыть', live: 'Живой пример', popular: 'Популярно', take: 'Выбрать', taken: 'Выбрано',
-    photoNeed: (n) => `Для этого стиля нужно <b>${n} фото</b>`,
-    photoOf: (i, n) => `${i} / ${n}`,
-    sum: 'сум',
-    eNames_: 'Впишите оба имени', eDate_: 'Выберите дату в календаре',
-    eVenue_: 'Выберите тойхону или впишите название', eTpl_: 'Выберите стиль',
+
+    eNames_: 'Впишите оба имени',
+    eDate_: 'Выберите день в календаре',
+    eVenue_: 'Выберите тойхону или впишите название',
+    eTpl_: 'Выберите стиль',
     ePhoto_: (n) => `Добавьте ещё ${n} фото`,
-    eGuest_: 'Заполните или удалите пустые имена',
+    eGuest_: 'Заполните или удалите пустые строки',
     eContact_: 'Впишите номер телефона',
-    eNet: 'Нет связи. Попробуйте ещё раз', eNoFound: 'Ничего не найдено',
-    eUpload: 'Файл не загрузился. Попробуйте ещё раз', eBig: 'Файл слишком большой',
+    eNet: 'Нет связи. Попробуйте ещё раз', eNoFound: 'Ничего не нашлось',
+    eUpload: 'Фото не загрузилось. Попробуйте ещё раз', eBig: 'Файл слишком большой',
     eTooMany: 'Слишком много попыток. Повторите через несколько минут',
-    eFormat: 'Формат не поддерживается — пришлите JPG, PNG или HEIC',
+    eFormat: 'Такой формат не читается — пришлите JPG, PNG или HEIC',
     eLink: 'Ссылка не распознана',
-    noGeo: 'Не удалось определить геопозицию', copied: 'Скопировано',
-    nextUp: 'Следующий шаг открыт',
-    tplPlate: 'Приглашение',
+    noGeo: 'Не удалось определить место',
   },
 };
 
@@ -323,6 +305,10 @@ function applyI18n() {
     if (typeof v !== 'string') continue;
     if (v.includes('<')) el.innerHTML = v; else el.textContent = v;
   }
+  $('groom').placeholder = t('phGroom');
+  $('bride').placeholder = t('phBride');
+  $('groom').setAttribute('aria-label', t('groom'));
+  $('bride').setAttribute('aria-label', t('bride'));
   $('geo-q').placeholder = t('seekPlace');
   $('geo-q').setAttribute('aria-label', t('seekLbl'));
   $('next-cue-label').textContent = t('nextCue');
@@ -340,6 +326,7 @@ function applyI18n() {
   $('sw-uz').classList.toggle('on', LANG === 'uz');
   $('sw-ru').classList.toggle('on', LANG === 'ru');
   document.querySelector('.langsw')?.classList.toggle('at-ru', LANG === 'ru');
+  paintPlate();
   renderBeads();
   renderCalendar();
   buildClock();
@@ -503,57 +490,23 @@ function slotTop(el) {
     : y;
 }
 
-/* Девять ночей: фон меняет оттенок неба от блока к блоку, а золото остаётся
-   золотом — меняется лишь его температура (шампань → янтарь → мёд). */
-const SCENES = [
-  // 01 Имена — полночь и тёплый свет
-  { rgb: '236,201,132', theme: '#05040a', bg: 'radial-gradient(120% 78% at 50% -12%,rgba(255,231,168,.3),transparent 58%),radial-gradient(80% 60% at 12% 82%,rgba(58,44,96,.34),transparent 72%),linear-gradient(178deg,#0a0812 0%,#070610 46%,#030205 100%)' },
-  // 02 Дата — сапфировая ночь
-  { rgb: '228,196,141', theme: '#04060f', bg: 'radial-gradient(115% 74% at 68% -10%,rgba(255,226,170,.26),transparent 56%),radial-gradient(86% 64% at 6% 74%,rgba(28,58,116,.4),transparent 72%),linear-gradient(172deg,#060b18 0%,#050813 50%,#020306 100%)' },
-  // 03 Место — изумрудная ночь
-  { rgb: '223,196,133', theme: '#040a09', bg: 'radial-gradient(118% 76% at 28% -12%,rgba(255,233,178,.25),transparent 56%),radial-gradient(84% 62% at 92% 74%,rgba(20,74,66,.38),transparent 72%),linear-gradient(176deg,#04110f 0%,#040c0b 50%,#020504 100%)' },
-  // 04 Музыка — аметистовая ночь
-  { rgb: '232,192,152', theme: '#08050f', bg: 'radial-gradient(116% 74% at 76% -8%,rgba(255,224,186,.26),transparent 55%),radial-gradient(82% 62% at 8% 78%,rgba(74,38,104,.38),transparent 71%),linear-gradient(174deg,#0d0818 0%,#080512 50%,#030206 100%)' },
-  // 05 Шаблон — шампанское золото (витрина)
-  { rgb: '247,216,152', theme: '#0a0703', bg: 'radial-gradient(120% 82% at 50% -14%,rgba(255,226,150,.4),transparent 56%),radial-gradient(78% 58% at 92% 78%,rgba(120,72,18,.34),transparent 70%),linear-gradient(170deg,#130d04 0%,#0a0703 52%,#030202 100%)' },
-  // 06 Фотографии — тёплый графит
-  { rgb: '226,197,150', theme: '#070605', bg: 'radial-gradient(114% 72% at 36% -10%,rgba(255,236,196,.24),transparent 56%),radial-gradient(80% 60% at 96% 72%,rgba(66,54,42,.4),transparent 72%),linear-gradient(175deg,#0e0c09 0%,#080706 52%,#030302 100%)' },
-  // 07 Готово — кульминация, золотой рассвет над ночью
-  { rgb: '252,222,157', theme: '#0b0702', bg: 'radial-gradient(124% 86% at 50% -16%,rgba(255,222,138,.5),transparent 54%),radial-gradient(76% 58% at 6% 80%,rgba(138,80,14,.32),transparent 70%),linear-gradient(168deg,#160e03 0%,#0b0702 54%,#020201 100%)' },
-  // 08 Гости — тёплая роза
-  { rgb: '238,197,157', theme: '#0a0407', bg: 'radial-gradient(116% 76% at 62% -10%,rgba(255,226,190,.28),transparent 56%),radial-gradient(80% 60% at 10% 76%,rgba(104,32,58,.36),transparent 71%),linear-gradient(174deg,#140710 0%,#0b040a 52%,#030203 100%)' },
-  // 09 Контакты — королевский синий, финальная нота
-  { rgb: '244,212,150', theme: '#03060e', bg: 'radial-gradient(120% 80% at 44% -12%,rgba(255,229,166,.3),transparent 56%),radial-gradient(84% 62% at 94% 76%,rgba(24,52,110,.42),transparent 72%),linear-gradient(172deg,#050a17 0%,#040711 52%,#020204 100%)' },
-];
-let sceneIndex = -1;
+/* Свет у студии один: золото не меняется от шага к шагу. Тот же тон читают
+   небо (sky.js) и волна катушки (music-start.js) через --scene-r/g/b, поэтому
+   он живёт в CSS-переменных, а не в фоне отдельного слоя. */
+const SCENE = { rgb: '214,173,104', theme: '#090807' };
+let scenePainted = false;
 
-function setScene(i = state.open, instant = false) {
-  const index = Math.max(0, Math.min(SCENES.length - 1, Number(i) || 0));
-  if (index === sceneIndex && !instant) return;
-  const scene = SCENES[index];
+function setScene() {
+  if (scenePainted) return;
+  scenePainted = true;
   const root = document.documentElement;
-  const a = $('scene-a');
-  const b = $('scene-b');
-  const active = document.querySelector('.scene-wash.is-on') || a;
-  const next = instant ? active : (active === a ? b : a);
-  next.style.background = scene.bg;
-  next.classList.toggle('is-instant', instant);
-  next.classList.add('is-on');
-  if (next !== active) active.classList.remove('is-on');
-  const [red, green, blue] = scene.rgb.split(',').map(Number);
-  if (instant) root.classList.add('scene-instant');
+  const [red, green, blue] = SCENE.rgb.split(',').map(Number);
   root.style.setProperty('--scene-r', String(red));
   root.style.setProperty('--scene-g', String(green));
   root.style.setProperty('--scene-b', String(blue));
-  requestAnimationFrame(() => {
-    next.classList.remove('is-instant');
-    root.classList.remove('scene-instant');
-  });
   window.Sky?.setTone(red, green, blue);
-  sceneIndex = index;
-  document.body.dataset.scene = String(index);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', scene.theme);
-  try { tg?.setHeaderColor(scene.theme); } catch (_) { /* outside Telegram */ }
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', SCENE.theme);
+  try { tg?.setHeaderColor(SCENE.theme); } catch (_) { /* outside Telegram */ }
 }
 
 function showErr(i, msg) {
@@ -609,7 +562,7 @@ function scrollToBlock(i) {
   dropKeyboard();
   makeRoom(el);
   const y = slotTop(el) - headerOffset();
-  setScene(i);
+  setScene();
   const distance = Math.abs(y - window.scrollY);
   const duration = Math.min(FLOW.scrollMax, Math.max(FLOW.scrollMin, 900 + distance * .9));
   softScrollTo(Math.max(0, y), duration);
@@ -687,7 +640,7 @@ function revealWhenSeen(i, run) {
     window.removeEventListener('scroll', onScroll);
     hideCue();
     if (run !== revealRun || state.open !== i) return;
-    setScene(i);
+    setScene();
     haptic.ok();
     pulseLiveBead();
     await riseBlock(el, FLOW.quietReveal);
@@ -758,7 +711,7 @@ function unlock(i, { quiet = false } = {}) {
     if (run !== revealRun) return;
     // Тихий переход камеру не трогает: блок поднимется, когда до него долистают.
     if (quiet) { revealWhenSeen(i, run); return; }
-    setScene(i);
+    setScene();
     haptic.ok();
     pulseLiveBead();
     // Камера и подъём блока идут одновременно: пара видит движение сразу,
@@ -799,9 +752,57 @@ function prepareStep(i) {
   if (id === 'contact') updateBill();
 }
 
+/* ── Каскад ──
+   Карточки списка приходят по очереди, а не пачкой. Класс живёт ровно столько,
+   сколько идёт анимация: перерисовка по тапу (выбрал стиль, удалил фото) её не
+   повторяет, потому что каскад запускают только открытие шага и смена месяца. */
+const cascadeTimers = new WeakMap();
+function cascade(box) {
+  if (!box || !box.children.length || calmMotion()) return;
+  clearTimeout(cascadeTimers.get(box));
+  box.classList.remove('cascade');
+  void box.offsetWidth;
+  box.classList.add('cascade');
+  cascadeTimers.set(box, setTimeout(() => box.classList.remove('cascade'), 1200));
+}
+
+/* «Меньше движения» — но отладочный переключатель html[data-motion="full"]
+   возвращает его там, где браузер репортит reduce жёстко (стенды, автотесты). */
+const calmMotion = () => document.documentElement.dataset.motion !== 'full'
+  && Boolean(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+/* Сумма не перескакивает, а добегает: видно, что именно её изменило.
+   Кадры может придержать кто угодно — свёрнутая вкладка, экономия батареи,
+   переход в фон. Поэтому итог дописывает таймер: сколько бы кадров ни выпало,
+   в счёте останется настоящая сумма, а не число на полпути. */
+const MONEY_RUN = 620;
+function countMoney(el, target) {
+  const from = Number(el.dataset.v || 0);
+  el.dataset.v = String(target);
+  clearTimeout(countMoney.settle);
+  countMoney.run = (countMoney.run || 0) + 1;
+  const run = countMoney.run;
+  if (from === target || calmMotion()) { el.textContent = money(target); return; }
+  const land = () => { if (countMoney.run === run) el.textContent = money(target); };
+  const t0 = performance.now();
+  const step = (now) => {
+    if (countMoney.run !== run) return;
+    const k = Math.min(1, (now - t0) / MONEY_RUN);
+    const eased = 1 - Math.pow(1 - k, 3);
+    el.textContent = money(Math.round(from + (target - from) * eased));
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+  countMoney.settle = setTimeout(land, MONEY_RUN + 80);
+}
+
 function activateStep(i) {
   const id = STEPS[i].id;
   if (id === 'datetime') startDrift(); else stopDrift();
+  // Шаг открылся — его карточки приходят по очереди.
+  if (id === 'location') cascade($('venue-list'));
+  if (id === 'template') cascade($('tpl-grid'));
+  if (id === 'photos') cascade($('photo-grid'));
   if (id === 'ready') {
     clearTimeout(autoPreviewTimer);
     if (!state.seenInvite) {
@@ -849,29 +850,22 @@ function pulseLiveBead() {
 
 /* ════ 01 · Имена ════ */
 
+/* Плашка — это и есть поля ввода: пара печатает там же, где видит, как имена
+   встанут на приглашении. Здесь остаётся только свет: когда вписаны оба имени,
+   плашка коротко загорается золотом. */
 function paintPlate() {
   const g = $('groom').value.trim();
   const b = $('bride').value.trim();
-  bumpPlateName($('cp-groom'), g || t('phGroom'), !g);
-  bumpPlateName($('cp-bride'), b || t('phBride'), !b);
   const plate = document.querySelector('.plate');
+  if (!plate) return;
+  plate.classList.toggle('is-typed', Boolean(g || b));
   if (g && b && !plate.dataset.lit) {
     plate.dataset.lit = '1';
+    plate.classList.remove('lit');
+    void plate.offsetWidth;
     plate.classList.add('lit');
-    setTimeout(() => plate.classList.remove('lit'), 770);
   }
   if (!g || !b) delete plate.dataset.lit;
-}
-
-function bumpPlateName(el, text, empty) {
-  if (!el) return;
-  const same = el.textContent === text;
-  el.classList.toggle('plate-name--empty', empty);
-  if (same) return;
-  el.textContent = text;
-  el.classList.remove('is-bump');
-  void el.offsetWidth;
-  el.classList.add('is-bump');
 }
 
 function markFilled(input) {
@@ -1979,7 +1973,7 @@ function updateBill() {
     total += n * guestPrice();
     line(t('tGuests'), `${n} × ${money(guestPrice())}`);
   }
-  $('bill-total').textContent = money(total);
+  countMoney($('bill-total'), total);
 }
 
 function jumpTo(stepId, msg) {
@@ -2128,6 +2122,8 @@ function wireKeyboard() {
     const field = typingField(event.target);
     if (!field) return;
     event.preventDefault();
+    // Enter на имени жениха ведёт к невесте: плашка — одно поле из двух строк.
+    if (field.id === 'groom' && !$('bride').value.trim()) { $('bride').focus(); return; }
     dismissField(field);
     // Enter — пара сама сказала «готово»: трёхсекундной паузы не ждём.
     if (field.id === 'groom' || field.id === 'bride') { if (state.open === 0) autoAdvance(FLOW.settle); }
@@ -2205,8 +2201,8 @@ function wire() {
     });
   }
 
-  $('cal-prev').addEventListener('click', () => { calView.setMonth(calView.getMonth() - 1); haptic.tap(); renderCalendar(); });
-  $('cal-next').addEventListener('click', () => { calView.setMonth(calView.getMonth() + 1); haptic.tap(); renderCalendar(); });
+  $('cal-prev').addEventListener('click', () => { calView.setMonth(calView.getMonth() - 1); haptic.tap(); renderCalendar(); cascade($('cal-grid')); });
+  $('cal-next').addEventListener('click', () => { calView.setMonth(calView.getMonth() + 1); haptic.tap(); renderCalendar(); cascade($('cal-grid')); });
 
   $('geo-q').addEventListener('input', seekPlaceSoon);
   $('geo-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); seekPlace(); } });
@@ -2234,6 +2230,7 @@ function wire() {
     if (state.guestsOn && !state.guests.length) state.guests = [''];
     haptic.tap();
     renderGuests();
+    if (state.guestsOn) cascade($('guest-list'));
     updateBill();
     saveDraft();
     if (state.open === stepIdx('guests')) autoAdvance(GUESTS_HOLD);
@@ -2309,7 +2306,7 @@ async function start() {
   state.open = testingTemplates ? stepIdx('template') : resume;
   pingSession(restored ? state.open : null);
   if (state.templateId && state.photos.length > requiredPhotos()) state.photos = state.photos.slice(0, requiredPhotos());
-  setScene(state.open, true);
+  setScene();
   applyI18n();
   paintPlate();
   for (const id of ['groom', 'bride', 'address', 'phone']) markFilled($(id));

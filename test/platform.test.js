@@ -111,12 +111,15 @@ test('upload type detection trusts signatures, not filenames', () => {
   assert.equal(detectFileType(Buffer.from('not an image payload')), null);
 });
 
-const PUBLIC_IDS = ['nafis', 'nur', 'oqshom', 'gulzor', 'marvarid', 'charos', 'shirin', 'deco'];
+const PUBLIC_IDS = ['nafis', 'oqshom', 'gulzor', 'charos', 'deco'];
+const HIDDEN_IDS = ['nur', 'marvarid', 'shirin', 'atlas'];
 
-test('catalog exposes eight designs and keeps the legacy renderer alive', () => {
+test('catalog exposes five designs and keeps the legacy renderer alive', () => {
   assert.deepEqual(publicTemplates().map((template) => template.id), PUBLIC_IDS);
-  // Atlas снят с витрины, но оплаченные ссылки на нём обязаны открываться.
-  assert.deepEqual(new Set(allTemplates().map((template) => template.id)), new Set([...PUBLIC_IDS, 'atlas']));
+  // Снятые с витрины темы не предлагаются парам, но оплаченные ссылки на них
+  // обязаны открываться — поэтому они остаются в allTemplates().
+  assert.deepEqual(new Set(allTemplates().map((template) => template.id)), new Set([...PUBLIC_IDS, ...HIDDEN_IDS]));
+  for (const id of HIDDEN_IDS) assert.equal(allTemplates().find((t) => t.id === id).listed, false, `${id} должен быть скрыт`);
 });
 
 test('every public design ships the shared finish: envelope, glass and gilded type', () => {
@@ -351,6 +354,26 @@ test('admin pricing overrides the manifest and falls back when cleared', async (
   assert.equal(templatePrice('deco', base.basePrice), base.basePrice);
   assert.equal(guestPrice(), 10000);
   await assert.rejects(updatePricing({ templates: { deco: -5 } }, ['deco']), /цена/i);
+});
+
+test('the admin switch hides a design from the shelf and brings it back', async () => {
+  const { updatePricing } = await import('../src/pricing.js');
+  const ids = allTemplates().map((t) => t.id);
+
+  // Выключили — тема исчезла из витрины, но осталась в каталоге рендера.
+  (await updatePricing({ listed: { deco: false } }, ids));
+  assert.equal(publicTemplates().some((t) => t.id === 'deco'), false, 'deco остался в витрине');
+  assert.equal(allTemplates().find((t) => t.id === 'deco').listed, false);
+  assert.ok(allTemplates().some((t) => t.id === 'deco'), 'deco пропал из каталога рендера');
+
+  // Включили скрытую заводскую тему — она появилась у пар.
+  (await updatePricing({ listed: { nur: true } }, ids));
+  assert.ok(publicTemplates().some((t) => t.id === 'nur'), 'nur не вернулся в витрину');
+
+  // Пустое значение возвращает заводское из manifest.json.
+  (await updatePricing({ listed: { deco: null, nur: null } }, ids));
+  assert.ok(publicTemplates().some((t) => t.id === 'deco'));
+  assert.equal(publicTemplates().some((t) => t.id === 'nur'), false);
 });
 
 test('the invitation player starts at the exact second and waits for a tap when autoplay is blocked', async () => {

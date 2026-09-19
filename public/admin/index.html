@@ -157,6 +157,19 @@ body{background:
 .price-row input{width:130px;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:12px;
   background:rgba(255,248,232,.06);color:var(--ink);font:inherit;font-size:.9rem;text-align:right}
 .price-row input:focus{outline:0;border-color:var(--gold);background:rgba(230,207,154,.1)}
+.price-row.off .nm{opacity:.5}
+.price-row.off input[type=number]{opacity:.5}
+.tgl{display:inline-flex;align-items:center;gap:9px;flex:0 0 auto;cursor:pointer;user-select:none}
+.tgl input{position:absolute;opacity:0;width:0;height:0}
+.tgl-track{position:relative;width:46px;height:27px;flex:0 0 46px;border-radius:999px;
+  background:rgba(255,248,232,.14);transition:background .32s ease}
+.tgl-knob{position:absolute;left:3px;top:3px;width:21px;height:21px;border-radius:50%;
+  background:#fff;transition:transform .32s cubic-bezier(.32,0,.18,1)}
+.tgl input:checked+.tgl-track{background:linear-gradient(105deg,var(--gold),#f3e2ba)}
+.tgl input:checked+.tgl-track .tgl-knob{transform:translateX(19px)}
+.tgl input:focus-visible+.tgl-track{outline:2px solid var(--gold);outline-offset:3px}
+.tgl-lbl{min-width:74px;font-size:.74rem;color:var(--soft)}
+.tgl input:checked~.tgl-lbl{color:var(--gold)}
 .price-save{display:flex;align-items:center;gap:12px;margin-top:16px}
 .note{margin-top:10px;font-size:.78rem;color:var(--soft);line-height:1.5}
 .saved{color:var(--ok);font-size:.82rem}
@@ -239,6 +252,9 @@ const I18N = {
     priceTpl:'Shablon narxlari', priceOther:'Boshqa xizmatlar',
     guestLink:'Nomli havola (1 mehmon)', save:'Saqlash', saved:'Saqlandi ✓',
     factory:'zavod narxi', priceNote:'Bo‘sh maydon — zavod narxiga qaytaradi. Narx faqat yangi arizalarga ta’sir qiladi.',
+    tplOn:'Vitrinada', tplOff:'Yashirilgan', tplOnAria:'Shablonni vitrinada ko‘rsatish',
+    tplHiddenNote:'O‘chirilgan shablon studiyada ko‘rinmaydi, lekin to‘langan havolalar ishlayveradi.',
+    tplLastOn:'Kamida bitta shablon yoqilgan bo‘lishi kerak',
     contacts:'Aloqa',
     vnTitle:'To‘yxonalar katalogi',
     vnNote:'Mang‘it to‘yxonalari Yandex va Google xaritalarida yo‘q, shuning uchun ro‘yxatni o‘zimiz yuritamiz. Qoralama yozuvlar juftlarga ko‘rinmaydi: nomi va nuqtasini tekshiring va qoralamani oching.',
@@ -282,6 +298,9 @@ const I18N = {
     priceTpl:'Цены шаблонов', priceOther:'Другие услуги',
     guestLink:'Именная ссылка (1 гость)', save:'Сохранить', saved:'Сохранено ✓',
     factory:'заводская', priceNote:'Пустое поле возвращает заводскую цену. Новая цена применяется к новым заявкам — уже созданные заказы сохраняют свою сумму.',
+    tplOn:'В витрине', tplOff:'Скрыт', tplOnAria:'Показывать шаблон в витрине',
+    tplHiddenNote:'Выключенный шаблон не показывается парам в студии, но уже оплаченные ссылки на нём продолжают работать.',
+    tplLastOn:'Хотя бы один шаблон должен остаться включённым',
     contacts:'Контакты',
     vnTitle:'Каталог тойхон',
     vnNote:'Тойхон Мангита нет ни в Яндексе, ни в Google — справочник ведём сами. Черновики парам не показываются: проверьте название и точку, затем снимите черновик.',
@@ -475,10 +494,17 @@ function renderPricing(){
   const p = DATA.pricing;
   let h = `<h2>${esc(t('priceTpl'))}</h2><div class="card">`;
   for (const tpl of p.templates){
-    h += `<div class="price-row"><div class="nm">${esc(tpl.name)}<em>${esc(t('factory'))}: ${esc(money(tpl.defaultPrice))}</em></div>
+    h += `<div class="price-row${tpl.listed?'':' off'}" data-row="${esc(tpl.id)}">
+      <div class="nm">${esc(tpl.name)}<em>${esc(t('factory'))}: ${esc(money(tpl.defaultPrice))}</em></div>
+      <label class="tgl" title="${esc(t('tplOnAria'))}">
+        <input type="checkbox" data-listed-template="${esc(tpl.id)}"${tpl.listed?' checked':''} aria-label="${esc(t('tplOnAria'))}">
+        <span class="tgl-track"><span class="tgl-knob"></span></span>
+        <span class="tgl-lbl">${esc(tpl.listed?t('tplOn'):t('tplOff'))}</span>
+      </label>
       <input type="number" inputmode="numeric" min="0" step="1000" data-price-template="${esc(tpl.id)}" value="${esc(tpl.price)}" placeholder="${esc(tpl.defaultPrice)}"></div>`;
   }
   h += '</div>';
+  h += `<p class="note">${esc(t('tplHiddenNote'))}</p>`;
 
   h += `<h2>${esc(t('priceOther'))}</h2><div class="card">`;
   h += `<div class="price-row"><div class="nm">${esc(t('guestLink'))}<em>${esc(t('factory'))}: ${esc(money(p.guestLink.defaultPrice))}</em></div>
@@ -760,9 +786,12 @@ async function act(id, kind){
 }
 
 async function savePricing(){
-  const patch = { templates:{}, addons:{} };
+  const patch = { templates:{}, addons:{}, listed:{} };
   document.querySelectorAll('[data-price-template]').forEach(i=>{ patch.templates[i.dataset.priceTemplate] = i.value===''?null:Number(i.value); });
   document.querySelectorAll('[data-price-addon]').forEach(i=>{ patch.addons[i.dataset.priceAddon] = i.value===''?null:Number(i.value); });
+  patch.listed = {};
+  document.querySelectorAll('[data-listed-template]').forEach(i=>{ patch.listed[i.dataset.listedTemplate] = i.checked; });
+  if (!Object.values(patch.listed).some(Boolean)) { alert(t('tplLastOn')); return; }
   const guest = document.querySelector('[data-price-guest]');
   patch.guestLink = guest && guest.value!=='' ? Number(guest.value) : null;
   const button = $('price-save');
@@ -811,6 +840,17 @@ async function saveTexts(){
     if (el) el.disabled = false;
   }
 }
+
+/* Выключатель витрины отвечает сразу: подпись и блёклость строки меняются
+   на месте, сохранение — общей кнопкой, как и цены. */
+document.addEventListener('change', (e)=>{
+  const box = e.target.closest('[data-listed-template]');
+  if (!box) return;
+  const row = box.closest('.price-row');
+  if (row) row.classList.toggle('off', !box.checked);
+  const label = box.parentElement.querySelector('.tgl-lbl');
+  if (label) label.textContent = box.checked ? t('tplOn') : t('tplOff');
+});
 
 document.addEventListener('click', (e)=>{
   const tab = e.target.closest('#tabs button');

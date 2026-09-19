@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <title>nvate — studio</title>
-<meta name="theme-color" content="#100b03">
+<meta name="theme-color" content="#090807">
 <!-- Тег сборки: по нему app.js достраивает адреса файлов, которые грузит сам. -->
 <meta name="nv-build" content="__V__">
 
@@ -19,7 +19,7 @@
      шрифте. Этот вид и сохраняем — без сотни килобайт woff2 на первом экране. -->
 <style>
   /* До первого кадра: чёрный фон вместо белой вспышки. */
-  html { background: #080806; }
+  html { background: #090807; }
 </style>
 <link rel="stylesheet" href="style.css?v=__V__">
 
@@ -131,21 +131,17 @@
       <span class="knot"></span>
       <p class="eyebrow"><b>01</b><span data-i18n="eNames"></span></p>
       <h2 class="blk-title" data-i18n="tNames"></h2>
+      <p class="blk-lead" data-i18n="leadNames"></p>
 
+      <!-- Имена вписываются прямо в плашку: одно место вместо двух.
+           Отдельных полей под ней больше нет — пара печатает там же, где
+           видит, как имена будут выглядеть на приглашении. -->
       <div class="plate">
-        <span id="cp-groom" class="plate-name plate-name--empty" data-i18n="phGroom"></span>
+        <input id="groom" class="plate-name" type="text" maxlength="100" autocomplete="off" spellcheck="false" enterkeyhint="next">
         <span class="plate-amp">&amp;</span>
-        <span id="cp-bride" class="plate-name plate-name--empty" data-i18n="phBride"></span>
+        <input id="bride" class="plate-name" type="text" maxlength="100" autocomplete="off" spellcheck="false" enterkeyhint="done">
       </div>
 
-      <div class="field">
-        <label for="groom" data-i18n="groom"></label>
-        <input id="groom" type="text" maxlength="100" autocomplete="off" spellcheck="false" enterkeyhint="done">
-      </div>
-      <div class="field">
-        <label for="bride" data-i18n="bride"></label>
-        <input id="bride" type="text" maxlength="100" autocomplete="off" spellcheck="false" enterkeyhint="done">
-      </div>
       <p class="blk-err" hidden></p>
     </section>
 

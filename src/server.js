@@ -299,12 +299,24 @@ export function createServer({ onNewApplication, onPaid } = {}) {
     }
   });
 
-  // Прайс: цены шаблонов, именной ссылки и допфункций. Пустое значение
-  // возвращает заводскую цену из manifest.json / config.js.
+  // Прайс: цены шаблонов, именной ссылки и допфункций, плюс выключатель
+  // витрины. Пустое значение возвращает заводское из manifest.json / config.js.
   app.put('/api/admin/pricing', express.json({ limit: '16kb' }), async (req, res) => {
     const u = adminUser(req.get('x-init-data') ?? '');
     if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
     try {
+      /* Витрина не может остаться пустой: паре нечего будет выбрать. Считаем
+         будущее состояние до записи, а не откатываем уже сохранённое. */
+      const patchListed = req.body?.listed ?? {};
+      const willShow = (t) => {
+        const v = patchListed[t.id];
+        if (v === undefined) return t.listed;             // не трогали
+        if (v === null || v === '') return t.baseListed;  // вернуть заводское
+        return Boolean(v);
+      };
+      if (!allTemplates().some(willShow)) {
+        return res.status(400).json({ ok: false, error: 'Хотя бы один шаблон должен остаться включённым' });
+      }
       (await updatePricing(req.body ?? {}, allTemplates().map((t) => t.id)));
       res.json({ ok: true, pricing: pricingSnapshot(allTemplates()) });
     } catch (e) {

@@ -6,7 +6,7 @@ import { readdirSync, readFileSync, existsSync, watch } from 'node:fs';
 import path from 'node:path';
 import { parseTemplate } from './templateEngine.js';
 import { STATIONERY } from './design.js';
-import { templatePrice } from './pricing.js';
+import { templatePrice, templateListed } from './pricing.js';
 
 export const TEMPLATES_DIR = path.resolve(process.cwd(), 'templates');
 
@@ -48,8 +48,10 @@ function loadOne(id) {
     minPhotos: Number.isInteger(m.minPhotos) && m.minPhotos >= 0 ? m.minPhotos : 1,
     colors: Array.isArray(m.colors) ? m.colors.slice(0, 4).map(String) : [],
     order: Number.isFinite(Number(m.order)) ? Number(m.order) : 999,
-    // Скрытые legacy-шаблоны продолжают рендерить старые оплаченные ссылки,
-    // но больше не появляются в каталоге и не принимают новые заявки.
+    // Скрытый шаблон продолжает рендерить уже оплаченные ссылки, но не
+    // появляется в витрине и не принимает новые заявки. Заводское значение
+    // живёт в manifest.json, переключатель админки кладётся поверх (withOverrides).
+    baseListed: m.listed !== false,
     listed: m.listed !== false,
     demoUrl: `/demo/${id}`,
     // локализация поверх базовой (см. LOCALES в render.js): { uz: {...}, ru: {...} }
@@ -80,20 +82,21 @@ function store() {
   return cache ?? load();
 }
 
-/* Актуальная цена: переопределение из админки поверх manifest.json.
-   Кэш шаблонов при этом не сбрасывается — цена подставляется на чтении. */
-function withPrice(tpl) {
+/* Актуальные цена и видимость: переопределения из админки поверх manifest.json.
+   Кэш шаблонов при этом не сбрасывается — значения подставляются на чтении. */
+function withOverrides(tpl) {
   if (!tpl) return tpl;
   const price = templatePrice(tpl.id, tpl.basePrice);
-  return price === tpl.price ? tpl : { ...tpl, price };
+  const listed = templateListed(tpl.id, tpl.baseListed);
+  return price === tpl.price && listed === tpl.listed ? tpl : { ...tpl, price, listed };
 }
 
 export function allTemplates() {
-  return store().list.map(withPrice);
+  return store().list.map(withOverrides);
 }
 
 export function getTemplate(id) {
-  return withPrice(store().byId.get(id)) ?? null;
+  return withOverrides(store().byId.get(id)) ?? null;
 }
 
 // Совместимо по форме с прежним findTemplate из config.js (id, name, price, minPhotos...).
@@ -105,7 +108,7 @@ export function findTemplate(id) {
 export function publicTemplates() {
   return allTemplates()
     .filter((t) => t.listed)
-    .map(({ tree, strings, listed, ...pub }) => pub);
+    .map(({ tree, strings, listed, baseListed, ...pub }) => pub);
 }
 
 // События с флагом активности — «скоро» в форме, пока нет шаблонов.

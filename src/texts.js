@@ -24,87 +24,87 @@ export const TEXT_DEFS = {
 
   'welcome.uz': def('start', 'Приветствие (UZ)', 'Salomlashuv (UZ)', [],
     '✨ <b>nvate</b> — onlayn taklifnomalar\n\n'
-    + 'Bu bot orqali siz:\n'
-    + '• To‘y uchun chiroyli onlayn taklifnoma yaratasiz\n'
-    + '• Sana, manzil (jonli xarita), musiqa va suratlar qo‘shasiz\n'
-    + '• Har bir mehmonga alohida nomli havola olasiz\n\n'
-    + 'Boshlash uchun quyidagi tugmani bosing 👇'),
+    + 'Bu yerda siz:\n'
+    + '• To‘y taklifnomangizni o‘zingiz yig‘asiz\n'
+    + '• Sana, to‘yxona, musiqa va suratlar qo‘shasiz\n'
+    + '• Har bir mehmonga ismli havola olasiz\n\n'
+    + 'To‘ldirish 5 daqiqa. Boshlaymizmi? 👇'),
 
   'welcome.ru': def('start', 'Приветствие (RU)', 'Salomlashuv (RU)', [],
-    '✨ <b>nvate</b> — онлайн приглашения\n\n'
-    + 'С помощью этого бота вы:\n'
-    + '• Создадите красивое онлайн-приглашение на свадьбу\n'
-    + '• Добавите дату, локацию (живая карта), музыку и фото\n'
-    + '• Получите личную ссылку для каждого гостя\n\n'
-    + 'Нажмите кнопку ниже, чтобы начать 👇'),
+    '✨ <b>nvate</b> — онлайн-приглашения\n\n'
+    + 'Здесь вы:\n'
+    + '• Соберёте приглашение на свадьбу сами\n'
+    + '• Добавите дату, тойхону, музыку и фотографии\n'
+    + '• Получите именную ссылку для каждого гостя\n\n'
+    + 'Заполнить — минут пять. Начнём? 👇'),
 
   'faq.uz': def('help', 'FAQ (UZ)', 'FAQ (UZ)', ['price', 'guestPrice', 'photos'],
     '<b>❔ Ko‘p so‘raladigan savollar</b>\n\n'
-    + '💰 <b>Narx:</b> shablonga qarab {price}. Nomli havola — har bir mehmon uchun {guestPrice}.\n'
-    + '🔗 <b>Havola:</b> to‘lovdan so‘ng shaxsiy havola beriladi va o‘chirilmaydi.\n'
-    + '🎵 <b>Musiqa:</b> qo‘shiqni shu botga yuboring yoki kutubxonadan tanlang — to‘liq yangraydi.\n'
-    + '📷 <b>Suratlar:</b> 1–{photos} ta.\n'
-    + '⏱ <b>Vaqt:</b> to‘ldirish ~5 daqiqa.'),
+    + '💰 <b>Narx</b> — uslubga qarab {price}. Ismli havola — mehmon boshiga {guestPrice}.\n'
+    + '🔗 <b>Havola</b> to‘lovdan keyin beriladi va hech qachon o‘chmaydi.\n'
+    + '🎵 <b>Musiqa</b> — qo‘shiqni shu botga yuboring yoki studiyada qidiring. Taklifnomada to‘liq yangraydi.\n'
+    + '📷 <b>Suratlar</b> — 1 tadan {photos} tagacha.\n'
+    + '⏱ <b>Vaqt</b> — to‘ldirishga 5 daqiqa yetadi.'),
 
   'faq.ru': def('help', 'FAQ (RU)', 'FAQ (RU)', ['price', 'guestPrice', 'photos'],
     '<b>❔ Частые вопросы</b>\n\n'
-    + '💰 <b>Цена:</b> {price} в зависимости от шаблона. Именная ссылка — {guestPrice} за гостя.\n'
-    + '🔗 <b>Ссылка:</b> выдаётся после оплаты и не удаляется.\n'
-    + '🎵 <b>Музыка:</b> пришлите песню этому боту или выберите из библиотеки — звучит целиком.\n'
-    + '📷 <b>Фото:</b> 1–{photos} шт.\n'
-    + '⏱ <b>Время:</b> заполнение ~5 минут.'),
+    + '💰 <b>Цена</b> — {price} в зависимости от стиля. Именная ссылка — {guestPrice} за гостя.\n'
+    + '🔗 <b>Ссылка</b> выдаётся после оплаты и остаётся навсегда.\n'
+    + '🎵 <b>Музыка</b> — пришлите песню этому боту или найдите её в студии. В приглашении играет целиком.\n'
+    + '📷 <b>Фото</b> — от 1 до {photos}.\n'
+    + '⏱ <b>Время</b> — на всё хватает пяти минут.'),
 
   'support.uz': def('help', 'Поддержка (UZ)', 'Yordam (UZ)', [],
-    '💬 <b>Yordam</b>\n\nSavolingizni shu yerga yozing — tez orada javob beramiz.'),
+    '💬 <b>Yordam</b>\n\nSavolingizni shu yerga yozing — javob beramiz.'),
 
   'support.ru': def('help', 'Поддержка (RU)', 'Yordam (RU)', [],
-    '💬 <b>Поддержка</b>\n\nНапишите ваш вопрос сюда — ответим в ближайшее время.'),
+    '💬 <b>Поддержка</b>\n\nНапишите вопрос сюда — ответим.'),
 
   musicWait: def('music', 'Достаём музыку', 'Musiqa ajratilmoqda', [],
     '⏳ Musiqa ajratilmoqda…\n⏳ Достаём музыку…'),
 
   musicDone: def('music', 'Песня сохранена', 'Qo‘shiq saqlandi', ['title', 'artist'],
     '🎵 <b>{title}</b>{artist}\n\n'
-    + '✅ Studiyada: <i>Musiqa → Mening musiqam</i>\n'
-    + '✅ В студии: <i>Музыка → Моя музыка</i>'),
+    + '✅ Studiyada turibdi: <i>Musiqa → Mening musiqam</i>\n'
+    + '✅ Уже в студии: <i>Музыка → Моя музыка</i>'),
 
   musicBig: def('music', 'Файл больше 20 МБ', 'Fayl 20 MB dan katta', [],
-    '⚠️ Fayl 20 MB dan katta — Telegram bunday fayllarni botlarga bermaydi.\n'
-    + '⚠️ Файл больше 20 МБ — Telegram не отдаёт такие ботам.'),
+    '⚠️ Fayl 20 MB dan katta — Telegram bunday fayllarni botlarga bermaydi. Havolasini yuboring.\n'
+    + '⚠️ Файл больше 20 МБ — Telegram не отдаёт такие ботам. Пришлите ссылку на него.'),
 
   'cancelled.uz': def('order', 'Заявка отклонена (UZ)', 'Ariza rad etildi (UZ)', [],
-    'Afsuski, arizangiz rad etildi. Aniqlik uchun yordam xizmatiga yozing.'),
+    'Arizangiz rad etildi. Sababini bilish uchun yordam xizmatiga yozing — birga hal qilamiz.'),
 
   'cancelled.ru': def('order', 'Заявка отклонена (RU)', 'Ariza rad etildi (RU)', [],
-    'К сожалению, ваша заявка отклонена. Свяжитесь с поддержкой для уточнения.'),
+    'Заявка отклонена. Напишите в поддержку — разберёмся вместе.'),
 
   'paidCard.uz': def('order', 'Карточка с QR (UZ)', 'QR kartochka (UZ)', ['couple', 'when', 'where'],
-    '🎉 <b>Tabriklaymiz! Taklifnomangiz tayyor</b>\n\n💍 <b>{couple}</b>\n{when}{where}\n\n'
-    + '📲 QR-kodni telefon kamerasida skanerlang — taklifnoma darhol ochiladi.\n'
-    + '🖨 Kartochkani chop etib, stollarga yoki konvertlarga qo‘yish mumkin.'),
+    '🎉 <b>Taklifnomangiz tayyor!</b>\n\n💍 <b>{couple}</b>\n{when}{where}\n\n'
+    + '📲 QR-kodga telefon kamerasini to‘g‘rilang — taklifnoma darhol ochiladi.\n'
+    + '🖨 Kartochkani chop etib, stollarga qo‘ying yoki konvertga soling.'),
 
   'paidCard.ru': def('order', 'Карточка с QR (RU)', 'QR kartochka (RU)', ['couple', 'when', 'where'],
-    '🎉 <b>Поздравляем! Ваше приглашение готово</b>\n\n💍 <b>{couple}</b>\n{when}{where}\n\n'
-    + '📲 Наведите камеру телефона на QR-код — приглашение откроется сразу.\n'
-    + '🖨 Карточку можно распечатать и поставить на столы или вложить в конверты.'),
+    '🎉 <b>Ваше приглашение готово!</b>\n\n💍 <b>{couple}</b>\n{when}{where}\n\n'
+    + '📲 Наведите камеру на QR-код — приглашение откроется сразу.\n'
+    + '🖨 Карточку можно распечатать: на столы или в конверты.'),
 
   'mainLink.uz': def('order', 'Общая ссылка (UZ)', 'Umumiy havola (UZ)', ['link'],
-    '🔗 <b>Umumiy havola</b> — barcha mehmonlar uchun\n{link}\n\n'
-    + '👇 «Ulashish» tugmasi bilan taklifnomani do‘stlar, qarindoshlar va guruhlarga yuboring — xohlagancha marta.'),
+    '🔗 <b>Umumiy havola</b> — hamma uchun bitta\n{link}\n\n'
+    + '👇 «Ulashish» tugmasi chat tanlashni ochadi. Xohlagancha marta yuboring — havola o‘chmaydi.'),
 
   'mainLink.ru': def('order', 'Общая ссылка (RU)', 'Umumiy havola (RU)', ['link'],
-    '🔗 <b>Общая ссылка</b> — для всех гостей\n{link}\n\n'
-    + '👇 Кнопкой «Поделиться» отправьте приглашение друзьям, родным и в группы — сколько угодно раз.'),
+    '🔗 <b>Общая ссылка</b> — одна на всех\n{link}\n\n'
+    + '👇 «Поделиться» открывает выбор чата. Отправляйте сколько угодно раз — ссылка не пропадёт.'),
 
   'guestsIntro.uz': def('order', 'Именные приглашения: вступление (UZ)', 'Ismli taklifnomalar (UZ)', ['count'],
     '👥 <b>Ismli taklifnomalar</b> — {count} ta\n'
-    + 'Har bir mehmon taklifnomani ochganda o‘z ismini ko‘radi.\n\n'
-    + '☝️ «Yuborish» tugmasi bir martalik: taklifnoma yuborilishi bilan u yo‘qoladi.'),
+    + 'Har bir mehmon taklifnomani ochganda birinchi qatorda o‘z ismini ko‘radi.\n\n'
+    + '☝️ Har bir ism ostidagi tugma chat tanlashni darhol ochadi — bir bosish, bir mehmon.'),
 
   'guestsIntro.ru': def('order', 'Именные приглашения: вступление (RU)', 'Ismli taklifnomalar (RU)', ['count'],
     '👥 <b>Именные приглашения</b> — {count}\n'
-    + 'Каждый гость увидит в приглашении своё имя.\n\n'
-    + '☝️ Кнопка «Отправить» одноразовая: как только приглашение ушло, она исчезает.'),
+    + 'Каждый гость первой строкой увидит своё имя.\n\n'
+    + '☝️ Кнопка под именем сразу открывает выбор чата — одно нажатие на гостя.'),
 
   guestCard: def('order', 'Карточка гостя', 'Mehmon kartochkasi', ['name', 'link'],
     '👤 <b>{name}</b>\n🔗 {link}'),
@@ -116,16 +116,16 @@ export const TEXT_DEFS = {
     '✅ <b>Отправлено</b>'),
 
   'invite.uz': def('share', 'Приглашение для всех (UZ)', 'Umumiy taklifnoma (UZ)', ['couple', 'when', 'where', 'link'],
-    '💌 <b>Taklifnoma</b>\n\n💍 <b>{couple}</b>\nSizni to‘yimizga taklif qilamiz!\n\n{when}{where}\n\n🔗 {link}'),
+    '💌 <b>Taklifnoma</b>\n\n💍 <b>{couple}</b>\nEng baxtli kunimizda yonimizda bo‘ling!\n\n{when}{where}\n\n🔗 {link}'),
 
   'invite.ru': def('share', 'Приглашение для всех (RU)', 'Umumiy taklifnoma (RU)', ['couple', 'when', 'where', 'link'],
-    '💌 <b>Приглашение на свадьбу</b>\n\n💍 <b>{couple}</b>\nПриглашаем вас разделить с нами этот день!\n\n{when}{where}\n\n🔗 {link}'),
+    '💌 <b>Приглашение на свадьбу</b>\n\n💍 <b>{couple}</b>\nБудьте рядом в наш самый счастливый день!\n\n{when}{where}\n\n🔗 {link}'),
 
   'inviteGuest.uz': def('share', 'Именное приглашение (UZ)', 'Ismli taklifnoma (UZ)', ['name', 'couple', 'when', 'where', 'link'],
-    '💌 <b>Hurmatli {name}!</b>\n\n💍 <b>{couple}</b> sizni to‘yiga taklif qiladi.\n\n{when}{where}\n\n🔗 {link}'),
+    '💌 <b>Hurmatli {name}!</b>\n\n💍 <b>{couple}</b> sizni to‘yiga taklif qiladi.\nSizni ko‘rsak, xursand bo‘lamiz.\n\n{when}{where}\n\n🔗 {link}'),
 
   'inviteGuest.ru': def('share', 'Именное приглашение (RU)', 'Ismli taklifnoma (RU)', ['name', 'couple', 'when', 'where', 'link'],
-    '💌 <b>{name}, здравствуйте!</b>\n\n💍 <b>{couple}</b> приглашают вас на свадьбу.\n\n{when}{where}\n\n🔗 {link}'),
+    '💌 <b>{name}, здравствуйте!</b>\n\n💍 <b>{couple}</b> приглашают вас на свадьбу.\nБудем рады видеть вас рядом.\n\n{when}{where}\n\n🔗 {link}'),
 };
 
 const SETTING = 'texts';

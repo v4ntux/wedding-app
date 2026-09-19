@@ -560,11 +560,9 @@ export function createBot({ token, adminIds = [], baseUrl }) {
     name: esc(guest.name), link: showLink(guestLink(app, guest)),
   });
 
-  /* Именная кнопка без инлайн-режима. Инлайн-кнопка гаснет сама, когда пара
-     выбрала чат; обычная ссылка так не умеет — поэтому здесь кнопка сначала
-     приходит в бот: он снимает её с сообщения, ставит отметку «отправлено» и
-     тут же присылает готовое приглашение с кнопкой «Поделиться». Одно нажатие
-     на гостя — как и просили. */
+  /* Совместимость: кнопка «Отправить · Имя» из рассылок, сделанных до перехода
+     на одно нажатие. В новых сообщениях её нет — там выбор чата открывается
+     сразу, — но уже отправленные кнопки обязаны продолжать работать. */
   bot.callbackQuery(/^share:(\d+)$/, async (ctx) => {
     const guest = await getGuestById(Number(ctx.match[1]));
     const app = guest ? await getApplication(guest.application_id) : null;
@@ -621,15 +619,20 @@ export function createBot({ token, adminIds = [], baseUrl }) {
     const guests = await listGuests(app.id);
     if (!guests.length) return;
     await api.sendMessage(chat, textLang('guestsIntro', app.lang, { count: guests.length }), { parse_mode: 'HTML' });
-    /* Именная кнопка одноразовая в обоих режимах: с инлайном её гасит выбор
-       чата, без инлайна — callback «share:id», который снимает её сам. */
+    /* Одно нажатие на гостя. Раньше без инлайн-режима кнопка вела в бота: он
+       присылал ещё одно сообщение, и только там была «Поделиться» — два
+       нажатия и лишняя переписка на каждого гостя. Теперь выбор чата
+       открывается сразу: инлайн-кнопкой, если режим включён у бота, иначе
+       ссылкой t.me/share — её Telegram открывает своим окном выбора.
+       Отметку «отправлено» ставит инлайн-режим (его гасит выбор чата);
+       у ссылки обратного сигнала нет, поэтому кнопка остаётся рабочей. */
     const inline = inlineShare();
     for (const guest of guests) {
       const name = String(guest.name).slice(0, 32);
-      const label = uz ? `📨 Yuborish · ${name}` : `📨 Отправить · ${name}`;
+      const label = uz ? `📤 Ulashish · ${name}` : `📤 Поделиться · ${name}`;
       const keyboard = inline
         ? new InlineKeyboard().switchInline(label, `g ${guest.id}`)
-        : new InlineKeyboard().text(label, `share:${guest.id}`);
+        : new InlineKeyboard().url(label, shareLink(guestLink(app, guest), guestInvite(app, guest.name)));
       const sent = await api.sendMessage(chat, guestCard(app, guest), { ...quiet, reply_markup: keyboard });
       if (inline) await setGuestMessage(guest.id, sent.message_id);
     }

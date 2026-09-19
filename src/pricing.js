@@ -29,6 +29,14 @@ export function templatePrice(id, fallback) {
   return clean === null ? fallback : clean;
 }
 
+/* Шаблон в витрине или спрятан. Переключатель админки лежит поверх
+   manifest.json: заводское значение остаётся в файле, решение — в settings.
+   Спрятанный шаблон по-прежнему рендерит уже оплаченные ссылки. */
+export function templateListed(id, fallback) {
+  const over = read().listed?.[id];
+  return typeof over === 'boolean' ? over : fallback;
+}
+
 /* Именная ссылка для гостя — цена за одного. */
 export function guestPrice() {
   const clean = cleanAmount(read().guestLink);
@@ -49,7 +57,14 @@ export function pricedAddons() {
 /* Снимок прайса для админки: и текущее значение, и заводское. */
 export function pricingSnapshot(templates = []) {
   return {
-    templates: templates.map((t) => ({ id: t.id, name: t.name, price: t.price, defaultPrice: t.basePrice ?? t.price })),
+    templates: templates.map((t) => ({
+      id: t.id,
+      name: t.name,
+      price: t.price,
+      defaultPrice: t.basePrice ?? t.price,
+      listed: t.listed !== false,
+      defaultListed: t.baseListed !== false,
+    })),
     guestLink: { price: guestPrice(), defaultPrice: GUEST_LINK_PRICE },
     addons: ADDONS.map((a) => ({ id: a.id, ru: a.ru, uz: a.uz, price: addonPrice(a.id, a.price), defaultPrice: a.price })),
   };
@@ -61,9 +76,19 @@ export async function updatePricing(patch = {}, knownTemplateIds = []) {
   const current = read();
   const next = {
     templates: { ...(current.templates ?? {}) },
+    listed: { ...(current.listed ?? {}) },
     addons: { ...(current.addons ?? {}) },
     guestLink: current.guestLink,
   };
+
+  /* Выключатель витрины. null возвращает заводское значение из manifest.json. */
+  if (patch.listed && typeof patch.listed === 'object') {
+    for (const [id, value] of Object.entries(patch.listed)) {
+      if (!knownTemplateIds.includes(id)) continue;
+      if (value === null || value === '') { delete next.listed[id]; continue; }
+      next.listed[id] = Boolean(value);
+    }
+  }
 
   if (patch.templates && typeof patch.templates === 'object') {
     for (const [id, value] of Object.entries(patch.templates)) {
