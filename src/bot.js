@@ -175,8 +175,6 @@ export function createBot({ token, adminIds = [], baseUrl }) {
     if (SUPPORT_URL) kb.url(uz ? '💬 Yordam' : '💬 Поддержка', SUPPORT_URL);
     else kb.text(uz ? '💬 Yordam' : '💬 Поддержка', `support:${lang}`);
     kb.text('❔ FAQ', `faq:${lang}`).row();
-    // Своя ссылка: её кидают в свадебный чат, а мы видим, кто кого привёл.
-    kb.text(uz ? '🤝 Do‘stlarni chaqirish' : '🤝 Позвать друзей', 'invite').row();
     if (isAdminId(fromId) && https) kb.webApp('📊 Admin', `${baseUrl}/admin/`);
     return kb;
   }
@@ -193,22 +191,15 @@ export function createBot({ token, adminIds = [], baseUrl }) {
     });
   });
 
-  /* Своя ссылка на бота: её кидают друзьям, а мы видим, кто кого привёл.
-     Пара получает её командой /invite и кнопкой в меню. */
+  /* Своя ссылка на бота — по команде /invite. В меню её нет: пара приходит
+     заказать приглашение, а не звать друзей; кнопка там только отвлекала. */
   const inviteLink = (id) => `https://t.me/${RUNTIME.botUsername || 'nvate_bot'}?start=ref${id}`;
 
-  async function sendInvite(ctx, lang) {
+  bot.command('invite', async (ctx) => {
     const id = ctx.from?.id;
     if (!id) return;
-    await ctx.reply(textLang('refLink', lang, { link: showLink(inviteLink(id)) }), {
-      parse_mode: 'HTML', link_preview_options: { is_disabled: true },
-    });
-  }
-
-  bot.command('invite', (ctx) => sendInvite(ctx, ctx.from?.language_code === 'ru' ? 'ru' : 'uz'));
-  bot.callbackQuery('invite', async (ctx) => {
-    await ctx.answerCallbackQuery();
-    await sendInvite(ctx, ctx.from?.language_code === 'ru' ? 'ru' : 'uz');
+    await ctx.reply(textLang('refLink', ctx.from.language_code === 'ru' ? 'ru' : 'uz',
+      { link: showLink(inviteLink(id)) }), { parse_mode: 'HTML', link_preview_options: { is_disabled: true } });
   });
 
   // /start → выбор языка.
