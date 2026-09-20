@@ -25,10 +25,14 @@ window.UI = (function () {
 
   function debounce(fn, ms) {
     let t = null;
-    return (...args) => {
+    const run = (...args) => {
       clearTimeout(t);
       t = setTimeout(() => fn(...args), ms);
     };
+    // Снять отложенный вызов: сохранение черновика не должно случиться уже
+    // после того, как черновик стёрли.
+    run.cancel = () => clearTimeout(t);
+    return run;
   }
 
   /* ── Хаптика Telegram: селекция, удар, итог ── */

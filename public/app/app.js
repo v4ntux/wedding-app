@@ -33,6 +33,7 @@ const state = {
   previewHtml: '',
   seenInvite: false,
   sending: false,
+  submitted: false,     // заявка ушла: студия под экраном «Готово» уже чужая
   submissionKey: null,   // ключ идемпотентности заявки, живёт вместе с черновиком
 };
 
@@ -58,6 +59,9 @@ const saveDraft = debounce(() => {
 }, 400);
 
 function clearDraft() {
+  // Отложенное автосохранение отменяем первым: иначе оно вернёт черновик в
+  // хранилище через мгновение после того, как мы его стёрли.
+  saveDraft.cancel();
   try { localStorage.removeItem(DRAFT); } catch (_) { /* — */ }
   pingSession(null);
 }
@@ -2060,6 +2064,7 @@ async function submit() {
       return;
     }
     clearDraft();
+    state.submitted = true;
     state.submissionKey = null;   // следующая заявка получит собственный ключ
     haptic.ok();
     sparks();
@@ -2093,6 +2098,14 @@ function fill(root, cls, n, base, spread) {
 }
 
 /* ════ Мои приглашения ════ */
+
+/* Заявка ушла, но студия под экраном «Готово» осталась заполненной прошлой
+   парой. Из «Моих приглашений» возвращаемся к чистому листу: иначе первое же
+   касание вернёт черновик в хранилище, а кнопка оплаты уйдёт дублем. */
+function closeMine() {
+  if (state.submitted) { location.reload(); return; }
+  $('mine').hidden = true;
+}
 
 async function loadMine() {
   const box = $('mine-list');
@@ -2200,7 +2213,7 @@ function wire() {
   $('brand').addEventListener('click', () => softScrollTo(0, 3200));
 
   $('btn-mine').addEventListener('click', () => { $('mine').hidden = false; loadMine(); });
-  $('mine-close').addEventListener('click', () => { $('mine').hidden = true; });
+  $('mine-close').addEventListener('click', closeMine);
 
   for (const id of ['groom', 'bride']) {
     $(id).addEventListener('input', () => {
@@ -2261,7 +2274,7 @@ function wire() {
     tg.BackButton?.onClick(() => {
       if (Music?.isOpen()) { Music.close(); return; }
       if (!$('sheet').hidden) { sheet.close(); return; }
-      if (!$('mine').hidden) { $('mine').hidden = true; return; }
+      if (!$('mine').hidden) { closeMine(); return; }
       tg.close();
     });
   }

@@ -1088,6 +1088,29 @@ test('outside Telegram the studio is told to hand the couple the bot', async () 
   }
 });
 
+/* Заявка ушла — черновик стёрт. Автосохранение отложено на доли секунды, и
+   раньше оно успевало записать анкету обратно: следующая пара открывала
+   студию с чужими именами вместо чистого листа. */
+test('a submitted draft stays cleared: the pending autosave is cancelled', async () => {
+  const vm = await import('node:vm');
+  const sandbox = { window: {}, document: {}, setTimeout, clearTimeout, console };
+  vm.runInNewContext(readFileSync(new URL('../public/app/ui.js', import.meta.url), 'utf8'), sandbox);
+  const { debounce } = sandbox.window.UI;
+
+  let saved = 0;
+  const save = debounce(() => { saved += 1; }, 10);
+  save();
+  save.cancel();
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.equal(saved, 0, 'стёртый черновик не должен вернуться отложенной записью');
+  save();
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  assert.equal(saved, 1, 'после отмены сохранение продолжает работать');
+
+  const studio = readFileSync(new URL('../public/app/app.js', import.meta.url), 'utf8');
+  assert.match(studio, /function clearDraft\(\) \{[\s\S]*?saveDraft\.cancel\(\);/, 'clearDraft снимает отложенную запись');
+});
+
 // Разметка шлюза едет вместе со студией: без неё фронту некуда положить вход.
 test('the studio ships the Telegram gate markup', () => {
   const html = readFileSync(path.join(process.cwd(), 'public', 'app', 'index.html'), 'utf8');
