@@ -1282,6 +1282,84 @@ html[data-motion='full'] * { animation-play-state: running !important; }
   font-weight: 600;
 }
 .bill-total b { color: var(--gold); font: 400 1.42rem/1 var(--display); }
+.bill-line--promo span:first-child,
+.bill-line--promo span:last-child { color: var(--gold-hi); }
+
+/* Промокод. Поле стоит прямо в счёте: применённый код меняет себя на плашку,
+   а скидка встаёт строкой над итогом — пара видит, откуда взялась цена. */
+.promo { margin-top: 14px; }
+.promo-field { display: flex; gap: 9px; }
+.promo-field input {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  padding: 12px 15px;
+  appearance: none;
+  -webkit-appearance: none;
+  color: var(--silk);
+  border: 1px dashed var(--line-2);
+  border-radius: var(--radius-in);
+  outline: 0;
+  background: var(--face-2);
+  caret-color: var(--gold-hi);
+  font-size: .95rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  transition: border-color var(--motion-ui) var(--ease-silk), background var(--motion-ui) var(--ease-silk);
+}
+.promo-field input::placeholder { color: rgba(206, 197, 180, .42); letter-spacing: .12em; }
+.promo-field input:focus { border-style: solid; border-color: rgba(var(--gold-rgb), .7); background: rgba(255, 250, 240, .1); }
+
+.promo-go {
+  flex: none;
+  min-height: 48px;
+  padding: 12px 20px;
+  color: var(--gold-hi);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-in);
+  background: var(--face);
+  font-size: .9rem;
+  font-weight: 600;
+  transition: transform var(--motion-fast) var(--ease-silk), border-color var(--motion-ui) var(--ease-silk),
+              background var(--motion-ui) var(--ease-silk);
+}
+.promo-go:active { transform: scale(.975); }
+.promo-go:disabled { opacity: .5; pointer-events: none; }
+
+/* Принятый код: золотая плашка вместо поля — вводить второй раз нечего. */
+.promo-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px 11px 14px;
+  border: 1px solid rgba(var(--gold-rgb), .42);
+  border-radius: var(--radius-in);
+  background: linear-gradient(120deg, rgba(var(--gold-rgb), .16), rgba(var(--gold-rgb), .05));
+  animation: promoIn 620ms var(--ease-scene) both;
+}
+.promo-chip__mark { font-size: .95rem; filter: grayscale(.25); }
+.promo-chip b { color: var(--silk); font-size: .95rem; font-weight: 600; letter-spacing: .12em; }
+.promo-chip > span:nth-of-type(2) { margin-left: auto; color: var(--gold-hi); font-size: .95rem; font-weight: 600; }
+.promo-chip__x {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(255, 250, 240, .07);
+}
+.promo-chip__x svg { width: 13px; height: 13px; fill: none; stroke: var(--silk-2); stroke-width: 1.6; stroke-linecap: round; }
+.promo-chip__x:active { transform: scale(.94); }
+
+@keyframes promoIn {
+  from { opacity: 0; transform: translateY(8px) scale(.98); }
+  to { opacity: 1; transform: none; }
+}
+
+.promo-msg { margin: 10px 0 0; font-size: .86rem; line-height: 1.6; }
+.promo-msg--ok { color: var(--gold-hi); }
+.promo-msg--err { color: #e6aab3; }
 
 /* ═══════════════════════════════════════════════════════════════════
    Нижний док: бусины на нити

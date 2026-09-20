@@ -358,6 +358,26 @@
 
       <div class="bill">
         <div id="bill-lines"></div>
+
+        <!-- Промокод. Поле живёт прямо в счёте: применённый код превращается
+             в золотую плашку, а скидка встаёт строкой над итогом. -->
+        <div class="promo">
+          <div class="promo-field" id="promo-field">
+            <input id="promo-code" type="text" maxlength="24" autocomplete="off" autocapitalize="characters"
+                   spellcheck="false" enterkeyhint="done" placeholder="PROMO">
+            <button id="promo-apply" type="button" class="promo-go"><span data-i18n="promoApply"></span></button>
+          </div>
+          <div class="promo-chip" id="promo-chip" hidden>
+            <span class="promo-chip__mark" aria-hidden="true">🎟</span>
+            <b id="promo-chip-code"></b>
+            <span id="promo-chip-off"></span>
+            <button id="promo-drop" type="button" class="promo-chip__x">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"/></svg>
+            </button>
+          </div>
+          <p class="promo-msg" id="promo-msg" hidden></p>
+        </div>
+
         <div class="bill-total"><span data-i18n="total"></span><b id="bill-total">0</b></div>
       </div>
       <p class="blk-err" hidden></p>

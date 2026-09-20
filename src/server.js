@@ -22,6 +22,7 @@ import { youtubeIdValid, youtubeMoments } from './youtube.js';
 import { providerOf, publicProviders, studioProvider, validTrackId } from './musicProviders.js';
 import { createStatic, compressResponses } from './static.js';
 import { textsSnapshot, updateTexts } from './texts.js';
+import { lookupPromo, promoSnapshot, savePromos } from './promo.js';
 
 const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
 
@@ -258,6 +259,7 @@ export function createServer({ onNewApplication, onPaid } = {}) {
       templates: publicTemplates(),
       orders: (await db.listRecentOrders(limit)),
       pricing: pricingSnapshot(allTemplates()),
+      promos: (await promoSnapshot()),
       texts: textsSnapshot(),
     });
   });
@@ -338,6 +340,20 @@ export function createServer({ onNewApplication, onPaid } = {}) {
       res.json({ ok: true, pricing: pricingSnapshot(allTemplates()) });
     } catch (e) {
       res.status(400).json({ ok: false, error: e.message || 'Не удалось сохранить цены' });
+    }
+  });
+
+  /* Промокоды. Список приходит целиком: правку, выключение и удаление панель
+     отправляет одним сохранением. Счётчик использований правкой не трогаем —
+     он о прошлом, а не о правиле. */
+  app.put('/api/admin/promos', express.json({ limit: '64kb' }), async (req, res) => {
+    const u = adminUser(req.get('x-init-data') ?? '');
+    if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
+    try {
+      (await savePromos(req.body?.promos ?? []));
+      res.json({ ok: true, promos: (await promoSnapshot()) });
+    } catch (e) {
+      res.status(400).json({ ok: false, error: e.message || 'Не удалось сохранить промокоды' });
     }
   });
 
@@ -717,6 +733,15 @@ export function createServer({ onNewApplication, onPaid } = {}) {
       }))
       : null;
     res.json({ ok: true, file: saved.file, kind: saved.kind, track });
+  });
+
+  /* Промокод из студии. Отвечаем только «работает / нет»: лимит и срок — наша
+     кухня. Перебор кодов упирается в счётчик попыток, а не в базу. */
+  const promoLimit = rateLimit({ windowMs: 10 * 60_000, max: 20 });
+  app.post('/api/promo', authOnly, promoLimit, express.json({ limit: '4kb' }), async (req, res) => {
+    const promo = (await lookupPromo(req.body?.code));
+    if (!promo) return res.status(404).json({ ok: false, error: 'unknown' });
+    res.json({ ok: true, promo });
   });
 
   // Предпросмотр перед подтверждением: полная открытка с данными формы + водяная сетка.

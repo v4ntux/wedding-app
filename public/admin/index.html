@@ -132,6 +132,21 @@ body{background:
 .vn-del{min-height:38px;padding:0 14px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--soft)}
 .vn-add{width:100%;min-height:46px;margin-bottom:14px;border:1px dashed var(--line);border-radius:14px;
   background:transparent;color:inherit;font:inherit}
+.pm{display:grid;gap:8px;padding:13px;margin-bottom:10px;border:1px solid var(--line);border-radius:14px}
+.pm.off{border-style:dashed;opacity:.64}
+.pm input,.pm select{width:100%;min-height:42px;padding:9px 11px;border:1px solid var(--line);border-radius:10px;
+  background:transparent;color:inherit;font:inherit}
+.pm input:focus,.pm select:focus{outline:0;border-color:var(--gold)}
+.pm-head{display:flex;align-items:center;gap:10px}
+.pm-code{flex:1;min-width:0;text-transform:uppercase;letter-spacing:.12em;font-weight:600}
+.pm-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pm-f{display:grid;gap:5px;min-width:0}
+.pm-f>span{font-size:.7rem;color:var(--soft);letter-spacing:.04em}
+.pm-state{flex:0 0 auto;padding:5px 11px;border:1px solid var(--line);border-radius:999px;
+  font-size:.72rem;color:var(--soft);white-space:nowrap}
+.pm-state.live{color:var(--gold);border-color:rgba(230,207,154,.45)}
+.pm-used{font-size:.75rem;color:var(--soft)}
+.order-promo{margin-top:6px;font-size:.78rem;color:var(--gold)}
 .tabs{display:flex;gap:6px;margin:18px 0 4px;padding:4px;border:1px solid var(--line);border-radius:999px;
   background:linear-gradient(158deg,rgba(255,248,232,.07),rgba(5,4,8,.2))}
 .tabs button{flex:1;min-height:42px;border:0;border-radius:999px;background:transparent;color:var(--soft);
@@ -206,6 +221,7 @@ body{background:
     <button data-tab="overview"></button>
     <button data-tab="orders"></button>
     <button data-tab="pricing"></button>
+    <button data-tab="promos"></button>
     <button data-tab="venues"></button>
     <button data-tab="texts"></button>
   </div>
@@ -226,7 +242,19 @@ const I18N = {
   uz: {
     refresh:'↻ Yangilash', sum:'so‘m',
     tabOverview:'Ko‘rsatkichlar', tabOrders:'Arizalar', tabPricing:'Narxlar', tabVenues:'To‘yxonalar',
-    tabTexts:'Matnlar',
+    tabTexts:'Matnlar', tabPromos:'Promokodlar',
+    pmTitle:'Promokodlar',
+    pmNote:'Kod to‘lov qadamida kiritiladi. Chegirma butun summadan hisoblanadi va arizaga o‘sha kundagi holida yoziladi — '
+      + 'kodni keyin o‘zgartirsangiz, eski buyurtmalar narxi o‘zgarmaydi. Joyni ariza egallaydi; rad etilgan ariza joyini qaytaradi.',
+    pmCodePh:'KOD', pmPercent:'Foiz (%)', pmAmount:'Summa (so‘m)',
+    pmLimitPh:'Limitsiz', pmUntilPh:'Muddatsiz',
+    pmKind:'Chegirma turi', pmValue:'Chegirma', pmLimit:'Nechta arizaga', pmUntil:'Shu kungacha',
+    pmCommentPh:'Izoh — faqat o‘zingiz uchun',
+    pmUsed:'Ishlatilgan', pmOn:'Yoqilgan', pmOff:'O‘chirilgan',
+    pmLive:'ishlayapti', pmExpired:'muddati tugagan', pmSpent:'tugagan', pmPaused:'o‘chirilgan',
+    pmAdd:'+ Promokod qo‘shish', pmDel:'O‘chirish',
+    pmDelAsk:(c,n)=>`${c} kodi ${n} ta arizada ishlatilgan. Ro‘yxatdan o‘chirilsinmi?`,
+    pmEmpty:'Hozircha promokod yo‘q. Qo‘shing — juftlik uni to‘lov qadamida kiritadi.',
     hUsers:'Foydalanuvchilar',
     uAll:'Jami odam', uDraft:'Qoralama bor', uStuck:'Tashlab ketilgan', uOrdered:'Ariza qoldirgan',
     uBuyers:'To‘lagan', uToday:'Bugun kelgan', uWeek:'7 kunda', uBot:'Botni ochgan', uStudio:'Studiyani ochgan',
@@ -272,7 +300,19 @@ const I18N = {
   ru: {
     refresh:'↻ Обновить', sum:'сум',
     tabOverview:'Показатели', tabOrders:'Заявки', tabPricing:'Цены', tabVenues:'Тойхоны',
-    tabTexts:'Тексты',
+    tabTexts:'Тексты', tabPromos:'Промокоды',
+    pmTitle:'Промокоды',
+    pmNote:'Код вводят на шаге оплаты. Скидка считается от всей суммы и ложится в заявку такой, какой была в тот день — '
+      + 'правка кода задним числом не меняет цену прошлых заказов. Место занимает сама заявка; отклонённая возвращает своё обратно.',
+    pmCodePh:'КОД', pmPercent:'Процент (%)', pmAmount:'Сумма (сум)',
+    pmLimitPh:'Без лимита', pmUntilPh:'Бессрочно',
+    pmKind:'Тип скидки', pmValue:'Скидка', pmLimit:'На сколько заявок', pmUntil:'Действует до',
+    pmCommentPh:'Заметка — только для вас',
+    pmUsed:'Использован', pmOn:'Включён', pmOff:'Выключен',
+    pmLive:'ловит', pmExpired:'истёк', pmSpent:'разобран', pmPaused:'выключен',
+    pmAdd:'+ Добавить промокод', pmDel:'Удалить',
+    pmDelAsk:(c,n)=>`Код ${c} уже применён в заявках: ${n}. Убрать его из списка?`,
+    pmEmpty:'Промокодов пока нет. Добавьте — пара введёт его на шаге оплаты.',
     hUsers:'Пользователи',
     uAll:'Всего людей', uDraft:'С черновиком', uStuck:'Бросили на полпути', uOrdered:'Дошли до заявки',
     uBuyers:'Оплатили', uToday:'Пришли сегодня', uWeek:'За 7 дней', uBot:'Открыли бот', uStudio:'Открыли студию',
@@ -467,6 +507,8 @@ function renderOrders(){
       <div class="order-meta">${esc(o.date)} · ${esc(names[o.templateId]||o.templateId)} · ${esc(money(o.total))}</div></div>${statusBadge(o.status)}</div>`;
     const contacts = [o.contactTg ? '@'+String(o.contactTg).replace(/^@/,'') : '', o.phone, o.phone2].filter(Boolean);
     if (contacts.length) h += `<div class="order-contacts">${esc(t('contacts'))}: ${esc(contacts.join(' · '))}</div>`;
+    // Скидка уже внутри суммы заказа: показываем, откуда она такая.
+    if (o.discount > 0) h += `<div class="order-promo">🎟 ${esc(o.promo || '')} · −${esc(money(o.discount))}</div>`;
     if (o.status==='paid' && (o.confirmedByName || o.paidAt)) {
       h += `<div class="order-conf">✅ ${esc(t('confBy'))}: <b>${esc(o.confirmedByName||'—')}</b>${o.paidAt?` · ${esc(o.paidAt)}`:''}</div>`;
     }
@@ -517,6 +559,104 @@ function renderPricing(){
   h += `<div class="price-save"><button class="act act--pay" id="price-save">${esc(t('save'))}</button><span class="saved" id="price-saved" hidden>${esc(t('saved'))}</span></div>`;
   h += `<p class="note">${esc(t('priceNote'))}</p>`;
   return h;
+}
+
+/* Промокоды. Карточка на код; список сохраняется целиком, как справочник
+   тойхон. Счётчик использований только показываем — он о прошлом. */
+
+function promoState(p){
+  if (p.available) return { label:t('pmLive'), cls:' live' };
+  if (!p.active) return { label:t('pmPaused'), cls:'' };
+  if (p.expiresAt && p.expiresAt < new Date().toISOString().slice(0,10)) return { label:t('pmExpired'), cls:'' };
+  return { label:t('pmSpent'), cls:'' };
+}
+
+function promoCard(p, i){
+  const st = promoState(p);
+  const amount = p.kind==='amount';
+  return `<div class="pm${p.active?'':' off'}" data-pm="${i}">
+    <div class="pm-head">
+      <input data-f="code" class="pm-code" value="${esc(p.code)}" placeholder="${esc(t('pmCodePh'))}" aria-label="${esc(t('pmCodePh'))}">
+      <span class="pm-state${st.cls}">${esc(st.label)}</span>
+    </div>
+    <div class="pm-row">
+      <label class="pm-f"><span>${esc(t('pmKind'))}</span>
+        <select data-f="kind">
+          <option value="percent"${amount?'':' selected'}>${esc(t('pmPercent'))}</option>
+          <option value="amount"${amount?' selected':''}>${esc(t('pmAmount'))}</option>
+        </select></label>
+      <label class="pm-f"><span>${esc(t('pmValue'))}</span>
+        <input data-f="value" inputmode="numeric" value="${esc(p.value)}"></label>
+    </div>
+    <div class="pm-row">
+      <label class="pm-f"><span>${esc(t('pmLimit'))}</span>
+        <input data-f="maxUses" inputmode="numeric" value="${esc(p.maxUses ?? '')}" placeholder="${esc(t('pmLimitPh'))}"></label>
+      <label class="pm-f"><span>${esc(t('pmUntil'))}</span>
+        <input data-f="expiresAt" type="date" value="${esc(p.expiresAt ?? '')}"></label>
+    </div>
+    <input data-f="comment" value="${esc(p.comment ?? '')}" placeholder="${esc(t('pmCommentPh'))}" aria-label="${esc(t('pmCommentPh'))}">
+    <div class="vn-foot">
+      <label class="tgl">
+        <input type="checkbox" data-f="active"${p.active?' checked':''}>
+        <span class="tgl-track"><span class="tgl-knob"></span></span>
+        <span class="tgl-lbl">${esc(p.active?t('pmOn'):t('pmOff'))}</span>
+      </label>
+      <span class="pm-used">${esc(t('pmUsed'))}: ${esc(p.used)}${p.maxUses?' / '+esc(p.maxUses):''}</span>
+      <button class="vn-del" data-pm-del="${i}">${esc(t('pmDel'))}</button>
+    </div>
+  </div>`;
+}
+
+function renderPromos(){
+  const list = DATA?.promos || [];
+  let h = `<h2>${esc(t('pmTitle'))}</h2>`;
+  h += `<p class="note">${esc(t('pmNote'))}</p>`;
+  h += `<button class="vn-add" id="pm-add">${esc(t('pmAdd'))}</button>`;
+  h += list.length ? list.map(promoCard).join('') : `<div class="empty">${esc(t('pmEmpty'))}</div>`;
+  h += `<div class="price-save"><button class="act act--pay" id="pm-save">${esc(t('save'))}</button><span class="saved" id="pm-saved" hidden>${esc(t('saved'))}</span></div>`;
+  return h;
+}
+
+// Правки собираем из полей в момент сохранения — как в ценах и тойхонах.
+function collectPromos(){
+  return [...document.querySelectorAll('[data-pm]')].map(card=>{
+    const get = (f)=>card.querySelector(`[data-f="${f}"]`);
+    const known = (DATA.promos || [])[Number(card.dataset.pm)] || {};
+    return {
+      code: get('code').value.trim().toUpperCase(),
+      kind: get('kind').value==='amount'?'amount':'percent',
+      value: Number(get('value').value) || 0,
+      maxUses: get('maxUses').value.trim()===''?null:Number(get('maxUses').value),
+      expiresAt: get('expiresAt').value || null,
+      comment: get('comment').value,
+      active: get('active').checked,
+      used: known.used || 0,
+      available: known.available || false,
+    };
+  });
+}
+
+async function savePromosAdmin(){
+  const promos = collectPromos().filter(p=>p.code);
+  const button = $('pm-save');
+  button.disabled = true;
+  try {
+    const res = await fetch('/api/admin/promos', {
+      method:'PUT',
+      headers:{ 'Content-Type':'application/json', 'X-Init-Data': initData() },
+      body: JSON.stringify({ promos }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || 'error');
+    DATA.promos = data.promos;
+    render();
+    $('pm-saved').hidden = false;
+    setTimeout(()=>{ const el=$('pm-saved'); if (el) el.hidden = true; }, 2600);
+  } catch(e){
+    alert(e.message || t('loadErr'));
+  } finally {
+    button.disabled = false;
+  }
 }
 
 /* Справочник тойхон. Каждая запись — карточка с полями; сохраняем весь
@@ -665,7 +805,7 @@ function vnMountMap(){
   vnPaintMap();
 }
 
-const TAB_LABEL = { overview:'tabOverview', orders:'tabOrders', pricing:'tabPricing', venues:'tabVenues', texts:'tabTexts' };
+const TAB_LABEL = { overview:'tabOverview', orders:'tabOrders', pricing:'tabPricing', promos:'tabPromos', venues:'tabVenues', texts:'tabTexts' };
 
 function render(){
   if (!DATA) return;
@@ -675,6 +815,7 @@ function render(){
   });
   $('content').innerHTML = TAB==='orders' ? renderOrders()
     : TAB==='pricing' ? renderPricing()
+    : TAB==='promos' ? renderPromos()
     : TAB==='venues' ? renderVenues()
     : TAB==='texts' ? renderTexts()
     : renderOverview();
@@ -914,6 +1055,26 @@ document.addEventListener('click', (e)=>{
     return;
   }
   if (e.target.closest('#vn-save')) saveVenues();
+
+  if (e.target.closest('#pm-add')){
+    DATA.promos = [{ code:'', kind:'percent', value:10, maxUses:null, expiresAt:null,
+      comment:'', active:true, used:0, available:false }, ...collectPromos()];
+    render();
+    document.querySelector('.pm-code')?.focus();
+    return;
+  }
+  const pmDel = e.target.closest('[data-pm-del]');
+  if (pmDel){
+    const edited = collectPromos();
+    const gone = edited[Number(pmDel.dataset.pmDel)];
+    // Код с историей убираем только по подтверждению: заявки его помнят.
+    if (gone?.used && !confirm(t('pmDelAsk')(gone.code, gone.used))) return;
+    edited.splice(Number(pmDel.dataset.pmDel), 1);
+    DATA.promos = edited;
+    render();
+    return;
+  }
+  if (e.target.closest('#pm-save')) savePromosAdmin();
 });
 
 function applyLang(){

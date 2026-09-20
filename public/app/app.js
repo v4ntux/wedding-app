@@ -30,6 +30,7 @@ const state = {
   music: null,          // выбранная песня: { provider, trackId, title, artist, cover, duration, startAt, volume }
   guestsOn: false,
   guests: [],
+  promo: null,          // применённый промокод: { code, kind, value }
   previewHtml: '',
   seenInvite: false,
   sending: false,
@@ -50,6 +51,7 @@ const saveDraft = debounce(() => {
       photos: state.photos.filter((p) => p.name).map((p) => p.name),
       music: state.music,
       guestsOn: state.guestsOn, guests: state.guests,
+      promo: state.promo,
       phone: $('phone').value,
       open: state.open, seenInvite: state.seenInvite,
       submissionKey: state.submissionKey,
@@ -106,6 +108,7 @@ function restoreDraft() {
   state.music = NvMusicCore.migrateDraftMusic(d.music, d.musicStart);
   state.guestsOn = Boolean(d.guestsOn);
   state.guests = Array.isArray(d.guests) ? d.guests.slice(0, 100) : [];
+  state.promo = validPromo(d.promo);
   state.seenInvite = Boolean(d.seenInvite);
   state.open = Math.min(Number(d.open) || 0, STEPS.length - 1);
   return true;
@@ -171,6 +174,10 @@ const I18N = {
     phoneLbl: 'Telefon raqam',
     contactRule: 'To‘lovni tasdiqlash uchun shu raqamga qo‘ng‘iroq qilamiz.',
     total: 'Jami', sum: 'so‘m',
+    promoApply: 'Qo‘llash', promoPh: 'Promokod',
+    promoBill: 'Promokod', promoDrop: 'Promokodni olib tashlash',
+    promoOk: 'Promokod qo‘llandi', promoBad: 'Bunday promokod yo‘q yoki muddati tugagan',
+    promoLate: 'Promokod endi ishlamayapti — uni olib tashlang',
     pay: 'To‘lash va havola olish', sending: 'Yuborilmoqda',
 
     doneTitle: 'Arizangiz bizda', doneNew: 'Yangi taklifnoma',
@@ -264,6 +271,10 @@ const I18N = {
     phoneLbl: 'Номер телефона',
     contactRule: 'Позвоним по нему, чтобы подтвердить оплату.',
     total: 'Итого', sum: 'сум',
+    promoApply: 'Применить', promoPh: 'Промокод',
+    promoBill: 'Промокод', promoDrop: 'Снять промокод',
+    promoOk: 'Промокод применён', promoBad: 'Такого промокода нет или он больше не действует',
+    promoLate: 'Промокод больше не действует — снимите его',
     pay: 'Оплатить и получить ссылку', sending: 'Отправляем',
 
     doneTitle: 'Заявка у нас', doneNew: 'Новое приглашение',
@@ -326,6 +337,9 @@ function applyI18n() {
   $('groom').setAttribute('aria-label', t('groom'));
   $('bride').setAttribute('aria-label', t('bride'));
   $('geo-q').placeholder = t('seekPlace');
+  $('promo-code').placeholder = t('promoPh');
+  $('promo-code').setAttribute('aria-label', t('promoPh'));
+  $('promo-drop').setAttribute('aria-label', t('promoDrop'));
   $('geo-q').setAttribute('aria-label', t('seekLbl'));
   $('next-cue-label').textContent = t('nextCue');
   $('submit-label').textContent = t('pay');
@@ -1972,7 +1986,7 @@ function updateBill() {
   const tpl = selectedTpl();
   const box = $('bill-lines');
   box.innerHTML = '';
-  const line = (k, v) => box.appendChild(h('div', { class: 'bill-line' }, h('span', {}, k), h('span', {}, v)));
+  const line = (k, v, cls) => box.appendChild(h('div', { class: `bill-line${cls ? ' ' + cls : ''}` }, h('span', {}, k), h('span', {}, v)));
 
   line(t('tNames'), `${$('groom').value.trim()} & ${$('bride').value.trim()}`);
   if (state.dateIso) {
@@ -1989,7 +2003,95 @@ function updateBill() {
     total += n * guestPrice();
     line(t('tGuests'), `${n} × ${money(guestPrice())}`);
   }
-  countMoney($('bill-total'), total);
+  // Скидка идёт последней строкой: видно, из чего она посчиталась.
+  const off = promoDiscount(total);
+  if (off) line(t('promoBill'), `${state.promo.code} · −${money(off)}`, 'bill-line--promo');
+  renderPromo();
+  countMoney($('bill-total'), total - off);
+}
+
+/* ── Промокод ──
+   Код несёт правило, а не сумму: студия считает скидку так же, как сервер, и
+   для пары итог не меняется после отправки. Последнее слово всё равно за
+   сервером — он пересчитывает цену сам. */
+
+function validPromo(value) {
+  if (!value || typeof value !== 'object') return null;
+  const code = String(value.code ?? '').toUpperCase();
+  const amount = value.kind === 'amount';
+  const num = Number(value.value);
+  if (!/^[A-Z0-9][A-Z0-9-]{1,23}$/.test(code) || !Number.isFinite(num) || num <= 0) return null;
+  if (!amount && num > 100) return null;
+  return { code, kind: amount ? 'amount' : 'percent', value: Math.round(num) };
+}
+
+function promoDiscount(total) {
+  const promo = state.promo;
+  if (!promo || !(total > 0)) return 0;
+  const raw = promo.kind === 'amount' ? promo.value : Math.round((total * promo.value) / 100);
+  return raw > 0 ? Math.min(total, raw) : 0;
+}
+
+function promoLabel(promo) {
+  return promo.kind === 'amount' ? `−${money(promo.value)}` : `−${promo.value}%`;
+}
+
+function renderPromo() {
+  const promo = state.promo;
+  $('promo-field').hidden = Boolean(promo);
+  $('promo-chip').hidden = !promo;
+  if (!promo) return;
+  $('promo-chip-code').textContent = promo.code;
+  $('promo-chip-off').textContent = promoLabel(promo);
+}
+
+function promoSays(text, kind) {
+  const box = $('promo-msg');
+  box.textContent = text || '';
+  box.className = `promo-msg${kind ? ' promo-msg--' + kind : ''}`;
+  box.hidden = !text;
+}
+
+async function applyPromo() {
+  const field = $('promo-code');
+  const code = field.value.trim().toUpperCase();
+  if (!code) { field.focus(); return; }
+  const button = $('promo-apply');
+  button.disabled = true;
+  promoSays('');
+  try {
+    const r = await fetch('/api/promo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-init-data': tg ? tg.initData : '' },
+      body: JSON.stringify({ code }),
+    });
+    const j = await r.json().catch(() => null);
+    const promo = j?.ok ? validPromo(j.promo) : null;
+    if (!promo) {
+      haptic.err();
+      promoSays(r.status === 429 ? t('eTooMany') : t('promoBad'), 'err');
+      return;
+    }
+    state.promo = promo;
+    field.value = '';
+    haptic.ok();
+    promoSays(t('promoOk'), 'ok');
+    clearErr(stepIdx('contact'));
+    saveDraft();
+    updateBill();
+  } catch (_) {
+    promoSays(t('eNet'), 'err');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function dropPromo() {
+  state.promo = null;
+  promoSays('');
+  haptic.tap();
+  saveDraft();
+  updateBill();
 }
 
 function jumpTo(stepId, msg) {
@@ -2040,6 +2142,7 @@ function collectForm() {
     music: state.music,
     templateId: state.templateId,
     guestNames: cleanGuests(),
+    promoCode: state.promo?.code ?? null,
     phone: $('phone').value.trim(),
   };
 }
@@ -2262,6 +2365,18 @@ function wire() {
   });
 
   $('phone').addEventListener('input', () => { markFilled($('phone')); clearErr(8); saveDraft(); });
+
+  // Промокод вводят с клавиатуры телефона: заглавные буквы ставим сами.
+  $('promo-code').addEventListener('input', (e) => {
+    const start = e.target.selectionStart;
+    e.target.value = e.target.value.toUpperCase();
+    e.target.setSelectionRange(start, start);
+    promoSays('');
+  });
+  $('promo-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); applyPromo(); } });
+  $('promo-apply').addEventListener('click', applyPromo);
+  $('promo-drop').addEventListener('click', dropPromo);
+
   $('submit').addEventListener('click', submit);
 
   $('sheet-close').addEventListener('click', () => sheet.close());

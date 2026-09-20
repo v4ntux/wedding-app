@@ -11,6 +11,7 @@ import { findTemplate } from './templateStore.js';
 import { UPLOADS_DIR } from './upload.js';
 import { normalizeDesign } from './design.js';
 import { findVenue } from './venues.js';
+import { discountOf, lookupPromo, today as promoToday } from './promo.js';
 
 export class ValidationError extends Error {
   constructor(message, step = null) {
@@ -193,6 +194,14 @@ export function validateForm(form, { requirePhone = false } = {}) {
   };
 }
 
+/* Код кончился, пока пара заполняла форму: последнее место занял кто-то
+   другой, или админ закрыл код. Отправлять заявку по старой цене нельзя. */
+function promoGone(lang) {
+  return new ValidationError(lang === 'uz'
+    ? 'Promokod endi ishlamayapti — uni o‘chirib, qaytadan yuboring'
+    : 'Промокод больше не действует — снимите его и отправьте снова', 'review');
+}
+
 // Создаёт заявку (телефон обязателен — берётся из окна подтверждения).
 export async function submitApplication(form, tgUser) {
   const v = validateForm(form, { requirePhone: true });
@@ -243,10 +252,24 @@ export async function submitApplication(form, tgUser) {
     submissionKey: v.submissionKey,
   };
 
+  /* Промокод. Правило берём из таблицы, скидку считаем сами: сумма из формы
+     тут ничего не решает. Место под скидку занимаем в той же транзакции, что
+     и саму заявку, — упавшая вставка возвращает код в оборот. */
+  const wanted = String(form.promoCode ?? '').trim();
+  const promo = wanted ? (await lookupPromo(wanted)) : null;
+  if (wanted && !promo) throw promoGone(v.lang);
+  application.promoCode = promo?.code ?? null;
+  application.discount = discountOf(promo, v.totalPrice);
+  application.totalPrice = v.totalPrice - application.discount;
+
   let id;
   try {
-    id = (await db.insertApplication(application));
+    id = (await db.transaction(async () => {
+      if (promo && !(await db.claimPromo(promo.code, promoToday()))) throw promoGone(v.lang);
+      return db.insertApplication(application);
+    }));
   } catch (error) {
+    if (error instanceof ValidationError) throw error;
     const concurrent = (await db.getApplicationBySubmissionKey(tgUser.id, v.submissionKey));
     if (!concurrent) throw error;
     return { id: concurrent.id, app: concurrent, duplicate: true };
@@ -325,6 +348,8 @@ export async function cancelApplication(id) {
   const app = (await db.getApplication(id));
   if (!app) throw new ValidationError(`Заявка #${id} не найдена`);
   if (!(await db.markCancelled(id))) throw new ValidationError('Заявка уже обработана');
+  // Отклонённая заявка возвращает занятое место — код снова ловит.
+  if (app.promo_code) (await db.releasePromo(app.promo_code));
   return (await db.getApplication(id));
 }
 

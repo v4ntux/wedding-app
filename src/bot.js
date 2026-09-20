@@ -94,6 +94,8 @@ export function buildAdminText(app, { baseUrl, guests = [], musicTitle = null } 
     if (extras[addon.id]) lines.push(`✨ ${esc(addon.ru)} (+${money(addon.price)})`);
   }
   if (app.domain_enabled && !extras.domain) lines.push(`🔗 Именной домен на 1 год (+${money(app.domain_price)})`);
+  // Скидка уже внутри итога: показываем, откуда он такой.
+  if (app.discount > 0) lines.push(`🎟 Промокод ${esc(app.promo_code ?? '')} (−${money(app.discount)})`);
   lines.push(`💰 Итого: <b>${money(app.total_price)}</b>`);
   lines.push(`👤 От: ${app.tg_username ? '@' + esc(app.tg_username) : ''} (id ${app.tg_user_id})`);
   if (app.contact_tg) lines.push(`📨 Telegram: @${esc(app.contact_tg)}`);

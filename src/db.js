@@ -26,8 +26,8 @@ export async function insertApplication(a) {
       `INSERT INTO applications
         (tg_user_id, tg_username, phone, phone2, contact_tg, event_type, lang, groom_name, bride_name, wedding_date, wedding_time,
          address, lat, lng, map_enabled, music_type, music_value, music_start, music_end, music_meta,
-         template_id, template_price, premium, premium_price, domain_enabled, domain_price, guest_names, photos, extras, submission_key, total_price, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')`
+         template_id, template_price, premium, premium_price, domain_enabled, domain_price, guest_names, photos, extras, submission_key, promo_code, discount, total_price, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')`
     )
     .run(
       a.tgUserId,
@@ -60,6 +60,8 @@ export async function insertApplication(a) {
       a.photos ? JSON.stringify(a.photos) : null,
       a.extras && Object.keys(a.extras).length ? JSON.stringify(a.extras) : null,
       a.submissionKey ?? null,
+      a.promoCode ?? null,
+      a.discount ?? 0,
       a.totalPrice
     ));
   return Number(res.lastInsertRowid);
@@ -282,6 +284,54 @@ export async function markCancelled(id) {
   return res.changes === 1;
 }
 
+/* ── Промокоды ──
+   Место под скидку занимает уже сама заявка, а не оплата: иначе код «первым
+   десяти» разошёлся бы сотне, и админ узнал бы об этом на подтверждении.
+   Отклонённая заявка своё место возвращает. */
+
+export async function listPromos() {
+  return db.prepare('SELECT * FROM promo_codes ORDER BY created_at DESC, code').all();
+}
+
+export async function getPromo(code) {
+  return (await db.prepare('SELECT * FROM promo_codes WHERE code = ?').get(code)) ?? null;
+}
+
+/* Занять место одним запросом: проверка и счётчик в одном UPDATE, поэтому две
+   заявки, пришедшие в одну секунду, не разделят последнее место на двоих. */
+export async function claimPromo(code, today) {
+  const res = (await db.prepare(`UPDATE promo_codes SET used = used + 1
+     WHERE code = ? AND active = 1
+       AND (max_uses IS NULL OR used < max_uses)
+       AND (expires_at IS NULL OR expires_at >= ?)`).run(code, today));
+  return res.changes === 1;
+}
+
+export async function releasePromo(code) {
+  (await db.prepare('UPDATE promo_codes SET used = used - 1 WHERE code = ? AND used > 0').run(code));
+}
+
+/* Список из админки приходит целиком, как справочник тойхон: правим и удаляем
+   в одном сохранении. Счётчик used правкой не трогаем — он о прошлом. */
+export async function savePromos(rows) {
+  return transaction(async () => {
+    const keep = new Set();
+    for (const row of rows) {
+      keep.add(row.code);
+      (await db.prepare(`INSERT INTO promo_codes (code, kind, value, max_uses, expires_at, active, comment)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(code) DO UPDATE SET kind = excluded.kind, value = excluded.value,
+           max_uses = excluded.max_uses, expires_at = excluded.expires_at,
+           active = excluded.active, comment = excluded.comment`)
+        .run(row.code, row.kind, row.value, row.maxUses ?? null, row.expiresAt ?? null, row.active ? 1 : 0, row.comment ?? null));
+    }
+    for (const row of (await db.prepare('SELECT code FROM promo_codes').all())) {
+      if (!keep.has(row.code)) (await db.prepare('DELETE FROM promo_codes WHERE code = ?').run(row.code));
+    }
+    return listPromos();
+  });
+}
+
 export async function insertGuest(applicationId, name, slug) {
   (await db.prepare('INSERT INTO guests (application_id, name, slug) VALUES (?, ?, ?)').run(applicationId, name, slug));
 }
@@ -390,6 +440,8 @@ export async function listRecentOrders(limit = 30) {
     templateId: a.template_id,
     status: a.status,
     total: a.total_price,
+    promo: a.promo_code ?? null,
+    discount: Number(a.discount ?? 0),
     premium: Boolean(a.premium),
     slug: a.slug,
     contactTg: a.contact_tg,

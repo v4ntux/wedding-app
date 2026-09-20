@@ -55,6 +55,22 @@ export const schema = `
     last_seen TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  -- Промокоды. Скидку считает сервер: код несёт только правило (процент или
+  -- сумма), а уже посчитанная скидка ложится в саму заявку и не меняется от
+  -- того, что админ потом правит код. used — занятые места: их держат и
+  -- неоплаченные заявки, отклонённая возвращает своё обратно.
+  CREATE TABLE IF NOT EXISTS promo_codes (
+    code TEXT PRIMARY KEY,
+    kind TEXT NOT NULL DEFAULT 'percent',
+    value INTEGER NOT NULL,
+    max_uses INTEGER,
+    used INTEGER NOT NULL DEFAULT 0,
+    expires_at TEXT,
+    active INTEGER NOT NULL DEFAULT 1,
+    comment TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
@@ -145,4 +161,7 @@ export const migrations = [
   // Уникальный индекс старого загрузчика YouTube (одна строка на ролик на всех)
   // такое запрещал, поэтому он уступает место обычному индексу для поиска.
   ['tracks_source_unique_drop', 'DROP INDEX IF EXISTS tracks_source'],
+  // Промокод заявки: сам код и скидка в сумах на момент оформления.
+  ['promo_code', 'ALTER TABLE applications ADD COLUMN promo_code TEXT'],
+  ['discount', 'ALTER TABLE applications ADD COLUMN discount INTEGER NOT NULL DEFAULT 0'],
 ];

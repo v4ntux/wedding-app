@@ -1088,6 +1088,83 @@ test('outside Telegram the studio is told to hand the couple the bot', async () 
   }
 });
 
+/* Промокоды. Код несёт правило, скидку считает сервер, а место под неё
+   занимает сама заявка — иначе код «первым десяти» разошёлся бы сотне. */
+test('a promo code discounts the bill, runs out, and comes back with a cancelled order', async () => {
+  const promo = await import('../src/promo.js');
+  const day = promo.today();
+
+  // Правило читаем как пара его диктует: пробелы и регистр не считаются.
+  assert.equal(promo.normalizeCode(' love25 '), 'LOVE25');
+  assert.equal(promo.normalizeCode('LOVE 25'), 'LOVE25', 'пробел при диктовке не считается');
+  assert.equal(promo.normalizeCode('со скидкой'), null, 'кириллицу не берём: её не набрать латинской клавиатурой');
+  assert.equal(promo.normalizeCode('a'), null, 'код короче двух знаков не бывает');
+
+  assert.equal(promo.discountOf({ kind: 'percent', value: 25 }, 209_000), 52_250);
+  assert.equal(promo.discountOf({ kind: 'amount', value: 50_000 }, 209_000), 50_000);
+  assert.equal(promo.discountOf({ kind: 'amount', value: 500_000 }, 209_000), 209_000, 'в счёте не бывает минуса');
+  assert.equal(promo.discountOf(null, 209_000), 0);
+
+  await promo.savePromos([
+    { code: 'test-once', kind: 'percent', value: 30, maxUses: 1, comment: 'на один раз' },
+    { code: 'test-old', kind: 'percent', value: 50, expiresAt: '2020-01-01' },
+    { code: 'test-off', kind: 'amount', value: 10_000, active: false },
+  ]);
+  try {
+    assert.deepEqual(await promo.lookupPromo('TEST-ONCE'), { code: 'TEST-ONCE', kind: 'percent', value: 30 });
+    assert.equal(await promo.lookupPromo('test-old'), null, 'истёкший код не ловит');
+    assert.equal(await promo.lookupPromo('test-off'), null, 'выключенный код не ловит');
+    assert.equal(await promo.lookupPromo('test-none'), null);
+
+    // Последнее место не делится на двоих: проверка и счётчик в одном запросе.
+    assert.equal(await dbModule.claimPromo('TEST-ONCE', day), true);
+    assert.equal(await dbModule.claimPromo('TEST-ONCE', day), false, 'лимит кончился');
+    assert.equal(await promo.lookupPromo('TEST-ONCE'), null, 'разобранный код студия больше не принимает');
+    assert.equal(await dbModule.claimPromo('TEST-OLD', day), false, 'срок кончился');
+
+    // Отклонённая заявка возвращает занятое место.
+    await dbModule.releasePromo('TEST-ONCE');
+    assert.ok(await promo.lookupPromo('TEST-ONCE'), 'место вернулось в оборот');
+
+    const snapshot = await promo.promoSnapshot();
+    assert.deepEqual(snapshot.map((p) => `${p.code}:${p.available}`).sort(),
+      ['TEST-OFF:false', 'TEST-OLD:false', 'TEST-ONCE:true']);
+
+    // Правила, по которым скидка не сохраняется вовсе.
+    await assert.rejects(promo.savePromos([{ code: 'TEST-ONCE', kind: 'percent', value: 250 }]), /процент/i);
+    await assert.rejects(promo.savePromos([{ code: 'ПРОМО', kind: 'percent', value: 10 }]), /код/i);
+    await assert.rejects(promo.savePromos([{ code: 'X1', kind: 'percent', value: 10 }, { code: 'x1', kind: 'amount', value: 10 }]), /повторя/i);
+    assert.ok(await promo.lookupPromo('TEST-ONCE'), 'отказ ничего не переписал');
+  } finally {
+    await promo.savePromos([]);
+  }
+});
+
+test('the promo endpoint answers only the signed studio, and the admin list stays admin-only', async () => {
+  const promo = await import('../src/promo.js');
+  await promo.savePromos([{ code: 'http-25', kind: 'percent', value: 25 }]);
+  try {
+    const auth = { 'content-type': 'application/json', 'x-init-data': signedInitData({ id: 9301, first_name: 'Couple' }) };
+    assert.equal((await fetch(`${baseUrl}/api/promo`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: 'HTTP-25' }),
+    })).status, 401, 'без подписи Telegram код не проверяют');
+
+    const found = await fetch(`${baseUrl}/api/promo`, { method: 'POST', headers: auth, body: JSON.stringify({ code: ' http-25 ' }) });
+    assert.equal(found.status, 200);
+    assert.deepEqual((await found.json()).promo, { code: 'HTTP-25', kind: 'percent', value: 25 });
+
+    const missing = await fetch(`${baseUrl}/api/promo`, { method: 'POST', headers: auth, body: JSON.stringify({ code: 'HTTP-404' }) });
+    assert.equal(missing.status, 404, 'чужой код неотличим от несуществующего');
+
+    assert.equal((await fetch(`${baseUrl}/api/admin/promos`, {
+      method: 'PUT', headers: auth, body: JSON.stringify({ promos: [{ code: 'HACK', kind: 'percent', value: 90 }] }),
+    })).status, 403, 'коды заводит только администратор');
+    assert.equal(await promo.lookupPromo('HACK'), null);
+  } finally {
+    await promo.savePromos([]);
+  }
+});
+
 /* Заявка ушла — черновик стёрт. Автосохранение отложено на доли секунды, и
    раньше оно успевало записать анкету обратно: следующая пара открывала
    студию с чужими именами вместо чистого листа. */
