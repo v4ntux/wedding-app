@@ -31,6 +31,7 @@ const state = {
   guestsOn: false,
   guests: [],
   promo: null,          // применённый промокод: { code, kind, value }
+  readyUrl: null,       // ссылка, если платить было нечего и заявку подтвердили сразу
   previewHtml: '',
   seenInvite: false,
   sending: false,
@@ -181,6 +182,9 @@ const I18N = {
     pay: 'To‘lash va havola olish', sending: 'Yuborilmoqda',
 
     doneTitle: 'Arizangiz bizda', doneNew: 'Yangi taklifnoma',
+    doneFreeTitle: 'Taklifnomangiz tayyor',
+    doneFreeText: 'To‘lov kerak emas — havola sizniki. U botga ham keldi, mehmon ismlari bilan birga.',
+    doneOpen: 'Taklifnomani ochish', doneCopy: 'Nusxalash',
     doneText: 'To‘lovni tasdiqlaymiz va toza havola botga keladi. Odatda bu 10 daqiqagacha vaqt oladi.',
     mineTitle: 'Mening taklifnomalarim',
 
@@ -278,6 +282,9 @@ const I18N = {
     pay: 'Оплатить и получить ссылку', sending: 'Отправляем',
 
     doneTitle: 'Заявка у нас', doneNew: 'Новое приглашение',
+    doneFreeTitle: 'Приглашение готово',
+    doneFreeText: 'Платить нечего — ссылка уже ваша. Она пришла и в бот, вместе с именными ссылками гостей.',
+    doneOpen: 'Открыть приглашение', doneCopy: 'Скопировать',
     doneText: 'Подтвердим оплату — и чистая ссылка придёт в бот. Обычно это занимает до 10 минут.',
     mineTitle: 'Мои приглашения',
 
@@ -337,6 +344,8 @@ function applyI18n() {
   $('groom').setAttribute('aria-label', t('groom'));
   $('bride').setAttribute('aria-label', t('bride'));
   $('geo-q').placeholder = t('seekPlace');
+  $('done-title').textContent = t(state.readyUrl ? 'doneFreeTitle' : 'doneTitle');
+  $('done-text').textContent = t(state.readyUrl ? 'doneFreeText' : 'doneText');
   $('promo-code').placeholder = t('promoPh');
   $('promo-code').setAttribute('aria-label', t('promoPh'));
   $('promo-drop').setAttribute('aria-label', t('promoDrop'));
@@ -2169,6 +2178,9 @@ async function submit() {
     clearDraft();
     state.submitted = true;
     state.submissionKey = null;   // следующая заявка получит собственный ключ
+    // Платить было нечего: сервер подтвердил заявку сам и вернул готовую ссылку.
+    state.readyUrl = typeof j.url === 'string' ? j.url : null;
+    showDone();
     haptic.ok();
     sparks();
     window.Sky?.flare(5);
@@ -2185,6 +2197,24 @@ async function submit() {
 
 function sparks() {
   fill($('sparks'), 'spark', 20, 5, 5);
+}
+
+/* Финал. Обычная заявка ждёт подтверждения оплаты, у бесплатной ссылка уже
+   готова — показываем её прямо здесь, рядом с той, что ушла в бот. */
+function showDone() {
+  const url = state.readyUrl;
+  $('done-title').textContent = t(url ? 'doneFreeTitle' : 'doneTitle');
+  $('done-text').textContent = t(url ? 'doneFreeText' : 'doneText');
+  $('done-link').hidden = !url;
+  $('done-open').hidden = !url;
+  /* Золото на экране одно: главная кнопка — «открыть приглашение», список
+     заявок рядом с ней отходит на второй план. */
+  $('done-mine').classList.toggle('btn--gold', !url);
+  $('done-mine').classList.toggle('btn--ghost', Boolean(url));
+  if (!url) return;
+  // Адрес читается как адрес: без «https://» и без хвостового слеша.
+  $('done-url').textContent = url.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+  $('done-open').href = url;
 }
 
 function fill(root, cls, n, base, spread) {
@@ -2381,6 +2411,19 @@ function wire() {
 
   $('sheet-close').addEventListener('click', () => sheet.close());
   $('ready-next').addEventListener('click', () => { haptic.tap(); unlock(stepIdx('guests')); });
+  $('done-link').addEventListener('click', () => {
+    if (!state.readyUrl) return;
+    navigator.clipboard?.writeText(state.readyUrl);
+    haptic.ok();
+    toast(t('copied'), 'ok');
+  });
+  /* Внутри Telegram ссылку открывает сам клиент: новая вкладка там уводит
+     пару из приложения, а вернуться обратно к экрану «Готово» некуда. */
+  $('done-open').addEventListener('click', (e) => {
+    if (!state.readyUrl || !tg?.openLink) return;
+    e.preventDefault();
+    try { tg.openLink(state.readyUrl); } catch (_) { window.open(state.readyUrl, '_blank', 'noopener'); }
+  });
   $('done-mine').addEventListener('click', () => { $('done').hidden = true; $('mine').hidden = false; loadMine(); });
   $('done-new').addEventListener('click', () => location.reload());
 

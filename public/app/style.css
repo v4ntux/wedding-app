@@ -1608,6 +1608,22 @@ html[data-motion='full'] * { animation-play-state: running !important; }
 .done-card h2 { margin: 18px 0 9px; font: 400 1.8rem/1.25 var(--display); }
 .done-card p { margin: 0; color: var(--silk-2); font-size: .92rem; line-height: 1.65; }
 
+/* Готовая ссылка на экране «Готово»: её читают с экрана и копируют тапом. */
+.done-link {
+  display: block;
+  width: 100%;
+  margin-top: 20px;
+  padding: 13px 16px;
+  border: 1px dashed rgba(var(--gold-rgb), .42);
+  border-radius: var(--radius-in);
+  background: rgba(var(--gold-rgb), .07);
+  text-align: center;
+}
+.done-link b { display: block; color: var(--gold-hi); font-size: .98rem; word-break: break-all; }
+.done-link span { display: block; margin-top: 5px; color: var(--mute); font-size: .76rem; letter-spacing: .1em; text-transform: uppercase; }
+.done-link:active { transform: scale(.985); }
+.done-card .btn { margin-top: 14px; text-decoration: none; }
+
 #sparks { position: absolute; inset: 0; pointer-events: none; }
 .spark {
   position: absolute;

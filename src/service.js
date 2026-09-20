@@ -275,7 +275,25 @@ export async function submitApplication(form, tgUser) {
     return { id: concurrent.id, app: concurrent, duplicate: true };
   }
 
+  /* Платить нечего — ждать администратора не за чем. Заявка подтверждается
+     сама, и пара получает ссылку тем же сообщением, что после оплаты. Если
+     подтверждение почему-то не прошло, заявка остаётся обычной: её подтвердит
+     администратор, и пара не останется ни с чем. */
+  if (application.totalPrice <= 0) {
+    try {
+      const free = (await payApplication(id, { adminName: freeReason(application) }));
+      return { id, app: free.app, guests: free.guests, free: true };
+    } catch (error) {
+      console.error('[service] бесплатную заявку не удалось подтвердить сразу:', error.message ?? error);
+    }
+  }
+
   return { id, app: (await db.getApplication(id)) };
+}
+
+/* Подпись в графе «кто подтвердил»: у бесплатной заявки это не человек. */
+function freeReason(application) {
+  return application.promoCode ? `промокод ${application.promoCode}` : 'без оплаты';
 }
 
 // Объект «как из БД» для предпросмотра перед подтверждением (ничего не сохраняет).

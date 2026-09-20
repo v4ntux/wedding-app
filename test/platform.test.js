@@ -1140,6 +1140,37 @@ test('a promo code discounts the bill, runs out, and comes back with a cancelled
   }
 });
 
+/* Платить нечего — ждать администратора не за чем: заявка подтверждается сама
+   и пара уходит со ссылкой, а не с обещанием. */
+test('an order that costs nothing is confirmed on the spot', async () => {
+  const promo = await import('../src/promo.js');
+  const { cancelApplication } = await import('../src/service.js');
+  await promo.savePromos([{ code: 'free-all', kind: 'percent', value: 100 }]);
+  try {
+    const { app, guests, free } = (await submitApplication(baseForm({
+      promoCode: ' free-all ',
+      guestNames: ['Aziz'],
+      submissionKey: 'abcdefae-1234-4123-8123-123456789abc',
+    }), { id: 9401, username: 'free_couple' }));
+
+    assert.equal(free, true);
+    assert.equal(app.discount, app.template_price + app.premium_price, 'скидка съела и шаблон, и именную ссылку');
+    assert.ok(app.discount > 0);
+    assert.equal(app.total_price, 0);
+    assert.equal(app.status, 'paid');
+    assert.ok(app.slug, 'ссылка выдана сразу');
+    assert.equal(app.confirmed_by_name, 'промокод FREE-ALL', 'в графе «подтвердил» — не человек');
+    assert.deepEqual(guests.map((g) => g.name), ['Aziz'], 'именные ссылки созданы тогда же');
+    assert.equal((await fetch(`${baseUrl}/${app.slug}`)).status, 200, 'приглашение открывается');
+
+    // Место под скидку занято, и отменить подтверждённую заявку уже нельзя.
+    assert.equal((await dbModule.getPromo('FREE-ALL')).used, 1);
+    await assert.rejects(cancelApplication(app.id), ValidationError);
+  } finally {
+    await promo.savePromos([]);
+  }
+});
+
 test('the promo endpoint answers only the signed studio, and the admin list stays admin-only', async () => {
   const promo = await import('../src/promo.js');
   await promo.savePromos([{ code: 'http-25', kind: 'percent', value: 25 }]);

@@ -27,12 +27,12 @@ const server = createServer({
     }
     await bot.notifyCouplePaid(application, guests);
   },
-  onNewApplication: async (application) => {
+  onNewApplication: async (application, guests = []) => {
     if (!bot) {
       console.warn('[index] бот не запущен — заявка сохранена без уведомления админа');
       return;
     }
-    await notifyNewApplication(bot.api, ADMIN_CHAT_IDS, application, BASE_URL);
+    await notifyNewApplication(bot.api, ADMIN_CHAT_IDS, application, BASE_URL, guests);
   },
 });
 

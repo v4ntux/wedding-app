@@ -648,18 +648,20 @@ export function createBot({ token, adminIds = [], baseUrl }) {
 }
 
 // Вызывается сервером после создания заявки.
-export async function notifyNewApplication(api, adminIds, app, baseUrl) {
+export async function notifyNewApplication(api, adminIds, app, baseUrl, guests = []) {
   const ids = Array.isArray(adminIds) ? adminIds : [adminIds].filter(Boolean);
   if (!ids.length) {
     console.warn('[bot] ADMIN_CHAT_IDS не настроен — уведомление о заявке не отправлено');
     return;
   }
   const musicTitle = app.music_type === 'upload' ? await trackLabel(app.music_value) : null;
-  const card = buildAdminText(app, { baseUrl, musicTitle });
+  const card = buildAdminText(app, { baseUrl, musicTitle, guests });
+  /* Заявка на ноль пришла уже подтверждённой: подтверждать нечего, и кнопки
+     под ней только сбивали бы с толку — в карточке сразу готовая ссылка. */
   const opts = {
     parse_mode: 'HTML',
     link_preview_options: { is_disabled: true },
-    reply_markup: new InlineKeyboard()
+    reply_markup: app.status === 'paid' ? undefined : new InlineKeyboard()
       .text('✅ Оплачено', `paid:${app.id}`)
       .text('❌ Отклонить', `cancel:${app.id}`),
   };

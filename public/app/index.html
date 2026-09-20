@@ -424,8 +424,16 @@
       <circle class="ring-mark__b" cx="60" cy="60" r="46"/>
       <circle class="ring-mark__a" cx="60" cy="60" r="46"/>
     </svg>
-    <h2 data-i18n="doneTitle"></h2>
-    <p data-i18n="doneText"></p>
+    <h2 id="done-title"></h2>
+    <p id="done-text"></p>
+
+    <!-- Платить было нечего: ссылка готова сразу и лежит прямо здесь. -->
+    <button id="done-link" type="button" class="done-link" hidden>
+      <b id="done-url"></b>
+      <span data-i18n="doneCopy"></span>
+    </button>
+    <a id="done-open" class="btn btn--gold btn--block" href="#" rel="noopener" hidden><span data-i18n="doneOpen"></span></a>
+
     <button id="done-mine" type="button" class="btn btn--gold btn--block"><span data-i18n="mineTitle"></span></button>
     <button id="done-new" type="button" class="linkbtn" data-i18n="doneNew"></button>
   </div>

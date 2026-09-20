@@ -769,16 +769,31 @@ export function createServer({ onNewApplication, onPaid } = {}) {
         return res.status(401).json({ ok: false, error: 'Откройте форму через Telegram-бота' });
       }
 
-      const { id, app: created } = (await submitApplication(form, user));
+      const { id, app: created, guests = [] } = (await submitApplication(form, user));
+
+      /* Заявка на ноль подтверждается сама — паре сразу уходит ссылка, тем же
+         сообщением, что и после оплаты. Админу она приходит уже готовой. */
+      if (created.status === 'paid' && onPaid) {
+        try {
+          await onPaid(created, guests);
+        } catch (e) {
+          console.error('[server] free order notify failed:', e);
+        }
+      }
 
       try {
-        await onNewApplication(created);
+        await onNewApplication(created, guests);
       } catch (e) {
         // Заявка сохранена — админ увидит её в базе, даже если Telegram недоступен.
         console.error('[server] admin notify failed:', e);
       }
 
-      res.json({ ok: true, id });
+      res.json({
+        ok: true,
+        id,
+        status: created.status,
+        url: created.status === 'paid' && created.slug ? `${BASE_URL}/${created.slug}` : null,
+      });
     } catch (e) {
       if (e instanceof ValidationError) {
         return res.status(400).json({ ok: false, error: e.message, step: e.step });
