@@ -100,6 +100,24 @@
   </div>
 </div>
 
+<!-- ═══ Вход вне Telegram: студия живёт в боте ═══ -->
+<div id="gate" hidden>
+  <div class="gate-card">
+    <svg class="ring-mark ring-mark--sm" viewBox="0 0 120 120" aria-hidden="true">
+      <circle class="ring-mark__b" cx="60" cy="60" r="46"/>
+      <circle class="ring-mark__a" cx="60" cy="60" r="46"/>
+    </svg>
+    <h2 data-i18n="gateTitle"></h2>
+    <p data-i18n="gateText"></p>
+    <a id="gate-open" class="btn btn--gold btn--block" href="#" rel="noopener" hidden><span data-i18n="gateOpen"></span></a>
+    <div id="gate-qr" class="gate-qr" hidden>
+      <img src="/api/bot-qr.svg" alt="" width="152" height="152" loading="lazy">
+      <p data-i18n="gateScan"></p>
+    </div>
+    <p class="gate-why" data-i18n="gateWhy"></p>
+  </div>
+</div>
+
 <div id="app" hidden>
 
   <header id="topbar">

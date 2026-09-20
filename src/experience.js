@@ -31,6 +31,9 @@ const ENVELOPES = {
   charos: { paper: '#f7f5f1', paper2: '#e7e2da', liner: '#2b2b2f', wax: '#b08c46', waxHi: '#f0dca6', ink: '#3b3b40', hint: '#e6ded0', room: '#141416' },
   shirin: { paper: '#fdf1e2', paper2: '#f2ddc2', liner: '#a24a24', wax: '#c2603a', waxHi: '#efa07a', ink: '#8c3f22', hint: '#f7d9b6', room: '#2a1409' },
   deco: { paper: '#efe9dc', paper2: '#ddd3bf', liner: '#101014', wax: '#c9a55a', waxHi: '#f2dfa8', ink: '#1b1b20', hint: '#e8d5a4', room: '#0a0a0d' },
+  // Печать и плакат: воск без золота — киноварь и гранат
+  chizgi: { paper: '#ece9e1', paper2: '#dcd8cd', liner: '#14140f', wax: '#d93a1e', waxHi: '#ff8362', ink: '#14140f', hint: '#ece9e1', room: '#14140f' },
+  anor: { paper: '#fdeed6', paper2: '#f3d8b4', liner: '#8e1f31', wax: '#a92a3c', waxHi: '#f4a259', ink: '#8e1f31', hint: '#ffd9b0', room: '#5e0f1e' },
   // Legacy — старые оплаченные ссылки продолжают открываться
   atlas: { paper: '#f7ecd8', paper2: '#e6d5b8', liner: '#7a3520', wax: '#a5442c', waxHi: '#dd8b62', ink: '#7b3a22', hint: '#f0d5ac', room: '#1a0d07' },
 };

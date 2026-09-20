@@ -173,6 +173,12 @@ const I18N = {
     doneText: 'To‘lovni tasdiqlaymiz va toza havola botga keladi. Odatda bu 10 daqiqagacha vaqt oladi.',
     mineTitle: 'Mening taklifnomalarim',
 
+    gateTitle: 'Studiya Telegram’da ochiladi',
+    gateText: 'Taklifnoma botimizda yig‘iladi: suratlar shu yerda yuklanadi, qo‘shiq tanlanadi va tayyor havola ham o‘sha yerga keladi.',
+    gateOpen: 'Telegram’da ochish',
+    gateScan: 'Yoki telefon kamerasini shu kodga to‘g‘rilang',
+    gateWhy: 'Bu bepul: bot xuddi shu studiyani ochadi.',
+
     add: 'Qo‘shish', lookDone: 'Ko‘rib chiqdim', nextCue: 'Keyingi bosqich',
     nextUp: 'Keyingi bosqich ochildi',
     demo: 'Ko‘rish', live: 'Jonli namuna', popular: 'Ko‘p tanlangan',
@@ -259,6 +265,12 @@ const I18N = {
     doneTitle: 'Заявка у нас', doneNew: 'Новое приглашение',
     doneText: 'Подтвердим оплату — и чистая ссылка придёт в бот. Обычно это занимает до 10 минут.',
     mineTitle: 'Мои приглашения',
+
+    gateTitle: 'Студия открывается в Telegram',
+    gateText: 'Приглашение собирается в нашем боте: там загружаются фото, выбирается песня и туда же придёт готовая ссылка.',
+    gateOpen: 'Открыть в Telegram',
+    gateScan: 'Или наведите камеру телефона на код',
+    gateWhy: 'Это бесплатно: бот откроет ту же самую студию.',
 
     add: 'Добавить', lookDone: 'Посмотрел', nextCue: 'Следующий шаг',
     nextUp: 'Следующий шаг открыт',
@@ -2274,15 +2286,42 @@ async function loadConfig() {
   state.config = await fetchConfig();
 }
 
-function bootLang(lang) {
+/* Подпись студии приходит от Telegram. В обычном браузере её нет: загрузка
+   фото, предпросмотр и отправка заявки упираются в 401, поэтому заполнять
+   форму здесь было бы впустую. Такой вход ведём в бот — там открывается эта
+   же студия, уже с подписью. */
+async function gateNeeded() {
+  if (tg?.initData) return false;
+  return (await fetchConfig())?.requiresTelegram !== false;
+}
+
+async function openGate() {
+  state.config = await fetchConfig();
+  const bot = state.config?.botUrl;
+  if (bot) {
+    const link = $('gate-open');
+    link.href = `${bot}?start=site`;
+    link.hidden = false;
+    /* С телефона ведёт кнопка — она открывает клиент. С компьютера удобнее
+       снять код телефоном: студия всё равно про фото из галереи. Показывать
+       ли код, решает ширина в стилях — иначе поворот экрана оставил бы с
+       решением, принятым один раз при входе. */
+    $('gate-qr').hidden = false;
+  }
+  $('gate').hidden = false;
+}
+
+async function bootLang(lang) {
   setLang(lang);
-  document.body.classList.add('studio-entering');
-  const first = document.querySelector('.blk[data-step="names"]');
-  if (first) armBlock(first);
+  const gated = await gateNeeded();
   // Сцена оживает раньше, чем экран языка начнёт таять: пара видит её уже в движении.
   stageRest(false);
   $('lang-screen').classList.add('out');
   setTimeout(() => { $('lang-screen').style.display = 'none'; }, 1400);
+  if (gated) return openGate();
+  document.body.classList.add('studio-entering');
+  const first = document.querySelector('.blk[data-step="names"]');
+  if (first) armBlock(first);
   $('app').hidden = false;
   start();
 }

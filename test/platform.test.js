@@ -111,10 +111,10 @@ test('upload type detection trusts signatures, not filenames', () => {
   assert.equal(detectFileType(Buffer.from('not an image payload')), null);
 });
 
-const PUBLIC_IDS = ['nafis', 'oqshom', 'gulzor', 'charos', 'deco'];
+const PUBLIC_IDS = ['nafis', 'chizgi', 'oqshom', 'gulzor', 'anor', 'charos', 'deco'];
 const HIDDEN_IDS = ['nur', 'marvarid', 'shirin', 'atlas'];
 
-test('catalog exposes five designs and keeps the legacy renderer alive', () => {
+test('catalog exposes seven designs and keeps the legacy renderer alive', () => {
   assert.deepEqual(publicTemplates().map((template) => template.id), PUBLIC_IDS);
   // Снятые с витрины темы не предлагаются парам, но оплаченные ссылки на них
   // обязаны открываться — поэтому они остаются в allTemplates().
@@ -149,6 +149,8 @@ test('each design lays the page out differently — не только цвето
   const dateBlocks = {
     oqshom: /when glass card fx/,
     nafis: /class="nafis-date/,
+    chizgi: /class="chizgi-date/,
+    anor: /class="anor-date/,
     nur: /class="nur-date/,
     gulzor: /class="gulzor-date/,
     marvarid: /class="pearl-date/,
@@ -1060,4 +1062,37 @@ test('preview and application endpoints reject unauthenticated requests in produ
     });
     assert.equal(response.status, 401);
   }
+});
+
+/* Тот же 401 ловит и пара, открывшая nvate.uz в обычном браузере: подписи
+   Telegram там нет. Студия узнаёт об этом из настроек и вместо мёртвой формы
+   показывает вход в бот — кнопкой с телефона и кодом с компьютера. */
+test('outside Telegram the studio is told to hand the couple the bot', async () => {
+  const { RUNTIME } = await import('../src/config.js');
+  const username = RUNTIME.botUsername;
+  try {
+    RUNTIME.botUsername = '';
+    assert.equal((await fetch(`${baseUrl}/api/bot-qr.svg`)).status, 404, 'без имени бота вести некуда');
+
+    RUNTIME.botUsername = 'nvate_bot';
+    const config = await (await fetch(`${baseUrl}/api/config`)).json();
+    assert.equal(config.requiresTelegram, true);
+    assert.equal(config.botUrl, 'https://t.me/nvate_bot');
+
+    const qr = await fetch(`${baseUrl}/api/bot-qr.svg`);
+    assert.equal(qr.status, 200);
+    assert.match(qr.headers.get('content-type'), /^image\/svg\+xml/);
+    assert.match(await qr.text(), /<svg[^>]+viewBox/);
+  } finally {
+    RUNTIME.botUsername = username;
+  }
+});
+
+// Разметка шлюза едет вместе со студией: без неё фронту некуда положить вход.
+test('the studio ships the Telegram gate markup', () => {
+  const html = readFileSync(path.join(process.cwd(), 'public', 'app', 'index.html'), 'utf8');
+  for (const id of ['gate', 'gate-open', 'gate-qr']) {
+    assert.match(html, new RegExp(`id="${id}"`), `шлюзу нужен #${id}`);
+  }
+  assert.match(html, /src="\/api\/bot-qr\.svg"/);
 });

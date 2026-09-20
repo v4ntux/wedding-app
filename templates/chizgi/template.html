@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ece9e1">
+<title>{{groom}} &amp; {{bride}} · {{L.sub}}</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+{{{experienceCSS}}}
+{{{coreCSS}}}
+<style>
+/* Chizgi — типографская полоса. Противоположность остальной линейке: ни золота,
+   ни стекла, ни курсива и ни одной круглой формы. Газетная бумага, чёрный
+   гротеск, киноварь на акцентах и жёсткая модульная сетка; вся роскошь —
+   в воздухе и выключке по левому краю, как в швейцарском плакате. */
+:root{
+  --paper:#ece9e1; --paper-2:#e3dfd4; --paper-3:#d6d1c4;
+  --ink:#14140f; --muted:#67675c;
+  --accent:#d93a1e; --accent-2:#14140f;
+  --line:rgba(20,20,15,.26); --line-soft:rgba(20,20,15,.1);
+
+  /* Золота в теме нет: «золотые» узлы ядра (.gilt, .gold-rule) переведены
+     в графит — имена наливаются чернилами, а не металлом. */
+  --gold:#14140f; --gold-hi:#55554a; --gold-lo:#14140f; --gold-rgb:20,20,15;
+  --stars-opacity:0;
+  --glass-edge:#14140f;
+  --glass-face:#ece9e1;
+  --glass-face-solid:#ece9e1;
+  --shot-edge:transparent;
+
+  --bg-veil:linear-gradient(180deg,rgba(236,233,225,.5),rgba(236,233,225,.8));
+  --mote:rgba(20,20,15,.2);
+  --display:'Archivo',Helvetica,Arial,sans-serif;
+  --script:'Archivo',Helvetica,Arial,sans-serif;
+  --sans:'Archivo',ui-sans-serif,system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,monospace;
+  --ev-sans:var(--mono); --ev-display:var(--display);
+}
+
+html{background:var(--paper)}
+body{background:linear-gradient(180deg,#f3f1ea 0%,#ece9e1 44%,#e3dfd5 100%)}
+.inv{position:relative;z-index:1}
+.inv{--veil:rgba(236,233,225,.52)}
+.made{background:var(--paper-2);border-top:1.5px solid var(--ink)}
+
+/* Ночного слоя у темы нет: звёзды, золотая пыль и цветные пятна живого фона
+   выключены совсем — на печатной полосе им нечего делать. */
+.stars,.gilt-dust,.motes{display:none}
+.living-bg i{display:none}
+
+/* Печатная сетка: волосяные линии на всю страницу — тот самый модуль,
+   по которому набрана полоса. */
+.chz-grid{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:repeating-linear-gradient(90deg,transparent 0 calc(20% - 1px),rgba(20,20,15,.07) calc(20% - 1px) 20%)}
+
+/* ── Полоса набора ───────────────────────────────────────────────────────
+   Всё по левому краю, ни одного центрированного блока, кроме цифр отсчёта. */
+.sec{text-align:left;padding-inline:clamp(20px,6vw,40px)}
+.wrap{width:min(100%,660px)}
+.h2{margin:0 0 .24em;color:var(--ink);font:600 clamp(1.9rem,8vw,3rem)/1.02 var(--display);
+  letter-spacing:-.03em;text-transform:uppercase}
+.lead{margin:0;max-width:40ch;color:var(--muted);font:400 clamp(1rem,3.9vw,1.1rem)/1.62 var(--sans)}
+.amp{display:inline;margin:0 .16em;color:var(--accent);font:600 .9em/1 var(--display)}
+
+/* Надзаголовок — моноширинный, с одной линией справа. Номер полосы стоит
+   отдельным элементом: само слово остаётся словом. */
+.chz-head{display:flex;align-items:center;gap:14px;margin-bottom:clamp(18px,5vw,26px)}
+.chz-idx{color:var(--accent);font:500 .64rem/1 var(--mono);letter-spacing:.1em}
+.num{margin-bottom:0;color:var(--ink);font:500 .62rem/1 var(--mono);letter-spacing:.24em}
+.num:before{display:none}
+.num.in:after{width:clamp(26px,12vw,76px)}
+
+/* Линейка — не золотая нить, а наборная линейка в два пункта. */
+.gold-rule{width:min(100%,260px);height:2px;margin:clamp(24px,6vw,34px) 0;
+  background:var(--ink);box-shadow:none}
+.gold-rule:after{display:none}
+.final-card .gold-rule{margin-inline:0}
+
+/* Монограмма — квадратная марка, а не медальон. */
+.mono{border:1.5px solid var(--ink);border-radius:0;margin:0 0 22px;color:var(--ink);
+  font:600 clamp(1.1rem,4vw,1.35rem)/1 var(--display);letter-spacing:.04em}
+.mono svg{display:none}
+.mono--filled{border-radius:0;background:var(--ink);color:var(--paper)}
+
+/* Карточка — не стекло, а вырубленный прямоугольник с печатной тенью. */
+.glass{border:1.5px solid var(--ink);border-radius:0;background:var(--paper);
+  box-shadow:10px 10px 0 rgba(20,20,15,.13);-webkit-backdrop-filter:none;backdrop-filter:none}
+.glass:before,.glass:after{display:none}
+.card{width:100%;margin:0}
+.card.fx{transform:translateY(30px)}
+.card.fx.in{transform:none}
+.final-card{text-align:left}
+
+/* Кадр: жёсткая рамка, печатная тень, чёрно-белая печать. */
+.shot{width:100%;border:1.5px solid var(--ink);background:var(--paper-3)}
+.shot.in{box-shadow:10px 10px 0 rgba(20,20,15,.13)}
+.shot:after{box-shadow:none}
+.shot img{filter:grayscale(1) contrast(1.1) brightness(1.02)}
+.chz-cap{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+  margin-top:14px;padding-top:10px;border-top:1px solid var(--line);
+  color:var(--muted);font:500 .6rem/1.4 var(--mono);letter-spacing:.16em;text-transform:uppercase}
+.chz-cap b{color:var(--ink);font-weight:500}
+.chz-cap+.lead{margin-top:clamp(22px,6vw,30px)}
+
+/* -- Титул: шапка полосы, имена в подвале экрана -------------------------- */
+.hero{position:relative;display:grid;grid-template-rows:auto 1fr auto;min-height:100svh;text-align:left;
+  padding:clamp(72px,13vh,108px) clamp(20px,6vw,40px) clamp(38px,8vh,68px);background:transparent}
+.hero__top{display:flex;align-items:baseline;justify-content:space-between;gap:14px;
+  padding-bottom:12px;border-bottom:1.5px solid var(--ink);
+  color:var(--ink);font:500 .62rem/1 var(--mono);letter-spacing:.24em;text-transform:uppercase}
+.hero__top s{color:var(--accent);text-decoration:none}
+.hero__mid{display:grid;align-content:end;padding:clamp(26px,9vh,64px) 0 clamp(18px,4vh,30px)}
+.hero__names{margin:0;color:transparent;font:800 clamp(2.9rem,15.5vw,6.2rem)/.86 var(--display);
+  letter-spacing:-.045em;text-transform:uppercase}
+.hero__names i{display:block;margin:.04em 0;color:var(--accent);-webkit-text-fill-color:var(--accent);
+  font:500 .3em/1 var(--display);font-style:normal;letter-spacing:0}
+.hero__foot{display:grid;gap:12px}
+.hero__bar{height:6px;background:var(--ink);transform:scaleX(0);transform-origin:left}
+.hero.in .hero__bar{transform:scaleX(1);transition:transform var(--t-epic) var(--e-signature) .5s}
+.hero__meta{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 16px;
+  color:var(--ink);font:500 .66rem/1.4 var(--mono);letter-spacing:.2em;text-transform:uppercase}
+.hero__meta b{color:var(--accent);font-weight:500}
+
+/* Бегущая строка под титулом — чёрная плашка через всю полосу. */
+.chz-tick{position:relative;z-index:1;overflow:hidden;background:var(--ink);border-block:1.5px solid var(--ink)}
+.chz-tick__row{display:flex;width:max-content;animation:chzTick 30s linear infinite}
+.chz-tick__row span{display:flex;min-width:52vw;align-items:center;gap:16px;padding:13px 16px 12px;
+  white-space:nowrap;color:var(--paper);font:500 .62rem/1 var(--mono);letter-spacing:.26em;text-transform:uppercase}
+.chz-tick__row i{flex:none;width:5px;height:5px;background:var(--accent)}
+@keyframes chzTick{to{transform:translate3d(-50%,0,0)}}
+
+/* Дата: цифра дня набрана кеглем заголовка, остальное — моношириной. */
+.chizgi-date{display:grid;grid-template-columns:auto 1fr;gap:clamp(14px,5vw,30px);align-items:end;
+  padding:clamp(18px,5vw,26px) 0;border-block:1.5px solid var(--ink)}
+.chz-day{color:var(--accent);font:800 clamp(4.4rem,23vw,8rem)/.78 var(--display);letter-spacing:-.06em}
+.chz-facts{display:grid;gap:10px;padding-bottom:.7em}
+.chz-facts div{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+  padding-bottom:9px;border-bottom:1px solid var(--line);
+  color:var(--ink);font:500 .68rem/1 var(--mono);letter-spacing:.18em;text-transform:uppercase}
+.chz-facts div:last-child{padding-bottom:0;border-bottom:0}
+.chz-facts em{font-style:normal;color:var(--muted)}
+
+/* Календарь — не таблица месяца, а сетка: линии вместо воздуха, квадрат вместо кружка. */
+.cal{width:100%;margin:clamp(26px,7vw,36px) 0 0;font-family:var(--mono);font-size:.74rem}
+.cal th{color:var(--muted);font:500 .54rem/1 var(--mono);letter-spacing:.16em;opacity:1}
+.cal td{padding:9px 0;border-top:1px solid var(--line-soft)}
+.cal td.on{color:var(--accent);font-weight:500}
+.cal td.on:before{width:30px;height:30px;border:1.5px solid var(--accent);border-radius:0}
+
+/* Отсчёт: четыре разряда моноширинными цифрами, линии между ними жёсткие. */
+.cd b{color:var(--ink);font:500 clamp(1.8rem,8.4vw,3rem)/1.12 var(--mono);letter-spacing:-.02em}
+.cd>div>span{color:var(--muted);font:500 .52rem/1 var(--mono);letter-spacing:.18em}
+.cd>div+div:before{background:var(--line)}
+
+/* Место: адрес — заголовок полосы, маршруты — две кнопки без единого скругления. */
+.venue__name{margin:0 0 .3em;max-width:22ch;text-align:left;
+  font:600 clamp(1.6rem,6.6vw,2.3rem)/1.06 var(--display);letter-spacing:-.02em;text-transform:uppercase}
+.venue__meta{margin:0;max-width:36ch;text-align:left;color:var(--muted);
+  font:500 .66rem/1.6 var(--mono);letter-spacing:.12em}
+.venue__map .mapbox:after{box-shadow:inset 0 -1.5px 0 var(--ink)}
+/* Карта тоже печатается в одну краску — и чужой iframe, и своя карта на canvas. */
+.mapbox iframe,.mapbox .nvmap{filter:grayscale(1) contrast(1.12) brightness(1.03)}
+.routes a{border-radius:0;border:1.5px solid var(--ink);background:transparent;color:var(--ink);
+  font:500 .62rem/1 var(--mono);letter-spacing:.14em;text-transform:uppercase}
+.routes a:hover{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.routes a svg{stroke-width:1.6;opacity:1}
+
+.final__quote{max-width:16ch;margin:.3em 0 .4em;font:600 clamp(1.8rem,7.4vw,2.7rem)/1.06 var(--display);
+  letter-spacing:-.03em;text-transform:uppercase}
+.final__sign{color:var(--muted);font:500 .6rem/1.5 var(--mono);letter-spacing:.22em}
+
+#mbtn{border-radius:0;border:1.5px solid var(--ink);backdrop-filter:none;-webkit-backdrop-filter:none}
+
+@media (prefers-reduced-motion:reduce){
+  .chz-tick__row{animation:none}
+  .hero__bar{transform:none}
+}
+</style>
+</head>
+<body>
+{{{envelope}}}
+{{{livingBg}}}
+<div class="chz-grid" aria-hidden="true"></div>
+<div class="progress" aria-hidden="true"></div>
+
+<main class="inv">
+
+  <section class="hero fx">
+    <div class="hero__top"><span>{{L.sub}}</span><s>{{dateIso}}</s></div>
+    <div class="hero__mid" data-parallax="0.04">
+      <h1 class="hero__names fx fx--rise gilt" style="--d:.18s">{{groom}}<i>&amp;</i>{{bride}}</h1>
+    </div>
+    <div class="hero__foot">
+      <div class="hero__bar" aria-hidden="true"></div>
+      <div class="hero__meta fx" style="--d:.3s"><span>{{day}} {{monthName}} {{year}}</span><b>{{time}}</b></div>
+    </div>
+  </section>
+
+  <div class="chz-tick" aria-hidden="true">
+    <div class="chz-tick__row">
+      <span>{{groom}} &amp; {{bride}}<i></i>{{dateText}}<i></i>{{time}}<i></i>{{L.sub}}<i></i></span>
+      <span>{{groom}} &amp; {{bride}}<i></i>{{dateText}}<i></i>{{time}}<i></i>{{L.sub}}<i></i></span>
+    </div>
+  </div>
+
+  <section class="sec">
+    <div class="wrap">
+      <div class="chz-head"><span class="chz-idx">01</span><div class="num">{{L.sub}}</div></div>
+      {{#if guestName}}
+        <div class="h2 fx" style="--d:.1s">{{L.greet}} {{guestName}}</div>
+        <div class="gold-rule" style="--d:.24s"></div>
+        <p class="lead words" style="--d:.3s">{{L.greetTail}}</p>
+      {{else}}
+        <div class="h2 fx" style="--d:.1s">{{groom}}<span class="amp">{{L.and}}</span>{{bride}}</div>
+        <div class="gold-rule" style="--d:.24s"></div>
+        <p class="lead words" style="--d:.3s">{{L.invite}}</p>
+      {{/if}}
+    </div>
+  </section>
+
+  {{#if photos.0}}
+  <section class="sec">
+    <div class="wrap">
+      <div class="chz-head"><span class="chz-idx">02</span><div class="num">{{L.gallery}}</div></div>
+      <figure class="shot" data-parallax="0.04" data-fit>
+        <img src="{{photos.0}}" alt="{{groom}} &amp; {{bride}}" loading="lazy">
+      </figure>
+      <div class="chz-cap fx" style="--d:.16s"><b>{{groom}} &amp; {{bride}}</b><span>{{dateIso}}</span></div>
+      <p class="lead words" style="--d:.24s">{{L.emo}}</p>
+    </div>
+  </section>
+  {{/if}}
+
+  <section class="sec">
+    <div class="wrap">
+      <div class="chz-head"><span class="chz-idx">03</span><div class="num">{{L.when}}</div></div>
+      <div class="chizgi-date fx" style="--d:.12s">
+        <span class="chz-day">{{day}}</span>
+        <div class="chz-facts">
+          <div><em>{{monthName}}</em><b>{{year}}</b></div>
+          <div><em>{{weekday}}</em><b>{{time}}</b></div>
+        </div>
+      </div>
+      <table class="cal fx" data-cal="{{dateIso}}" style="--d:.2s"><caption>{{monthName}} {{year}}</caption></table>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="wrap">
+      <div class="chz-head"><span class="chz-idx">04</span><div class="num">{{L.until}}</div></div>
+      <div class="cd-card glass card fx" style="--d:.14s">
+        <div class="cd" style="--d:.2s">
+          <div><b id="cd">0</b><span>{{L.days}}</span></div>
+          <div><b id="ch">00</b><span>{{L.hours}}</span></div>
+          <div><b id="cm">00</b><span>{{L.min}}</span></div>
+          <div><b id="cs">00</b><span>{{L.sec}}</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="wrap">
+      <div class="chz-head"><span class="chz-idx">05</span><div class="num">{{L.where}}</div></div>
+      <div class="venue-card glass card fx" style="--d:.14s">
+        <div class="venue__map">{{{map}}}</div>
+        <div class="venue__body">
+          <h2 class="venue__name">{{address}}</h2>
+          {{#if venueLine}}<p class="venue__meta">{{venueLine}}</p>{{/if}}
+          {{#if gmaps}}
+          <div class="routes">
+            <a href="{{gmaps}}" target="_blank" rel="noopener"><span>{{L.gmaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+            <a href="{{ymaps}}" target="_blank" rel="noopener"><span>{{L.ymaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+          </div>
+          {{/if}}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {{#if photos.1}}
+  <section class="sec">
+    <div class="wrap">
+      <div class="chz-head"><span class="chz-idx">06</span><div class="num">{{L.gallery}}</div></div>
+      <figure class="shot shot--wide" data-parallax="0.05" data-fit>
+        <img src="{{photos.1}}" alt="{{groom}} &amp; {{bride}}" loading="lazy">
+      </figure>
+      <div class="chz-cap fx" style="--d:.16s"><b>{{address}}</b><span>{{time}}</span></div>
+    </div>
+  </section>
+  {{/if}}
+
+  <section class="sec final">
+    <div class="wrap">
+      <div class="final-card glass card fx">
+        {{{monogramFilled}}}
+        <p class="final__quote gilt">{{L.final}}</p>
+        <div class="gold-rule" style="--d:.26s"></div>
+        <div class="final__sign">{{L.sign}} {{groom}} {{L.and}} {{bride}}</div>
+      </div>
+    </div>
+  </section>
+
+  {{{made}}}
+</main>
+
+<script>
+// Календарь месяца свадьбы: неделя с понедельника, день события обведён.
+(function(){
+  var el=document.querySelector('[data-cal]');if(!el)return;
+  var iso=(el.getAttribute('data-cal')||'').split('-').map(Number);
+  if(iso.length!==3||!iso[0])return;
+  var y=iso[0],m=iso[1]-1,day=iso[2];
+  var head=(document.documentElement.lang==='ru')
+    ? ['пн','вт','ср','чт','пт','сб','вс'] : ['du','se','ch','pa','ju','sh','ya'];
+  var first=(new Date(y,m,1).getDay()+6)%7, total=new Date(y,m+1,0).getDate();
+  var html='<thead><tr>'+head.map(function(d){return '<th scope="col">'+d+'</th>'}).join('')+'</tr></thead><tbody><tr>',i=0;
+  for(var k=0;k<first;k++)html+='<td></td>';
+  for(var d=1;d<=total;d++){
+    if((first+d-1)%7===0&&d>1)html+='</tr><tr>';
+    html+='<td'+(d===day?' class="on"':'')+'><span style="--i:'+(i++)+'">'+d+'</span></td>';
+  }
+  html+='</tr></tbody>';
+  el.insertAdjacentHTML('beforeend',html);
+})();
+</script>
+
+{{{audioWidget}}}
+{{{experienceScript}}}
+{{{countdown}}}
+</body>
+</html>

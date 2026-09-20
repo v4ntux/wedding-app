@@ -1,0 +1,14 @@
+{
+  "name": "Anor",
+  "event": "wedding",
+  "price": 209000,
+  "minPhotos": 3,
+  "colors": [
+    "#A92A3C",
+    "#FDEED6",
+    "#F4A259",
+    "#5E0F1E"
+  ],
+  "order": 5,
+  "listed": true
+}

@@ -1,0 +1,14 @@
+{
+  "name": "Chizgi",
+  "event": "wedding",
+  "price": 199000,
+  "minPhotos": 2,
+  "colors": [
+    "#ECE9E1",
+    "#14140F",
+    "#D93A1E",
+    "#67675C"
+  ],
+  "order": 2,
+  "listed": true
+}

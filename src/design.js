@@ -23,6 +23,9 @@ export const STATIONERY = Object.freeze({
   charos: { name: 'Charos', theme: 'marble', tile: '100% 50%', effect: 'sparkles', ink: '#2f2f34', paper: '#f7f5f1', accent: '#b08c46', envelope: '#2b2b2f', ru: 'Белый мрамор · золотые арки', uz: 'Oq marmar · oltin ravoqlar' },
   shirin: { name: 'Shirin', theme: 'sunset', tile: '0% 100%', effect: 'petals', ink: '#fdf1e2', paper: '#2a1409', accent: '#efa07a', envelope: '#a24a24', ru: 'Тёплый закат · терракота и солнце', uz: 'Iliq shom · terrakota va quyosh' },
   deco: { name: 'Deco', theme: 'artdeco', tile: '50% 100%', effect: 'sparkles', ink: '#efe9dc', paper: '#0a0a0d', accent: '#c9a55a', envelope: '#101014', ru: 'Ар-деко · геометрия и чёрное золото', uz: 'Ar-deko · geometriya va qora oltin' },
+  // Без золота и ночи: печатная полоса и гранатовый плакат
+  chizgi: { name: 'Chizgi', theme: 'press', tile: '100% 100%', effect: 'none', ink: '#14140f', paper: '#ece9e1', accent: '#d93a1e', envelope: '#14140f', ru: 'Типографская полоса · бумага, штрих и киноварь', uz: 'Bosma chizgi · qog‘oz, shtrix va qizil' },
+  anor: { name: 'Anor', theme: 'riso', tile: '0% 0%', effect: 'petals', ink: '#fdeed6', paper: '#a92a3c', accent: '#f4a259', envelope: '#5e0f1e', ru: 'Гранатовый плакат · ризография и сливки', uz: 'Anor plakati · rizografiya va qaymoq' },
   // Legacy — витрину покинули, но старые ссылки продолжают открываться
   atlas: { name: 'Atlas', theme: 'heritage', tile: '100% 0%', effect: 'sparkles', ink: '#703f32', paper: '#faf1dd', accent: '#b9784d', envelope: '#d6a06e', ru: 'Узбекский атлас · золотые нити', uz: 'O‘zbek atlasi · oltin iplar' },
 });

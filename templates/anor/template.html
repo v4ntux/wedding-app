@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#a92a3c">
+<title>{{groom}} &amp; {{bride}} · {{L.sub}}</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,500&family=Karla:wght@400;500;700&display=swap" rel="stylesheet">
+{{{experienceCSS}}}
+{{{coreCSS}}}
+<style>
+/* Anor — гранатовый плакат. Ризография вместо ночи и золота: страница залита
+   одним плотным цветом, поверх — сливочные карточки с жёсткой печатной тенью,
+   растровая точка по всему полю и «непопадание краски» на именах, как в
+   настоящей трафаретной печати. Ни одного стеклянного блика. */
+:root{
+  --paper:#a92a3c; --paper-2:#8e1f31; --paper-3:#7a1628;
+  --ink:#fdeed6; --muted:#f2c8ab;
+  --accent:#f4a259; --accent-2:#f7cfae;
+  --line:rgba(253,238,214,.34); --line-soft:rgba(253,238,214,.16);
+
+  /* «Золото» ядра переведено в абрикос: та же механика наливки, другой металл. */
+  --gold:#f4a259; --gold-hi:#ffe3bd; --gold-lo:#e2683f; --gold-rgb:244,162,89;
+  --glass-edge:#5e0f1e;
+  --glass-face:#fdeed6;
+  --glass-face-solid:#fdeed6;
+  --shot-edge:transparent;
+
+  --bg-veil:linear-gradient(180deg,rgba(169,42,60,.45),rgba(122,22,40,.7));
+  --mote:rgba(255,214,170,.7);
+  --display:'Fraunces',Georgia,serif;
+  --script:'Fraunces',Georgia,serif;
+  --sans:'Karla',ui-sans-serif,system-ui,sans-serif;
+  --ev-sans:var(--sans); --ev-display:var(--display);
+}
+
+html{background:var(--paper)}
+body{background:
+  radial-gradient(120% 68% at 50% -12%,#c4453f,transparent 62%),
+  radial-gradient(86% 58% at 8% 92%,#7a1628,transparent 72%),
+  linear-gradient(176deg,#b2303c 0%,#a5253a 54%,#7f1729 100%)}
+.inv{position:relative;z-index:1}
+.inv{--veil:rgba(138,26,45,.42)}
+.made{background:rgba(94,15,30,.92);border-top:1px solid var(--line-soft)}
+
+/* Растр: точка 9 пикселей по всему полю, еле заметно ведёт в сторону —
+   бумага живёт, как свежий оттиск. */
+.halftone{position:fixed;inset:-12%;z-index:0;pointer-events:none;opacity:.3;
+  background-image:radial-gradient(rgba(255,214,170,.85) 1.1px,transparent 1.3px);
+  background-size:9px 9px;animation:anorDrift 34s ease-in-out infinite alternate}
+@keyframes anorDrift{from{transform:translate3d(-1%,0,0)}to{transform:translate3d(1%,1.6%,0)}}
+
+/* ── Плакат ──────────────────────────────────────────────────────────────
+   Всё по центру и крупно: между блоками — воздух, внутри блоков — плотность. */
+.sec{padding-inline:clamp(18px,6vw,36px)}
+.wrap{width:min(100%,640px)}
+.h2{margin:0 0 .2em;color:var(--ink);font:600 clamp(2rem,8.6vw,3.2rem)/1.04 var(--display);letter-spacing:-.02em}
+.lead{max-width:32ch;color:var(--muted);font:400 clamp(1rem,3.9vw,1.1rem)/1.66 var(--sans)}
+.amp{display:block;margin:.04em auto;color:var(--accent);font:500 1.2em/1 var(--script);font-style:italic}
+
+/* Надзаголовок — с точками вместо линий: тот же растр, что и на фоне. */
+.num{color:var(--accent);font:700 .62rem/1 var(--sans);letter-spacing:.3em}
+.num:before,.num:after{height:6px;border-radius:50%;opacity:1}
+.num.in:before,.num.in:after{width:6px}
+
+/* Разделитель — пунктир из точек, а не золотая нить. */
+.gold-rule{height:5px;box-shadow:none;
+  background:radial-gradient(circle,var(--accent) 1.7px,transparent 1.9px) 0 50%/13px 5px repeat-x}
+.gold-rule:after{display:none}
+
+/* Карточка — плотная сливочная бумага с офсетным сдвигом тени. Внутри
+   карточки палитра выворачивается: чернила становятся тёмно-гранатовыми. */
+.glass{border:2px solid #5e0f1e;border-radius:26px;background:#fdeed6;
+  box-shadow:11px 13px 0 rgba(94,15,30,.5);-webkit-backdrop-filter:none;backdrop-filter:none;
+  --ink:#5e0f1e; --muted:#a3524a; --accent:#d1462f; --accent-2:#a3524a;
+  --line:rgba(94,15,30,.26); --line-soft:rgba(94,15,30,.12);
+  --gold:#d1462f; --gold-hi:#e98c4a; --gold-lo:#8e1f31; --gold-rgb:209,70,47;
+  color:#5e0f1e}
+.glass:before,.glass:after{display:none}
+.card{width:100%;margin:0}
+.venue-card{overflow:hidden}
+.final-card .mono{color:#fdeed6}
+
+/* Кадр — арка: сливочное поле вокруг снимка и печатная тень под ним. */
+.shot{width:100%;border:10px solid #fdeed6;border-radius:999px 999px 24px 24px;background:var(--paper-3)}
+.shot.in{box-shadow:12px 14px 0 rgba(94,15,30,.5)}
+.shot:after{box-shadow:none}
+.shot img{filter:saturate(.94) contrast(1.05) sepia(.16)}
+/* Медальон: круглый кадр для парных снимков внизу полосы. */
+.anor-duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:clamp(14px,4vw,22px)}
+.anor-duo .shot{aspect-ratio:1;border-width:8px;border-radius:50%}
+.anor-duo .shot.in{box-shadow:8px 10px 0 rgba(94,15,30,.45)}
+
+/* -- Титул ---------------------------------------------------------------- */
+.hero{position:relative;display:grid;min-height:100svh;place-content:center;text-align:center;
+  padding:clamp(96px,17vh,140px) 22px clamp(74px,12vh,104px);background:transparent}
+.hero__kicker{color:var(--accent);font:700 .62rem/1 var(--sans);letter-spacing:.38em;text-transform:uppercase}
+/* Непопадание краски: тот же набор абрикосом уезжает на несколько пикселей
+   вниз-вправо — печатный брак, сделанный нарочно. Сдвиг задан left/top, а не
+   transform: transform занят появлением (.fx), и оба слоя должны входить
+   в кадр одним движением. */
+.anor-title{position:relative;margin:.16em 0 .18em}
+.hero__names,.anor-ink{display:block;margin:0;font:600 clamp(2.9rem,15vw,5.8rem)/.94 var(--display);
+  letter-spacing:-.03em;text-wrap:balance}
+.hero__names i,.anor-ink i{display:block;margin:.02em 0;font:500 .38em/1 var(--script);font-style:italic}
+.anor-ink{position:absolute;left:8px;top:9px;z-index:0;width:100%;color:var(--accent);opacity:.55}
+/* Верхний слой печатается сливками: механика наливки ядра остаётся, металл — нет. */
+.hero__names{position:relative;z-index:1;--gold-lo:#f7cba3; --gold:#fdeed6; --gold-hi:#ffffff}
+.hero__date{display:inline-flex;align-items:center;gap:12px;margin-top:.7em;padding:12px 22px;
+  border-radius:999px;background:var(--ink);color:#a92a3c;
+  font:700 .66rem/1 var(--sans);letter-spacing:.2em;text-transform:uppercase}
+.hero__date s{width:5px;height:5px;border-radius:50%;background:#a92a3c;text-decoration:none}
+
+/* Печать: имена идут по кругу и медленно вращаются вокруг инициалов. */
+.anor-seal{position:absolute;top:clamp(74px,12vh,116px);right:clamp(14px,5vw,40px);
+  display:grid;place-items:center;width:clamp(92px,26vw,132px);aspect-ratio:1;opacity:0;
+  transition:opacity var(--t-epic) ease .6s}
+.hero.in .anor-seal{opacity:1}
+.anor-seal svg{position:absolute;inset:0;width:100%;height:100%;animation:anorSpin 26s linear infinite}
+.anor-seal text{fill:var(--accent);font:700 8.6px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase}
+.anor-seal b{color:var(--ink);font:600 1.05rem/1 var(--display);letter-spacing:.04em}
+@keyframes anorSpin{to{transform:rotate(360deg)}}
+
+/* Плашка с цитатой — плакатная полоса поперёк страницы. */
+.anor-band{padding:clamp(30px,8vw,46px) clamp(22px,6vw,34px);border-radius:28px;
+  border:2px solid #5e0f1e;background:var(--accent);box-shadow:11px 13px 0 rgba(94,15,30,.5)}
+.anor-band p{margin:0;color:#5e0f1e;font:600 clamp(1.5rem,6.4vw,2.2rem)/1.14 var(--display);
+  letter-spacing:-.02em;text-wrap:balance}
+.anor-band span{display:block;margin-top:14px;color:rgba(94,15,30,.68);
+  font:700 .58rem/1 var(--sans);letter-spacing:.28em;text-transform:uppercase}
+
+/* Дата: три плакатные строки — день, месяц в контуре, год. */
+.anor-date{display:grid;justify-items:center;gap:0}
+.anor-day{color:var(--ink);font:600 clamp(4.2rem,22vw,7.6rem)/.86 var(--display);letter-spacing:-.04em}
+.anor-month{color:transparent;-webkit-text-stroke:1.4px var(--accent);
+  font:600 clamp(1.7rem,8.6vw,3rem)/1.1 var(--display);text-transform:uppercase}
+.anor-year{color:var(--accent);font:600 clamp(3.2rem,16vw,5.6rem)/.92 var(--display);letter-spacing:-.03em}
+.anor-clock{margin-top:18px;padding:12px 22px;border-radius:999px;background:var(--ink);color:#a92a3c;
+  font:700 .64rem/1 var(--sans);letter-spacing:.2em;text-transform:uppercase}
+
+/* Отсчёт и место — внутри сливочных карточек, поэтому набраны тёмным. */
+.cd b{font:600 clamp(1.9rem,9vw,3.2rem)/1.12 var(--display);letter-spacing:-.03em}
+.cd>div>span{font:700 .52rem/1 var(--sans);letter-spacing:.2em}
+.venue__name{font:600 clamp(1.7rem,7vw,2.5rem)/1.08 var(--display);letter-spacing:-.02em}
+.venue__meta{font:500 .7rem/1.6 var(--sans);letter-spacing:.12em}
+.venue__map .mapbox:after{box-shadow:inset 0 -2px 0 rgba(94,15,30,.35)}
+/* Карта уходит в гранатовую краску — и чужой iframe, и своя карта на canvas. */
+.mapbox iframe,.mapbox .nvmap{filter:grayscale(1) sepia(.55) saturate(1.5) hue-rotate(-18deg) contrast(1.04)}
+.routes a{border:2px solid #5e0f1e;border-radius:999px;background:transparent;color:#5e0f1e;
+  font:700 .68rem/1 var(--sans);letter-spacing:.12em;text-transform:uppercase}
+.routes a:hover{background:#5e0f1e;border-color:#5e0f1e;color:#fdeed6}
+.routes a svg{opacity:1}
+
+.final__quote{max-width:17ch;font:600 clamp(1.7rem,7vw,2.5rem)/1.12 var(--display);letter-spacing:-.02em}
+.final__sign{font:700 .58rem/1.5 var(--sans);letter-spacing:.24em}
+
+#mbtn{border:2px solid var(--ink);background:rgba(94,15,30,.62);color:var(--ink);
+  backdrop-filter:none;-webkit-backdrop-filter:none}
+#mbtn.on{background:var(--ink);color:#a92a3c}
+
+@media (prefers-reduced-motion:reduce){
+  .halftone,.anor-seal svg{animation:none}
+}
+</style>
+</head>
+<body>
+{{{envelope}}}
+{{{livingBg}}}
+<div class="halftone" aria-hidden="true"></div>
+<div class="progress" aria-hidden="true"></div>
+
+<main class="inv">
+
+  <section class="hero fx">
+    <div class="anor-seal" aria-hidden="true">
+      <svg viewBox="0 0 120 120">
+        <defs><path id="anorRing" d="M60 17a43 43 0 1 1 0 86 43 43 0 1 1 0-86"/></defs>
+        <text><textPath href="#anorRing">{{groom}} &amp; {{bride}} &#183; {{dateText}} &#183;</textPath></text>
+      </svg>
+      <b>{{groomInitial}}&#183;{{brideInitial}}</b>
+    </div>
+    <div data-parallax="0.05">
+      <div class="hero__kicker fx" style="--d:.14s">{{L.sub}}</div>
+      <div class="anor-title">
+        <span class="anor-ink fx fx--rise" aria-hidden="true" style="--d:.22s">{{groom}}<i>&amp;</i>{{bride}}</span>
+        <h1 class="hero__names fx fx--rise gilt" style="--d:.22s">{{groom}}<i>&amp;</i>{{bride}}</h1>
+      </div>
+      <div class="hero__date fx" style="--d:.34s"><b>{{day}} {{monthName}} {{year}}</b><s></s><b>{{time}}</b></div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="wrap">
+      {{#if guestName}}
+        <div class="num">{{L.greet}}</div>
+        <div class="h2 fx" style="--d:.14s">{{guestName}}</div>
+        <div class="gold-rule" style="--d:.28s"></div>
+        <p class="lead words" style="--d:.32s">{{L.greetTail}}</p>
+      {{else}}
+        <div class="num">{{L.sub}}</div>
+        <div class="h2 fx" style="--d:.14s">{{groom}}<span class="amp">{{L.and}}</span>{{bride}}</div>
+        <div class="gold-rule" style="--d:.28s"></div>
+        <p class="lead words" style="--d:.32s">{{L.invite}}</p>
+      {{/if}}
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="wrap">
+      <div class="anor-band fx" style="--d:.12s">
+        <p>{{L.quote}}</p>
+        <span>{{groom}} &amp; {{bride}}</span>
+      </div>
+    </div>
+  </section>
+
+  {{#if photos.0}}
+  <section class="sec">
+    <div class="wrap">
+      <figure class="shot" data-parallax="0.04" data-fit>
+        <img src="{{photos.0}}" alt="{{groom}} &amp; {{bride}}" loading="lazy">
+      </figure>
+      <div class="gold-rule" style="--d:.2s"></div>
+      <p class="lead words" style="--d:.24s">{{L.emo}}</p>
+    </div>
+  </section>
+  {{/if}}
+
+  <section class="sec">
+    <div class="wrap">
+      <div class="num">{{L.dateLabel}}</div>
+      <div class="anor-date fx" style="--d:.12s">
+        <span class="anor-day">{{day}}</span>
+        <span class="anor-month">{{monthName}}</span>
+        <span class="anor-year">{{year}}</span>
+        <span class="anor-clock">{{weekday}} &#183; {{time}}</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="wrap">
+      <div class="num">{{L.until}}</div>
+      <div class="cd-card glass card fx" style="--d:.14s">
+        <div class="cd" style="--d:.2s">
+          <div><b id="cd">0</b><span>{{L.days}}</span></div>
+          <div><b id="ch">00</b><span>{{L.hours}}</span></div>
+          <div><b id="cm">00</b><span>{{L.min}}</span></div>
+          <div><b id="cs">00</b><span>{{L.sec}}</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="wrap">
+      <div class="num">{{L.where}}</div>
+      <div class="venue-card glass card fx" style="--d:.14s">
+        <div class="venue__map">{{{map}}}</div>
+        <div class="venue__body">
+          <h2 class="venue__name">{{address}}</h2>
+          {{#if venueLine}}<p class="venue__meta">{{venueLine}}</p>{{/if}}
+          {{#if gmaps}}
+          <div class="routes">
+            <a href="{{gmaps}}" target="_blank" rel="noopener"><span>{{L.gmaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+            <a href="{{ymaps}}" target="_blank" rel="noopener"><span>{{L.ymaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+          </div>
+          {{/if}}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {{#if photos.1}}
+  <section class="sec">
+    <div class="wrap">
+      <div class="num">{{L.gallery}}</div>
+      <div class="anor-duo">
+        <figure class="shot" data-parallax="0.03">
+          <img src="{{photos.1}}" alt="{{groom}} &amp; {{bride}}" loading="lazy">
+        </figure>
+        {{#if photos.2}}
+        <figure class="shot" data-parallax="0.05">
+          <img src="{{photos.2}}" alt="{{groom}} &amp; {{bride}}" loading="lazy">
+        </figure>
+        {{/if}}
+      </div>
+    </div>
+  </section>
+  {{/if}}
+
+  <section class="sec final">
+    <div class="wrap">
+      <div class="final-card glass card fx">
+        {{{monogramFilled}}}
+        <p class="final__quote gilt">{{L.final}}</p>
+        <div class="gold-rule" style="--d:.26s"></div>
+        <div class="final__sign">{{L.sign}} {{groom}} {{L.and}} {{bride}}</div>
+      </div>
+    </div>
+  </section>
+
+  {{{made}}}
+</main>
+
+{{{audioWidget}}}
+{{{experienceScript}}}
+{{{countdown}}}
+</body>
+</html>

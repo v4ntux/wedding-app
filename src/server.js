@@ -1,6 +1,7 @@
 import express from 'express';
 import http from 'node:http';
 import path from 'node:path';
+import QRCode from 'qrcode';
 import { validateInitData } from './initData.js';
 import { submitApplication, buildPreviewApp, payApplication, cancelApplication, ValidationError } from './service.js';
 import { renderInvitation, renderDemo, renderNotFound, withWatermark } from './render.js';
@@ -190,6 +191,9 @@ export function createServer({ onNewApplication, onPaid } = {}) {
       templates: publicTemplates(),
       events: publicEvents(),
       botUrl: RUNTIME.botUsername ? `https://t.me/${RUNTIME.botUsername}` : null,
+      // Студия живёт подписью Telegram. Вне него загрузка фото, предпросмотр и
+      // заявка упираются в 401 — фронт по этому флагу показывает вход в бот.
+      requiresTelegram: !DEV_NO_AUTH,
       guestPrice: guestPrice(),
       addons: pricedAddons().filter((addon) => addon.listed !== false),
       maxGuests: MAX_GUESTS,
@@ -200,6 +204,19 @@ export function createServer({ onNewApplication, onPaid } = {}) {
       googleGeoEnabled: Boolean(GOOGLE_MAPS_API_KEY),
       music: { providers: publicProviders(), import: await extractorStatus(), maxMediaMb: MAX_MEDIA_BYTES / 1024 / 1024 },
     });
+  });
+
+  /* QR на бота: с компьютера пару ведёт не кнопка, а камера телефона. Ссылка
+     одна на весь процесс — рисуем код один раз и держим готовым в памяти. */
+  let botQr = null;
+  app.get('/api/bot-qr.svg', async (_req, res) => {
+    if (!RUNTIME.botUsername) return res.sendStatus(404);
+    const url = `https://t.me/${RUNTIME.botUsername}?start=site`;
+    if (botQr?.url !== url) {
+      botQr = { url, svg: await QRCode.toString(url, { type: 'svg', margin: 1,
+        color: { dark: '#100b03', light: '#fffdfb' } }) };
+    }
+    res.type('image/svg+xml').setHeader('Cache-Control', 'public, max-age=3600').send(botQr.svg);
   });
 
   /* Студия отмечается при запуске и при автосохранении: так админка видит не
