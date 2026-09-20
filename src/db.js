@@ -26,8 +26,8 @@ export async function insertApplication(a) {
       `INSERT INTO applications
         (tg_user_id, tg_username, phone, phone2, contact_tg, event_type, lang, groom_name, bride_name, wedding_date, wedding_time,
          address, lat, lng, map_enabled, music_type, music_value, music_start, music_end, music_meta,
-         template_id, template_price, premium, premium_price, domain_enabled, domain_price, guest_names, photos, extras, submission_key, promo_code, discount, total_price, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')`
+         template_id, template_price, premium, premium_price, domain_enabled, domain_price, guest_names, photos, extras, submission_key, promo_code, discount, source, total_price, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')`
     )
     .run(
       a.tgUserId,
@@ -62,6 +62,7 @@ export async function insertApplication(a) {
       a.submissionKey ?? null,
       a.promoCode ?? null,
       a.discount ?? 0,
+      a.source ?? null,
       a.totalPrice
     ));
   return Number(res.lastInsertRowid);
@@ -457,25 +458,129 @@ export async function listRecentOrders(limit = 30) {
   })));
 }
 
+/* ── Откуда приходят ──
+   Метка живёт в двух местах: у человека (users.entry — первое касание) и у
+   заявки (applications.source — снимок метки на момент заказа). Люди и
+   черновики считаются по первой, заказы и выручка — по второй, поэтому старые
+   заявки остаются при своём источнике, даже если человек потом пришёл заново
+   по другой ссылке. Метка 'direct' — пришли сами, без ссылки с меткой. */
+export async function sourceStats() {
+  const rows = new Map();
+  const at = (mark) => {
+    if (!rows.has(mark)) rows.set(mark, { source: mark, people: 0, drafts: 0, orders: 0, paid: 0, revenue: 0 });
+    return rows.get(mark);
+  };
+
+  for (const r of (await db.prepare(
+    `SELECT COALESCE(entry, 'direct') AS mark, COUNT(*) AS people,
+            SUM(CASE WHEN draft_step IS NOT NULL THEN 1 ELSE 0 END) AS drafts
+       FROM users GROUP BY COALESCE(entry, 'direct')`
+  ).all())) {
+    const row = at(String(r.mark));
+    row.people = Number(r.people);
+    row.drafts = Number(r.drafts);
+  }
+
+  for (const r of (await db.prepare(
+    `SELECT COALESCE(source, 'direct') AS mark, COUNT(*) AS orders,
+            SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) AS paid,
+            COALESCE(SUM(CASE WHEN status = 'paid' THEN total_price ELSE 0 END), 0) AS revenue
+       FROM applications GROUP BY COALESCE(source, 'direct')`
+  ).all())) {
+    const row = at(String(r.mark));
+    row.orders = Number(r.orders);
+    row.paid = Number(r.paid);
+    row.revenue = Number(r.revenue);
+  }
+
+  return [...rows.values()]
+    .map((row) => ({
+      ...row,
+      /* Конверсия — от людей: сколько из пришедших дошли до оплаты. У заявок,
+         оформленных до появления меток, источника нет, и они складываются в
+         «пришли сами» рядом с людьми, которых там меньше: потолок в 100%
+         держит такую строку в рамках, вместо «500%», похожих на поломку. */
+      conversion: row.people ? Math.min(100, Math.round((row.paid / row.people) * 100)) : 0,
+      avgCheck: row.paid ? Math.round(row.revenue / row.paid) : 0,
+    }))
+    .sort((a, b) => b.revenue - a.revenue || b.people - a.people);
+}
+
+/* ── Промокоды в деле ──
+   Сколько раз код применили, сколько из этих заявок оплачены, сколько денег
+   отдано скидкой и сколько всё-таки пришло. Скидку считаем только по
+   оплаченным: отклонённая заявка никому ничего не стоила. */
+export async function promoStats() {
+  return (await db.prepare(
+    `SELECT promo_code AS code, COUNT(*) AS orders,
+            SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) AS paid,
+            COALESCE(SUM(CASE WHEN status = 'paid' THEN discount ELSE 0 END), 0) AS discount,
+            COALESCE(SUM(CASE WHEN status = 'paid' THEN total_price ELSE 0 END), 0) AS revenue
+       FROM applications WHERE promo_code IS NOT NULL
+       GROUP BY promo_code ORDER BY COUNT(*) DESC, promo_code`
+  ).all()).map((r) => ({
+    code: r.code,
+    orders: Number(r.orders),
+    paid: Number(r.paid),
+    discount: Number(r.discount),
+    revenue: Number(r.revenue),
+  }));
+}
+
+/* ── Кто кого привёл ──
+   Ссылка t.me/<бот>?start=ref<id> отмечает пришедшего за пригласившим. Считаем
+   приведённых, дошедших до заявки и оплативших. */
+export async function referralStats(limit = 12) {
+  return (await db.prepare(
+    `SELECT u.ref_by AS id, r.username AS username, r.first_name AS name, COUNT(*) AS invited,
+            SUM(CASE WHEN EXISTS (SELECT 1 FROM applications a WHERE a.tg_user_id = u.tg_user_id) THEN 1 ELSE 0 END) AS ordered,
+            SUM(CASE WHEN EXISTS (SELECT 1 FROM applications a WHERE a.tg_user_id = u.tg_user_id AND a.status = 'paid') THEN 1 ELSE 0 END) AS paid
+       FROM users u LEFT JOIN users r ON r.tg_user_id = u.ref_by
+      WHERE u.ref_by IS NOT NULL
+      GROUP BY u.ref_by, r.username, r.first_name
+      ORDER BY COUNT(*) DESC, u.ref_by LIMIT ?`
+  ).all(limit)).map((r) => ({
+    id: Number(r.id),
+    username: r.username ?? null,
+    name: r.name ?? null,
+    invited: Number(r.invited),
+    ordered: Number(r.ordered),
+    paid: Number(r.paid),
+  }));
+}
+
 /* ── Пользователи ──
    Строка заводится при первом касании: /start в боте или открытие студии.
    Дальше она только дополняется — имя и язык обновляем, флаги не гасим. */
-export async function touchUser({ id, username = null, firstName = null, lang = null, source = 'bot' }) {
+/* entry и ref_by — про первое касание: чем человек пришёл в первый раз, тем и
+   остаётся. COALESCE держит уже записанную метку, поэтому второй заход по
+   рекламной ссылке не переписывает источник, с которого человека привели. */
+export async function touchUser({ id, username = null, firstName = null, lang = null, source = 'bot', entry = null, refBy = null }) {
   const tgId = Number(id);
   if (!Number.isFinite(tgId) || tgId <= 0) return;
   const started = source === 'bot' ? 1 : 0;
   const opened = source === 'studio' ? 1 : 0;
+  // Сам себя привести нельзя: ссылку кидают в общий чат, откуда её жмут и свои.
+  const referrer = Number(refBy) > 0 && Number(refBy) !== tgId ? Number(refBy) : null;
   await db.prepare(
-    `INSERT INTO users (tg_user_id, username, first_name, lang, started, opened, first_seen, last_seen)
-     VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+    `INSERT INTO users (tg_user_id, username, first_name, lang, started, opened, entry, ref_by, first_seen, last_seen)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
      ON CONFLICT(tg_user_id) DO UPDATE SET
        username = COALESCE(excluded.username, users.username),
        first_name = COALESCE(excluded.first_name, users.first_name),
        lang = COALESCE(excluded.lang, users.lang),
        started = CASE WHEN excluded.started = 1 THEN 1 ELSE users.started END,
        opened = CASE WHEN excluded.opened = 1 THEN 1 ELSE users.opened END,
+       entry = COALESCE(users.entry, excluded.entry),
+       ref_by = COALESCE(users.ref_by, excluded.ref_by),
        last_seen = excluded.last_seen`
-  ).run(tgId, username, firstName, lang, started, opened);
+  ).run(tgId, username, firstName, lang, started, opened, entry, referrer);
+}
+
+// Метка, с которой человек когда-то пришёл: её заявка забирает себе.
+export async function userEntry(id) {
+  const row = (await db.prepare('SELECT entry, ref_by FROM users WHERE tg_user_id = ?').get(Number(id) || 0));
+  return { entry: row?.entry ?? null, refBy: row?.ref_by ?? null };
 }
 
 /* Черновик студии: step — номер незаконченного шага, null — черновика больше

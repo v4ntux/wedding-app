@@ -48,11 +48,12 @@ if (connectionString) {
     await client.query('SELECT pg_advisory_xact_lock(728194023)');
     await client.query(postgresSql(schema.replace(/\s*PRAGMA[^;]+;/g, '')
       .replaceAll('INTEGER PRIMARY KEY AUTOINCREMENT', 'BIGSERIAL PRIMARY KEY')
-      .replace(/(tg_user_id|application_id|owner_id) INTEGER/g, '$1 BIGINT')
+      .replace(/(tg_user_id|application_id|owner_id|ref_by) INTEGER/g, '$1 BIGINT')
       .replaceAll(' REAL', ' DOUBLE PRECISION')));
     for (const [, ddl] of migrations) {
+      // id Telegram не помещается в int4: колонки под него делаем BIGINT.
       await client.query(ddl.replace('ADD COLUMN ', 'ADD COLUMN IF NOT EXISTS ')
-        .replace('confirmed_by INTEGER', 'confirmed_by BIGINT').replace(' REAL', ' DOUBLE PRECISION'));
+        .replace(/(confirmed_by|ref_by) INTEGER/, '$1 BIGINT').replace(' REAL', ' DOUBLE PRECISION'));
     }
     await client.query('ALTER TABLE guests ADD COLUMN IF NOT EXISTS sent INTEGER NOT NULL DEFAULT 0');
     await client.query('ALTER TABLE guests ADD COLUMN IF NOT EXISTS message_id BIGINT');

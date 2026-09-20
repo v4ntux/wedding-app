@@ -3,7 +3,7 @@ import { writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { payApplication, cancelApplication, ValidationError, mapsLinks } from './service.js';
-import { findMusicPreset, SUPPORT_URL, ADDONS, GUEST_LINK_PRICE, MAX_PHOTOS } from './config.js';
+import { findMusicPreset, SUPPORT_URL, ADDONS, GUEST_LINK_PRICE, MAX_PHOTOS, RUNTIME } from './config.js';
 import { findTemplate, publicTemplates } from './templateStore.js';
 import { markMainSent, markGuestSent, getApplication, listGuests, refreshSettings, trackByTelegram, getApplicationBySlug, getGuestById, setGuestMessage, touchUser } from './db.js';
 import { text, textLang } from './texts.js';
@@ -127,6 +127,16 @@ function buildCoupleText(app, guests, baseUrl) {
   return lines.join('\n');
 }
 
+/* Метка из ссылки на бота: /start site, /start qr, /start ig, /start ref12345.
+   Всё лишнее отбрасываем — payload приходит от кого угодно. */
+export function readStart(payload) {
+  const raw = String(payload ?? '').trim().toLowerCase().slice(0, 32);
+  if (!/^[a-z0-9_-]+$/.test(raw)) return { entry: null, refBy: null };
+  const ref = /^ref(\d{1,20})$/.exec(raw);
+  if (ref) return { entry: 'ref', refBy: Number(ref[1]) || null };
+  return { entry: raw, refBy: null };
+}
+
 export function createBot({ token, adminIds = [], baseUrl }) {
   const bot = new Bot(token);
   bot.use(async (_ctx, next) => { await refreshSettings(); await next(); });
@@ -146,10 +156,12 @@ export function createBot({ token, adminIds = [], baseUrl }) {
   const showLink = (url) => String(url).replace(/^https?:\/\//i, '').replace(/\/+$/, '');
 
   /* Кто заходил в бот. Пишем мимоходом: ошибка записи не должна мешать ответу. */
-  const seen = (ctx, lang = null) => {
+  const seen = (ctx, lang = null, start = null) => {
     const from = ctx.from;
     if (!from?.id) return;
-    touchUser({ id: from.id, username: from.username ?? null, firstName: from.first_name ?? null, lang, source: 'bot' })
+    const mark = readStart(start);
+    touchUser({ id: from.id, username: from.username ?? null, firstName: from.first_name ?? null, lang,
+      source: 'bot', entry: mark.entry, refBy: mark.refBy })
       .catch((e) => console.error('[bot] touchUser failed:', e.message ?? e));
   };
   // Любое касание бота заводит человека в статистике — не только /start.
@@ -163,6 +175,8 @@ export function createBot({ token, adminIds = [], baseUrl }) {
     if (SUPPORT_URL) kb.url(uz ? '💬 Yordam' : '💬 Поддержка', SUPPORT_URL);
     else kb.text(uz ? '💬 Yordam' : '💬 Поддержка', `support:${lang}`);
     kb.text('❔ FAQ', `faq:${lang}`).row();
+    // Своя ссылка: её кидают в свадебный чат, а мы видим, кто кого привёл.
+    kb.text(uz ? '🤝 Do‘stlarni chaqirish' : '🤝 Позвать друзей', 'invite').row();
     if (isAdminId(fromId) && https) kb.webApp('📊 Admin', `${baseUrl}/admin/`);
     return kb;
   }
@@ -179,9 +193,28 @@ export function createBot({ token, adminIds = [], baseUrl }) {
     });
   });
 
+  /* Своя ссылка на бота: её кидают друзьям, а мы видим, кто кого привёл.
+     Пара получает её командой /invite и кнопкой в меню. */
+  const inviteLink = (id) => `https://t.me/${RUNTIME.botUsername || 'nvate_bot'}?start=ref${id}`;
+
+  async function sendInvite(ctx, lang) {
+    const id = ctx.from?.id;
+    if (!id) return;
+    await ctx.reply(textLang('refLink', lang, { link: showLink(inviteLink(id)) }), {
+      parse_mode: 'HTML', link_preview_options: { is_disabled: true },
+    });
+  }
+
+  bot.command('invite', (ctx) => sendInvite(ctx, ctx.from?.language_code === 'ru' ? 'ru' : 'uz'));
+  bot.callbackQuery('invite', async (ctx) => {
+    await ctx.answerCallbackQuery();
+    await sendInvite(ctx, ctx.from?.language_code === 'ru' ? 'ru' : 'uz');
+  });
+
   // /start → выбор языка.
   bot.command(['start', 'menu'], async (ctx) => {
-    seen(ctx);
+    // Метка из ссылки: /start site, /start qr, /start ref12345, /start ig.
+    seen(ctx, null, ctx.match);
     await ctx.reply(text('langPrompt'), {
       reply_markup: new InlineKeyboard().text('O‘zbekcha 🇺🇿', 'lang:uz').text('Русский 🇷🇺', 'lang:ru'),
     });

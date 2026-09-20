@@ -60,6 +60,16 @@ export const TEXT_DEFS = {
   'support.ru': def('help', 'Поддержка (RU)', 'Yordam (RU)', [],
     '💬 <b>Поддержка</b>\n\nНапишите вопрос сюда — ответим.'),
 
+  'refLink.uz': def('start', 'Своя ссылка «позвать друзей» (UZ)', 'Do‘stlarni chaqirish havolasi (UZ)', ['link'],
+    '🤝 <b>Do‘stlaringizni chaqiring</b>\n\n'
+    + 'Mana sizning havolangiz: {link}\n\n'
+    + 'Uni to‘y guruhiga tashlang. Havola orqali kelgan har bir juftlik bizda siznikidek belgilanadi.'),
+
+  'refLink.ru': def('start', 'Своя ссылка «позвать друзей» (RU)', 'Do‘stlarni chaqirish havolasi (RU)', ['link'],
+    '🤝 <b>Позовите друзей</b>\n\n'
+    + 'Вот ваша ссылка: {link}\n\n'
+    + 'Киньте её в свадебный чат. Каждая пара, пришедшая по ней, отметится у нас как ваша.'),
+
   musicWait: def('music', 'Достаём музыку', 'Musiqa ajratilmoqda', [],
     '⏳ Musiqa ajratilmoqda…\n⏳ Достаём музыку…'),
 

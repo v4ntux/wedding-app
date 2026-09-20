@@ -1196,6 +1196,78 @@ test('the promo endpoint answers only the signed studio, and the admin list stay
   }
 });
 
+/* Ключ, объявленный дважды, тихо затирает текст: объектный литерал оставляет
+   последний. Так «позовите друзей» однажды уехало под приглашение для гостя. */
+test('no bot text is declared twice', async () => {
+  const source = readFileSync(new URL('../src/texts.js', import.meta.url), 'utf8');
+  const body = source.slice(source.indexOf('export const TEXT_DEFS'));
+  const keys = [...body.matchAll(/^\s{2}'?([\w.]+)'?:\s*def\(/gm)].map((m) => m[1]);
+  const seen = new Set();
+  const twice = keys.filter((key) => (seen.has(key) ? true : (seen.add(key), false)));
+  assert.deepEqual(twice, [], 'эти ключи объявлены дважды');
+  assert.ok(keys.includes('refLink.ru') && keys.includes('invite.ru'), 'обе ссылки на месте и не путаются');
+});
+
+/* Откуда пришли, кто привёл и что дали коды. Метка живёт у человека (первое
+   касание) и у заявки (снимок на момент заказа) — поэтому старый заказ остаётся
+   при своём источнике, даже если человек потом пришёл заново по другой ссылке. */
+test('every visitor carries a source, and the panel can add it up', async () => {
+  const { readStart } = await import('../src/bot.js');
+
+  // Метка из ссылки на бота: /start site, /start ref12345, /start ig.
+  assert.deepEqual(readStart('site'), { entry: 'site', refBy: null });
+  assert.deepEqual(readStart('REF12345'), { entry: 'ref', refBy: 12345 });
+  assert.deepEqual(readStart('ig'), { entry: 'ig', refBy: null });
+  assert.deepEqual(readStart('вконтакте'), { entry: null, refBy: null }, 'чужой payload не метка');
+  assert.deepEqual(readStart(''), { entry: null, refBy: null });
+
+  const inviter = 770001;
+  const invited = 770002;
+  await dbModule.touchUser({ id: inviter, username: 'inviter', source: 'bot', entry: 'analytics-src' });
+  await dbModule.touchUser({ id: invited, username: 'invited', source: 'bot', entry: 'ref', refBy: inviter });
+  // Второй заход по другой ссылке метку не переписывает: человека привели один раз.
+  await dbModule.touchUser({ id: inviter, source: 'bot', entry: 'analytics-other' });
+  assert.deepEqual(await dbModule.userEntry(inviter), { entry: 'analytics-src', refBy: null });
+  // Сам себя привести нельзя — ссылку жмут и свои.
+  await dbModule.touchUser({ id: invited, source: 'bot', refBy: invited });
+  assert.equal((await dbModule.userEntry(invited)).refBy, inviter);
+
+  // Заявка забирает метку себе в момент оформления.
+  const order = (await submitApplication(baseForm({
+    submissionKey: 'abcdefaf-1234-4123-8123-123456789abc',
+  }), { id: inviter, username: 'inviter' }));
+  assert.equal(order.app.source, 'analytics-src');
+
+  const sources = await dbModule.sourceStats();
+  const mine = sources.find((row) => row.source === 'analytics-src');
+  assert.ok(mine, 'метка попала в разбивку');
+  assert.equal(mine.people, 1);
+  assert.equal(mine.orders, 1);
+  assert.ok(sources.every((row) => row.conversion <= 100), 'конверсия не бывает больше ста процентов');
+
+  const referrals = await dbModule.referralStats();
+  const row = referrals.find((r) => r.id === inviter);
+  assert.equal(row.invited, 1);
+  assert.equal(row.username, 'inviter');
+  assert.equal(row.paid, 0, 'приведённый ещё ничего не оплатил');
+
+  // Промокоды в деле: применения, оплаты и отданная скидка считаются по заявкам.
+  const promo = await import('../src/promo.js');
+  await promo.savePromos([{ code: 'stat-10', kind: 'percent', value: 10 }]);
+  try {
+    const withPromo = (await submitApplication(baseForm({
+      promoCode: 'STAT-10', submissionKey: 'abcdefb0-1234-4123-8123-123456789abc',
+    }), { id: 770003 }));
+    const stats = (await dbModule.promoStats()).find((p) => p.code === 'STAT-10');
+    assert.equal(stats.orders, 1);
+    assert.equal(stats.paid, 0, 'неоплаченная заявка скидку ещё никому не стоила');
+    assert.equal(stats.discount, 0);
+    assert.ok(withPromo.app.discount > 0, 'в самой заявке скидка уже записана');
+  } finally {
+    await promo.savePromos([]);
+  }
+});
+
 /* Заявка ушла — черновик стёрт. Автосохранение отложено на доли секунды, и
    раньше оно успевало записать анкету обратно: следующая пара открывала
    студию с чужими именами вместо чистого листа. */

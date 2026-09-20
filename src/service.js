@@ -250,6 +250,9 @@ export async function submitApplication(form, tgUser) {
     photos: v.photos,
     totalPrice: v.totalPrice,
     submissionKey: v.submissionKey,
+    /* Откуда пришла пара. Метку снимаем сейчас и кладём в саму заявку: человек
+       мог прийти год назад, а ссылки с метками за это время поменяться. */
+    source: (await db.userEntry(tgUser.id)).entry,
   };
 
   /* Промокод. Правило берём из таблицы, скидку считаем сами: сумма из формы

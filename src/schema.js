@@ -31,6 +31,7 @@ export const schema = `
     domain_price INTEGER NOT NULL DEFAULT 0,
     guest_names TEXT,
     photos TEXT,
+    source TEXT,
     total_price INTEGER NOT NULL,
     status TEXT NOT NULL DEFAULT 'new',
     slug TEXT UNIQUE,
@@ -51,6 +52,8 @@ export const schema = `
     opened INTEGER NOT NULL DEFAULT 0,
     draft_step INTEGER,
     draft_at TEXT,
+    entry TEXT,
+    ref_by INTEGER,
     first_seen TEXT NOT NULL DEFAULT (datetime('now')),
     last_seen TEXT NOT NULL DEFAULT (datetime('now'))
   );
@@ -164,4 +167,11 @@ export const migrations = [
   // Промокод заявки: сам код и скидка в сумах на момент оформления.
   ['promo_code', 'ALTER TABLE applications ADD COLUMN promo_code TEXT'],
   ['discount', 'ALTER TABLE applications ADD COLUMN discount INTEGER NOT NULL DEFAULT 0'],
+  /* Откуда пришли. entry — первое касание человека (метка из ссылки /start:
+     site, qr, ig, ref…), ref_by — кто его привёл. У заявки source — та же
+     метка, снятая в момент оформления: человек мог прийти год назад, а метки
+     в ссылках за это время поменяться. */
+  ['user_entry', 'ALTER TABLE users ADD COLUMN entry TEXT'],
+  ['user_ref_by', 'ALTER TABLE users ADD COLUMN ref_by INTEGER'],
+  ['application_source', 'ALTER TABLE applications ADD COLUMN source TEXT'],
 ];

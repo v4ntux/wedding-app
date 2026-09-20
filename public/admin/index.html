@@ -147,6 +147,17 @@ body{background:
 .pm-state.live{color:var(--gold);border-color:rgba(230,207,154,.45)}
 .pm-used{font-size:.75rem;color:var(--soft)}
 .order-promo{margin-top:6px;font-size:.78rem;color:var(--gold)}
+.an{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
+.an:last-child{border-bottom:0}
+.an .nm{font-size:.88rem;font-weight:600}
+.an .nm em{font-style:normal;font-weight:400;color:var(--soft)}
+.an .val{font-size:.86rem;font-weight:600;text-align:right;white-space:nowrap}
+.an .sub{grid-column:1;font-size:.74rem;color:var(--soft)}
+.an .sub b{font-weight:600;color:var(--ink)}
+.an .side{grid-column:2;font-size:.74rem;color:var(--soft);text-align:right;white-space:nowrap}
+.an-bar{grid-column:1/-1;height:6px;border-radius:999px;background:var(--mist);overflow:hidden}
+.an-bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--wisteria),var(--gold));
+  min-width:2px;transition:width .8s cubic-bezier(.22,.61,.36,1)}
 .tabs{display:flex;gap:6px;margin:18px 0 4px;padding:4px;border:1px solid var(--line);border-radius:999px;
   background:linear-gradient(158deg,rgba(255,248,232,.07),rgba(5,4,8,.2))}
 .tabs button{flex:1;min-height:42px;border:0;border-radius:999px;background:transparent;color:var(--soft);
@@ -265,6 +276,15 @@ const I18N = {
     kAll:'Jami arizalar', kPaid:'To‘langan', kNew:'Kutilmoqda', kCancel:'Rad etilgan',
     kRev:'Tushum', kConv:'Konversiya', kAvg:'O‘rtacha chek', kGuests:'Nomli havolalar', kGuestRev:'Ulardan tushum',
     hTpl:'Shablonlar', hDays:'So‘nggi kunlar', hMusic:'Top musiqa', hOrders:'Buyurtmalar',
+    hSources:'Qayerdan kelishmoqda', hPromoUse:'Promokodlar ishda', hRefs:'Kim kimni olib keldi',
+    srcNote:'Havoladagi belgi bo‘yicha: bot havolasiga ?start=BELGI qo‘shsangiz, o‘sha belgi shu yerda paydo bo‘ladi. Belgilar paydo bo‘lishidan oldingi arizalar «O‘zi kelgan» ichida.',
+    srcPeople:'odam:', srcOrders:'ariza:', srcPaid:'to‘langan:', srcConv:'konversiya',
+    srcDirect:'O‘zi kelgan', srcSite:'nvate.uz sayti', srcQr:'Saytdagi QR', srcRef:'Juftlik taklifi bilan',
+    srcMark:'belgi',
+    pmOrders:'ariza:', pmPaidN:'to‘langan:', pmGiven:'chegirma berildi',
+    refInvited:'olib kelgan', refOrdered:'ariza qoldirgan:', refPaid:'to‘lagan:',
+    refNote:'Har bir juftlik botdan o‘z havolasini oladi: menyudagi «Do‘stlarni chaqirish» yoki /invite.',
+    noSources:'Hali belgilar yo‘q', noPromoUse:'Promokodlar hali ishlatilmagan', noRefs:'Hali hech kim hech kimni olib kelmagan',
     legReq:'Arizalar', legPaid:'To‘langan',
     stNew:'⏳ Kutilmoqda', stPaid:'✅ Tayyor', stCancel:'✖ Rad etilgan',
     confBy:'Tasdiqladi', proof:'Chek', noMusic:'Katalogdan musiqa hali tanlanmagan',
@@ -323,6 +343,15 @@ const I18N = {
     kAll:'Всего заявок', kPaid:'Оплачено', kNew:'Ожидают', kCancel:'Отклонено',
     kRev:'Выручка', kConv:'Конверсия', kAvg:'Средний чек', kGuests:'Именных ссылок', kGuestRev:'Из них выручка',
     hTpl:'Шаблоны', hDays:'Последние дни', hMusic:'Топ музыки', hOrders:'Заказы',
+    hSources:'Откуда приходят', hPromoUse:'Промокоды в деле', hRefs:'Кто кого привёл',
+    srcNote:'Считаем по метке в ссылке: добавьте к адресу бота ?start=МЕТКА — и метка появится здесь. Удобно для рекламы: ig, tiktok, banner. Заявки, оформленные до появления меток, лежат в «Пришли сами».',
+    srcPeople:'людей:', srcOrders:'заявок:', srcPaid:'оплачено:', srcConv:'конверсия',
+    srcDirect:'Пришли сами', srcSite:'Сайт nvate.uz', srcQr:'QR с сайта', srcRef:'По приглашению пары',
+    srcMark:'метка',
+    pmOrders:'заявок:', pmPaidN:'оплачено:', pmGiven:'отдано скидкой',
+    refInvited:'приведено', refOrdered:'дошли до заявки:', refPaid:'оплатили:',
+    refNote:'Свою ссылку пара берёт в боте: кнопка «Позвать друзей» в меню или команда /invite.',
+    noSources:'Меток пока нет', noPromoUse:'Промокоды ещё не применяли', noRefs:'Пока никто никого не привёл',
     legReq:'Заявки', legPaid:'Оплачено',
     stNew:'⏳ Ожидает', stPaid:'✅ Готово', stCancel:'✖ Отклонено',
     confBy:'Подтвердил', proof:'Чек', noMusic:'Музыку из каталога пока не выбирали',
@@ -425,10 +454,73 @@ function renderOverview(){
   }
   h += '</div>';
 
+  h += renderAnalytics();
+
   h += `<h2>${esc(t('hMusic'))}</h2><div class="card">`;
   if (!s.topMusic.length) h += `<div class="empty">${esc(t('noMusic'))}</div>`;
   s.topMusic.forEach((m,i)=>{ h += `<div class="mline"><span class="n">${i+1}</span><div class="t"><b>${esc(m.name)}</b><span>${esc(m.artist)}</span></div><span class="c">${esc(m.count)}×</span></div>`; });
   h += '</div>';
+  return h;
+}
+
+/* ── Откуда приходят, что дают коды и кто кого привёл ──
+   Три вопроса, на которые раньше отвечать было нечем: заявка приходила без
+   родословной. Теперь метка живёт у человека и у заказа, а панель складывает
+   их в три списка. */
+
+const SOURCE_NAMES = { direct:'srcDirect', site:'srcSite', qr:'srcQr', ref:'srcRef', bot:'srcDirect', studio:'srcSite' };
+function sourceName(mark){
+  const key = SOURCE_NAMES[mark];
+  // Своя рекламная метка (ig, tiktok, banner) — показываем как есть.
+  return key ? t(key) : `${t('srcMark')}: ${mark}`;
+}
+
+function renderAnalytics(){
+  const a = DATA.analytics || { sources:[], promos:[], referrals:[] };
+  let h = `<h2>${esc(t('hSources'))}</h2><div class="card">`;
+  if (!a.sources.length) h += `<div class="empty">${esc(t('noSources'))}</div>`;
+  else {
+    const top = Math.max(1, ...a.sources.map(x=>x.revenue));
+    for (const x of a.sources){
+      h += `<div class="an">
+        <div class="nm">${esc(sourceName(x.source))}</div>
+        <div class="val">${esc(money(x.revenue))}</div>
+        <div class="sub">${esc(t('srcPeople'))} <b>${esc(x.people)}</b> · ${esc(t('srcOrders'))} <b>${esc(x.orders)}</b> · ${esc(t('srcPaid'))} <b>${esc(x.paid)}</b></div>
+        <div class="side">${esc(x.conversion)}% ${esc(t('srcConv'))}</div>
+        <div class="an-bar"><i style="width:${(x.revenue/top*100).toFixed(1)}%"></i></div>
+      </div>`;
+    }
+  }
+  h += `</div><p class="note">${esc(t('srcNote'))}</p>`;
+
+  h += `<h2>${esc(t('hPromoUse'))}</h2><div class="card">`;
+  if (!a.promos.length) h += `<div class="empty">${esc(t('noPromoUse'))}</div>`;
+  else {
+    for (const x of a.promos){
+      h += `<div class="an">
+        <div class="nm">${esc(x.code)}</div>
+        <div class="val">${esc(money(x.revenue))}</div>
+        <div class="sub">${esc(t('pmOrders'))} <b>${esc(x.orders)}</b> · ${esc(t('pmPaidN'))} <b>${esc(x.paid)}</b></div>
+        <div class="side">${x.discount ? `−${esc(money(x.discount))} ${esc(t('pmGiven'))}` : ''}</div>
+      </div>`;
+    }
+  }
+  h += '</div>';
+
+  h += `<h2>${esc(t('hRefs'))}</h2><div class="card">`;
+  if (!a.referrals.length) h += `<div class="empty">${esc(t('noRefs'))}</div>`;
+  else {
+    for (const x of a.referrals){
+      const who = x.username ? '@'+x.username : (x.name || `id ${x.id}`);
+      h += `<div class="an">
+        <div class="nm">${esc(who)}</div>
+        <div class="val">${esc(x.invited)}</div>
+        <div class="sub">${esc(t('refOrdered'))} <b>${esc(x.ordered)}</b> · ${esc(t('refPaid'))} <b>${esc(x.paid)}</b></div>
+        <div class="side">${esc(t('refInvited'))}</div>
+      </div>`;
+    }
+  }
+  h += `</div><p class="note">${esc(t('refNote'))}</p>`;
   return h;
 }
 

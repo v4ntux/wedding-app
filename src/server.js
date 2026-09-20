@@ -212,7 +212,8 @@ export function createServer({ onNewApplication, onPaid } = {}) {
   let botQr = null;
   app.get('/api/bot-qr.svg', async (_req, res) => {
     if (!RUNTIME.botUsername) return res.sendStatus(404);
-    const url = `https://t.me/${RUNTIME.botUsername}?start=site`;
+    // Отдельная метка: с компьютера код снимают телефоном — это другой путь.
+    const url = `https://t.me/${RUNTIME.botUsername}?start=qr`;
     if (botQr?.url !== url) {
       botQr = { url, svg: await QRCode.toString(url, { type: 'svg', margin: 1,
         color: { dark: '#100b03', light: '#fffdfb' } }) };
@@ -260,6 +261,12 @@ export function createServer({ onNewApplication, onPaid } = {}) {
       orders: (await db.listRecentOrders(limit)),
       pricing: pricingSnapshot(allTemplates()),
       promos: (await promoSnapshot()),
+      // Откуда приходят, какие коды работают и кто кого привёл.
+      analytics: {
+        sources: (await db.sourceStats()),
+        promos: (await db.promoStats()),
+        referrals: (await db.referralStats()),
+      },
       texts: textsSnapshot(),
     });
   });
