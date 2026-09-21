@@ -225,7 +225,8 @@ test('payment is atomic, concurrent confirmations cannot duplicate guest links',
   assert.equal((await fetch(`${baseUrl}/${paid.slug}/${guests[0].slug}`)).status, 200);
   const orders = await dbModule.listRecentOrders();
   assert.equal(orders.find((a) => a.id === first.id).guests.length, 2);
-  assert.equal((await dbModule.adminStats()).totals.paid, 1);
+  const { analytics } = await import('../src/analytics.js');
+  assert.equal((await analytics()).kpi.paid, 1, 'показатели видят одну оплату, а не две');
   await assert.rejects(cancelApplication(first.id), ValidationError);
 
   const second = await submitApplication(baseForm({ submissionKey: 'abcdefad-1234-4123-8123-123456789abc' }), { id: 89002 });
@@ -483,7 +484,7 @@ test('the old shelf moves into the library once, and YouTube downloads stay out'
   assert.equal(await dbModule.libraryTrackByLegacy(downloaded.track.id), null);
 });
 
-test('HTTP: the studio offers YouTube and the couple’s own music; importing needs Telegram', async () => {
+test('HTTP: the studio offers YouTube and the couple’s own music; importing needs a known studio', async () => {
   const config = await (await fetch(`${baseUrl}/api/config`)).json();
   assert.deepEqual(config.music.providers.map((p) => p.id), ['youtube', 'upload']);
   assert.equal(typeof config.music.import.link, 'boolean');
@@ -1064,25 +1065,115 @@ test('preview and application endpoints reject unauthenticated requests in produ
   }
 });
 
-/* Тот же 401 ловит и пара, открывшая nvate.uz в обычном браузере: подписи
-   Telegram там нет. Студия узнаёт об этом из настроек и вместо мёртвой формы
-   показывает вход в бот — кнопкой с телефона и кодом с компьютера. */
-test('outside Telegram the studio is told to hand the couple the bot', async () => {
-  const { RUNTIME } = await import('../src/config.js');
-  const username = RUNTIME.botUsername;
-  try {
-    RUNTIME.botUsername = '';
-    assert.equal((await fetch(`${baseUrl}/api/bot-qr.svg`)).status, 404, 'без имени бота вести некуда');
+/* Сайт без Telegram. Студия на nvate.uz/app заводит паре сессию (cookie) первым
+   же запросом — дальше фото, предпросмотр и заявка работают без подписи бота.
+   Заявка получает ссылку «забрать в Telegram»: имена для красоты и случайный
+   хвост, чтобы чужой заказ нельзя было угадать по именам. */
+const cookieOf = (response) => (response.headers.get('set-cookie') || '').split(';')[0];
 
-    RUNTIME.botUsername = 'nvate_bot';
+async function webSession() {
+  const response = await fetch(`${baseUrl}/api/session`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ boot: true, src: 'ig' }),
+  });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).web, true);
+  const raw = response.headers.get('set-cookie') || '';
+  assert.match(raw, /^nv_sid=[A-Za-z0-9_-]{43};/, 'сессия — случайный токен в cookie');
+  assert.match(raw, /HttpOnly/i, 'скрипт страницы токен не видит');
+  assert.match(raw, /SameSite=Lax/i, 'чужой сайт не отправит заявку от имени пары');
+  return cookieOf(response);
+}
+
+test('outside Telegram the studio works on the site and the order can be claimed in the bot', async () => {
+  const { RUNTIME } = await import('../src/config.js');
+  const { claimByCode, claimByUsername, payApplication } = await import('../src/service.js');
+  const username = RUNTIME.botUsername;
+  RUNTIME.botUsername = 'nvate_bot';
+  try {
     const config = await (await fetch(`${baseUrl}/api/config`)).json();
-    assert.equal(config.requiresTelegram, true);
+    assert.equal(config.requiresTelegram, undefined, 'шлюза «откройте в Telegram» больше нет');
     assert.equal(config.botUrl, 'https://t.me/nvate_bot');
 
-    const qr = await fetch(`${baseUrl}/api/bot-qr.svg`);
+    const cookie = await webSession();
+    const json = { 'content-type': 'application/json', cookie };
+    // Повторный запуск студии не плодит сессии: cookie уже есть.
+    const again = await fetch(`${baseUrl}/api/session`, { method: 'POST', headers: json, body: JSON.stringify({ step: 3 }) });
+    assert.equal(again.headers.get('set-cookie'), null);
+
+    assert.equal((await fetch(`${baseUrl}/api/preview`, { method: 'POST', headers: json, body: JSON.stringify({ form: baseForm() }) })).status, 200);
+
+    // Username вставляют как угодно — оставляем имя; мусор не принимаем.
+    const bad = await fetch(`${baseUrl}/api/applications`, {
+      method: 'POST', headers: json,
+      body: JSON.stringify({ form: baseForm({ contactTg: '@1привет', submissionKey: 'abcdefc0-1234-4123-8123-123456789abc' }) }),
+    });
+    assert.equal(bad.status, 400);
+    assert.equal((await bad.json()).step, 'review');
+
+    const created = await fetch(`${baseUrl}/api/applications`, {
+      method: 'POST', headers: json,
+      body: JSON.stringify({ form: baseForm({ contactTg: 'https://t.me/Web_Couple', submissionKey: 'abcdefc1-1234-4123-8123-123456789abc' }) }),
+    });
+    assert.equal(created.status, 200);
+    const order = await created.json();
+    assert.equal(order.web, true);
+    assert.match(order.claimUrl, /^https:\/\/t\.me\/nvate_bot\?start=alisher-zebo-[a-z0-9]{10}$/);
+
+    const row = await dbModule.getApplication(order.id);
+    assert.ok(row.tg_user_id < 0, 'пока бота не открыли, Telegram у заказа нет');
+    assert.equal(row.web_owner, row.tg_user_id);
+    assert.equal(row.contact_tg, 'Web_Couple');
+    assert.equal(row.source, 'ig', 'метка сайта попала в заказ');
+
+    // «Мои приглашения» и QR ссылки на бота — только своей сессии.
+    assert.equal((await fetch(`${baseUrl}/api/my`)).status, 401);
+    const mine = await (await fetch(`${baseUrl}/api/my`, { headers: { cookie } })).json();
+    const listed = mine.apps.find((a) => a.id === order.id);
+    assert.equal(listed.claimUrl, order.claimUrl);
+    assert.equal(listed.telegram, false);
+    const qr = await fetch(`${baseUrl}/api/my/${order.id}/claim.svg`, { headers: { cookie } });
     assert.equal(qr.status, 200);
-    assert.match(qr.headers.get('content-type'), /^image\/svg\+xml/);
-    assert.match(await qr.text(), /<svg[^>]+viewBox/);
+    assert.match(await qr.text(), /<svg/);
+    const stranger = await webSession();
+    assert.equal((await fetch(`${baseUrl}/api/my/${order.id}/claim.svg`, { headers: { cookie: stranger } })).status, 404);
+    // Админка сессию сайта не признаёт никогда.
+    assert.equal((await fetch(`${baseUrl}/api/admin/overview`, { headers: { cookie } })).status, 403);
+    assert.equal((await fetch(`${baseUrl}/api/admin/analytics`, { headers: { cookie } })).status, 403);
+
+    // Оплату подтвердили до того, как пара открыла бота: ссылка видна на сайте.
+    const { app: paid } = await payApplication(order.id, { adminId: 1, adminName: '@admin' });
+    const after = (await (await fetch(`${baseUrl}/api/my`, { headers: { cookie } })).json()).apps.find((a) => a.id === order.id);
+    assert.equal(after.url, `https://nvate.uz/${paid.slug}`);
+    const card = await fetch(`${baseUrl}${after.card}`);
+    assert.equal(card.status, 200);
+    assert.equal(card.headers.get('content-type'), 'image/png');
+
+    // Пара нажала «Получить в Telegram»: код из ссылки привязывает заказ.
+    const code = new URL(order.claimUrl).searchParams.get('start');
+    assert.equal(await claimByCode(code.replace(/.$/, (c) => (c === 'a' ? 'b' : 'a')), { id: 5551 }), null, 'по одним именам заказ не забрать');
+    const claimed = await claimByCode(code.toUpperCase(), { id: 5551, username: 'web_couple' });
+    assert.equal(claimed.status, 'claimed');
+    assert.deepEqual(claimed.apps.map((a) => a.id), [order.id]);
+    assert.equal(claimed.apps[0].tg_user_id, 5551);
+    assert.ok(claimed.apps[0].claimed_at);
+    assert.equal((await claimByCode(code, { id: 5551 })).status, 'mine', 'второй переход по той же ссылке ничего не ломает');
+    const foreign = await claimByCode(code, { id: 5552 });
+    assert.equal(foreign.status, 'foreign');
+    assert.deepEqual(foreign.apps, [], 'чужой заказ не выдаём и о нём не рассказываем');
+
+    const linked = (await (await fetch(`${baseUrl}/api/my`, { headers: { cookie } })).json()).apps.find((a) => a.id === order.id);
+    assert.equal(linked.telegram, true, 'сайт видит, что Telegram подключён');
+    assert.equal(linked.claimUrl, null);
+
+    // Бота открыли без ссылки, но username совпал: бот предложит забрать заказ.
+    const lucky = await (await fetch(`${baseUrl}/api/applications`, {
+      method: 'POST', headers: { 'content-type': 'application/json', cookie: stranger },
+      body: JSON.stringify({ form: baseForm({ contactTg: '@Lucky_One', submissionKey: 'abcdefc2-1234-4123-8123-123456789abc' }) }),
+    })).json();
+    assert.deepEqual((await dbModule.unclaimedByUsername('LUCKY_ONE')).map((a) => a.id), [lucky.id]);
+    assert.equal(await claimByUsername(lucky.id, { id: 5553, username: 'someone_else' }), null, 'забрать может только владелец username');
+    assert.equal((await claimByUsername(lucky.id, { id: 5553, username: 'lucky_one' })).status, 'claimed');
+    assert.deepEqual(await dbModule.unclaimedByUsername('lucky_one'), []);
   } finally {
     RUNTIME.botUsername = username;
   }
@@ -1238,15 +1329,15 @@ test('every visitor carries a source, and the panel can add it up', async () => 
   }), { id: inviter, username: 'inviter' }));
   assert.equal(order.app.source, 'analytics-src');
 
-  const sources = await dbModule.sourceStats();
-  const mine = sources.find((row) => row.source === 'analytics-src');
+  const { analytics } = await import('../src/analytics.js');
+  const report = await analytics();
+  const mine = report.sources.find((row) => row.source === 'analytics-src');
   assert.ok(mine, 'метка попала в разбивку');
   assert.equal(mine.people, 1);
   assert.equal(mine.orders, 1);
-  assert.ok(sources.every((row) => row.conversion <= 100), 'конверсия не бывает больше ста процентов');
+  assert.ok(report.sources.every((row) => row.conversion <= 100), 'конверсия не бывает больше ста процентов');
 
-  const referrals = await dbModule.referralStats();
-  const row = referrals.find((r) => r.id === inviter);
+  const row = report.referrals.find((r) => r.id === inviter);
   assert.equal(row.invited, 1);
   assert.equal(row.username, 'inviter');
   assert.equal(row.paid, 0, 'приведённый ещё ничего не оплатил');
@@ -1258,7 +1349,7 @@ test('every visitor carries a source, and the panel can add it up', async () => 
     const withPromo = (await submitApplication(baseForm({
       promoCode: 'STAT-10', submissionKey: 'abcdefb0-1234-4123-8123-123456789abc',
     }), { id: 770003 }));
-    const stats = (await dbModule.promoStats()).find((p) => p.code === 'STAT-10');
+    const stats = (await analytics()).promos.find((p) => p.code === 'STAT-10');
     assert.equal(stats.orders, 1);
     assert.equal(stats.paid, 0, 'неоплаченная заявка скидку ещё никому не стоила');
     assert.equal(stats.discount, 0);
@@ -1291,11 +1382,58 @@ test('a submitted draft stays cleared: the pending autosave is cancelled', async
   assert.match(studio, /function clearDraft\(\) \{[\s\S]*?saveDraft\.cancel\(\);/, 'clearDraft снимает отложенную запись');
 });
 
-// Разметка шлюза едет вместе со студией: без неё фронту некуда положить вход.
-test('the studio ships the Telegram gate markup', () => {
+// Разметка сайта едет вместе со студией: ссылка на бота, поле username и блок «забрать в Telegram».
+test('the studio ships the site markup instead of the Telegram gate', () => {
   const html = readFileSync(path.join(process.cwd(), 'public', 'app', 'index.html'), 'utf8');
-  for (const id of ['gate', 'gate-open', 'gate-qr']) {
-    assert.match(html, new RegExp(`id="${id}"`), `шлюзу нужен #${id}`);
+  for (const id of ['lang-bot', 'btn-bot', 'tg-field', 'contact-tg', 'done-status', 'done-tg', 'done-tg-go', 'done-card']) {
+    assert.match(html, new RegExp(`id="${id}"`), `студии нужен #${id}`);
   }
-  assert.match(html, /src="\/api\/bot-qr\.svg"/);
+  assert.doesNotMatch(html, /id="gate"/, 'шлюза в разметке больше нет');
+  assert.doesNotMatch(html, /bot-qr\.svg/);
+});
+
+/* Показатели: период по Ташкенту, корзины без дыр, сравнение с прошлым
+   периодом и «обнулить», которое ничего не удаляет. */
+test('analytics: periods, grouping, funnel events and a reset that deletes nothing', async () => {
+  const { analytics, resetAnalytics, restoreAnalytics, localDay } = await import('../src/analytics.js');
+  const today = localDay(Date.now());
+  const week = new Date(Date.parse(`${today}T00:00:00Z`) - 6 * 86400_000).toISOString().slice(0, 10);
+
+  const byDay = await analytics({ from: week, to: today, group: 'day' });
+  assert.equal(byDay.range.group, 'day');
+  assert.equal(byDay.series.length, 7, 'семь дней — семь корзин, пустые тоже');
+  assert.ok(byDay.previous, 'есть прошлые семь дней для сравнения');
+  assert.equal(byDay.series.reduce((sum, b) => sum + b.orders, 0), byDay.kpi.orders, 'график и плитки считают одно и то же');
+
+  assert.equal((await analytics({ from: today, to: today })).range.group, 'hour', 'сегодня — по часам');
+  assert.equal((await analytics({ from: today, to: today, group: 'hour' })).series.length, 24);
+  assert.equal((await analytics({ from: '2025-01-01', to: '2025-12-31', group: 'auto' })).range.group, 'week');
+  assert.equal((await analytics({ from: '2024-01-01', to: '2025-12-31', group: 'day' })).range.group, 'week', 'сотни столбиков по пикселю не рисуем');
+  await assert.rejects(analytics({ from: today, to: week }), RangeError);
+
+  // Студия открылась и дошла до шага — воронка это видит.
+  const cookie = await webSession();
+  await fetch(`${baseUrl}/api/session`, { method: 'POST', headers: { 'content-type': 'application/json', cookie }, body: JSON.stringify({ step: 5 }) });
+  const funnel = (await analytics({ from: today, to: today })).funnel;
+  assert.ok(funnel.steps[0] >= 1, 'открыли студию');
+  assert.ok(funnel.steps[5] >= 1, 'дошли до шестого шага');
+  assert.ok(funnel.steps.every((v, i) => i === 0 || v <= funnel.steps[i - 1]), 'воронка только сужается');
+
+  const before = (await analytics()).kpi.orders;
+  assert.ok(before > 0);
+  const since = await resetAnalytics('@test');
+  try {
+    const zero = await analytics();
+    assert.equal(zero.kpi.orders, 0, 'после обнуления счёт с нуля');
+    assert.equal(zero.since.by, '@test');
+    assert.ok((await dbModule.listRecentOrders(500)).length >= before, 'заявки на месте');
+    assert.ok(since.at);
+  } finally {
+    await restoreAnalytics();
+  }
+  assert.equal((await analytics()).kpi.orders, before, 'история вернулась целиком');
+
+  // Панель показателей — только администратору.
+  assert.equal((await fetch(`${baseUrl}/api/admin/analytics`)).status, 403);
+  assert.equal((await fetch(`${baseUrl}/api/admin/analytics/reset`, { method: 'POST' })).status, 403);
 });

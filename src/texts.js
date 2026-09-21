@@ -13,6 +13,7 @@ export const TEXT_GROUPS = [
   { id: 'help', ru: 'FAQ и поддержка', uz: 'FAQ va yordam' },
   { id: 'music', ru: 'Музыка', uz: 'Musiqa' },
   { id: 'order', ru: 'Заявка и готовое приглашение', uz: 'Ariza va tayyor taklifnoma' },
+  { id: 'site', ru: 'Заказ с сайта → Telegram', uz: 'Saytdagi ariza → Telegram' },
   { id: 'share', ru: 'Приглашение, которое уходит гостю', uz: 'Mehmonga ketadigan taklifnoma' },
 ];
 
@@ -118,6 +119,36 @@ export const TEXT_DEFS = {
 
   guestCard: def('order', 'Карточка гостя', 'Mehmon kartochkasi', ['name', 'link'],
     '👤 <b>{name}</b>\n🔗 {link}'),
+
+  /* Заказ с сайта: пара нажала «Получить в Telegram» и пришла в бот по своей
+     ссылке — или бот узнал её по username, вписанному на сайте. */
+  'claimWait.uz': def('site', 'Заказ с сайта привязан, ждёт оплаты (UZ)', 'Saytdagi ariza ulandi, to‘lov kutilmoqda (UZ)', ['couple', 'id'],
+    '✅ <b>{couple}</b> — №{id} ariza endi shu Telegram’da.\n\n'
+    + 'To‘lovni tasdiqlashimiz bilan tayyor havola, QR-kartochka va mehmonlar havolalari shu yerga keladi. '
+    + 'Odatda bu 10 daqiqagacha vaqt oladi.'),
+
+  'claimWait.ru': def('site', 'Заказ с сайта привязан, ждёт оплаты (RU)', 'Saytdagi ariza ulandi, to‘lov kutilmoqda (RU)', ['couple', 'id'],
+    '✅ <b>{couple}</b> — заявка №{id} теперь в этом Telegram.\n\n'
+    + 'Как только подтвердим оплату, сюда придут готовая ссылка, QR-карточка и ссылки для гостей. '
+    + 'Обычно это до 10 минут.'),
+
+  'claimReady.uz': def('site', 'Заказ с сайта привязан, уже оплачен (UZ)', 'Saytdagi ariza ulandi, to‘langan (UZ)', ['couple', 'id'],
+    '✅ <b>{couple}</b> — №{id} ariza endi shu Telegram’da. Taklifnoma tayyor — mana u 👇'),
+
+  'claimReady.ru': def('site', 'Заказ с сайта привязан, уже оплачен (RU)', 'Saytdagi ariza ulandi, to‘langan (RU)', ['couple', 'id'],
+    '✅ <b>{couple}</b> — заявка №{id} теперь в этом Telegram. Приглашение готово — вот оно 👇'),
+
+  'claimAsk.uz': def('site', 'Бот узнал пару по username (UZ)', 'Bot juftlikni username orqali tanidi (UZ)', ['couple', 'id', 'username'],
+    '🌐 nvate.uz saytida @{username} bilan ariza qoldirilgan: <b>{couple}</b>, №{id}.\n\n'
+    + 'Sizniki bo‘lsa, tugmani bosing — tayyor havola shu yerga keladi.'),
+
+  'claimAsk.ru': def('site', 'Бот узнал пару по username (RU)', 'Bot juftlikni username orqali tanidi (RU)', ['couple', 'id', 'username'],
+    '🌐 На сайте nvate.uz оставлена заявка с @{username}: <b>{couple}</b>, №{id}.\n\n'
+    + 'Если это ваша — нажмите кнопку, и готовая ссылка придёт сюда.'),
+
+  claimForeign: def('site', 'Заказ уже привязан к другому Telegram', 'Ariza boshqa Telegram’ga ulangan', [],
+    '⚠️ Bu ariza boshqa Telegram hisobiga ulangan. Savol bo‘lsa, yordamga yozing.\n'
+    + '⚠️ Эта заявка привязана к другому Telegram. Если это ошибка — напишите в поддержку.'),
 
   'guestSent.uz': def('order', 'Отметка «отправлено» (UZ)', '«Yuborildi» belgisi (UZ)', [],
     '✅ <b>Yuborildi</b>'),

@@ -4,6 +4,9 @@ import path from 'node:path';
 import QRCode from 'qrcode';
 import { validateInitData } from './initData.js';
 import { submitApplication, buildPreviewApp, payApplication, cancelApplication, ValidationError } from './service.js';
+import { openWebSession, webUser } from './webAuth.js';
+import { analytics, resetAnalytics, restoreAnalytics } from './analytics.js';
+import { renderShareCard } from './share.js';
 import { renderInvitation, renderDemo, renderNotFound, withWatermark } from './render.js';
 import { saveUpload, UPLOADS_DIR } from './upload.js';
 import { ImportError, MAX_MEDIA_BYTES, extractorStatus, mediaKind } from './extract.js';
@@ -50,20 +53,41 @@ function rateLimit({ windowMs, max }) {
   return limiter;
 }
 
-function authUser(initData) {
-  const user = validateInitData(initData, BOT_TOKEN);
+/* Кто пришёл: пользователь Telegram — по подписи initData (из тела или
+   заголовка), пара с сайта — по cookie своей сессии (src/webAuth.js). */
+async function authUser(req) {
+  const body = req.body && !Buffer.isBuffer(req.body) ? req.body : {};
+  const user = validateInitData(body.initData ?? req.get('x-init-data') ?? '', BOT_TOKEN);
   if (user) return user;
+  const web = await webUser(req);
+  if (web) return web;
   if (DEV_NO_AUTH) return { id: 0, username: 'dev' };
   return null;
 }
 
 // Доступ к админ-панели: только id из ADMIN_CHAT_IDS (или любой в DEV_NO_AUTH — локально).
+// Сессия сайта сюда не пускает никогда: админку открывают только из бота.
 function adminUser(initData) {
-  const u = authUser(initData);
-  if (!u) return null;
-  if (DEV_NO_AUTH) return u;
-  if (isAdmin(u.id)) return u;
-  return null;
+  const u = validateInitData(initData, BOT_TOKEN);
+  if (DEV_NO_AUTH) return u ?? { id: 0, username: 'dev' };
+  return u && isAdmin(u.id) ? u : null;
+}
+
+const botLink = () => (RUNTIME.botUsername ? `https://t.me/${RUNTIME.botUsername}` : null);
+
+/* Ссылка, по которой пара с сайта забирает заказ в Telegram. Нужна, пока
+   заказ ни к кому не привязан; дальше он живёт в боте как обычный. */
+function claimLink(app) {
+  const bot = botLink();
+  if (!bot || !app?.claim_code || Number(app.tg_user_id) > 0) return null;
+  return `${bot}?start=${app.claim_code}`;
+}
+
+/* Метка источника для пары с сайта: ?s=ig в адресе студии или сайт, с
+   которого пришли. Те же правила, что у меток бота: латиница, цифры, - и _. */
+function sourceLabel(value) {
+  const raw = String(value ?? '').trim().toLowerCase().slice(0, 32);
+  return /^[a-z0-9_-]+$/.test(raw) ? raw : null;
 }
 
 // Имя файла приходит заголовком: тело запроса — сырые байты звука.
@@ -121,7 +145,7 @@ export function createServer({ onNewApplication, onPaid } = {}) {
   const previewLimit = rateLimit({ windowMs: 60_000, max: 24 });
   const applicationLimit = rateLimit({ windowMs: 10 * 60_000, max: 8 });
 
-  // Продукт — только Telegram WebApp: корень ведёт прямо в форму.
+  // Корень ведёт прямо в студию: она работает и в Telegram, и на сайте.
   app.get('/', (_req, res) => res.redirect('/app/'));
   app.get('/health', async (_req, res) => {
     try { res.json(await healthCheck()); }
@@ -191,10 +215,8 @@ export function createServer({ onNewApplication, onPaid } = {}) {
     res.json({
       templates: publicTemplates(),
       events: publicEvents(),
-      botUrl: RUNTIME.botUsername ? `https://t.me/${RUNTIME.botUsername}` : null,
-      // Студия живёт подписью Telegram. Вне него загрузка фото, предпросмотр и
-      // заявка упираются в 401 — фронт по этому флагу показывает вход в бот.
-      requiresTelegram: !DEV_NO_AUTH,
+      // Студия работает и на сайте: вне Telegram пару узнаёт cookie сессии.
+      botUrl: botLink(),
       guestPrice: guestPrice(),
       addons: pricedAddons().filter((addon) => addon.listed !== false),
       maxGuests: MAX_GUESTS,
@@ -207,68 +229,79 @@ export function createServer({ onNewApplication, onPaid } = {}) {
     });
   });
 
-  /* QR на бота: с компьютера пару ведёт не кнопка, а камера телефона. Ссылка
-     одна на весь процесс — рисуем код один раз и держим готовым в памяти. */
-  let botQr = null;
-  app.get('/api/bot-qr.svg', async (_req, res) => {
-    if (!RUNTIME.botUsername) return res.sendStatus(404);
-    // Отдельная метка: с компьютера код снимают телефоном — это другой путь.
-    const url = `https://t.me/${RUNTIME.botUsername}?start=qr`;
-    if (botQr?.url !== url) {
-      botQr = { url, svg: await QRCode.toString(url, { type: 'svg', margin: 1,
-        color: { dark: '#100b03', light: '#fffdfb' } }) };
-    }
-    res.type('image/svg+xml').setHeader('Cache-Control', 'public, max-age=3600').send(botQr.svg);
-  });
-
   /* Студия отмечается при запуске и при автосохранении: так админка видит не
      только оформленные заявки, но и тех, кто открыл форму и застрял на шаге.
-     step = null — черновика нет (отправили заявку или начали заново). */
+     step = null — черновика нет (отправили заявку или начали заново).
+     Вне Telegram этот же запрос заводит паре сессию сайта (cookie): студия
+     шлёт его первым, до фото, музыки и заявки. boot — студию только что
+     открыли; src — метка, с которой пришли на сайт. */
   const sessionLimit = rateLimit({ windowMs: 60_000, max: 30 });
   app.post('/api/session', sessionLimit, express.json({ limit: '4kb' }), async (req, res) => {
-    const u = authUser(req.body?.initData ?? req.get('x-init-data') ?? '');
-    if (!u?.id) return res.json({ ok: true });
-    const raw = req.body?.step;
-    const step = Number.isInteger(raw) && raw >= 0 ? raw : null;
+    const body = req.body ?? {};
+    const u = validateInitData(body.initData ?? req.get('x-init-data') ?? '', BOT_TOKEN)
+      ?? await openWebSession(req, res);
+    const raw = body.step;
+    const step = Number.isInteger(raw) && raw >= 0 && raw < 50 ? raw : null;
     try {
       await db.touchUser({ id: u.id, username: u.username ?? null, firstName: u.first_name ?? null,
-        lang: typeof req.body?.lang === 'string' ? req.body.lang.slice(0, 2) : null, source: 'studio' });
-      await db.setUserDraft(u.id, step);
+        lang: typeof body.lang === 'string' ? body.lang.slice(0, 2) : null, source: 'studio',
+        entry: u.web ? sourceLabel(body.src) : null });
+      // Черновик трогаем, только когда студия прислала шаг (или явный null).
+      if (Object.hasOwn(body, 'step')) await db.setUserDraft(u.id, step);
+      if (body.boot === true) await db.logEvent(u.id, 'open');
+      if (step !== null) await db.logEvent(u.id, 'step', step);
+      if (u.web && body.boot === true) await db.touchWebSession(u.id);
     } catch (e) {
       console.error('[server] session touch failed:', e.message ?? e);
     }
-    res.json({ ok: true });
+    res.json({ ok: true, web: Boolean(u.web) });
   });
 
-  // Статистика для админ-панели (только администратор).
-  app.get('/api/admin/stats', async (req, res) => {
-    const u = adminUser(req.get('x-init-data') ?? '');
-    if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
-    res.json({ ok: true, stats: (await db.adminStats()), users: (await db.userStats()), templates: publicTemplates(), orders: (await db.listRecentOrders(30)) });
-  });
-
-  // Всё, что нужно панели одним запросом: показатели, заявки, каталог, прайс.
+  // Всё, что нужно панели одним запросом: заявки, каталог, прайс, тексты.
+  // Показатели живут отдельно (/api/admin/analytics): у них свой период.
   app.get('/api/admin/overview', async (req, res) => {
     const u = adminUser(req.get('x-init-data') ?? '');
     if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
-    const limit = Math.min(200, Math.max(10, Number(req.query.limit) || 60));
+    const limit = Math.min(300, Math.max(10, Number(req.query.limit) || 120));
     res.json({
       ok: true,
       admin: { id: u.id, username: u.username ?? null },
-      stats: (await db.adminStats()),
-      users: (await db.userStats()),
       templates: publicTemplates(),
       orders: (await db.listRecentOrders(limit)),
       pricing: pricingSnapshot(allTemplates()),
       promos: (await promoSnapshot()),
-      // Откуда приходят, какие коды работают и кто кого привёл.
-      analytics: {
-        sources: (await db.sourceStats()),
-        promos: (await db.promoStats()),
-        referrals: (await db.referralStats()),
-      },
       texts: textsSnapshot(),
     });
+  });
+
+  /* Показатели за период: from/to — дни по Ташкенту (YYYY-MM-DD, включительно),
+     group — day | week | month | auto. Без from — за всё время. */
+  app.get('/api/admin/analytics', async (req, res) => {
+    const u = adminUser(req.get('x-init-data') ?? '');
+    if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
+    try {
+      res.set('Cache-Control', 'no-store');
+      res.json({ ok: true, ...(await analytics({ from: req.query.from, to: req.query.to, group: req.query.group })) });
+    } catch (e) {
+      if (e instanceof RangeError) return res.status(400).json({ ok: false, error: e.message });
+      throw e;
+    }
+  });
+
+  /* «Обнулить статистику»: ничего не удаляет — показатели просто считаются с
+     этой минуты. Заявки, оплаты и люди остаются как есть, и прежний счёт
+     возвращается одной кнопкой (restore). */
+  app.post('/api/admin/analytics/reset', express.json({ limit: '1kb' }), async (req, res) => {
+    const u = adminUser(req.get('x-init-data') ?? '');
+    if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
+    res.json({ ok: true, since: await resetAnalytics(u.username ? `@${u.username}` : String(u.id)) });
+  });
+
+  app.post('/api/admin/analytics/restore', express.json({ limit: '1kb' }), async (req, res) => {
+    const u = adminUser(req.get('x-init-data') ?? '');
+    if (!u) return res.status(403).json({ ok: false, error: 'forbidden' });
+    await restoreAnalytics();
+    res.json({ ok: true, since: null });
   });
 
   /* Тексты бота. Пустое поле — заводской текст: правку просто убираем. */
@@ -294,15 +327,18 @@ export function createServer({ onNewApplication, onPaid } = {}) {
         adminName: u.username ?? String(u.id),
         proof: null,
       }));
-      // Паре уходит ссылка — тем же сообщением, что и при подтверждении из бота.
+      /* Паре уходит ссылка — тем же сообщением, что и при подтверждении из бота.
+         Заказ с сайта, ещё не привязанный к Telegram, доставить некуда: пара
+         увидит ссылку на сайте, а бот пришлёт всё, когда она его откроет. */
+      let delivered = false;
       if (onPaid) {
         try {
-          await onPaid(paid, guests);
+          delivered = (await onPaid(paid, guests))?.delivered !== false;
         } catch (e) {
           console.error('[server] не удалось уведомить пару:', e.message);
         }
       }
-      res.json({ ok: true, id: paid.id, slug: paid.slug, guests });
+      res.json({ ok: true, id: paid.id, slug: paid.slug, guests, delivered, web: paid.web_owner != null });
     } catch (e) {
       if (e instanceof ValidationError) return res.status(400).json({ ok: false, error: e.message });
       console.error('[server] pay error:', e);
@@ -561,10 +597,11 @@ export function createServer({ onNewApplication, onPaid } = {}) {
     res.json({ ok: true, results: [] });
   });
 
-  // «Мои приглашения»: заявки текущего пользователя Telegram.
+  // «Мои приглашения»: заявки текущей пары — из Telegram или с этого браузера.
   app.get('/api/my', async (req, res) => {
-    const user = authUser(req.get('x-init-data') ?? '');
-    if (!user) return res.status(401).json({ ok: false, error: 'Откройте форму через Telegram-бота' });
+    const user = await authUser(req);
+    if (!user) return res.status(401).json({ ok: false, error: 'Откройте студию заново' });
+    res.set('Cache-Control', 'no-store');
     const apps = await Promise.all((await db.listApplicationsByUser(user.id)).map(async (a) => {
       const paid = a.status === 'paid' && a.slug;
       // Именные ссылки гостей — только у оплаченных (создаются при оплате).
@@ -583,11 +620,39 @@ export function createServer({ onNewApplication, onPaid } = {}) {
         templatePrice: a.template_price,
         guestsPrice: a.premium_price,
         url: paid ? `${BASE_URL}/${a.slug}` : null,
+        card: paid ? `/api/card/${a.slug}.png` : null,
         guests,
         createdAt: a.created_at,
+        // Заказ с сайта: забрать в Telegram можно, пока он ни к кому не привязан.
+        web: a.web_owner != null,
+        telegram: Number(a.tg_user_id) > 0,
+        claimUrl: claimLink(a),
       };
     }));
     res.json({ ok: true, apps });
+  });
+
+  /* QR на ссылку «забрать заказ в Telegram» — для компьютера: код снимают
+     телефоном. Cookie сессии едет и с картинкой, поэтому код видит только
+     сама пара: в адресе нет ничего, кроме номера заказа. */
+  app.get('/api/my/:id/claim.svg', async (req, res) => {
+    const user = await authUser(req);
+    const order = user ? await db.getApplication(Number(req.params.id)) : null;
+    const link = order && order.web_owner != null && Number(order.web_owner) === Number(user.id) ? claimLink(order) : null;
+    if (!link) return res.sendStatus(404);
+    const svg = await QRCode.toString(link, { type: 'svg', margin: 1, color: { dark: '#100b03', light: '#fffdfb' } });
+    res.set('Cache-Control', 'private, no-store').type('image/svg+xml').send(svg);
+  });
+
+  /* Карточка с QR готового приглашения — та же, что приходит в бот. На сайте
+     её скачивают кнопкой. В ней только публичная ссылка, поэтому по slug. */
+  app.get('/api/card/:slug.png', async (req, res) => {
+    const invitation = await db.getApplicationBySlug(String(req.params.slug ?? '').toLowerCase());
+    if (!invitation) return res.sendStatus(404);
+    res.set('Cache-Control', 'public, max-age=86400')
+      .set('Content-Disposition', `inline; filename="nvate-${invitation.slug}.png"`)
+      .type('image/png')
+      .send(renderShareCard(`${BASE_URL}/${invitation.slug}`));
   });
 
   /* ── Музыка ──
@@ -604,7 +669,7 @@ export function createServer({ onNewApplication, onPaid } = {}) {
     if (!provider) return res.status(400).json({ ok: false, error: 'provider' });
     let owner = null;
     if (provider.personal) {
-      const user = authUser(req.get('x-init-data') ?? '');
+      const user = await authUser(req);
       if (!user) return res.status(401).json({ ok: false, error: 'auth' });
       owner = user.id;
     }
@@ -664,9 +729,11 @@ export function createServer({ onNewApplication, onPaid } = {}) {
 
   /* Magic import: ссылка на ролик или песню → своя песня пары. Извлечение идёт
      в фоне, поэтому ответ — задача; студия переспрашивает её по номеру. */
-  const authOnly = (req, res, next) => (authUser(req.get('x-init-data') ?? '')
-    ? next()
-    : res.status(401).json({ ok: false, error: 'auth' }));
+  const authOnly = async (req, res, next) => {
+    req.user = await authUser(req);
+    if (!req.user) return res.status(401).json({ ok: false, error: 'auth' });
+    next();
+  };
   const importLimit = rateLimit({ windowMs: 10 * 60_000, max: 30 });
   const jobLimit = rateLimit({ windowMs: 60_000, max: 150 });
   const MAX_UPLOAD_AUDIO = 40 * 1024 * 1024;
@@ -680,7 +747,7 @@ export function createServer({ onNewApplication, onPaid } = {}) {
   }
 
   app.post('/api/music/import', authOnly, importLimit, express.json({ limit: '16kb' }), async (req, res) => {
-    const user = authUser(req.get('x-init-data') ?? '');
+    const { user } = req;
     try {
       const body = req.body ?? {};
       const job = body.provider === 'youtube'
@@ -693,7 +760,7 @@ export function createServer({ onNewApplication, onPaid } = {}) {
   });
 
   app.get('/api/music/import/:id', authOnly, jobLimit, (req, res) => {
-    const user = authUser(req.get('x-init-data') ?? '');
+    const { user } = req;
     const job = importJob(user.id, req.params.id);
     res.set('Cache-Control', 'no-store');
     if (!job) return res.status(404).json({ ok: false, error: 'not-found' });
@@ -704,7 +771,7 @@ export function createServer({ onNewApplication, onPaid } = {}) {
      (и из звука в редком формате) дорожку извлекает ffmpeg в фоне. */
   app.post('/api/music/upload', authOnly, uploadLimit,
     express.raw({ type: () => true, limit: `${MAX_MEDIA_BYTES / 1024 / 1024}mb` }), async (req, res) => {
-      const user = authUser(req.get('x-init-data') ?? '');
+      const { user } = req;
       const body = Buffer.isBuffer(req.body) && req.body.length ? req.body : null;
       if (!body) return res.status(400).json({ ok: false, error: 'format' });
       const named = metaFromFileName(fileNameHeader(req));
@@ -726,8 +793,8 @@ export function createServer({ onNewApplication, onPaid } = {}) {
 
   // Загрузка фото и аудио: сырые байты, тип определяем по сигнатуре.
   app.post('/api/upload', uploadLimit, express.raw({ type: () => true, limit: uploadMb }), async (req, res) => {
-    const user = authUser(req.get('x-init-data') ?? '');
-    if (!user) return res.status(401).json({ ok: false, error: 'Откройте форму через Telegram-бота' });
+    const user = await authUser(req);
+    if (!user) return res.status(401).json({ ok: false, error: 'Откройте студию заново' });
     if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
       return res.status(400).json({ ok: false, error: 'Пустой файл' });
     }
@@ -752,11 +819,11 @@ export function createServer({ onNewApplication, onPaid } = {}) {
   });
 
   // Предпросмотр перед подтверждением: полная открытка с данными формы + водяная сетка.
-  app.post('/api/preview', previewLimit, express.json({ limit: '64kb' }), (req, res) => {
+  app.post('/api/preview', previewLimit, express.json({ limit: '64kb' }), async (req, res) => {
     try {
-      const { initData, form } = req.body ?? {};
-      const user = authUser(initData);
-      if (!user) return res.status(401).json({ ok: false, error: 'Откройте форму через Telegram-бота' });
+      const { form } = req.body ?? {};
+      const user = await authUser(req);
+      if (!user) return res.status(401).json({ ok: false, error: 'Откройте студию заново' });
       const previewApp = buildPreviewApp(form);
       res.json({ ok: true, html: withWatermark(renderInvitation(previewApp)) });
     } catch (e) {
@@ -770,10 +837,10 @@ export function createServer({ onNewApplication, onPaid } = {}) {
 
   app.post('/api/applications', applicationLimit, express.json({ limit: '64kb' }), async (req, res) => {
     try {
-      const { initData, form } = req.body ?? {};
-      const user = authUser(initData);
+      const { form } = req.body ?? {};
+      const user = await authUser(req);
       if (!user) {
-        return res.status(401).json({ ok: false, error: 'Откройте форму через Telegram-бота' });
+        return res.status(401).json({ ok: false, error: 'Откройте студию заново' });
       }
 
       const { id, app: created, guests = [] } = (await submitApplication(form, user));
@@ -800,6 +867,10 @@ export function createServer({ onNewApplication, onPaid } = {}) {
         id,
         status: created.status,
         url: created.status === 'paid' && created.slug ? `${BASE_URL}/${created.slug}` : null,
+        card: created.status === 'paid' && created.slug ? `/api/card/${created.slug}.png` : null,
+        // С сайта: ссылка, по которой пара заберёт заказ в Telegram.
+        web: created.web_owner != null,
+        claimUrl: claimLink(created),
       });
     } catch (e) {
       if (e instanceof ValidationError) {

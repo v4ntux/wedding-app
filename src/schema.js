@@ -136,6 +136,32 @@ export const schema = `
   );
   CREATE INDEX IF NOT EXISTS music_tracks_shelf ON music_tracks(is_active, category);
   CREATE UNIQUE INDEX IF NOT EXISTS music_tracks_legacy ON music_tracks(legacy_track_id) WHERE legacy_track_id IS NOT NULL;
+
+  -- Студия на сайте, без Telegram. Браузер держит случайный токен в cookie, здесь
+  -- лежит только его хеш. Номер сессии со знаком минус и есть «id» такой пары:
+  -- у Telegram id всегда положительные, поэтому applications.tg_user_id,
+  -- tracks.owner_id и users работают для обоих входов без второй колонки.
+  CREATE TABLE IF NOT EXISTS web_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token_hash TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    last_seen TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Лента событий для показателей: открыл студию, дошёл до шага, нажал /start.
+  -- В users лежит только последнее состояние человека, а воронке за период
+  -- нужна история: кто и когда до какого шага доходил.
+  CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    step INTEGER,
+    at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS events_at ON events(at);
+  CREATE INDEX IF NOT EXISTS applications_created ON applications(created_at);
+  CREATE INDEX IF NOT EXISTS applications_paid ON applications(paid_at);
+  CREATE INDEX IF NOT EXISTS users_first_seen ON users(first_seen);
 `;
 export const migrations = [
   ['photos', 'ALTER TABLE applications ADD COLUMN photos TEXT'],
@@ -174,4 +200,12 @@ export const migrations = [
   ['user_entry', 'ALTER TABLE users ADD COLUMN entry TEXT'],
   ['user_ref_by', 'ALTER TABLE users ADD COLUMN ref_by INTEGER'],
   ['application_source', 'ALTER TABLE applications ADD COLUMN source TEXT'],
+  /* Заказ с сайта. web_owner — сессия браузера, которая его оформила (тот же
+     отрицательный id). Пока пара не открыла бота, tg_user_id равен ему же;
+     переход по claim_code (t.me/<бот>?start=<claim_code>) переписывает
+     tg_user_id на настоящий Telegram и ставит claimed_at. */
+  ['application_web_owner', 'ALTER TABLE applications ADD COLUMN web_owner INTEGER'],
+  ['application_claim_code', 'ALTER TABLE applications ADD COLUMN claim_code TEXT'],
+  ['application_claimed_at', 'ALTER TABLE applications ADD COLUMN claimed_at TEXT'],
+  ['application_claim_index', 'CREATE UNIQUE INDEX IF NOT EXISTS applications_claim ON applications(claim_code) WHERE claim_code IS NOT NULL'],
 ];

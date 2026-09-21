@@ -26,8 +26,9 @@ export async function insertApplication(a) {
       `INSERT INTO applications
         (tg_user_id, tg_username, phone, phone2, contact_tg, event_type, lang, groom_name, bride_name, wedding_date, wedding_time,
          address, lat, lng, map_enabled, music_type, music_value, music_start, music_end, music_meta,
-         template_id, template_price, premium, premium_price, domain_enabled, domain_price, guest_names, photos, extras, submission_key, promo_code, discount, source, total_price, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')`
+         template_id, template_price, premium, premium_price, domain_enabled, domain_price, guest_names, photos, extras, submission_key, promo_code, discount, source,
+         web_owner, claim_code, total_price, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')`
     )
     .run(
       a.tgUserId,
@@ -63,25 +64,30 @@ export async function insertApplication(a) {
       a.promoCode ?? null,
       a.discount ?? 0,
       a.source ?? null,
+      a.webOwner ?? null,
+      a.claimCode ?? null,
       a.totalPrice
     ));
   return Number(res.lastInsertRowid);
 }
 
-export async function getApplicationBySubmissionKey(tgUserId, submissionKey) {
-  return (await db.prepare('SELECT * FROM applications WHERE tg_user_id = ? AND submission_key = ?')
-    .get(tgUserId, submissionKey)) ?? null;
+/* Заказ с сайта мог уже уехать в Telegram (tg_user_id переписан при привязке):
+   повтор той же отправки ищем и по сессии браузера, которая его оформила. */
+export async function getApplicationBySubmissionKey(userId, submissionKey) {
+  return (await db.prepare('SELECT * FROM applications WHERE (tg_user_id = ? OR web_owner = ?) AND submission_key = ?')
+    .get(userId, userId, submissionKey)) ?? null;
 }
 
 export async function getApplication(id) {
   return (await db.prepare('SELECT * FROM applications WHERE id = ?').get(id)) ?? null;
 }
 
-// Заявки пользователя для раздела «Мои приглашения» (новые сверху).
-export async function listApplicationsByUser(tgUserId) {
+// Заявки пользователя для раздела «Мои приглашения» (новые сверху). Сайт видит
+// и те свои заказы, что уже привязаны к Telegram.
+export async function listApplicationsByUser(userId) {
   return (await db
-    .prepare('SELECT * FROM applications WHERE tg_user_id = ? ORDER BY id DESC LIMIT 50')
-    .all(tgUserId));
+    .prepare('SELECT * FROM applications WHERE tg_user_id = ? OR web_owner = ? ORDER BY id DESC LIMIT 50')
+    .all(userId, userId));
 }
 
 export async function getApplicationBySlug(slug) {
@@ -353,68 +359,6 @@ export async function listGuests(applicationId) {
   return (await db.prepare('SELECT * FROM guests WHERE application_id = ? ORDER BY id').all(applicationId));
 }
 
-// Сводная статистика для админ-панели (агрегаты по всем заявкам).
-export async function adminStats() {
-  const totals = { all: 0, new: 0, paid: 0, cancelled: 0, revenue: 0 };
-  for (const r of (await db.prepare(
-    "SELECT status, COUNT(*) c, COALESCE(SUM(total_price),0) s FROM applications GROUP BY status"
-  ).all())) {
-    totals.all += Number(r.c);
-    if (r.status in totals) totals[r.status] = Number(r.c);
-    if (r.status === 'paid') totals.revenue = Number(r.s);
-  }
-  totals.conversion = totals.all ? Math.round((totals.paid / totals.all) * 100) : 0;
-  totals.avgCheck = totals.paid ? Math.round(totals.revenue / totals.paid) : 0;
-
-  const templates = (await db.prepare(
-    `SELECT template_id AS id, COUNT(*) c,
-            COALESCE(SUM(CASE WHEN status='paid' THEN total_price END),0) revenue
-     FROM applications GROUP BY template_id ORDER BY c DESC`
-  ).all()).map((r) => ({ id: r.id, count: Number(r.c), revenue: Number(r.revenue) }));
-
-  // Название песни: у новых заявок — в music_meta, у старых — в самом значении
-  // (iTunes) или в таблице tracks (загруженный файл).
-  const topMusic = [];
-  for (const r of (await db.prepare(
-    `SELECT music_type, music_value, MAX(music_meta) AS meta, COUNT(*) c FROM applications
-      WHERE music_type <> 'none' AND music_value IS NOT NULL
-      GROUP BY music_type, music_value ORDER BY c DESC LIMIT 12`
-  ).all())) {
-    let name = '';
-    let artist = '';
-    try {
-      const meta = JSON.parse(r.meta || 'null');
-      if (meta?.title) {
-        name = meta.title;
-        artist = meta.artist ?? '';
-      } else if (r.music_type === 'itunes') {
-        const v = JSON.parse(r.music_value);
-        name = v.name;
-        artist = v.artist ?? '';
-      } else if (r.music_type === 'upload') {
-        const track = await trackByFile(r.music_value);
-        name = track?.title ?? '';
-        artist = track?.artist ?? '';
-      }
-    } catch { /* битые сведения пропускаем */ }
-    if (name) topMusic.push({ name, artist, count: Number(r.c) });
-    if (topMusic.length === 5) break;
-  }
-
-  const byDay = (await db.prepare(
-    `SELECT substr(created_at,1,10) d, COUNT(*) c,
-            SUM(CASE WHEN status='paid' THEN 1 ELSE 0 END) paid
-     FROM applications GROUP BY d ORDER BY d DESC LIMIT 14`
-  ).all()).map((r) => ({ day: r.d, count: Number(r.c), paid: Number(r.paid) })).reverse();
-
-  const guestLinks = Number((await db.prepare('SELECT COUNT(*) c FROM guests').get()).c);
-  const premiumRevenue = Number(
-    (await db.prepare("SELECT COALESCE(SUM(premium_price),0) s FROM applications WHERE status='paid' AND premium=1").get()).s
-  );
-
-  return { totals, templates, topMusic, byDay, guestLinks, premiumRevenue };
-}
-
 // Записать, какой админ подтвердил оплату, когда и скриншот чека.
 export async function recordConfirmation(id, adminId, adminName, proof) {
   (await db.prepare(
@@ -452,101 +396,18 @@ export async function listRecentOrders(limit = 30) {
     paidAt: a.paid_at,
     confirmedBy: a.confirmed_by,
     confirmedByName: a.confirmed_by_name,
+    /* Откуда заказ: с сайта (web) или из бота. У заказа с сайта Telegram
+       появляется, только когда пара перешла по своей ссылке на бота. */
+    channel: a.web_owner != null ? 'web' : 'tg',
+    linked: Number(a.tg_user_id) > 0,
+    tgUsername: a.tg_username ?? null,
+    claimedAt: a.claimed_at ?? null,
+    source: a.source ?? null,
+    lang: a.lang,
     paymentProof: a.payment_proof ? `/api/admin/proofs/${encodeURIComponent(a.payment_proof)}` : null,
     guests: (await db.prepare('SELECT name, slug, sent FROM guests WHERE application_id = ? ORDER BY id').all(a.id))
       .map((g) => ({ name: g.name, slug: g.slug, sent: Boolean(g.sent) })),
   })));
-}
-
-/* ── Откуда приходят ──
-   Метка живёт в двух местах: у человека (users.entry — первое касание) и у
-   заявки (applications.source — снимок метки на момент заказа). Люди и
-   черновики считаются по первой, заказы и выручка — по второй, поэтому старые
-   заявки остаются при своём источнике, даже если человек потом пришёл заново
-   по другой ссылке. Метка 'direct' — пришли сами, без ссылки с меткой. */
-export async function sourceStats() {
-  const rows = new Map();
-  const at = (mark) => {
-    if (!rows.has(mark)) rows.set(mark, { source: mark, people: 0, drafts: 0, orders: 0, paid: 0, revenue: 0 });
-    return rows.get(mark);
-  };
-
-  for (const r of (await db.prepare(
-    `SELECT COALESCE(entry, 'direct') AS mark, COUNT(*) AS people,
-            SUM(CASE WHEN draft_step IS NOT NULL THEN 1 ELSE 0 END) AS drafts
-       FROM users GROUP BY COALESCE(entry, 'direct')`
-  ).all())) {
-    const row = at(String(r.mark));
-    row.people = Number(r.people);
-    row.drafts = Number(r.drafts);
-  }
-
-  for (const r of (await db.prepare(
-    `SELECT COALESCE(source, 'direct') AS mark, COUNT(*) AS orders,
-            SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) AS paid,
-            COALESCE(SUM(CASE WHEN status = 'paid' THEN total_price ELSE 0 END), 0) AS revenue
-       FROM applications GROUP BY COALESCE(source, 'direct')`
-  ).all())) {
-    const row = at(String(r.mark));
-    row.orders = Number(r.orders);
-    row.paid = Number(r.paid);
-    row.revenue = Number(r.revenue);
-  }
-
-  return [...rows.values()]
-    .map((row) => ({
-      ...row,
-      /* Конверсия — от людей: сколько из пришедших дошли до оплаты. У заявок,
-         оформленных до появления меток, источника нет, и они складываются в
-         «пришли сами» рядом с людьми, которых там меньше: потолок в 100%
-         держит такую строку в рамках, вместо «500%», похожих на поломку. */
-      conversion: row.people ? Math.min(100, Math.round((row.paid / row.people) * 100)) : 0,
-      avgCheck: row.paid ? Math.round(row.revenue / row.paid) : 0,
-    }))
-    .sort((a, b) => b.revenue - a.revenue || b.people - a.people);
-}
-
-/* ── Промокоды в деле ──
-   Сколько раз код применили, сколько из этих заявок оплачены, сколько денег
-   отдано скидкой и сколько всё-таки пришло. Скидку считаем только по
-   оплаченным: отклонённая заявка никому ничего не стоила. */
-export async function promoStats() {
-  return (await db.prepare(
-    `SELECT promo_code AS code, COUNT(*) AS orders,
-            SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) AS paid,
-            COALESCE(SUM(CASE WHEN status = 'paid' THEN discount ELSE 0 END), 0) AS discount,
-            COALESCE(SUM(CASE WHEN status = 'paid' THEN total_price ELSE 0 END), 0) AS revenue
-       FROM applications WHERE promo_code IS NOT NULL
-       GROUP BY promo_code ORDER BY COUNT(*) DESC, promo_code`
-  ).all()).map((r) => ({
-    code: r.code,
-    orders: Number(r.orders),
-    paid: Number(r.paid),
-    discount: Number(r.discount),
-    revenue: Number(r.revenue),
-  }));
-}
-
-/* ── Кто кого привёл ──
-   Ссылка t.me/<бот>?start=ref<id> отмечает пришедшего за пригласившим. Считаем
-   приведённых, дошедших до заявки и оплативших. */
-export async function referralStats(limit = 12) {
-  return (await db.prepare(
-    `SELECT u.ref_by AS id, r.username AS username, r.first_name AS name, COUNT(*) AS invited,
-            SUM(CASE WHEN EXISTS (SELECT 1 FROM applications a WHERE a.tg_user_id = u.tg_user_id) THEN 1 ELSE 0 END) AS ordered,
-            SUM(CASE WHEN EXISTS (SELECT 1 FROM applications a WHERE a.tg_user_id = u.tg_user_id AND a.status = 'paid') THEN 1 ELSE 0 END) AS paid
-       FROM users u LEFT JOIN users r ON r.tg_user_id = u.ref_by
-      WHERE u.ref_by IS NOT NULL
-      GROUP BY u.ref_by, r.username, r.first_name
-      ORDER BY COUNT(*) DESC, u.ref_by LIMIT ?`
-  ).all(limit)).map((r) => ({
-    id: Number(r.id),
-    username: r.username ?? null,
-    name: r.name ?? null,
-    invited: Number(r.invited),
-    ordered: Number(r.ordered),
-    paid: Number(r.paid),
-  }));
 }
 
 /* ── Пользователи ──
@@ -557,7 +418,8 @@ export async function referralStats(limit = 12) {
    рекламной ссылке не переписывает источник, с которого человека привели. */
 export async function touchUser({ id, username = null, firstName = null, lang = null, source = 'bot', entry = null, refBy = null }) {
   const tgId = Number(id);
-  if (!Number.isFinite(tgId) || tgId <= 0) return;
+  // Отрицательный id — пара с сайта (см. web_sessions), ноль — никто.
+  if (!Number.isSafeInteger(tgId) || tgId === 0) return;
   const started = source === 'bot' ? 1 : 0;
   const opened = source === 'studio' ? 1 : 0;
   // Сам себя привести нельзя: ссылку кидают в общий чат, откуда её жмут и свои.
@@ -587,7 +449,7 @@ export async function userEntry(id) {
    нет (отправили заявку или начали заново). Пишем только по живой строке. */
 export async function setUserDraft(id, step) {
   const tgId = Number(id);
-  if (!Number.isFinite(tgId) || tgId <= 0) return;
+  if (!Number.isSafeInteger(tgId) || tgId === 0) return;
   const value = Number.isInteger(step) && step >= 0 ? step : null;
   if (value === null) {
     await db.prepare("UPDATE users SET draft_step = NULL, draft_at = NULL, last_seen = datetime('now') WHERE tg_user_id = ?").run(tgId);
@@ -597,27 +459,62 @@ export async function setUserDraft(id, step) {
     .run(value, tgId);
 }
 
-/* Показатели по людям, а не по заявкам: сколько всего заходило, сколько
-   бросило на полпути и на каком шаге, сколько дошло до заявки и до оплаты. */
-export async function userStats() {
-  const one = async (sql, ...params) => Number((await db.prepare(sql).get(...params))?.c ?? 0);
-  const total = await one('SELECT COUNT(*) c FROM users');
-  const started = await one('SELECT COUNT(*) c FROM users WHERE started = 1');
-  const opened = await one('SELECT COUNT(*) c FROM users WHERE opened = 1');
-  const drafts = await one('SELECT COUNT(*) c FROM users WHERE draft_step IS NOT NULL');
-  const ordered = await one('SELECT COUNT(DISTINCT tg_user_id) c FROM applications');
-  const buyers = await one("SELECT COUNT(DISTINCT tg_user_id) c FROM applications WHERE status = 'paid'");
-  const today = await one("SELECT COUNT(*) c FROM users WHERE substr(first_seen,1,10) = substr(datetime('now'),1,10)");
-  // Границу недели считаем здесь: у SQLite и PostgreSQL разный синтаксис сдвига дат.
-  const weekAgo = new Date(Date.now() - 7 * 86400_000).toISOString().slice(0, 19).replace('T', ' ');
-  const week = await one('SELECT COUNT(*) c FROM users WHERE first_seen >= ?', weekAgo);
-  // Брошенные черновики: те, у кого черновик есть, а заявки так и не случилось.
-  const stuck = await one(
-    `SELECT COUNT(*) c FROM users u WHERE u.draft_step IS NOT NULL
-       AND NOT EXISTS (SELECT 1 FROM applications a WHERE a.tg_user_id = u.tg_user_id)`
-  );
-  const draftSteps = (await db.prepare(
-    'SELECT draft_step AS step, COUNT(*) c FROM users WHERE draft_step IS NOT NULL GROUP BY draft_step ORDER BY draft_step'
-  ).all()).map((r) => ({ step: Number(r.step), count: Number(r.c) }));
-  return { total, started, opened, drafts, stuck, draftSteps, ordered, buyers, today, week };
+
+/* ── Сессии сайта ──
+   В cookie лежит случайный токен, в базе — только его sha256. Id пары на
+   сайте — номер строки со знаком минус. */
+export async function createWebSession(tokenHash) {
+  const res = await db.prepare('INSERT INTO web_sessions (token_hash) VALUES (?)').run(tokenHash);
+  return -Number(res.lastInsertRowid);
+}
+
+export async function webSessionUser(tokenHash) {
+  const row = await db.prepare('SELECT id FROM web_sessions WHERE token_hash = ?').get(tokenHash);
+  return row ? -Number(row.id) : null;
+}
+
+export async function touchWebSession(userId) {
+  const id = -Number(userId);
+  if (!(id > 0)) return;
+  await db.prepare("UPDATE web_sessions SET last_seen = datetime('now') WHERE id = ?").run(id);
+}
+
+/* ── События для показателей ──
+   open — открыл студию, step — дошёл до шага (номер с нуля), start — /start в
+   боте. Пишем мимоходом: статистика не должна ронять запрос. */
+export async function logEvent(userId, kind, step = null) {
+  const id = Number(userId);
+  if (!Number.isSafeInteger(id) || id === 0) return;
+  await db.prepare('INSERT INTO events (user_id, kind, step) VALUES (?, ?, ?)')
+    .run(id, String(kind).slice(0, 16), Number.isInteger(step) ? step : null);
+}
+
+/* ── Заказ с сайта → Telegram ──
+   Пока пара не открыла бота, tg_user_id у заказа отрицательный (сессия
+   сайта). Привязка переписывает его на настоящий Telegram — дальше заказ
+   живёт как обычный: ссылка, QR и именные ссылки уходят в бот. */
+export async function getApplicationByClaim(code) {
+  return (await db.prepare('SELECT * FROM applications WHERE claim_code = ?').get(code)) ?? null;
+}
+
+// Непривязанные заказы той же сессии сайта: один браузер — одна пара.
+export async function unclaimedByOwner(webOwner) {
+  return db.prepare('SELECT * FROM applications WHERE web_owner = ? AND tg_user_id < 0 ORDER BY id').all(webOwner);
+}
+
+// Заказы с сайта, где пара вписала этот username, а бота так и не открыла.
+export async function unclaimedByUsername(username) {
+  const name = String(username ?? '').trim().toLowerCase();
+  if (!name) return [];
+  return db.prepare(`SELECT * FROM applications
+     WHERE tg_user_id < 0 AND LOWER(contact_tg) = ? AND status <> 'cancelled'
+     ORDER BY id DESC LIMIT 5`).all(name);
+}
+
+// Атомарно: сработает, только если заказ ещё ничей в Telegram.
+export async function claimApplication(id, tgUserId, username = null) {
+  const res = await db.prepare(`UPDATE applications
+     SET tg_user_id = ?, tg_username = COALESCE(?, tg_username), claimed_at = datetime('now')
+     WHERE id = ? AND tg_user_id < 0`).run(tgUserId, username, id);
+  return res.changes === 1;
 }

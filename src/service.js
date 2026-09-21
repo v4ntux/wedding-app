@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { randomInt } from 'node:crypto';
 import path from 'node:path';
 import * as db from './db.js';
 import { lockPayments } from './storage.js';
@@ -63,6 +64,17 @@ function validateMusic(form, lang) {
   } catch (error) {
     throw musicError(error, lang);
   }
+}
+
+/* Username Telegram так, как его вставляют: «@ali», «t.me/ali»,
+   «https://t.me/ali?start=x». Оставляем только имя. */
+export const TG_USERNAME_RE = /^[A-Za-z][A-Za-z0-9_]{3,31}$/;
+export function telegramUsername(value) {
+  return String(value ?? '').trim().slice(0, 80)
+    .replace(/^(?:https?:\/\/)?(?:www\.)?(?:t\.me|telegram\.me)\//i, '')
+    .replace(/^@+/, '')
+    .replace(/[/?#].*$/, '')
+    .slice(0, 40);
 }
 
 // Полная валидация формы. Возвращает чистые данные; бросает ValidationError со step.
@@ -157,19 +169,23 @@ export function validateForm(form, { requirePhone = false } = {}) {
   const domainEnabled = Boolean(extras.domain);
   const domainPrice = domainEnabled ? addonPrice('domain', 0) : 0;
 
-  /* Контакты: у пары спрашиваем только номер телефона. Telegram (id и
-     username) приходит из initData самого бота — переписывать его руками
-     значило бы просить человека продиктовать то, что мы уже знаем.
-     Поля phone2 и contactTg остались ради заявок, созданных до этой версии:
-     форма их больше не шлёт, но старые записи обязаны открываться. */
+  /* Контакты. В боте спрашиваем только номер: Telegram (id и username)
+     приходит из initData. На сайте Telegram нам неизвестен — там пара может
+     вписать свой username: по нему админ напишет, а бот узнает пару, когда
+     она его откроет. phone2 остался ради заявок старых версий. */
   const phone = cleanStr(form.phone, 20) || null;
   const phone2 = cleanStr(form.phone2, 40) || null;
-  const contactTg = cleanStr(form.contactTg, 40).replace(/^@/, '') || null;
+  const contactTg = telegramUsername(form.contactTg) || null;
 
   const PHONE_RE = /^\+?[\d\s()-]{7,20}$/;
 
   if (phone && (!PHONE_RE.test(phone) || phone.replace(/\D/g, '').length < 7)) {
     throw new ValidationError(uz ? 'Telefon raqami noto‘g‘ri' : 'Некорректный номер телефона', 'review');
+  }
+  if (contactTg && !TG_USERNAME_RE.test(contactTg)) {
+    throw new ValidationError(uz
+      ? 'Telegram username noto‘g‘ri — lotin harflari, raqam va _ (masalan, @ali_zebo)'
+      : 'Username в Telegram — латиница, цифры и _ (например, @ali_zebo)', 'review');
   }
 
   if (requirePhone && !phone) {
@@ -202,7 +218,21 @@ function promoGone(lang) {
     : 'Промокод больше не действует — снимите его и отправьте снова', 'review');
 }
 
+/* Код привязки заказа с сайта к Telegram: t.me/<бот>?start=<код>. Имена пары
+   — чтобы ссылка читалась по-человечески, случайный хвост — чтобы чужой заказ
+   нельзя было забрать, зная имена: одни имена ничего не открывают. */
+const CLAIM_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
+export function claimCodeFor(groomName, brideName) {
+  const names = [slugify(groomName).slice(0, 18), slugify(brideName).slice(0, 18)]
+    .map((part) => part.replace(/-+$/, '')).filter(Boolean).join('-') || 'nvate';
+  let tail = '';
+  for (let i = 0; i < 10; i++) tail += CLAIM_ALPHABET[randomInt(CLAIM_ALPHABET.length)];
+  return `${names}-${tail}`;
+}
+export const CLAIM_CODE_RE = /^[a-z0-9-]{1,40}-[a-z0-9]{10}$/;
+
 // Создаёт заявку (телефон обязателен — берётся из окна подтверждения).
+// tgUser — пользователь Telegram или пара с сайта ({ id: <отрицательный>, web: true }).
 export async function submitApplication(form, tgUser) {
   const v = validateForm(form, { requirePhone: true });
 
@@ -253,6 +283,9 @@ export async function submitApplication(form, tgUser) {
     /* Откуда пришла пара. Метку снимаем сейчас и кладём в саму заявку: человек
        мог прийти год назад, а ссылки с метками за это время поменяться. */
     source: (await db.userEntry(tgUser.id)).entry,
+    // С сайта: чья сессия оформила и по какому коду пара заберёт заказ в бот.
+    webOwner: tgUser.web ? tgUser.id : null,
+    claimCode: tgUser.web ? claimCodeFor(v.groomName, v.brideName) : null,
   };
 
   /* Промокод. Правило берём из таблицы, скидку считаем сами: сумма из формы
@@ -372,6 +405,51 @@ export async function cancelApplication(id) {
   // Отклонённая заявка возвращает занятое место — код снова ловит.
   if (app.promo_code) (await db.releasePromo(app.promo_code));
   return (await db.getApplication(id));
+}
+
+/* ── Заказ с сайта забирают в Telegram ──
+   По коду из ссылки на бота: вместе с ним уезжают и другие непривязанные
+   заказы той же сессии сайта — один браузер, одна пара. Чужой (уже
+   привязанный к другому Telegram) заказ не отдаём и ничего о нём не говорим.
+   Возвращает { status: 'claimed' | 'mine' | 'foreign', apps }. */
+async function claimRows(main, rows, tgUser) {
+  const claimed = [];
+  for (const row of rows) {
+    if (row.id !== main.id && row.status === 'cancelled') continue;
+    if (await db.claimApplication(row.id, tgUser.id, tgUser.username ?? null)) claimed.push(await db.getApplication(row.id));
+  }
+  if (claimed.some((row) => row.id === main.id)) return { status: 'claimed', apps: claimed };
+  // Главный заказ успели привязать между чтением и записью — кто именно?
+  const fresh = await db.getApplication(main.id);
+  if (Number(fresh?.tg_user_id) === Number(tgUser.id)) return { status: 'mine', apps: [fresh, ...claimed] };
+  return { status: 'foreign', apps: claimed };
+}
+
+export async function claimByCode(code, tgUser) {
+  const clean = String(code ?? '').trim().toLowerCase();
+  if (!CLAIM_CODE_RE.test(clean) || !(Number(tgUser?.id) > 0)) return null;
+  const app = await db.getApplicationByClaim(clean);
+  if (!app) return null;
+  if (Number(app.tg_user_id) > 0) {
+    return Number(app.tg_user_id) === Number(tgUser.id)
+      ? { status: 'mine', apps: [app] }
+      : { status: 'foreign', apps: [] };
+  }
+  const siblings = app.web_owner != null ? await db.unclaimedByOwner(app.web_owner) : [];
+  return claimRows(app, [app, ...siblings.filter((row) => row.id !== app.id)], tgUser);
+}
+
+/* Пара вписала на сайте свой username и открыла бота без ссылки: бот
+   предлагает забрать заказ кнопкой. Забрать может только владелец этого
+   username — его Telegram и присылает. */
+export async function claimByUsername(id, tgUser) {
+  const app = await db.getApplication(Number(id));
+  const username = String(tgUser?.username ?? '').toLowerCase();
+  if (!app || !username || String(app.contact_tg ?? '').toLowerCase() !== username) return null;
+  if (Number(app.tg_user_id) > 0) {
+    return Number(app.tg_user_id) === Number(tgUser.id) ? { status: 'mine', apps: [app] } : { status: 'foreign', apps: [] };
+  }
+  return claimRows(app, [app], tgUser);
 }
 
 export function mapsLinks(lat, lng) {

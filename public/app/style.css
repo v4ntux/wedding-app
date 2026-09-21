@@ -303,6 +303,7 @@ html[data-motion='full'] * { animation-play-state: running !important; }
 .lang-inner > .wordmark { animation-delay: 700ms; }
 .lang-inner > .lang-lead { animation-delay: 1000ms; }
 .lang-inner > .lang-picks { animation-delay: 1260ms; }
+.lang-inner > .lang-bot { animation-delay: 1520ms; }
 
 @keyframes gateRise {
   from { opacity: 0; transform: translateY(16px); }
@@ -327,6 +328,29 @@ html[data-motion='full'] * { animation-play-state: running !important; }
 }
 .lang-lead span { color: var(--mute); }
 .lang-picks { display: grid; gap: 14px; }
+
+/* Бот рядом с сайтом: тонкая строка под кнопками языка, без второго золота. */
+.lang-bot {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  margin-top: 26px;
+  padding: 9px 16px 9px 11px;
+  color: var(--silk-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  text-decoration: none;
+  text-align: left;
+  transition: color var(--motion-ui) var(--ease-silk), border-color var(--motion-ui) var(--ease-silk);
+}
+.lang-bot .tg-ic { width: 30px; height: 30px; padding: 7px; border-radius: 50%; color: var(--gold-hi); background: rgba(var(--gold-rgb), .12); }
+.lang-bot span { display: grid; gap: 1px; }
+.lang-bot b { color: var(--silk); font-size: .88rem; font-weight: 600; letter-spacing: .01em; }
+.lang-bot i { color: var(--mute); font-size: .68rem; font-style: normal; letter-spacing: .06em; }
+.lang-bot:hover, .lang-bot:focus-visible { color: var(--silk); border-color: var(--line-gold); }
+
+/* Значок Telegram: бумажный самолётик линией, как остальные иконки студии. */
+.tg-ic { display: block; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
 
 /* Кольцо-печать на карточках «Готово» и «Спасибо». */
 .ring-mark { display: block; width: 78px; height: 78px; margin: 0 auto; }
@@ -441,6 +465,7 @@ html[data-motion='full'] * { animation-play-state: running !important; }
 }
 .ghost-ic svg { width: 20px; height: 20px; }
 .ghost-ic:active { transform: scale(.94); }
+.ghost-ic--tg { color: var(--gold-hi); text-decoration: none; }
 
 /* ═══════════════════════════════════════════════════════════════════
    Каркас приложения
@@ -694,6 +719,21 @@ html[data-motion='full'] * { animation-play-state: running !important; }
 .field input:focus { border-color: rgba(var(--gold-rgb), .7); background: rgba(255, 250, 240, .1); }
 .field.filled input { border-color: rgba(var(--gold-rgb), .38); }
 .field-spin { display: block; margin: 11px auto 0; }
+.field > label em { color: rgba(206, 197, 180, .55); font-style: normal; letter-spacing: .08em; text-transform: lowercase; }
+
+/* Username в Telegram: собачка нарисована в поле, вписывают только имя. */
+.tg-input { position: relative; }
+.tg-at {
+  position: absolute;
+  left: 17px;
+  top: 50%;
+  color: var(--gold);
+  font-size: 1rem;
+  font-weight: 600;
+  transform: translateY(-52%);
+  pointer-events: none;
+}
+.tg-input input { padding-left: 36px; }
 
 /* ═══════════════════════════════════════════════════════════════════
    01 · Имена
@@ -1487,16 +1527,28 @@ html[data-motion='full'] * { animation-play-state: running !important; }
 .inv-tag.paid { color: var(--ink); background: linear-gradient(105deg, var(--gold), var(--gold-hi)); }
 .inv-tag.cancelled { color: var(--danger); border: 1px solid rgba(211, 129, 140, .35); }
 .inv-link {
+  display: block;
+  width: 100%;
   margin-top: 10px;
-  padding: 10px;
+  padding: 10px 12px;
   color: var(--gold);
   border: 1px solid rgba(var(--gold-rgb), .18);
   border-radius: 10px;
   background: rgba(var(--gold-rgb), .05);
   font-size: .74rem;
   line-height: 1.4;
+  text-align: left;
   overflow-wrap: anywhere;
 }
+.inv-link b { display: block; margin-bottom: 2px; color: var(--silk); font-size: .8rem; font-weight: 600; }
+.inv-link:active { transform: scale(.99); }
+.inv-guests { margin-top: 14px; }
+.inv-guests .inv-link { margin-top: 6px; }
+.inv-sub { margin: 0; color: var(--mute); font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; }
+.inv-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.inv-acts .btn { flex: 1 1 auto; text-decoration: none; }
+.btn--tg { color: var(--ink); border: 1px solid rgba(255, 250, 232, .3); background: linear-gradient(105deg, var(--gold), var(--gold-hi)); }
+.inv h3 { padding-right: 96px; }
 
 /* ═══════════════════════════════════════════════════════════════════
    Полноэкранная шторка предпросмотра
@@ -1556,41 +1608,6 @@ html[data-motion='full'] * { animation-play-state: running !important; }
 .sheet-foot .btn { pointer-events: auto; }
 
 /* ═══════════════════════════════════════════════════════════════════
-   Вход вне Telegram
-   ═══════════════════════════════════════════════════════════════════ */
-#gate {
-  position: fixed;
-  inset: 0;
-  z-index: 90;
-  display: grid;
-  place-items: center;
-  padding: 32px;
-  overflow-y: auto;
-  background: radial-gradient(105% 70% at 50% 8%, rgba(var(--gold-rgb), .2), transparent 62%), #050403;
-  animation: overlayIn 865ms var(--ease-scene) both;
-}
-.gate-card { width: min(100%, 340px); text-align: center; }
-.gate-card h2 { margin: 18px 0 9px; font: 400 1.8rem/1.25 var(--display); }
-.gate-card p { margin: 0; color: var(--silk-2); font-size: .92rem; line-height: 1.65; }
-.gate-card .btn { text-decoration: none; }
-
-/* Код снимают с экрана телефоном, поэтому поле под ним светлое: тёмный QR на
-   тёмной сцене камера не берёт. С телефона код не нужен — там ведёт кнопка. */
-.gate-qr { display: none; margin-top: 26px; }
-@media (min-width: 680px) { .gate-qr:not([hidden]) { display: block; } }
-.gate-qr img {
-  display: block;
-  width: 152px;
-  height: 152px;
-  margin: 0 auto;
-  padding: 10px;
-  border-radius: 14px;
-  background: #fffdfb;
-}
-.gate-qr p { margin-top: 12px; font-size: .82rem; }
-.gate-card .gate-why { margin-top: 22px; color: var(--mute); font-size: .8rem; }
-
-/* ═══════════════════════════════════════════════════════════════════
    Финал
    ═══════════════════════════════════════════════════════════════════ */
 #done {
@@ -1599,8 +1616,9 @@ html[data-motion='full'] * { animation-play-state: running !important; }
   z-index: 100;
   display: grid;
   place-items: center;
-  padding: 32px;
-  overflow: hidden;
+  padding: calc(env(safe-area-inset-top) + 32px) 24px calc(env(safe-area-inset-bottom) + 32px);
+  overflow-x: hidden;
+  overflow-y: auto;
   background: radial-gradient(105% 70% at 50% 8%, rgba(var(--gold-rgb), .2), transparent 62%), #050403;
   animation: overlayIn 865ms var(--ease-scene) both;
 }
@@ -1623,8 +1641,49 @@ html[data-motion='full'] * { animation-play-state: running !important; }
 .done-link span { display: block; margin-top: 5px; color: var(--mute); font-size: .76rem; letter-spacing: .1em; text-transform: uppercase; }
 .done-link:active { transform: scale(.985); }
 .done-card .btn { margin-top: 14px; text-decoration: none; }
+.done-card { position: relative; z-index: 1; }
 
-#sparks { position: absolute; inset: 0; pointer-events: none; }
+/* Живой статус заявки с сайта: точка дышит, пока ждём подтверждения. */
+.done-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin: 18px auto 0 !important;
+  padding: 8px 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  font-size: .78rem !important;
+  line-height: 1.3 !important;
+  letter-spacing: .04em;
+}
+.done-status i { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: var(--gold); }
+.done-status--wait i { animation: statusBreath 1.8s var(--ease-silk) infinite; }
+.done-status--paid { color: var(--gold-hi) !important; border-color: var(--line-gold); }
+.done-status--cancel { color: #e6aab3 !important; border-color: rgba(211, 129, 140, .34); }
+.done-status--cancel i { background: var(--danger); }
+@keyframes statusBreath { 50% { opacity: .25; transform: scale(.7); } }
+
+/* С сайта в Telegram. Кнопка золотая, пока ссылки ещё нет; когда ссылка
+   готова, золото уходит «Открыть приглашение», а эта становится тихой. */
+.done-tg { margin-top: 4px; }
+.done-tg .btn .tg-ic { width: 20px; height: 20px; flex: 0 0 20px; }
+.done-tg .btn:not(.btn--gold):not(.btn--ghost) { color: var(--gold-hi); border: 1px solid var(--line-2); background: var(--face); }
+.done-card .done-tg-hint { margin-top: 10px; color: var(--mute); font-size: .78rem; line-height: 1.55; }
+.done-tg-qr { display: none; margin-top: 20px; }
+@media (min-width: 680px) { .done-tg-qr:not([hidden]) { display: block; } }
+.done-tg-qr img {
+  display: block;
+  width: 136px;
+  height: 136px;
+  margin: 0 auto;
+  padding: 9px;
+  border-radius: 14px;
+  background: #fffdfb;
+}
+.done-card .done-tg-qr p { margin-top: 10px; color: var(--mute); font-size: .76rem; }
+.done-card .done-tg-linked { margin-top: 18px; color: var(--gold-hi); font-size: .82rem; }
+
+#sparks { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
 .spark {
   position: absolute;
   left: var(--x);
@@ -2616,5 +2675,6 @@ html[data-motion='full'] #sky { opacity: .9; }
   html:not([data-motion='full']) .brand::after,
   html:not([data-motion='full']) .bead.done i,
   html:not([data-motion='full']) .blk-err,
+  html:not([data-motion='full']) .done-status i,
   html:not([data-motion='full']) #guests-body { animation: none; }
 }

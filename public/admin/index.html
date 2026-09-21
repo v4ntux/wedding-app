@@ -147,17 +147,6 @@ body{background:
 .pm-state.live{color:var(--gold);border-color:rgba(230,207,154,.45)}
 .pm-used{font-size:.75rem;color:var(--soft)}
 .order-promo{margin-top:6px;font-size:.78rem;color:var(--gold)}
-.an{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
-.an:last-child{border-bottom:0}
-.an .nm{font-size:.88rem;font-weight:600}
-.an .nm em{font-style:normal;font-weight:400;color:var(--soft)}
-.an .val{font-size:.86rem;font-weight:600;text-align:right;white-space:nowrap}
-.an .sub{grid-column:1;font-size:.74rem;color:var(--soft)}
-.an .sub b{font-weight:600;color:var(--ink)}
-.an .side{grid-column:2;font-size:.74rem;color:var(--soft);text-align:right;white-space:nowrap}
-.an-bar{grid-column:1/-1;height:6px;border-radius:999px;background:var(--mist);overflow:hidden}
-.an-bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--wisteria),var(--gold));
-  min-width:2px;transition:width .8s cubic-bezier(.22,.61,.36,1)}
 .tabs{display:flex;gap:6px;margin:18px 0 4px;padding:4px;border:1px solid var(--line);border-radius:999px;
   background:linear-gradient(158deg,rgba(255,248,232,.07),rgba(5,4,8,.2))}
 .tabs button{flex:1;min-height:42px;border:0;border-radius:999px;background:transparent;color:var(--soft);
@@ -217,6 +206,162 @@ body{background:
 .tabs{overflow-x:auto;scrollbar-width:none}
 .tabs::-webkit-scrollbar{display:none}
 .tabs button{flex:1 0 auto;padding:0 14px}
+.order-meta{overflow-wrap:anywhere}
+.order-contacts a{color:var(--gold);text-decoration:none}
+.order-tg{margin-top:8px;padding:7px 10px;border-radius:10px;font-size:.76rem;color:var(--new);background:rgba(226,197,131,.1)}
+.order-tg.on{color:var(--ok);background:rgba(147,192,141,.12)}
+
+/* ── Показатели ─────────────────────────────────────────────────────────
+   Одна серия — одно золото; сетка и оси — волосяные линии на тон светлее
+   фона; числа в столбцах — моноширинные цифры, большие — пропорциональные. */
+.an{--an-bar:#e6cf9a;--an-grid:rgba(255,248,232,.08);--an-surface:#0e0c0b;transition:opacity .3s ease}
+.an--loading .an-card,.an--loading .an-kpis{opacity:.5}
+.an-filters{position:sticky;top:0;z-index:5;margin:14px -16px 14px;padding:10px 16px 12px;
+  background:linear-gradient(180deg,rgba(8,7,10,.96),rgba(8,7,10,.88));-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line)}
+.an-chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.an-chips::-webkit-scrollbar{display:none}
+.an-chips button,.an-seg button,.an-metrics button{flex:0 0 auto;min-height:36px;padding:0 13px;border:1px solid var(--line);border-radius:999px;
+  background:transparent;color:var(--soft);font:inherit;font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap}
+.an-chips button.on,.an-seg button.on,.an-metrics button.on{color:#170f02;border-color:transparent;background:linear-gradient(112deg,var(--lilac-d),var(--gold))}
+.an-seg{display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap}
+.an-seg>span{font-size:.7rem;color:var(--soft);letter-spacing:.06em;text-transform:uppercase;margin-right:2px}
+.an-seg button{min-height:32px;padding:0 11px}
+.an-seg button[disabled]{opacity:.35;cursor:default}
+.an-custom{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.an-custom label{display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--soft)}
+.an-custom input{min-height:36px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:rgba(255,248,232,.06);color:var(--ink);font:inherit;color-scheme:dark}
+.an-range{margin-top:8px;font-size:.76rem;color:var(--soft)}
+.an-range b{color:var(--ink);font-weight:600}
+.an-tool{min-height:32px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--gold);font:inherit;font-size:.74rem;font-weight:600;cursor:pointer}
+.an-tool--on{color:#170f02;border-color:transparent;background:linear-gradient(112deg,var(--lilac-d),var(--gold))}
+.an-tool--danger{color:var(--err);border-color:rgba(224,140,153,.4)}
+.an-since,.an-now,.an-err{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 12px;padding:12px 14px;border-radius:14px;font-size:.8rem;line-height:1.5}
+.an-since{border:1px solid rgba(230,207,154,.35);background:rgba(230,207,154,.07)}
+.an-since p,.an-now p{flex:1;min-width:200px}
+.an-now{border:1px solid var(--line);background:rgba(255,248,232,.04)}
+.an-now-l{font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.an-now i{font-style:normal;color:var(--soft);margin:0 7px}
+.an-err{border:1px solid rgba(224,140,153,.4);color:var(--err)}
+.an-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media(min-width:620px){.an-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.an-kpis--sub{margin-top:10px}
+.an-kpis--sub .an-kpi-v{font-size:1.05rem}
+.an-kpi{min-width:0;padding:13px 14px 12px;border:1px solid var(--line);border-radius:14px;
+  background:linear-gradient(158deg,rgba(255,248,232,.07),rgba(255,240,214,.02) 50%,rgba(5,4,8,.2))}
+.an-kpi--hero{border-color:rgba(230,207,154,.32)}
+.an-kpi-l{font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;color:var(--soft)}
+.an-kpi-v{margin-top:6px;font-size:1.28rem;font-weight:700;line-height:1.15;color:var(--ink);overflow-wrap:anywhere}
+.an-kpi--hero .an-kpi-v{color:var(--gold)}
+.an-kpi-f{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;margin-top:6px;min-height:1em}
+.an-kpi-h{font-size:.66rem;color:var(--soft);line-height:1.3}
+.an-d{font-size:.72rem;font-weight:700;color:var(--soft);white-space:nowrap}
+.an-d--good,.an-d--up{color:var(--ok)}
+.an-d--bad{color:var(--err)}
+.an-card{margin-top:14px;padding:16px;border:1px solid var(--line);border-radius:16px;
+  background:linear-gradient(158deg,rgba(255,248,232,.07),rgba(255,240,214,.02) 46%,rgba(5,4,8,.2));box-shadow:var(--shadow)}
+.an-card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.an-card-h h2{margin:0;font-size:1.05rem}
+.an-tools{display:flex;gap:6px}
+.an-note{margin-top:12px;font-size:.74rem;color:var(--soft);line-height:1.5}
+.an-sub{margin:16px 0 6px;font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--soft)}
+.an-empty{padding:18px;text-align:center;color:var(--soft);font-size:.84rem}
+.an-empty--big{padding:60px 20px}
+.an-metrics{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-bottom:10px}
+.an-metrics::-webkit-scrollbar{display:none}
+.an-metrics button{min-height:32px;padding:0 11px;font-size:.74rem}
+.an-sum{display:flex;flex-wrap:wrap;gap:4px 16px;margin:0 0 12px;font-size:.78rem;color:var(--soft)}
+.an-sum b{color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
+/* Столбики: колонка — цель касания во всю высоту, сам столбик ≤ 24px. */
+.an-cols{position:relative;height:calc(var(--h) + 26px);padding-left:44px}
+.an-grid{position:absolute;left:0;right:0;top:0;height:var(--h)}
+.an-gl{position:absolute;left:44px;right:0;border-top:1px solid var(--an-grid)}
+.an-gl span{position:absolute;right:calc(100% + 6px);top:-.6em;font-size:.62rem;color:var(--soft);font-variant-numeric:tabular-nums;white-space:nowrap}
+.an-cols-in{position:relative;display:flex;align-items:flex-end;gap:2px;height:var(--h)}
+.an-col{position:relative;flex:1;min-width:0;height:100%;display:flex;align-items:flex-end;justify-content:center;
+  padding:0;border:0;background:transparent;cursor:default;outline:none}
+.an-col:hover,.an-col:focus-visible{background:rgba(255,248,232,.04)}
+.an-bar{position:relative;display:block;width:100%;max-width:24px;min-height:0;border-radius:4px 4px 0 0;background:var(--an-bar);transition:filter .2s ease,height .6s cubic-bezier(.22,.61,.36,1)}
+.an-col:hover .an-bar,.an-col:focus-visible .an-bar{filter:brightness(1.18)}
+.an-peak{position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);font-style:normal;font-size:.64rem;font-weight:700;color:var(--ink);white-space:nowrap}
+.an-x{position:absolute;top:calc(100% + 7px);left:50%;transform:translateX(-50%);font-style:normal;font-size:.6rem;color:var(--soft);white-space:nowrap;pointer-events:none}
+.an-tip{position:fixed;left:0;top:0;z-index:50;min-width:130px;max-width:240px;padding:9px 11px;border:1px solid var(--line);border-radius:10px;
+  background:rgba(14,12,11,.97);box-shadow:0 12px 30px rgba(0,0,0,.5);pointer-events:none;font-size:.74rem}
+.an-tip-head b{display:block;font-size:.95rem;color:var(--ink)}
+.an-tip-head span{color:var(--soft)}
+.an-tip-row{display:flex;justify-content:space-between;gap:12px;margin-top:3px;color:var(--soft)}
+.an-tip-row b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums;order:2}
+.an-tip-row:nth-child(2){margin:2px 0 6px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.an-tip-row:nth-child(2) b{order:0;font-weight:500;color:var(--soft)}
+/* Воронка: одна полоса на ступень, доля от начала справа. */
+.an-funnel{display:grid;gap:7px}
+.an-fr{display:grid;grid-template-columns:minmax(92px,34%) 1fr auto;align-items:center;gap:10px;outline:none}
+.an-fl{font-size:.78rem;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.an-fb{height:14px;border-radius:0 4px 4px 0;background:rgba(255,248,232,.05);overflow:hidden}
+.an-fb i{display:block;height:100%;border-radius:0 4px 4px 0;background:var(--an-bar);min-width:2px}
+.an-fr--end .an-fl{font-weight:700}
+.an-fv{min-width:62px;text-align:right;font-size:.8rem;font-weight:700;font-variant-numeric:tabular-nums}
+.an-fv small{display:inline-block;min-width:34px;margin-left:6px;font-size:.68rem;font-weight:500;color:var(--soft)}
+.an-fr:focus-visible .an-fl{color:var(--gold)}
+/* Telegram и сайт: сравнение числами, без двух цветов. */
+.an-ch{display:grid}
+.an-ch-r{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:.8rem}
+.an-ch-r:last-child{border-bottom:0}
+.an-ch-r span{color:var(--soft)}
+.an-ch-r b{text-align:right;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.an-ch-h b{font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;color:var(--gold)}
+/* Таблицы с сортировкой. */
+.an-tw{overflow-x:auto;margin:0 -4px}
+.an-t{width:100%;border-collapse:collapse;font-size:.78rem}
+.an-t th{padding:0 4px 6px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--line)}
+.an-t th button{padding:4px 0;border:0;background:transparent;color:var(--soft);font:inherit;font-size:.68rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
+.an-t th.on button{color:var(--gold)}
+.an-t th b{margin-left:3px}
+.an-t td{padding:8px 4px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;white-space:nowrap}
+.an-t tr:last-child td{border-bottom:0}
+.an-t .r{text-align:right}
+.an-t td:first-child{min-width:120px;white-space:normal}
+.an-c0{display:block;font-weight:600;color:var(--ink)}
+.an-m{display:block;height:4px;margin-top:5px;border-radius:0 2px 2px 0;background:rgba(255,248,232,.05);overflow:hidden}
+.an-m i{display:block;height:100%;border-radius:0 2px 2px 0;background:var(--an-bar)}
+/* Тепловая карта: один тон, пять ступеней. */
+.an-heat{overflow-x:auto}
+.an-heat-g{display:grid;grid-template-columns:24px repeat(24,minmax(11px,1fr));gap:2px;min-width:330px}
+.an-heat-x{font-style:normal;font-size:.56rem;color:var(--soft);text-align:left}
+.an-heat-y{font-size:.62rem;color:var(--soft);line-height:16px}
+.an-hc{display:block;height:16px;padding:0;border:0;border-radius:3px;background:rgba(255,248,232,.05);cursor:default}
+.an-hc.l1{background:rgba(230,207,154,.2)}.an-hc.l2{background:rgba(230,207,154,.38)}.an-hc.l3{background:rgba(230,207,154,.56)}
+.an-hc.l4{background:rgba(230,207,154,.76)}.an-hc.l5{background:#e6cf9a}
+.an-hc:hover,.an-hc:focus-visible{outline:1px solid var(--ink);outline-offset:1px}
+.an-scale{display:flex;align-items:center;gap:3px;margin-top:10px;font-size:.66rem;color:var(--soft)}
+.an-scale .an-hc{width:16px;height:10px}
+.an-scale span{margin:0 4px}
+.an-two{display:grid;gap:0 14px}
+@media(min-width:720px){.an-two{grid-template-columns:1fr 1fr}.an-two>.an-card{min-width:0}}
+.an-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.an-st b{display:block;font-size:1.05rem;color:var(--ink)}
+.an-st span{font-size:.7rem;color:var(--soft);line-height:1.35}
+.an-bars{display:grid;gap:9px}
+.an-br{display:grid;grid-template-columns:minmax(90px,38%) 1fr auto;align-items:center;gap:10px;font-size:.78rem}
+.an-br .an-m{margin:0;height:8px}
+.an-br b{min-width:28px;text-align:right;font-variant-numeric:tabular-nums}
+.an-song{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.an-song:last-child{border-bottom:0}
+.an-song .n{flex:0 0 20px;color:var(--gold);font-weight:700;font-size:.8rem}
+.an-song div{flex:1;min-width:0}
+.an-song div b{display:block;font-size:.84rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.an-song div span{font-size:.72rem;color:var(--soft)}
+.an-song em{font-style:normal;font-size:.78rem;color:var(--soft)}
+.an-feed{list-style:none;display:grid;gap:0}
+.an-ev{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:.78rem}
+.an-ev:last-child{border-bottom:0}
+.an-ev time{grid-row:span 2;color:var(--soft);font-size:.72rem;font-variant-numeric:tabular-nums;white-space:nowrap}
+.an-ev b{color:var(--gold)}
+.an-ev em{font-style:normal;color:var(--soft);font-size:.72rem}
+.an-ev--paid span::before{content:'✓ ';color:var(--ok)}
+.an-danger{border-color:rgba(224,140,153,.28)}
+.an-danger-a{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+@media (prefers-reduced-motion: reduce){.an-bar{transition:none}}
 </style>
 </head>
 <body>
@@ -243,6 +388,7 @@ body{background:
 <script type="module">
 'use strict';
 import { escapeHtml as esc } from './sanitize.js';
+import { createAnalytics } from './analytics.js';
 const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
 if (tg) { tg.ready(); tg.expand(); }
 const $ = (id) => document.getElementById(id);
@@ -266,29 +412,15 @@ const I18N = {
     pmAdd:'+ Promokod qo‘shish', pmDel:'O‘chirish',
     pmDelAsk:(c,n)=>`${c} kodi ${n} ta arizada ishlatilgan. Ro‘yxatdan o‘chirilsinmi?`,
     pmEmpty:'Hozircha promokod yo‘q. Qo‘shing — juftlik uni to‘lov qadamida kiritadi.',
-    hUsers:'Foydalanuvchilar',
-    uAll:'Jami odam', uDraft:'Qoralama bor', uStuck:'Tashlab ketilgan', uOrdered:'Ariza qoldirgan',
-    uBuyers:'To‘lagan', uToday:'Bugun kelgan', uWeek:'7 kunda', uBot:'Botni ochgan', uStudio:'Studiyani ochgan',
-    uSteps:'Qoralamalar qaysi qadamda qolgan', uStep:'qadam', uNoDrafts:'Tugallanmagan qoralama yo‘q',
     txNote:'Bot yuboradigan har bir xabar shu yerda. Maydonni bo‘sh qoldirsangiz — zavod matni qaytadi. '
       + 'Jingalak qavsdagi {o‘zgaruvchilar} yuborishda almashadi, ularni o‘zgartirmang.',
     txVars:'O‘zgaruvchilar:', txReset:'Zavod matni', txSave:'Matnlarni saqlash', txDefault:'zavod matni',
-    kAll:'Jami arizalar', kPaid:'To‘langan', kNew:'Kutilmoqda', kCancel:'Rad etilgan',
-    kRev:'Tushum', kConv:'Konversiya', kAvg:'O‘rtacha chek', kGuests:'Nomli havolalar', kGuestRev:'Ulardan tushum',
-    hTpl:'Shablonlar', hDays:'So‘nggi kunlar', hMusic:'Top musiqa', hOrders:'Buyurtmalar',
-    hSources:'Qayerdan kelishmoqda', hPromoUse:'Promokodlar ishda', hRefs:'Kim kimni olib keldi',
-    srcNote:'Havoladagi belgi bo‘yicha: bot havolasiga ?start=BELGI qo‘shsangiz, o‘sha belgi shu yerda paydo bo‘ladi. Belgilar paydo bo‘lishidan oldingi arizalar «O‘zi kelgan» ichida.',
-    srcPeople:'odam:', srcOrders:'ariza:', srcPaid:'to‘langan:', srcConv:'konversiya',
-    srcDirect:'O‘zi kelgan', srcSite:'nvate.uz sayti', srcQr:'Saytdagi QR', srcRef:'Juftlik taklifi bilan',
-    srcMark:'belgi',
-    pmOrders:'ariza:', pmPaidN:'to‘langan:', pmGiven:'chegirma berildi',
-    refInvited:'olib kelgan', refOrdered:'ariza qoldirgan:', refPaid:'to‘lagan:',
-    refNote:'Juftlik o‘z havolasini botdan /invite buyrug‘i bilan oladi. ?start=ref<id> belgisi hisobni o‘zi yuritadi.',
-    noSources:'Hali belgilar yo‘q', noPromoUse:'Promokodlar hali ishlatilmagan', noRefs:'Hali hech kim hech kimni olib kelmagan',
-    legReq:'Arizalar', legPaid:'To‘langan',
     stNew:'⏳ Kutilmoqda', stPaid:'✅ Tayyor', stCancel:'✖ Rad etilgan',
-    confBy:'Tasdiqladi', proof:'Chek', noMusic:'Katalogdan musiqa hali tanlanmagan',
+    confBy:'Tasdiqladi', proof:'Chek',
     noData:'Hozircha ma’lumot yo‘q', noOrders:'Hozircha buyurtmalar yo‘q',
+    chWeb:'🌐 Sayt', chTg:'✈️ Bot', fWeb:'Saytdan',
+    tgLinked:'Telegram ulangan', tgWait:'Telegram ulanmagan — havola saytda ko‘rinadi',
+    payOkWeb:'Tasdiqlandi. Juftlik Telegram’ni hali ulamagan: havola saytda ko‘rinadi, botni ochishi bilan hammasi u yerga ham keladi.',
     sent:'yuborildi', notSent:'yuborilmagan',
     forbidden:'Faqat administrator uchun. Botdagi tugma orqali oching.',
     loadErr:'Yuklashda xato. Qayta urinib ko‘ring.',
@@ -333,29 +465,15 @@ const I18N = {
     pmAdd:'+ Добавить промокод', pmDel:'Удалить',
     pmDelAsk:(c,n)=>`Код ${c} уже применён в заявках: ${n}. Убрать его из списка?`,
     pmEmpty:'Промокодов пока нет. Добавьте — пара введёт его на шаге оплаты.',
-    hUsers:'Пользователи',
-    uAll:'Всего людей', uDraft:'С черновиком', uStuck:'Бросили на полпути', uOrdered:'Дошли до заявки',
-    uBuyers:'Оплатили', uToday:'Пришли сегодня', uWeek:'За 7 дней', uBot:'Открыли бот', uStudio:'Открыли студию',
-    uSteps:'На каком шаге стоят черновики', uStep:'шаг', uNoDrafts:'Незаконченных черновиков нет',
     txNote:'Здесь всё, что бот отправляет сообщением. Пустое поле возвращает заводской текст. '
       + '{Переменные} в фигурных скобках подставляются при отправке — их лучше не трогать.',
     txVars:'Переменные:', txReset:'Заводской текст', txSave:'Сохранить тексты', txDefault:'заводской текст',
-    kAll:'Всего заявок', kPaid:'Оплачено', kNew:'Ожидают', kCancel:'Отклонено',
-    kRev:'Выручка', kConv:'Конверсия', kAvg:'Средний чек', kGuests:'Именных ссылок', kGuestRev:'Из них выручка',
-    hTpl:'Шаблоны', hDays:'Последние дни', hMusic:'Топ музыки', hOrders:'Заказы',
-    hSources:'Откуда приходят', hPromoUse:'Промокоды в деле', hRefs:'Кто кого привёл',
-    srcNote:'Считаем по метке в ссылке: добавьте к адресу бота ?start=МЕТКА — и метка появится здесь. Удобно для рекламы: ig, tiktok, banner. Заявки, оформленные до появления меток, лежат в «Пришли сами».',
-    srcPeople:'людей:', srcOrders:'заявок:', srcPaid:'оплачено:', srcConv:'конверсия',
-    srcDirect:'Пришли сами', srcSite:'Сайт nvate.uz', srcQr:'QR с сайта', srcRef:'По приглашению пары',
-    srcMark:'метка',
-    pmOrders:'заявок:', pmPaidN:'оплачено:', pmGiven:'отдано скидкой',
-    refInvited:'приведено', refOrdered:'дошли до заявки:', refPaid:'оплатили:',
-    refNote:'Свою ссылку пара берёт в боте командой /invite. Метка ?start=ref<id> ведёт учёт сама, даже если ссылку никто не раздавал.',
-    noSources:'Меток пока нет', noPromoUse:'Промокоды ещё не применяли', noRefs:'Пока никто никого не привёл',
-    legReq:'Заявки', legPaid:'Оплачено',
     stNew:'⏳ Ожидает', stPaid:'✅ Готово', stCancel:'✖ Отклонено',
-    confBy:'Подтвердил', proof:'Чек', noMusic:'Музыку из каталога пока не выбирали',
+    confBy:'Подтвердил', proof:'Чек',
     noData:'Пока нет данных', noOrders:'Пока нет заказов',
+    chWeb:'🌐 Сайт', chTg:'✈️ Бот', fWeb:'С сайта',
+    tgLinked:'Telegram подключён', tgWait:'Telegram не подключён — ссылку пара видит на сайте',
+    payOkWeb:'Подтверждено. Пара ещё не подключила Telegram: ссылка видна ей на сайте, а как только она откроет бота — всё придёт и туда.',
     sent:'отправлено', notSent:'не отправлено',
     forbidden:'Только для администратора. Откройте через кнопку в боте.',
     loadErr:'Ошибка загрузки. Попробуйте ещё раз.',
@@ -394,15 +512,13 @@ if (TAB === 'music') TAB = 'overview';
 let FILTER = 'all';
 let proofObjectUrls = [];
 
-/* Шаги студии по порядку — тот же список, что и STEPS в public/app/app.js.
-   Номер шага приходит с автосохранением черновика. */
-const STEP_NAMES = {
-  uz:['Ismlar','Sana','Manzil','Musiqa','Shablon','Suratlar','Ko‘rish','Mehmonlar','Aloqa'],
-  ru:['Имена','Дата','Локация','Музыка','Шаблон','Фото','Просмотр','Гости','Контакты'],
-};
-const stepName = (i) => STEP_NAMES[LANG][i] || `${t('uStep')} ${i + 1}`;
-
-function kpi(v, l, cls, badge){ return `<div class="kpi ${cls||''}"><div class="v">${esc(v)}</div><div class="l">${esc(l)}</div>${badge||''}</div>`; }
+// «Показатели» — свой модуль со своим периодом и запросом (public/admin/analytics.js).
+const AN = createAnalytics({
+  esc,
+  lang: () => LANG,
+  initData,
+  onOrders: () => { TAB = 'orders'; FILTER = 'new'; localStorage.setItem('nv_admin_tab', TAB); render(); },
+});
 
 function statusBadge(s){
   if (s==='paid') return `<span class="badge b-paid">${t('stPaid')}</span>`;
@@ -414,146 +530,6 @@ function templateNames(){
   const names = Object.create(null);
   for (const x of (DATA?.templates||[])) names[x.id]=x.name;
   return names;
-}
-
-/* ── Вкладка «Показатели» ── */
-function renderOverview(){
-  const s = DATA.stats, T = s.totals, names = templateNames();
-  let h = '<div class="kpis">';
-  h += kpi(T.all, t('kAll'));
-  h += kpi(T.paid, t('kPaid'), '', '<span class="badge b-paid">✓</span>');
-  h += kpi(T.new, t('kNew'), '', '<span class="badge b-new">⏳</span>');
-  h += kpi(T.cancelled, t('kCancel'), '', '<span class="badge b-cnl">✕</span>');
-  h += '</div><div class="kpis" style="margin-top:12px">';
-  h += kpi(money(T.revenue), t('kRev'), 'k-rev wide');
-  h += kpi(T.conversion+'%', t('kConv'));
-  h += kpi(money(T.avgCheck), t('kAvg'));
-  h += '</div><div class="kpis" style="margin-top:12px">';
-  h += kpi(s.guestLinks, t('kGuests'));
-  h += kpi(money(s.premiumRevenue), t('kGuestRev'), 'k-rev');
-  h += '</div>';
-
-  h += renderUsers();
-
-  const maxT = Math.max(1, ...s.templates.map(x=>x.count));
-  h += `<h2>${esc(t('hTpl'))}</h2><div class="card">`;
-  if (!s.templates.length) h += `<div class="empty">${esc(t('noData'))}</div>`;
-  for (const x of s.templates) h += `<div class="row"><div class="nm">${esc(names[x.id]||x.id)}</div>
-    <div class="track"><div class="fill" style="width:${(x.count/maxT*100).toFixed(1)}%"></div></div>
-    <div class="val">${esc(x.count)} · ${esc(money(x.revenue))}</div></div>`;
-  h += '</div>';
-
-  h += `<h2>${esc(t('hDays'))}</h2><div class="card">`;
-  if (!s.byDay.length) h += `<div class="empty">${esc(t('noData'))}</div>`;
-  else {
-    const maxD = Math.max(1, ...s.byDay.map(d=>d.count));
-    h += '<div class="days">';
-    for (const d of s.byDay){ const hh=(d.count/maxD*100).toFixed(0); const ph=d.count?(d.paid/d.count*100).toFixed(0):0;
-      h += `<div class="day" title="${esc(`${d.day}: ${d.count} / ${d.paid}`)}"><div class="bar" style="height:${hh}%"><div class="paid" style="height:${ph}%"></div></div><div class="d">${esc(String(d.day).slice(5))}</div></div>`; }
-    h += `</div><div class="legend"><span><i class="dot" style="background:var(--mist)"></i>${esc(t('legReq'))}</span><span><i class="dot" style="background:var(--lilac)"></i>${esc(t('legPaid'))}</span></div>`;
-  }
-  h += '</div>';
-
-  h += renderAnalytics();
-
-  h += `<h2>${esc(t('hMusic'))}</h2><div class="card">`;
-  if (!s.topMusic.length) h += `<div class="empty">${esc(t('noMusic'))}</div>`;
-  s.topMusic.forEach((m,i)=>{ h += `<div class="mline"><span class="n">${i+1}</span><div class="t"><b>${esc(m.name)}</b><span>${esc(m.artist)}</span></div><span class="c">${esc(m.count)}×</span></div>`; });
-  h += '</div>';
-  return h;
-}
-
-/* ── Откуда приходят, что дают коды и кто кого привёл ──
-   Три вопроса, на которые раньше отвечать было нечем: заявка приходила без
-   родословной. Теперь метка живёт у человека и у заказа, а панель складывает
-   их в три списка. */
-
-const SOURCE_NAMES = { direct:'srcDirect', site:'srcSite', qr:'srcQr', ref:'srcRef', bot:'srcDirect', studio:'srcSite' };
-function sourceName(mark){
-  const key = SOURCE_NAMES[mark];
-  // Своя рекламная метка (ig, tiktok, banner) — показываем как есть.
-  return key ? t(key) : `${t('srcMark')}: ${mark}`;
-}
-
-function renderAnalytics(){
-  const a = DATA.analytics || { sources:[], promos:[], referrals:[] };
-  let h = `<h2>${esc(t('hSources'))}</h2><div class="card">`;
-  if (!a.sources.length) h += `<div class="empty">${esc(t('noSources'))}</div>`;
-  else {
-    const top = Math.max(1, ...a.sources.map(x=>x.revenue));
-    for (const x of a.sources){
-      h += `<div class="an">
-        <div class="nm">${esc(sourceName(x.source))}</div>
-        <div class="val">${esc(money(x.revenue))}</div>
-        <div class="sub">${esc(t('srcPeople'))} <b>${esc(x.people)}</b> · ${esc(t('srcOrders'))} <b>${esc(x.orders)}</b> · ${esc(t('srcPaid'))} <b>${esc(x.paid)}</b></div>
-        <div class="side">${esc(x.conversion)}% ${esc(t('srcConv'))}</div>
-        <div class="an-bar"><i style="width:${(x.revenue/top*100).toFixed(1)}%"></i></div>
-      </div>`;
-    }
-  }
-  h += `</div><p class="note">${esc(t('srcNote'))}</p>`;
-
-  h += `<h2>${esc(t('hPromoUse'))}</h2><div class="card">`;
-  if (!a.promos.length) h += `<div class="empty">${esc(t('noPromoUse'))}</div>`;
-  else {
-    for (const x of a.promos){
-      h += `<div class="an">
-        <div class="nm">${esc(x.code)}</div>
-        <div class="val">${esc(money(x.revenue))}</div>
-        <div class="sub">${esc(t('pmOrders'))} <b>${esc(x.orders)}</b> · ${esc(t('pmPaidN'))} <b>${esc(x.paid)}</b></div>
-        <div class="side">${x.discount ? `−${esc(money(x.discount))} ${esc(t('pmGiven'))}` : ''}</div>
-      </div>`;
-    }
-  }
-  h += '</div>';
-
-  h += `<h2>${esc(t('hRefs'))}</h2><div class="card">`;
-  if (!a.referrals.length) h += `<div class="empty">${esc(t('noRefs'))}</div>`;
-  else {
-    for (const x of a.referrals){
-      const who = x.username ? '@'+x.username : (x.name || `id ${x.id}`);
-      h += `<div class="an">
-        <div class="nm">${esc(who)}</div>
-        <div class="val">${esc(x.invited)}</div>
-        <div class="sub">${esc(t('refOrdered'))} <b>${esc(x.ordered)}</b> · ${esc(t('refPaid'))} <b>${esc(x.paid)}</b></div>
-        <div class="side">${esc(t('refInvited'))}</div>
-      </div>`;
-    }
-  }
-  h += `</div><p class="note">${esc(t('refNote'))}</p>`;
-  return h;
-}
-
-/* Люди, а не заявки: сколько всего заходило, у скольких висит незаконченный
-   черновик и на каком шаге они остановились. */
-function renderUsers(){
-  const u = DATA.users;
-  if (!u) return '';
-  let h = `<h2>${esc(t('hUsers'))}</h2><div class="kpis">`;
-  h += kpi(u.total, t('uAll'));
-  h += kpi(u.drafts, t('uDraft'), '', '<span class="badge b-new">✎</span>');
-  h += kpi(u.stuck, t('uStuck'));
-  h += kpi(u.ordered, t('uOrdered'));
-  h += '</div><div class="kpis" style="margin-top:12px">';
-  h += kpi(u.buyers, t('uBuyers'), '', '<span class="badge b-paid">✓</span>');
-  h += kpi(u.today, t('uToday'));
-  h += kpi(u.week, t('uWeek'));
-  h += '</div><div class="kpis" style="margin-top:12px">';
-  h += kpi(u.started, t('uBot'));
-  h += kpi(u.opened, t('uStudio'));
-  h += '</div>';
-
-  h += `<h2>${esc(t('uSteps'))}</h2><div class="card">`;
-  const steps = u.draftSteps || [];
-  if (!steps.length) h += `<div class="empty">${esc(t('uNoDrafts'))}</div>`;
-  else {
-    const max = Math.max(1, ...steps.map(x=>x.count));
-    for (const x of steps) h += `<div class="row"><div class="nm">${esc(stepName(x.step))}</div>
-      <div class="track"><div class="fill" style="width:${(x.count/max*100).toFixed(1)}%"></div></div>
-      <div class="val">${esc(x.count)}</div></div>`;
-  }
-  h += '</div>';
-  return h;
 }
 
 /* ── Вкладка «Тексты»: всё, что бот отправляет сообщением ── */
@@ -584,10 +560,11 @@ function renderTexts(){
 function renderOrders(){
   const names = templateNames();
   const all = DATA.orders || [];
-  const orders = FILTER==='all' ? all : all.filter(o=>o.status===FILTER);
+  const match = (o, key) => key==='all' || (key==='web' ? o.channel==='web' : o.status===key);
+  const orders = all.filter(o=>match(o, FILTER));
   let h = '<div class="filters">';
-  for (const [key,label] of [['all','fAll'],['new','fNew'],['paid','fPaid'],['cancelled','fCancel']]) {
-    const count = key==='all' ? all.length : all.filter(o=>o.status===key).length;
+  for (const [key,label] of [['all','fAll'],['new','fNew'],['paid','fPaid'],['cancelled','fCancel'],['web','fWeb']]) {
+    const count = all.filter(o=>match(o, key)).length;
     h += `<button data-filter="${key}" class="${FILTER===key?'on':''}">${esc(t(label))} · ${count}</button>`;
   }
   h += '</div>';
@@ -596,9 +573,17 @@ function renderOrders(){
 
   for (const o of orders){
     h += `<div class="order"><div class="order-h"><div><div class="nm">#${esc(o.id)} · ${esc(o.groom)} &amp; ${esc(o.bride)}</div>
-      <div class="order-meta">${esc(o.date)} · ${esc(names[o.templateId]||o.templateId)} · ${esc(money(o.total))}</div></div>${statusBadge(o.status)}</div>`;
-    const contacts = [o.contactTg ? '@'+String(o.contactTg).replace(/^@/,'') : '', o.phone, o.phone2].filter(Boolean);
-    if (contacts.length) h += `<div class="order-contacts">${esc(t('contacts'))}: ${esc(contacts.join(' · '))}</div>`;
+      <div class="order-meta">${esc(o.channel==='web'?t('chWeb'):t('chTg'))} · ${esc(o.date)} · ${esc(names[o.templateId]||o.templateId)} · ${esc(money(o.total))}</div></div>${statusBadge(o.status)}</div>`;
+    const contacts = [o.phone, o.phone2].filter(Boolean);
+    const tgName = String(o.contactTg || '').replace(/^@/,'');
+    if (contacts.length || tgName) {
+      h += `<div class="order-contacts">${esc(t('contacts'))}: ${esc(contacts.join(' · '))}${contacts.length && tgName ? ' · ' : ''}`
+        + (tgName ? `<a href="https://t.me/${encodeURIComponent(tgName)}" target="_blank" rel="noopener">@${esc(tgName)}</a>` : '') + '</div>';
+    }
+    // Заказ с сайта: пока пара не открыла бота по своей ссылке, писать ей в Telegram некуда.
+    if (o.channel==='web' && o.status!=='cancelled') {
+      h += `<div class="order-tg ${o.linked?'on':''}">${esc(o.linked ? `${t('tgLinked')}${o.tgUsername ? ' · @'+o.tgUsername : ''}` : t('tgWait'))}</div>`;
+    }
     // Скидка уже внутри суммы заказа: показываем, откуда она такая.
     if (o.discount > 0) h += `<div class="order-promo">🎟 ${esc(o.promo || '')} · −${esc(money(o.discount))}</div>`;
     if (o.status==='paid' && (o.confirmedByName || o.paidAt)) {
@@ -910,7 +895,8 @@ function render(){
     : TAB==='promos' ? renderPromos()
     : TAB==='venues' ? renderVenues()
     : TAB==='texts' ? renderTexts()
-    : renderOverview();
+    : AN.render();
+  if (TAB==='overview') AN.ensure(render);
   if (TAB==='orders') loadProofs();
   if (TAB==='venues'){
     vnMap = null;
@@ -986,6 +972,7 @@ async function load(){
     const data = await res.json();
     if (!res.ok || !data.ok) throw new Error();
     DATA = data;
+    if (TAB==='overview' && AN.hasData()) AN.load(render);
     try {
       const catalog = await (await fetch('/api/admin/venues', { headers:{ 'X-Init-Data': initData() } })).json();
       DATA.venues = catalog.ok ? catalog.venues : [];
@@ -1010,7 +997,7 @@ async function act(id, kind){
     });
     const data = await res.json();
     if (!res.ok || !data.ok) throw new Error(data.error || 'error');
-    alert(kind==='pay' ? t('payOk') : t('cancelOk'));
+    alert(kind==='pay' ? t(data.web && !data.delivered ? 'payOkWeb' : 'payOk') : t('cancelOk'));
     await load();
   } catch(e){
     alert(e.message || t('loadErr'));
@@ -1086,6 +1073,7 @@ document.addEventListener('change', (e)=>{
 });
 
 document.addEventListener('click', (e)=>{
+  if (TAB==='overview' && AN.click(e, render)) return;
   const tab = e.target.closest('#tabs button');
   if (tab){ TAB = tab.dataset.tab; localStorage.setItem('nv_admin_tab', TAB); render(); return; }
   const filter = e.target.closest('[data-filter]');
@@ -1177,6 +1165,7 @@ function applyLang(){
 }
 document.querySelectorAll('.lang-switch button').forEach(b=>b.addEventListener('click',()=>{ LANG=b.dataset.lang; localStorage.setItem('nv_admin_lang',LANG); applyLang(); }));
 $('refresh').addEventListener('click', load);
+AN.wireTips($('content'));
 applyLang();
 load();
 </script>

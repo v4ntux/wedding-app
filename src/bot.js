@@ -2,10 +2,10 @@ import { Bot, InlineKeyboard, InputFile } from 'grammy';
 import { writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
-import { payApplication, cancelApplication, ValidationError, mapsLinks } from './service.js';
+import { payApplication, cancelApplication, ValidationError, mapsLinks, claimByCode, claimByUsername, CLAIM_CODE_RE } from './service.js';
 import { findMusicPreset, SUPPORT_URL, ADDONS, GUEST_LINK_PRICE, MAX_PHOTOS, RUNTIME } from './config.js';
 import { findTemplate, publicTemplates } from './templateStore.js';
-import { markMainSent, markGuestSent, getApplication, listGuests, refreshSettings, trackByTelegram, getApplicationBySlug, getGuestById, setGuestMessage, touchUser } from './db.js';
+import { markMainSent, markGuestSent, getApplication, listGuests, refreshSettings, trackByTelegram, getApplicationBySlug, getGuestById, setGuestMessage, touchUser, logEvent, unclaimedByUsername } from './db.js';
 import { text, textLang } from './texts.js';
 import { UPLOADS_DIR } from './upload.js';
 import { escapeHtml as esc } from './render.js';
@@ -97,7 +97,15 @@ export function buildAdminText(app, { baseUrl, guests = [], musicTitle = null } 
   // Скидка уже внутри итога: показываем, откуда он такой.
   if (app.discount > 0) lines.push(`🎟 Промокод ${esc(app.promo_code ?? '')} (−${money(app.discount)})`);
   lines.push(`💰 Итого: <b>${money(app.total_price)}</b>`);
-  lines.push(`👤 От: ${app.tg_username ? '@' + esc(app.tg_username) : ''} (id ${app.tg_user_id})`);
+  /* Заказ с сайта: пока пара не открыла бота по своей ссылке, Telegram у нас
+     только тот, что она вписала сама (если вписала). */
+  if (app.web_owner != null) {
+    lines.push(Number(app.tg_user_id) > 0
+      ? `🌐 С сайта · Telegram подключён: ${app.tg_username ? '@' + esc(app.tg_username) : ''} (id ${app.tg_user_id})`
+      : '🌐 С сайта · Telegram ещё не подключён — ссылку пара увидит на сайте');
+  } else {
+    lines.push(`👤 От: ${app.tg_username ? '@' + esc(app.tg_username) : ''} (id ${app.tg_user_id})`);
+  }
   if (app.contact_tg) lines.push(`📨 Telegram: @${esc(app.contact_tg)}`);
   if (app.phone) lines.push(`📞 ${esc(app.phone)}`);
   if (app.phone2) lines.push(`📞 Доп.: ${esc(app.phone2)}`);
@@ -167,6 +175,78 @@ export function createBot({ token, adminIds = [], baseUrl }) {
   // Любое касание бота заводит человека в статистике — не только /start.
   bot.use(async (ctx, next) => { seen(ctx); await next(); });
 
+  const toAdmins = async (body) => {
+    for (const id of adminIds) {
+      try { await bot.api.sendMessage(id, body, { parse_mode: 'HTML', link_preview_options: { is_disabled: true } }); }
+      catch (e) { console.error(`[bot] admin ${id} notify failed:`, e.message ?? e); }
+    }
+  };
+
+  /* ── Заказ с сайта забирают в Telegram ──
+     Пара оформила приглашение на nvate.uz и нажала «Получить в Telegram»:
+     ссылка t.me/<бот>?start=<код> приводит её сюда. Заказ переезжает на её
+     Telegram: оплаченный — сразу всем набором (QR, ссылка, именные ссылки),
+     неоплаченный — обещанием прислать, как только оплату подтвердят. */
+  async function deliverClaimed(ctx, result) {
+    const from = ctx.from;
+    if (result.status === 'foreign') {
+      await ctx.reply(text('claimForeign'), { parse_mode: 'HTML' });
+      return;
+    }
+    for (const app of result.apps) {
+      const couple = `${esc(app.groom_name)} &amp; ${esc(app.bride_name)}`;
+      if (app.status === 'paid' && app.slug) {
+        await ctx.reply(textLang('claimReady', app.lang, { couple, id: app.id }), { parse_mode: 'HTML' });
+        try { await notifyCouplePaid(ctx.api, app); }
+        catch (e) { console.error('[bot] claimed delivery failed:', e.message ?? e); }
+      } else if (app.status === 'cancelled') {
+        await ctx.reply(textLang('cancelled', app.lang));
+      } else {
+        await ctx.reply(textLang('claimWait', app.lang, { couple, id: app.id }), { parse_mode: 'HTML' });
+      }
+    }
+    if (result.status !== 'claimed') return;
+    const who = from.username ? `@${esc(from.username)}` : esc(from.first_name ?? '');
+    await toAdmins(result.apps.map((app) => `🔗 Заявка #${app.id} с сайта подключила Telegram: ${who} (id ${from.id})`).join('\n'));
+  }
+
+  async function claimFromStart(ctx, payload) {
+    const code = String(payload ?? '').trim().toLowerCase();
+    if (!CLAIM_CODE_RE.test(code) || !ctx.from?.id) return false;
+    const result = await claimByCode(code, ctx.from);
+    if (!result) return false;
+    // Пришли с сайта: так и запишем, чтобы источник не стал кодом заказа.
+    seen(ctx, null, 'site');
+    await deliverClaimed(ctx, result);
+    return true;
+  }
+
+  /* Пара вписала на сайте свой username, а бота открыла без ссылки: узнаём
+     её и предлагаем забрать заказ кнопкой. */
+  async function offerByUsername(ctx) {
+    const username = ctx.from?.username;
+    if (!username) return;
+    for (const app of await unclaimedByUsername(username)) {
+      const uz = app.lang !== 'ru';
+      await ctx.reply(textLang('claimAsk', app.lang, {
+        couple: `${esc(app.groom_name)} &amp; ${esc(app.bride_name)}`, id: app.id, username: esc(username),
+      }), {
+        parse_mode: 'HTML',
+        reply_markup: new InlineKeyboard().text(uz ? '✅ Ha, meniki' : '✅ Да, это мой', `claimu:${app.id}`),
+      });
+    }
+  }
+
+  bot.callbackQuery(/^claimu:(\d+)$/, async (ctx) => {
+    const result = await claimByUsername(Number(ctx.match[1]), ctx.from);
+    if (!result) {
+      return ctx.answerCallbackQuery({ text: 'Ariza topilmadi · Заявка не найдена', show_alert: true });
+    }
+    await ctx.answerCallbackQuery({ text: '✅' });
+    try { await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } }); } catch { /* уже снято */ }
+    await deliverClaimed(ctx, result);
+  });
+
   // Меню после выбора языка: одна большая кнопка «Заказать» (Web App) + Support/FAQ.
   function welcomeMenu(lang, fromId) {
     const uz = lang === 'uz';
@@ -204,11 +284,15 @@ export function createBot({ token, adminIds = [], baseUrl }) {
 
   // /start → выбор языка.
   bot.command(['start', 'menu'], async (ctx) => {
+    if (ctx.from?.id) logEvent(ctx.from.id, 'start').catch(() => {});
+    // Ссылка «забрать заказ с сайта» — своя дорога, не метка источника.
+    if (await claimFromStart(ctx, ctx.match)) return;
     // Метка из ссылки: /start site, /start qr, /start ref12345, /start ig.
     seen(ctx, null, ctx.match);
     await ctx.reply(text('langPrompt'), {
       reply_markup: new InlineKeyboard().text('O‘zbekcha 🇺🇿', 'lang:uz').text('Русский 🇷🇺', 'lang:ru'),
     });
+    await offerByUsername(ctx).catch((e) => console.error('[bot] username offer failed:', e.message ?? e));
   });
 
   bot.callbackQuery(/^lang:(uz|ru)$/, async (ctx) => {
@@ -264,9 +348,12 @@ export function createBot({ token, adminIds = [], baseUrl }) {
         parse_mode: 'HTML', link_preview_options: { is_disabled: true },
       });
       await ctx.answerCallbackQuery({ text: 'Заявка отклонена' });
-      try {
-        await ctx.api.sendMessage(app.tg_user_id, textLang('cancelled', app.lang));
-      } catch { /* пара могла заблокировать бота */ }
+      // Заказ с сайта без Telegram: писать некуда, пара увидит статус на сайте.
+      if (Number(app.tg_user_id) > 0) {
+        try {
+          await ctx.api.sendMessage(app.tg_user_id, textLang('cancelled', app.lang));
+        } catch { /* пара могла заблокировать бота */ }
+      }
     } catch (e) {
       const reason = e instanceof ValidationError ? e.message : 'Ошибка, попробуйте ещё раз';
       if (!(e instanceof ValidationError)) console.error('[bot] cancel error:', e);
@@ -297,7 +384,12 @@ export function createBot({ token, adminIds = [], baseUrl }) {
         link_preview_options: { is_disabled: true },
       });
       try {
-        await notifyCouplePaid(ctx.api, app, guests);
+        const { delivered } = await notifyCouplePaid(ctx.api, app, guests);
+        if (!delivered) {
+          const contacts = [app.phone, app.contact_tg ? '@' + app.contact_tg : ''].filter(Boolean).join(' · ');
+          await ctx.reply(`🌐 Пара заказывала на сайте и ещё не открыла бота: ссылка уже видна ей на сайте. `
+            + `Как только она нажмёт «Получить в Telegram», бот сам пришлёт QR и ссылки.${contacts ? `\n📞 ${contacts}` : ''}`);
+        }
       } catch (e) {
         console.error('[bot] notify couple failed:', e);
         await ctx.reply(`⚠️ Не удалось уведомить пару (id ${app.tg_user_id}). Ссылка: ${baseUrl}/${app.slug}`);
@@ -613,7 +705,10 @@ export function createBot({ token, adminIds = [], baseUrl }) {
     });
   });
 
+  /* Возвращает { delivered }: заказ с сайта, ещё не привязанный к Telegram
+     (tg_user_id < 0), доставить некуда — его заберут по ссылке позже. */
   async function notifyCouplePaid(api, app) {
+    if (!(Number(app.tg_user_id) > 0)) return { delivered: false };
     const uz = app.lang !== 'ru';
     const chat = app.tg_user_id;
     const link = `${baseUrl}/${app.slug}`;
@@ -643,7 +738,7 @@ export function createBot({ token, adminIds = [], baseUrl }) {
       { ...quiet, reply_markup: main });
 
     const guests = await listGuests(app.id);
-    if (!guests.length) return;
+    if (!guests.length) return { delivered: true };
     await api.sendMessage(chat, textLang('guestsIntro', app.lang, { count: guests.length }), { parse_mode: 'HTML' });
     /* Одно нажатие на гостя. Раньше без инлайн-режима кнопка вела в бота: он
        присылал ещё одно сообщение, и только там была «Поделиться» — два
@@ -662,6 +757,7 @@ export function createBot({ token, adminIds = [], baseUrl }) {
       const sent = await api.sendMessage(chat, guestCard(app, guest), { ...quiet, reply_markup: keyboard });
       if (inline) await setGuestMessage(guest.id, sent.message_id);
     }
+    return { delivered: true };
   }
 
   // Тем же сообщением пара получает ссылку, если оплату подтвердили из

@@ -8,6 +8,12 @@ const { $, h, debounce, toast, sheet, stageRest, haptic, tg } = UI;
 
 if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#100b03'); } catch (_) { /* старый клиент */ } }
 
+/* Где открыта студия. Скрипт Telegram создаёт WebApp и в обычном браузере,
+   но подпись initData есть только внутри клиента. Вне него это сайт
+   nvate.uz/app: пару узнаёт cookie сессии, а готовую ссылку она забирает
+   на этой же странице или кнопкой «Получить в Telegram». */
+const IN_TG = Boolean(tg?.initData);
+
 /* Тег сборки из разметки. Всё, что студия догружает сама, идёт с ним же:
    у браузера тогда один адрес на версию, и держать файл можно вечно. */
 const BUILD = document.querySelector('meta[name="nv-build"]')?.content || '';
@@ -37,6 +43,7 @@ const state = {
   sending: false,
   submitted: false,     // заявка ушла: студия под экраном «Готово» уже чужая
   submissionKey: null,   // ключ идемпотентности заявки, живёт вместе с черновиком
+  order: null,          // отправленная заявка: { id, status, url, card, claimUrl, telegram }
 };
 
 const DRAFT = 'nv_draft_v4';
@@ -54,6 +61,7 @@ const saveDraft = debounce(() => {
       guestsOn: state.guestsOn, guests: state.guests,
       promo: state.promo,
       phone: $('phone').value,
+      contactTg: $('contact-tg').value,
       open: state.open, seenInvite: state.seenInvite,
       submissionKey: state.submissionKey,
     }));
@@ -69,22 +77,52 @@ function clearDraft() {
   pingSession(null);
 }
 
-/* Отметка в статистике: кто открыл студию и на каком шаге стоит черновик.
-   Шлём только при смене шага — автосохранение срабатывает на каждый ввод. */
+/* Метка, с которой пришли на сайт: ?s=ig в адресе или сайт-источник.
+   Внутри Telegram метку ставит сам бот (/start ig). */
+function entryMark() {
+  if (IN_TG) return null;
+  const q = new URLSearchParams(location.search);
+  const raw = q.get('s') || q.get('src') || q.get('utm_source') || q.get('ref') || '';
+  if (/^[a-z0-9_-]{1,32}$/i.test(raw)) return raw.toLowerCase();
+  let host = '';
+  try { host = new URL(document.referrer).hostname.replace(/^www\./, ''); } catch (_) { return null; }
+  if (!host || host === location.hostname) return null;
+  const known = [[/instagram/, 'ig'], [/(^|\.)t\.me$|telegram/, 'tg'], [/google\./, 'google'],
+    [/facebook|(^|\.)fb\./, 'fb'], [/tiktok/, 'tiktok'], [/youtube|youtu\.be/, 'yt'], [/yandex/, 'yandex']];
+  for (const [re, mark] of known) if (re.test(host)) return mark;
+  return (host.split('.').slice(-2, -1)[0] || '').replace(/[^a-z0-9_-]/g, '').slice(0, 32) || null;
+}
+
+/* Первый запрос студии. Он отмечает, что студию открыли, а на сайте ещё и
+   заводит паре сессию (cookie): без неё фото, музыка и заявка не пройдут.
+   Шлём его сразу при загрузке, пока пара смотрит на экран языка, — к первому
+   делу он давно готов. */
+let sessionReady = null;
+function openSession() {
+  if (!sessionReady) {
+    sessionReady = fetch('/api/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData: tg ? tg.initData : '', boot: true, src: entryMark() }),
+    }).then((r) => r.json()).catch(() => null);
+  }
+  return sessionReady;
+}
+
+/* Отметка в статистике: на каком шаге стоит черновик. Шлём только при смене
+   шага — автосохранение срабатывает на каждый ввод. */
 let lastPing = 'init';
 function pingSession(step) {
   const value = Number.isInteger(step) ? step : null;
   const mark = String(value);
   if (mark === lastPing) return;
   lastPing = mark;
-  try {
-    fetch('/api/session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ initData: tg ? tg.initData : '', step: value, lang: LANG }),
-      keepalive: true,
-    }).catch(() => { /* статистика не должна мешать студии */ });
-  } catch (_) { /* — */ }
+  openSession().then(() => fetch('/api/session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ initData: tg ? tg.initData : '', step: value, lang: LANG }),
+    keepalive: true,
+  })).catch(() => { /* статистика не должна мешать студии */ });
 }
 
 function restoreDraft() {
@@ -96,6 +134,7 @@ function restoreDraft() {
   $('bride').value = d.bride || '';
   $('address').value = d.address || '';
   $('phone').value = d.phone || '';
+  $('contact-tg').value = typeof d.contactTg === 'string' ? d.contactTg : '';
   state.dateIso = d.dateIso || null;
   state.time = /^(1[5-9]|2[0-2]):(00|15|30|45)$/.test(d.time) ? d.time : '17:00';
   state.timeConfirmed = Boolean(d.timeConfirmed);
@@ -172,8 +211,12 @@ const I18N = {
 
     eContact: 'To‘lov', tContact: 'Oxirgi qadam',
     leadContact: 'Telegram’ingiz bizda bor. Faqat raqamingizni qoldiring.',
+    leadContactWeb: 'Raqamingizni qoldiring. Telegram’ingizni ham yozsangiz, tayyor havolani o‘sha yerga ham yuboramiz.',
     phoneLbl: 'Telefon raqam',
+    tgLbl: 'Telegram username', optional: 'ixtiyoriy',
     contactRule: 'To‘lovni tasdiqlash uchun shu raqamga qo‘ng‘iroq qilamiz.',
+    contactRuleWeb: 'Raqamga to‘lovni tasdiqlash uchun qo‘ng‘iroq qilamiz. Havola esa shu sahifada paydo bo‘ladi — Telegram shart emas.',
+    eTg_: 'Username — lotin harflari, raqam va _ (masalan, ali_zebo)',
     total: 'Jami', sum: 'so‘m',
     promoApply: 'Qo‘llash', promoPh: 'Promokod',
     promoBill: 'Promokod', promoDrop: 'Promokodni olib tashlash',
@@ -186,13 +229,20 @@ const I18N = {
     doneFreeText: 'To‘lov kerak emas — havola sizniki. U botga ham keldi, mehmon ismlari bilan birga.',
     doneOpen: 'Taklifnomani ochish', doneCopy: 'Nusxalash',
     doneText: 'To‘lovni tasdiqlaymiz va toza havola botga keladi. Odatda bu 10 daqiqagacha vaqt oladi.',
+    doneWebText: 'To‘lovni tasdiqlashimiz bilan havola shu sahifada paydo bo‘ladi. Uni Telegram’da ham olsa bo‘ladi — QR-kartochka va mehmonlar havolalari bilan.',
+    donePaidText: 'To‘lov tasdiqlandi. Havola sizniki — mehmonlarga ulashing.',
+    doneCancelText: 'Ariza rad etildi. Yordamga yozing — birga hal qilamiz.',
+    doneWait: 'To‘lov tasdiqlanishi kutilmoqda', donePaid: 'To‘lov tasdiqlandi', doneCancel: 'Ariza rad etildi',
+    doneCard: 'QR-kartochkani yuklab olish',
+    doneTg: 'Havolani Telegram’da olish', doneTgAlso: 'Telegram’ga ham yuborish',
+    doneTgHint: 'Bir bosish — bot arizani taniydi va tayyor bo‘lishi bilan hammasini yuboradi.',
+    doneTgHintPaid: 'Bot QR-kartochkani va mehmonlar havolalarini «Ulashish» tugmalari bilan yuboradi.',
+    doneTgScan: 'Yoki telefon kamerasini shu kodga to‘g‘rilang',
+    doneTgLinked: 'Telegram ulandi — havola botga ham keladi',
     mineTitle: 'Mening taklifnomalarim',
-
-    gateTitle: 'Studiya Telegram’da ochiladi',
-    gateText: 'Taklifnoma botimizda yig‘iladi: suratlar shu yerda yuklanadi, qo‘shiq tanlanadi va tayyor havola ham o‘sha yerga keladi.',
-    gateOpen: 'Telegram’da ochish',
-    gateScan: 'Yoki telefon kamerasini shu kodga to‘g‘rilang',
-    gateWhy: 'Bu bepul: bot xuddi shu studiyani ochadi.',
+    mineEmpty: 'Hozircha taklifnoma yo‘q', mineGuests: 'Mehmonlar havolalari', mineTg: 'Telegram’da olish',
+    mineStatus: { new: 'To‘lov kutilmoqda', paid: 'Tayyor', cancelled: 'Rad etilgan' },
+    botAria: 'Telegram bot',
 
     add: 'Qo‘shish', lookDone: 'Ko‘rib chiqdim', nextCue: 'Keyingi bosqich',
     nextUp: 'Keyingi bosqich ochildi',
@@ -272,8 +322,12 @@ const I18N = {
 
     eContact: 'Оплата', tContact: 'Последний шаг',
     leadContact: 'Ваш Telegram у нас уже есть. Оставьте только номер.',
+    leadContactWeb: 'Оставьте номер. Впишите и Telegram — пришлём готовую ссылку и туда.',
     phoneLbl: 'Номер телефона',
+    tgLbl: 'Username в Telegram', optional: 'по желанию',
     contactRule: 'Позвоним по нему, чтобы подтвердить оплату.',
+    contactRuleWeb: 'По номеру позвоним, чтобы подтвердить оплату. Ссылка появится на этой странице — Telegram не обязателен.',
+    eTg_: 'Username — латиница, цифры и _ (например, ali_zebo)',
     total: 'Итого', sum: 'сум',
     promoApply: 'Применить', promoPh: 'Промокод',
     promoBill: 'Промокод', promoDrop: 'Снять промокод',
@@ -286,13 +340,20 @@ const I18N = {
     doneFreeText: 'Платить нечего — ссылка уже ваша. Она пришла и в бот, вместе с именными ссылками гостей.',
     doneOpen: 'Открыть приглашение', doneCopy: 'Скопировать',
     doneText: 'Подтвердим оплату — и чистая ссылка придёт в бот. Обычно это занимает до 10 минут.',
+    doneWebText: 'Как только подтвердим оплату, ссылка появится на этой странице. Её можно забрать и в Telegram — вместе с QR-карточкой и ссылками для гостей.',
+    donePaidText: 'Оплата подтверждена. Ссылка ваша — делитесь с гостями.',
+    doneCancelText: 'Заявка отклонена. Напишите в поддержку — разберёмся вместе.',
+    doneWait: 'Ждём подтверждения оплаты', donePaid: 'Оплата подтверждена', doneCancel: 'Заявка отклонена',
+    doneCard: 'Скачать QR-карточку',
+    doneTg: 'Получить ссылку в Telegram', doneTgAlso: 'Отправить и в Telegram',
+    doneTgHint: 'Одно нажатие — бот узнает заявку и пришлёт всё, как только она будет готова.',
+    doneTgHintPaid: 'Бот пришлёт QR-карточку и ссылки для гостей с кнопками «Поделиться».',
+    doneTgScan: 'Или наведите камеру телефона на код',
+    doneTgLinked: 'Telegram подключён — ссылка придёт и в бот',
     mineTitle: 'Мои приглашения',
-
-    gateTitle: 'Студия открывается в Telegram',
-    gateText: 'Приглашение собирается в нашем боте: там загружаются фото, выбирается песня и туда же придёт готовая ссылка.',
-    gateOpen: 'Открыть в Telegram',
-    gateScan: 'Или наведите камеру телефона на код',
-    gateWhy: 'Это бесплатно: бот откроет ту же самую студию.',
+    mineEmpty: 'Приглашений пока нет', mineGuests: 'Ссылки для гостей', mineTg: 'Забрать в Telegram',
+    mineStatus: { new: 'Ждёт оплаты', paid: 'Готово', cancelled: 'Отклонено' },
+    botAria: 'Telegram-бот',
 
     add: 'Добавить', lookDone: 'Посмотрел', nextCue: 'Следующий шаг',
     nextUp: 'Следующий шаг открыт',
@@ -344,8 +405,10 @@ function applyI18n() {
   $('groom').setAttribute('aria-label', t('groom'));
   $('bride').setAttribute('aria-label', t('bride'));
   $('geo-q').placeholder = t('seekPlace');
-  $('done-title').textContent = t(state.readyUrl ? 'doneFreeTitle' : 'doneTitle');
-  $('done-text').textContent = t(state.readyUrl ? 'doneFreeText' : 'doneText');
+  document.querySelector('.blk[data-step="contact"] .blk-lead').textContent = t(IN_TG ? 'leadContact' : 'leadContactWeb');
+  $('contact-rule').textContent = t(IN_TG ? 'contactRule' : 'contactRuleWeb');
+  $('btn-bot').setAttribute('aria-label', t('botAria'));
+  if (state.submitted) showDone();
   $('promo-code').placeholder = t('promoPh');
   $('promo-code').setAttribute('aria-label', t('promoPh'));
   $('promo-drop').setAttribute('aria-label', t('promoDrop'));
@@ -1533,7 +1596,8 @@ const Music = window.NvMusic ? window.NvMusic.mount({
   root: $('music-card'),
   lang: () => LANG || 'uz',
   config: () => state.config?.music || null,
-  botUrl: () => state.config?.botUrl || null,
+  // Песни, присланные боту, принадлежат Telegram: на сайте их не увидеть.
+  botUrl: () => (IN_TG ? state.config?.botUrl || null : null),
   initData: () => (tg ? tg.initData : ''),
   selection: () => state.music,
   /* Кнопки «сохранить» нет: выбранная песня и её начало ложатся в черновик
@@ -2111,10 +2175,19 @@ function jumpTo(stepId, msg) {
   scrollToBlock(i);
 }
 
-// Телефон — единственное, чего бот о паре не знает.
+// Телефон — единственное, чего бот о паре не знает. На сайте к нему по
+// желанию добавляется username в Telegram.
 function contactsFilled() {
   return /\d{7}/.test($('phone').value.replace(/\D/g, ''));
 }
+
+/* Username так, как его вставляют: «@ali», «t.me/ali», «https://t.me/ali». */
+function tgUsername() {
+  return $('contact-tg').value.trim()
+    .replace(/^(?:https?:\/\/)?(?:www\.)?(?:t\.me|telegram\.me)\//i, '')
+    .replace(/^@+/, '').replace(/[/?#].*$/, '');
+}
+const tgUsernameOk = () => !tgUsername() || /^[A-Za-z][A-Za-z0-9_]{3,31}$/.test(tgUsername());
 
 /* Идемпотентность отправки: один черновик — один ключ. Повторный тап по
    «Оплатить» (или отправка после разрыва связи) не создаст вторую заявку. */
@@ -2153,12 +2226,15 @@ function collectForm() {
     guestNames: cleanGuests(),
     promoCode: state.promo?.code ?? null,
     phone: $('phone').value.trim(),
+    // В Telegram username приходит из подписи — поле есть только на сайте.
+    contactTg: IN_TG ? '' : tgUsername(),
   };
 }
 
 async function submit() {
   if (state.sending) return;
   if (!contactsFilled()) { showErr(8, t('eContact_')); return; }
+  if (!IN_TG && !tgUsernameOk()) { showErr(8, t('eTg_')); $('contact-tg').focus(); return; }
   clearErr(8);
   state.sending = true;
   const btn = $('submit');
@@ -2180,7 +2256,12 @@ async function submit() {
     state.submissionKey = null;   // следующая заявка получит собственный ключ
     // Платить было нечего: сервер подтвердил заявку сам и вернул готовую ссылку.
     state.readyUrl = typeof j.url === 'string' ? j.url : null;
+    state.order = {
+      id: j.id, status: j.status, url: state.readyUrl, card: j.card || null,
+      claimUrl: typeof j.claimUrl === 'string' ? j.claimUrl : null, telegram: IN_TG,
+    };
     showDone();
+    if (!IN_TG) watchOrder();
     haptic.ok();
     sparks();
     window.Sky?.flare(5);
@@ -2199,22 +2280,98 @@ function sparks() {
   fill($('sparks'), 'spark', 20, 5, 5);
 }
 
-/* Финал. Обычная заявка ждёт подтверждения оплаты, у бесплатной ссылка уже
-   готова — показываем её прямо здесь, рядом с той, что ушла в бот. */
+/* Финал. В Telegram обычная заявка ждёт подтверждения оплаты, а ссылка
+   придёт в бот; у бесплатной ссылка готова сразу и лежит прямо здесь.
+   На сайте экран живой: статус обновляется сам, ссылка появляется, как только
+   оплату подтвердили, а кнопка «Получить в Telegram» отдаёт заявку боту. */
 function showDone() {
+  const order = state.order || {};
   const url = state.readyUrl;
+  const web = !IN_TG;
+  const cancelled = order.status === 'cancelled';
   $('done-title').textContent = t(url ? 'doneFreeTitle' : 'doneTitle');
-  $('done-text').textContent = t(url ? 'doneFreeText' : 'doneText');
+  $('done-text').textContent = web
+    ? t(cancelled ? 'doneCancelText' : url ? 'donePaidText' : 'doneWebText')
+    : t(url ? 'doneFreeText' : 'doneText');
+
+  const status = $('done-status');
+  status.hidden = !web;
+  status.className = `done-status done-status--${cancelled ? 'cancel' : url ? 'paid' : 'wait'}`;
+  status.querySelector('span').textContent = t(cancelled ? 'doneCancel' : url ? 'donePaid' : 'doneWait');
+
   $('done-link').hidden = !url;
   $('done-open').hidden = !url;
+  $('done-card').hidden = !(web && url && order.card);
+  if (order.card) $('done-card').href = order.card;
+
+  // Забрать в Telegram можно, пока заявка ни к кому там не привязана.
+  const claim = web && !cancelled && !order.telegram && order.claimUrl;
+  $('done-tg').hidden = !claim;
+  $('done-tg-linked').hidden = !(web && order.telegram);
+  $('done-tg-linked').textContent = t('doneTgLinked');
+  if (claim) {
+    const go = $('done-tg-go');
+    go.href = order.claimUrl;
+    // Золото одно: пока ссылки нет, главная кнопка — Telegram.
+    go.classList.toggle('btn--gold', !url);
+    go.classList.toggle('btn--ghost', Boolean(url));
+    $('done-tg-label').textContent = t(url ? 'doneTgAlso' : 'doneTg');
+    document.querySelector('.done-tg-hint').textContent = t(url ? 'doneTgHintPaid' : 'doneTgHint');
+    const qr = $('done-tg-qr-img');
+    const src = `/api/my/${order.id}/claim.svg`;
+    if (qr.getAttribute('src') !== src) qr.src = src;
+    $('done-tg-qr').hidden = false;
+  }
+
   /* Золото на экране одно: главная кнопка — «открыть приглашение», список
      заявок рядом с ней отходит на второй план. */
-  $('done-mine').classList.toggle('btn--gold', !url);
-  $('done-mine').classList.toggle('btn--ghost', Boolean(url));
+  const mineGold = !url && !claim;
+  $('done-mine').classList.toggle('btn--gold', mineGold);
+  $('done-mine').classList.toggle('btn--ghost', !mineGold);
   if (!url) return;
   // Адрес читается как адрес: без «https://» и без хвостового слеша.
   $('done-url').textContent = url.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
   $('done-open').href = url;
+}
+
+/* Заявка с сайта: админ подтверждает оплату в боте, а пара ждёт здесь.
+   Спрашиваем статус раз в несколько секунд и сразу — когда пара вернулась на
+   вкладку (например, из Telegram). Как только ссылка готова — показываем её. */
+let orderTimer = 0;
+let orderWatchUntil = 0;
+async function checkOrder() {
+  const order = state.order;
+  if (!order?.id || $('done').hidden) return;
+  try {
+    const r = await fetch('/api/my', { headers: { 'x-init-data': tg ? tg.initData : '' } });
+    const j = await r.json();
+    const fresh = (j.apps || []).find((a) => a.id === order.id);
+    if (!fresh) return;
+    const becamePaid = !state.readyUrl && fresh.url;
+    Object.assign(order, {
+      status: fresh.status, url: fresh.url, card: fresh.card || null,
+      claimUrl: fresh.claimUrl || null, telegram: Boolean(fresh.telegram),
+    });
+    state.readyUrl = fresh.url || null;
+    showDone();
+    if (becamePaid) {
+      haptic.ok();
+      sparks();
+      window.Sky?.flare(5);
+    }
+  } catch (_) { /* сеть вернётся — спросим снова */ }
+}
+
+function watchOrder() {
+  orderWatchUntil = Date.now() + 3 * 3600_000;
+  const tick = async () => {
+    await checkOrder();
+    const done = state.order?.status === 'cancelled' || (state.readyUrl && state.order?.telegram);
+    if (done || Date.now() > orderWatchUntil) return;
+    orderTimer = setTimeout(tick, state.readyUrl ? 15000 : 7000);
+  };
+  clearTimeout(orderTimer);
+  orderTimer = setTimeout(tick, 7000);
 }
 
 function fill(root, cls, n, base, spread) {
@@ -2240,6 +2397,19 @@ function closeMine() {
   $('mine').hidden = true;
 }
 
+const bareLink = (url) => String(url).replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+
+function copyRow(url, label = null) {
+  const row = h('button', { type: 'button', class: 'inv-link' },
+    label ? h('b', {}, label) : null, h('span', {}, bareLink(url)));
+  row.addEventListener('click', () => {
+    navigator.clipboard?.writeText(url);
+    haptic.ok();
+    toast(t('copied'), 'ok');
+  });
+  return row;
+}
+
 async function loadMine() {
   const box = $('mine-list');
   box.innerHTML = '';
@@ -2248,19 +2418,26 @@ async function loadMine() {
     const r = await fetch('/api/my', { headers: { 'x-init-data': tg ? tg.initData : '' } });
     const j = await r.json();
     box.innerHTML = '';
-    if (!j.ok || !j.apps.length) { box.appendChild(h('p', { class: 'empty' }, '—')); return; }
+    if (!j.ok || !j.apps.length) { box.appendChild(h('p', { class: 'empty' }, t('mineEmpty'))); return; }
+    const statuses = t('mineStatus');
     for (const a of j.apps) {
       const card = h('div', { class: 'inv' },
         h('h3', {}, `${a.groom} & ${a.bride}`),
-        h('p', { class: 'inv-meta' }, `${a.date} · ${a.time} · ${money(a.total)}`),
-        h('span', { class: `inv-tag ${a.status}` }, a.status),
-        a.url ? h('div', { class: 'inv-link' }, a.url) : null);
-      if (a.url) {
-        card.querySelector('.inv-link').addEventListener('click', () => {
-          navigator.clipboard?.writeText(a.url);
-          toast(t('copied'), 'ok');
-        });
+        h('p', { class: 'inv-meta' }, `№${a.id} · ${a.date} · ${a.time} · ${money(a.total)}`),
+        h('span', { class: `inv-tag ${a.status}` }, statuses[a.status] || a.status));
+      if (a.url) card.appendChild(copyRow(a.url));
+      if (a.guests?.length) {
+        const list = h('div', { class: 'inv-guests' }, h('p', { class: 'inv-sub' }, t('mineGuests')));
+        for (const g of a.guests) list.appendChild(copyRow(g.url, g.name));
+        card.appendChild(list);
       }
+      const acts = h('div', { class: 'inv-acts' });
+      if (a.url) acts.appendChild(h('a', { class: 'btn btn--ghost btn--tiny', href: a.url, target: '_blank', rel: 'noopener' }, t('doneOpen')));
+      if (a.card && !IN_TG) acts.appendChild(h('a', { class: 'btn btn--ghost btn--tiny', href: a.card, download: '' }, t('doneCard')));
+      if (a.claimUrl && !IN_TG && a.status !== 'cancelled') {
+        acts.appendChild(h('a', { class: 'btn btn--tiny btn--tg', href: a.claimUrl, target: '_blank', rel: 'noopener' }, t('mineTg')));
+      }
+      if (acts.children.length) card.appendChild(acts);
       box.appendChild(card);
     }
   } catch (_) {
@@ -2395,6 +2572,12 @@ function wire() {
   });
 
   $('phone').addEventListener('input', () => { markFilled($('phone')); clearErr(8); saveDraft(); });
+  $('contact-tg').addEventListener('input', () => { markFilled($('contact-tg')); clearErr(8); saveDraft(); });
+  // Вставили «@ali» или ссылку t.me/ali — оставляем одно имя: собачка уже нарисована.
+  $('contact-tg').addEventListener('change', () => {
+    const clean = tgUsername();
+    if (clean !== $('contact-tg').value) { $('contact-tg').value = clean; saveDraft(); }
+  });
 
   // Промокод вводят с клавиатуры телефона: заглавные буквы ставим сами.
   $('promo-code').addEventListener('input', (e) => {
@@ -2420,11 +2603,15 @@ function wire() {
   /* Внутри Telegram ссылку открывает сам клиент: новая вкладка там уводит
      пару из приложения, а вернуться обратно к экрану «Готово» некуда. */
   $('done-open').addEventListener('click', (e) => {
-    if (!state.readyUrl || !tg?.openLink) return;
+    if (!state.readyUrl || !IN_TG || !tg?.openLink) return;
     e.preventDefault();
     try { tg.openLink(state.readyUrl); } catch (_) { window.open(state.readyUrl, '_blank', 'noopener'); }
   });
   $('done-mine').addEventListener('click', () => { $('done').hidden = true; $('mine').hidden = false; loadMine(); });
+  // Вернулись на вкладку (например, из Telegram) — сразу узнаём, что с заявкой.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && !IN_TG && state.order && !$('done').hidden) checkOrder();
+  });
   $('done-new').addEventListener('click', () => location.reload());
 
   // Свет сцены медленно едет вниз вместе со скроллом.
@@ -2457,39 +2644,26 @@ async function loadConfig() {
   state.config = await fetchConfig();
 }
 
-/* Подпись студии приходит от Telegram. В обычном браузере её нет: загрузка
-   фото, предпросмотр и отправка заявки упираются в 401, поэтому заполнять
-   форму здесь было бы впустую. Такой вход ведём в бот — там открывается эта
-   же студия, уже с подписью. */
-async function gateNeeded() {
-  if (tg?.initData) return false;
-  return (await fetchConfig())?.requiresTelegram !== false;
-}
-
-async function openGate() {
-  state.config = await fetchConfig();
-  const bot = state.config?.botUrl;
-  if (bot) {
-    const link = $('gate-open');
-    link.href = `${bot}?start=site`;
-    link.hidden = false;
-    /* С телефона ведёт кнопка — она открывает клиент. С компьютера удобнее
-       снять код телефоном: студия всё равно про фото из галереи. Показывать
-       ли код, решает ширина в стилях — иначе поворот экрана оставил бы с
-       решением, принятым один раз при входе. */
-    $('gate-qr').hidden = false;
+/* На сайте бот остаётся рядом: тонкая ссылка под кнопками языка и значок в
+   шапке. Ведут с меткой site — так видно, сколько людей сайт привёл в бот. */
+async function showBotLinks() {
+  if (IN_TG) return;
+  const bot = (await fetchConfig())?.botUrl;
+  if (!bot) return;
+  const url = `${bot}?start=site`;
+  for (const id of ['lang-bot', 'btn-bot']) {
+    $(id).href = url;
+    $(id).hidden = false;
   }
-  $('gate').hidden = false;
+  $('lang-bot-name').textContent = `@${bot.replace(/^https:\/\/t\.me\//, '')}`;
 }
 
 async function bootLang(lang) {
   setLang(lang);
-  const gated = await gateNeeded();
   // Сцена оживает раньше, чем экран языка начнёт таять: пара видит её уже в движении.
   stageRest(false);
   $('lang-screen').classList.add('out');
   setTimeout(() => { $('lang-screen').style.display = 'none'; }, 1400);
-  if (gated) return openGate();
   document.body.classList.add('studio-entering');
   const first = document.querySelector('.blk[data-step="names"]');
   if (first) armBlock(first);
@@ -2502,6 +2676,9 @@ async function start() {
   if (started) return;
   started = true;
   await loadConfig();
+  // Сессия сайта должна быть готова до первого фото или песни.
+  await openSession();
+  $('tg-field').hidden = IN_TG;
   const restored = restoreDraft();
   const testingTemplates = location.hostname === 'localhost' && new URLSearchParams(location.search).has('__template_test');
   // Возврат к черновику: продолжаем с того места, где пара остановилась, но не
@@ -2519,7 +2696,7 @@ async function start() {
   setScene();
   applyI18n();
   paintPlate();
-  for (const id of ['groom', 'bride', 'address', 'phone']) markFilled($(id));
+  for (const id of ['groom', 'bride', 'address', 'phone', 'contact-tg']) markFilled($(id));
   Music?.setSelection(state.music);
   const resuming = !testingTemplates && state.open > 0;
   renderBlocks(testingTemplates || resuming ? -1 : 0);
@@ -2545,3 +2722,5 @@ async function start() {
 
 wire();
 fetchConfig();
+openSession();
+showBotLinks();

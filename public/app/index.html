@@ -97,24 +97,12 @@
       <button id="lang-uz" type="button" class="btn btn--gold">O‘zbekcha</button>
       <button id="lang-ru" type="button" class="btn btn--ghost">Русский</button>
     </div>
-  </div>
-</div>
-
-<!-- ═══ Вход вне Telegram: студия живёт в боте ═══ -->
-<div id="gate" hidden>
-  <div class="gate-card">
-    <svg class="ring-mark ring-mark--sm" viewBox="0 0 120 120" aria-hidden="true">
-      <circle class="ring-mark__b" cx="60" cy="60" r="46"/>
-      <circle class="ring-mark__a" cx="60" cy="60" r="46"/>
-    </svg>
-    <h2 data-i18n="gateTitle"></h2>
-    <p data-i18n="gateText"></p>
-    <a id="gate-open" class="btn btn--gold btn--block" href="#" rel="noopener" hidden><span data-i18n="gateOpen"></span></a>
-    <div id="gate-qr" class="gate-qr" hidden>
-      <img src="/api/bot-qr.svg" alt="" width="152" height="152" loading="lazy">
-      <p data-i18n="gateScan"></p>
-    </div>
-    <p class="gate-why" data-i18n="gateWhy"></p>
+    <!-- На сайте студия открывается прямо здесь, а бот остаётся рядом:
+         тонкая ссылка под кнопками. В самом Telegram её нет. -->
+    <a id="lang-bot" class="lang-bot" href="#" target="_blank" rel="noopener" hidden>
+      <svg class="tg-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21.4 4.3 2.9 11.4c-1 .4-1 1.4 0 1.7l4.6 1.4 1.8 5.4c.2.6.9.8 1.4.4l2.6-2.1 4.7 3.5c.6.4 1.4.1 1.5-.6l3.2-15.3c.2-1-.6-1.7-1.3-1.5Z"/><path d="m8.2 14.2 9.2-6.6-7.3 7.6"/></svg>
+      <span><b id="lang-bot-name">@nvate_bot</b><i>Telegram’da ham · есть и в Telegram</i></span>
+    </a>
   </div>
 </div>
 
@@ -123,6 +111,9 @@
   <header id="topbar">
     <button id="brand" type="button" class="brand">nvate</button>
     <div class="top-right">
+      <a id="btn-bot" class="ghost-ic ghost-ic--tg" href="#" target="_blank" rel="noopener" aria-label="Telegram" hidden>
+        <svg class="tg-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21.4 4.3 2.9 11.4c-1 .4-1 1.4 0 1.7l4.6 1.4 1.8 5.4c.2.6.9.8 1.4.4l2.6-2.1 4.7 3.5c.6.4 1.4.1 1.5-.6l3.2-15.3c.2-1-.6-1.7-1.3-1.5Z"/><path d="m8.2 14.2 9.2-6.6-7.3 7.6"/></svg>
+      </a>
       <button id="btn-mine" type="button" class="ghost-ic" aria-label="My invitations">
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5.5h14v9H3z"/><path d="M3 6l7 5 7-5"/></svg>
       </button>
@@ -348,13 +339,21 @@
       <h2 class="blk-title" data-i18n="tContact"></h2>
       <p class="blk-lead" data-i18n="leadContact"></p>
 
-      <!-- Telegram у нас уже есть: бот знает и id, и username. Спрашиваем
-           только то, чего он не знает, — номер телефона. -->
+      <!-- В боте Telegram у нас уже есть: спрашиваем только номер. На сайте
+           Telegram неизвестен — там пара может вписать свой username. -->
       <div class="field">
         <label for="phone" data-i18n="phoneLbl"></label>
-        <input id="phone" type="tel" maxlength="20" autocomplete="tel" enterkeyhint="done" placeholder="+998 90 123 45 67">
+        <input id="phone" type="tel" maxlength="20" autocomplete="tel" enterkeyhint="next" placeholder="+998 90 123 45 67">
       </div>
-      <p class="hint" data-i18n="contactRule"></p>
+      <div id="tg-field" class="field field--tg" hidden>
+        <label for="contact-tg"><span data-i18n="tgLbl"></span> <em data-i18n="optional"></em></label>
+        <div class="tg-input">
+          <span class="tg-at" aria-hidden="true">@</span>
+          <input id="contact-tg" type="text" maxlength="40" autocomplete="username" autocapitalize="none"
+                 spellcheck="false" enterkeyhint="done" placeholder="username">
+        </div>
+      </div>
+      <p id="contact-rule" class="hint"></p>
 
       <div class="bill">
         <div id="bill-lines"></div>
@@ -427,12 +426,31 @@
     <h2 id="done-title"></h2>
     <p id="done-text"></p>
 
-    <!-- Платить было нечего: ссылка готова сразу и лежит прямо здесь. -->
+    <!-- Заказ с сайта: статус живой — страница сама узнаёт, что оплату
+         подтвердили, и ссылка появляется прямо здесь. -->
+    <p id="done-status" class="done-status" hidden><i></i><span></span></p>
+
+    <!-- Ссылка готова (оплатили или платить было нечего) — лежит прямо здесь. -->
     <button id="done-link" type="button" class="done-link" hidden>
       <b id="done-url"></b>
       <span data-i18n="doneCopy"></span>
     </button>
-    <a id="done-open" class="btn btn--gold btn--block" href="#" rel="noopener" hidden><span data-i18n="doneOpen"></span></a>
+    <a id="done-open" class="btn btn--gold btn--block" href="#" target="_blank" rel="noopener" hidden><span data-i18n="doneOpen"></span></a>
+    <a id="done-card" class="btn btn--ghost btn--block" href="#" download hidden><span data-i18n="doneCard"></span></a>
+
+    <!-- С сайта в Telegram: одна кнопка — бот узнаёт заказ по коду в ссылке
+         и присылает QR-карточку, ссылку и именные ссылки гостей. -->
+    <div id="done-tg" class="done-tg" hidden>
+      <a id="done-tg-go" class="btn btn--block" href="#" target="_blank" rel="noopener">
+        <svg class="tg-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21.4 4.3 2.9 11.4c-1 .4-1 1.4 0 1.7l4.6 1.4 1.8 5.4c.2.6.9.8 1.4.4l2.6-2.1 4.7 3.5c.6.4 1.4.1 1.5-.6l3.2-15.3c.2-1-.6-1.7-1.3-1.5Z"/><path d="m8.2 14.2 9.2-6.6-7.3 7.6"/></svg><span id="done-tg-label"></span>
+      </a>
+      <p class="done-tg-hint" data-i18n="doneTgHint"></p>
+      <div id="done-tg-qr" class="done-tg-qr" hidden>
+        <img id="done-tg-qr-img" alt="" width="136" height="136">
+        <p data-i18n="doneTgScan"></p>
+      </div>
+    </div>
+    <p id="done-tg-linked" class="done-tg-linked" hidden></p>
 
     <button id="done-mine" type="button" class="btn btn--gold btn--block"><span data-i18n="mineTitle"></span></button>
     <button id="done-new" type="button" class="linkbtn" data-i18n="doneNew"></button>

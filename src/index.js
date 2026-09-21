@@ -20,12 +20,13 @@ if (BOT_TOKEN) {
 
 const server = createServer({
   // Оплату подтвердили в админ-панели — пара получает ссылку так же, как из бота.
+  // Возвращает { delivered }: заказ с сайта без Telegram доставить некуда.
   onPaid: async (application, guests) => {
     if (!bot) {
       console.warn('[index] бот не запущен — пара не получила ссылку');
-      return;
+      return { delivered: false };
     }
-    await bot.notifyCouplePaid(application, guests);
+    return bot.notifyCouplePaid(application, guests);
   },
   onNewApplication: async (application, guests = []) => {
     if (!bot) {
