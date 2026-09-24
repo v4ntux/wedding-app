@@ -1659,9 +1659,9 @@ function openEnvelopeIn(doc) {
   trigger?.click();
 }
 
-/* Пример дизайна открывается отдельной страницей /demo/<id> — ровно тем же
-   адресом, что получит гость. Внутри Telegram ссылку открывает клиент,
-   в обычном браузере (platform === 'unknown') нужна вкладка. */
+/* Демонстрация остаётся внутри Studio: используем существующую шторку
+   и реальный /demo/:id, не открывая отдельную вкладку или Telegram WebView.
+   Выбор происходит только по явному нажатию кнопки, просмотр ничего не меняет. */
 function openDemo(tpl) {
   haptic.tap();
   hushStudio();
@@ -1672,12 +1672,14 @@ function openDemo(tpl) {
     lng: Number.isFinite(state.lng) ? String(state.lng) : '',
     venue: state.venueId || '',
   });
-  const url = `${location.origin}/demo/${tpl.id}?${q}`;
-  const inTelegram = Boolean(tg?.platform && tg.platform !== 'unknown');
-  if (inTelegram && typeof tg.openLink === 'function') {
-    try { tg.openLink(url); return; } catch (_) { /* падаем во вкладку */ }
-  }
-  window.open(url, '_blank', 'noopener');
+  const url = `/demo/${encodeURIComponent(tpl.id)}?${q}`;
+  $('sheet-title').textContent = tpl.name;
+  // Выбранный дизайн не должен автоматически подтверждаться при просмотре.
+  sheet.open({
+    src: url,
+    actionLabel: `${t('take')}: ${tpl.name}`,
+    onAction: () => takeTpl(tpl),
+  });
 }
 
 /* Витрина дизайнов — галерея: все восемь обложек лежат на странице по две в
@@ -1685,8 +1687,8 @@ function openDemo(tpl) {
    восемь раз пролистать вслепую, а сравнить два дизайна между собой нельзя
    вовсе. Теперь выбор виден целиком и делается одним тапом.
    Каждая карточка выглядит как сама тема: её бумага, чернила и золото. Живых
-   превью в витрине нет — восемь работающих приглашений не тянет ни один
-   телефон, полный пример открывается отдельной страницей по глазку. */
+   превью в витрине нет — одновременно загружать несколько полных приглашений
+   на телефоне слишком дорого; полноценное демо открывается внутри Studio. */
 function templateCover(tpl) {
   const cover = tpl.cover || {};
   const groom = $('groom').value.trim() || (LANG === 'ru' ? 'Жених' : 'Kuyov');
