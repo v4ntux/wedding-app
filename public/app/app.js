@@ -1703,6 +1703,8 @@ function templateCover(tpl) {
     h('span', { class: 'tplc-names' }, groom, h('i', {}, '&'), bride),
     h('span', { class: 'tplc-date' }, date),
     h('span', { class: 'tplc-seal' }));
+  // Настоящий кадр дизайна поверх карточки; пока грузится — видна карточка.
+  if (tpl.poster) art.appendChild(h('img', { class: 'tplc-poster', src: tpl.poster, alt: '', loading: 'lazy', decoding: 'async' }));
   art.style.setProperty('--c-paper', cover.paper || '#0d0c09');
   art.style.setProperty('--c-ink', cover.ink || '#f7f1e7');
   art.style.setProperty('--c-accent', cover.accent || '#c8aa6a');

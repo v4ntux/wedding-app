@@ -1081,6 +1081,11 @@ html[data-motion='full'] * { animation-play-state: running !important; }
 .tplc-names i { display: block; margin: 2px 0; color: var(--c-accent); font-style: italic; font-size: .68em; }
 .tplc-date { color: color-mix(in srgb, var(--c-ink) 74%, transparent); font: 400 .55rem/1 var(--mono); letter-spacing: .14em; }
 
+/* Обложка-кадр: настоящий вид дизайна (сцена открытия или титул). Обложка —
+   свой слой: кадр не должен перекрыть глазок и галочку поверх карточки. */
+.tplc-cover:has(.tplc-poster) { isolation: isolate; }
+.tplc-poster { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: cover; }
+
 /* Сургучная точка — тот же жест, что и на настоящем конверте. */
 .tplc-seal {
   position: absolute;

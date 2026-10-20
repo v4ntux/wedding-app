@@ -2,13 +2,23 @@
 // Новый шаблон = положить папку — код менять не нужно, подхватывается на лету (fs.watch).
 // Сломанный шаблон пропускается с ошибкой в лог и не роняет платформу.
 
-import { readdirSync, readFileSync, existsSync, watch } from 'node:fs';
+import { readdirSync, readFileSync, existsSync, statSync, watch } from 'node:fs';
 import path from 'node:path';
 import { parseTemplate } from './templateEngine.js';
 import { STATIONERY } from './design.js';
 import { templatePrice, templateListed } from './pricing.js';
 
 export const TEMPLATES_DIR = path.resolve(process.cwd(), 'templates');
+// Обложки витрины — настоящие кадры дизайнов (scripts/render-covers.mjs).
+const COVERS_DIR = path.resolve(process.cwd(), 'public', 'app', 'covers');
+
+/* Адрес обложки с отметкой версии: перерисовали кадр — у браузера новый адрес.
+   Нет файла — студия рисует прежнюю карточку из цветов темы. */
+function posterOf(id) {
+  const file = path.join(COVERS_DIR, `${id}.webp`);
+  if (!existsSync(file)) return null;
+  return `/app/covers/${id}.webp?v=${Math.round(statSync(file).mtimeMs).toString(36)}`;
+}
 
 // Типы событий платформы. Событие «активно», когда для него есть хотя бы один шаблон.
 export const EVENTS = [
@@ -54,6 +64,7 @@ function loadOne(id) {
     baseListed: m.listed !== false,
     listed: m.listed !== false,
     demoUrl: `/demo/${id}`,
+    poster: posterOf(id),
     // локализация поверх базовой (см. LOCALES в render.js): { uz: {...}, ru: {...} }
     strings: m.strings && typeof m.strings === 'object' ? m.strings : null,
     tree: parseTemplate(readFileSync(htmlPath, 'utf8')),

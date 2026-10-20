@@ -122,6 +122,8 @@ test('catalog exposes the new line-up and keeps the legacy renderers alive', () 
   // обязаны открываться — поэтому они остаются в allTemplates().
   assert.deepEqual(new Set(allTemplates().map((template) => template.id)), new Set([...PUBLIC_IDS, ...HIDDEN_IDS]));
   for (const id of HIDDEN_IDS) assert.equal(allTemplates().find((t) => t.id === id).listed, false, `${id} должен быть скрыт`);
+  // Витрина показывает настоящие кадры дизайнов, а не одинаковые карточки.
+  for (const t of publicTemplates()) assert.match(t.poster || '', /^\/app\/covers\/[a-z]+\.webp\?v=/, `${t.id}: нет обложки`);
 });
 
 test('every public design opens with a scene of its own, not one shared envelope', () => {
@@ -1082,6 +1084,9 @@ test('HTTP catalog and render routes are healthy with security headers', async (
     }
   }
   assert.equal((await fetch(`${baseUrl}/demo/not-a-template`)).status, 404);
+  const cover = await fetch(`${baseUrl}${config.templates[0].poster}`);
+  assert.equal(cover.status, 200);
+  assert.equal(cover.headers.get('content-type'), 'image/webp');
 });
 
 test('payment proofs are not public and require admin authentication', async () => {

@@ -155,7 +155,7 @@ body.ev-handoff .dz-hero__light{animation:dzSun 1.6s ease forwards}
 .dz-kicker{display:flex;align-items:center;gap:14px;color:var(--brick);font:500 .64rem/1 var(--sans);letter-spacing:.42em;text-transform:uppercase}
 .dz-kicker:before,.dz-kicker:after{content:'';width:26px;height:9px;background:var(--tile);background-size:9px 9px;border-radius:1px}
 /* Арка-окно: изразцовый наличник и снимок внутри стрельчатого проёма. */
-.dz-window{position:relative;width:min(74vw,360px);aspect-ratio:100/134;--p:1;
+.dz-window{position:relative;width:min(74vw,360px,44svh);aspect-ratio:100/134;--p:1;
   transform:perspective(1100px) rotateX(calc((1 - var(--p)) * 0deg)) translateY(calc(var(--p) * -18px));transform-origin:50% 100%}
 .dz-window__tile,.dz-arch__tile{position:absolute;inset:0;background:var(--tile);background-size:22px 22px;
   -webkit-mask:var(--arch) center/100% 100% no-repeat;mask:var(--arch) center/100% 100% no-repeat}
