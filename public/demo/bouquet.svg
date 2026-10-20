@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000">
+  <defs>
+    <linearGradient id="dress" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fbf6ee"/><stop offset=".5" stop-color="#efe5d6"/><stop offset="1" stop-color="#ddd0bd"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#c9b9a1" stop-opacity="0"/><stop offset=".5" stop-color="#b9a68b" stop-opacity=".5"/><stop offset="1" stop-color="#c9b9a1" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".75"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="pBlush" cx=".5" cy=".5" r=".55"><stop offset="0" stop-color="#d98b88"/><stop offset=".55" stop-color="#f1b9b1"/><stop offset="1" stop-color="#fde4dc"/></radialGradient>
+    <radialGradient id="pIvory" cx=".5" cy=".5" r=".55"><stop offset="0" stop-color="#e3cfb4"/><stop offset=".55" stop-color="#f7ecdc"/><stop offset="1" stop-color="#fffaf2"/></radialGradient>
+    <radialGradient id="pDusty" cx=".5" cy=".5" r=".55"><stop offset="0" stop-color="#b9707a"/><stop offset=".6" stop-color="#d999a0"/><stop offset="1" stop-color="#f1c8c8"/></radialGradient>
+    <radialGradient id="euc" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#b9c7b2"/><stop offset="1" stop-color="#6f8a78"/></radialGradient>
+    <linearGradient id="ribbon" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#e9d6c3"/><stop offset=".45" stop-color="#fff7ee"/><stop offset=".6" stop-color="#e2cbb4"/><stop offset="1" stop-color="#cdb398"/>
+    </linearGradient>
+    <filter id="b8" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="8"/></filter>
+    <filter id="b22" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="22"/></filter>
+    <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 .5  0 0 0 0 .46  0 0 0 0 .4  0 0 0 .06 0"/></filter>
+    <symbol id="bloomBlush" viewBox="-80 -80 160 160" overflow="visible">
+      <circle r="74" fill="url(#pBlush)"/>
+      <g fill="none" stroke="#c97c79" stroke-linecap="round" opacity=".55">
+        <path d="M-60 -18 C -44 -64, 40 -70, 62 -20" stroke-width="2.4"/>
+        <path d="M-58 22 C -30 64, 36 66, 60 18" stroke-width="2.2"/>
+        <path d="M-40 -6 C -30 -40, 26 -44, 40 -6" stroke-width="2"/>
+        <path d="M-36 14 C -18 40, 22 40, 34 12" stroke-width="2"/>
+        <path d="M-18 -2 C -12 -20, 14 -22, 20 -2 C 14 12, -10 14, -18 -2" stroke-width="1.8"/>
+      </g>
+      <circle r="10" fill="#b9615f" opacity=".5"/>
+    </symbol>
+    <symbol id="bloomIvory" viewBox="-80 -80 160 160" overflow="visible">
+      <circle r="70" fill="url(#pIvory)"/>
+      <g fill="none" stroke="#c9b08e" stroke-linecap="round" opacity=".6">
+        <path d="M-56 -14 C -40 -60, 38 -64, 58 -16" stroke-width="2.2"/>
+        <path d="M-54 20 C -28 58, 34 60, 56 16" stroke-width="2"/>
+        <path d="M-34 -4 C -24 -34, 22 -36, 34 -4" stroke-width="1.8"/>
+        <path d="M-14 0 C -8 -16, 12 -16, 16 0 C 10 12, -8 12, -14 0" stroke-width="1.6"/>
+      </g>
+    </symbol>
+    <symbol id="bloomDusty" viewBox="-80 -80 160 160" overflow="visible">
+      <circle r="56" fill="url(#pDusty)"/>
+      <g fill="none" stroke="#9b4e5a" stroke-linecap="round" opacity=".5">
+        <path d="M-44 -10 C -30 -48, 30 -50, 46 -10" stroke-width="2"/>
+        <path d="M-40 16 C -20 44, 26 46, 42 12" stroke-width="1.8"/>
+        <path d="M-12 0 C -6 -14, 10 -14, 14 0 C 8 10, -6 10, -12 0" stroke-width="1.6"/>
+      </g>
+    </symbol>
+    <symbol id="eucLeaf" viewBox="-20 -20 40 40" overflow="visible"><circle r="14" fill="url(#euc)"/><path d="M-12 0 L12 0" stroke="#5c7464" stroke-width="1" opacity=".5"/></symbol>
+  </defs>
+  <rect width="800" height="1000" fill="url(#dress)"/>
+  <!-- складки атласа -->
+  <g filter="url(#b22)">
+    <path d="M120 -40 C 160 300, 60 640, 140 1040 L 220 1040 C 150 640, 250 300, 210 -40 Z" fill="url(#fold)"/>
+    <path d="M560 -40 C 610 320, 520 660, 610 1040 L 700 1040 C 610 660, 700 320, 650 -40 Z" fill="url(#fold)"/>
+    <path d="M330 -40 C 360 260, 300 520, 360 1040 L 400 1040 C 340 520, 400 260, 370 -40 Z" fill="url(#fold)" opacity=".7"/>
+    <path d="M250 -40 C 280 300, 220 600, 270 1040 L 300 1040 C 250 600, 310 300, 280 -40 Z" fill="url(#shine)" opacity=".6"/>
+    <path d="M640 -40 C 690 300, 610 640, 680 1040 L 700 1040 C 640 640, 720 300, 660 -40 Z" fill="url(#shine)" opacity=".5"/>
+  </g>
+  <!-- тень букета на платье -->
+  <ellipse cx="420" cy="560" rx="270" ry="250" fill="#8c785e" opacity=".32" filter="url(#b22)"/>
+  <!-- лента -->
+  <path d="M380 640 C 360 760, 300 860, 250 1010 L 290 1010 C 330 870, 392 780, 410 650 Z" fill="url(#ribbon)"/>
+  <path d="M430 640 C 470 760, 540 840, 610 1010 L 650 1010 C 580 840, 500 760, 456 646 Z" fill="url(#ribbon)" opacity=".95"/>
+  <path d="M370 610 L470 610 L476 672 L366 672 Z" fill="url(#ribbon)"/>
+  <!-- эвкалипт -->
+  <g>
+    <use href="#eucLeaf" x="150" y="380" width="44" height="44"/><use href="#eucLeaf" x="120" y="430" width="38" height="38"/>
+    <use href="#eucLeaf" x="170" y="300" width="40" height="40"/><use href="#eucLeaf" x="610" y="300" width="44" height="44"/>
+    <use href="#eucLeaf" x="650" y="360" width="40" height="40"/><use href="#eucLeaf" x="620" y="440" width="46" height="46"/>
+    <use href="#eucLeaf" x="300" y="170" width="40" height="40"/><use href="#eucLeaf" x="480" y="160" width="42" height="42"/>
+    <use href="#eucLeaf" x="230" y="540" width="44" height="44"/><use href="#eucLeaf" x="560" y="540" width="44" height="44"/>
+    <path d="M190 400 C 260 420, 320 470, 400 520 M640 330 C 580 380, 500 450, 420 520 M320 190 C 340 300, 380 420, 410 520 M500 180 C 480 300, 450 420, 420 520" stroke="#6f8a78" stroke-width="3" fill="none" opacity=".6"/>
+  </g>
+  <!-- цветы -->
+  <use href="#bloomIvory" x="190" y="230" width="190" height="190"/>
+  <use href="#bloomDusty" x="440" y="210" width="150" height="150"/>
+  <use href="#bloomBlush" x="300" y="300" width="230" height="230"/>
+  <use href="#bloomIvory" x="470" y="330" width="180" height="180"/>
+  <use href="#bloomDusty" x="200" y="420" width="150" height="150"/>
+  <use href="#bloomBlush" x="390" y="460" width="170" height="170"/>
+  <use href="#bloomIvory" x="300" y="520" width="140" height="140"/>
+  <!-- гипсофила -->
+  <g fill="#fffdf8">
+    <circle cx="190" cy="350" r="5"/><circle cx="206" cy="336" r="4"/><circle cx="178" cy="330" r="3.5"/>
+    <circle cx="640" cy="290" r="5"/><circle cx="660" cy="306" r="4"/><circle cx="628" cy="314" r="3.5"/>
+    <circle cx="420" cy="200" r="5"/><circle cx="436" cy="186" r="4"/><circle cx="404" cy="182" r="3.5"/>
+    <circle cx="610" cy="520" r="5"/><circle cx="626" cy="536" r="4"/><circle cx="180" cy="520" r="5"/><circle cx="196" cy="540" r="4"/>
+  </g>
+  <rect width="800" height="1000" filter="url(#grain)"/>
+</svg>

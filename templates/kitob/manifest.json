@@ -1,0 +1,26 @@
+{
+  "name": "Kitob",
+  "event": "wedding",
+  "price": 259000,
+  "minPhotos": 2,
+  "colors": [
+    "#1C2A44",
+    "#D4B26A",
+    "#F7F1E3",
+    "#8E2C2C"
+  ],
+  "order": 3,
+  "listed": true,
+  "strings": {
+    "uz": {
+      "openHint": "Kitobni ochish uchun bosing",
+      "turn": "Varaqlash uchun suring",
+      "page": "bet"
+    },
+    "ru": {
+      "openHint": "Коснитесь, чтобы открыть книгу",
+      "turn": "Листайте — страницы перевернутся",
+      "page": "стр."
+    }
+  }
+}

@@ -1,17 +1,19 @@
-import { BOT_TOKEN, ADMIN_CHAT_IDS, BASE_URL, PORT, DEV_NO_AUTH, RUNTIME } from './config.js';
+import { BOT_TOKEN, ADMIN_CHAT_IDS, BASE_URL, PORT, DEV_NO_AUTH, SITE_ONLY, RUNTIME } from './config.js';
 import { createBot, notifyNewApplication } from './bot.js';
 import { createServer } from './server.js';
 import { db } from './db.js';
 
-if (!BOT_TOKEN && !DEV_NO_AUTH) {
+if (!BOT_TOKEN && !DEV_NO_AUTH && !SITE_ONLY) {
   console.error(
     'Не задан BOT_TOKEN.\n' +
       '1) Создайте бота у @BotFather и получите токен\n' +
       '2) Скопируйте .env.example в .env и заполните BOT_TOKEN\n' +
-      '(для разработки без Telegram можно запустить с DEV_NO_AUTH=1)'
+      '(для разработки без Telegram можно запустить с DEV_NO_AUTH=1,\n' +
+      ' для стенда без бота — с NVATE_SITE_ONLY=1)'
   );
   process.exit(1);
 }
+if (!BOT_TOKEN && SITE_ONLY) console.log('[server] NVATE_SITE_ONLY=1 — стенд без бота: демо и студия на сайте, админка закрыта');
 
 let bot = null;
 if (BOT_TOKEN) {

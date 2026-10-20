@@ -1,0 +1,18 @@
+{
+  "name": "Hikoya",
+  "event": "wedding",
+  "price": 239000,
+  "minPhotos": 3,
+  "colors": [
+    "#111111",
+    "#F1ECE4",
+    "#FF5A36",
+    "#FF3D7F"
+  ],
+  "order": 4,
+  "listed": true,
+  "strings": {
+    "uz": { "openHint": "Hikoyani boshlash", "big": "Biz turmush quramiz", "down": "Pastga suring", "save": "Shu kunni band qiling" },
+    "ru": { "openHint": "Начать историю", "big": "Мы женимся", "down": "Листайте вниз", "save": "Запомните этот день" }
+  }
+}

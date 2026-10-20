@@ -1,0 +1,18 @@
+{
+  "name": "Darvoza",
+  "event": "wedding",
+  "price": 249000,
+  "minPhotos": 3,
+  "colors": [
+    "#4A2E1C",
+    "#EFE2CC",
+    "#1F9C9A",
+    "#1F3C78"
+  ],
+  "order": 1,
+  "listed": true,
+  "strings": {
+    "uz": { "openHint": "Eshikni ochish uchun bosing" },
+    "ru": { "openHint": "Коснитесь, чтобы открыть ворота" }
+  }
+}

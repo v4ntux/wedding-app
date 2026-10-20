@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2=".6" y2="1">
+      <stop offset="0" stop-color="#3a2722"/><stop offset=".5" stop-color="#1e1412"/><stop offset="1" stop-color="#0d0908"/>
+    </linearGradient>
+    <linearGradient id="silk" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#ffe9d2" stop-opacity=".16"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".62" cy=".3" r=".6">
+      <stop offset="0" stop-color="#f5c98a" stop-opacity=".42"/><stop offset="1" stop-color="#f5c98a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5e3f14"/><stop offset=".22" stop-color="#c79a46"/><stop offset=".42" stop-color="#fff2c8"/>
+      <stop offset=".58" stop-color="#e2b45e"/><stop offset=".8" stop-color="#8c6224"/><stop offset="1" stop-color="#f3d38e"/>
+    </linearGradient>
+    <linearGradient id="gold2" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6d4a1c"/><stop offset=".3" stop-color="#f6dfa4"/><stop offset=".5" stop-color="#b8853a"/>
+      <stop offset=".72" stop-color="#fff4d6"/><stop offset="1" stop-color="#7d5420"/>
+    </linearGradient>
+    <linearGradient id="rose" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7a4232"/><stop offset=".3" stop-color="#e8ad93"/><stop offset=".48" stop-color="#fff0e6"/>
+      <stop offset=".66" stop-color="#d48d72"/><stop offset="1" stop-color="#8a4c3a"/>
+    </linearGradient>
+    <filter id="b6" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="6"/></filter>
+    <filter id="b18" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="18"/></filter>
+    <filter id="b40" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="40"/></filter>
+    <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 .5  0 0 0 0 .45  0 0 0 0 .4  0 0 0 .07 0"/></filter>
+  </defs>
+  <rect width="800" height="1000" fill="url(#bg)"/>
+  <rect width="800" height="1000" fill="url(#glow)"/>
+  <!-- складки шёлка -->
+  <g filter="url(#b18)">
+    <path d="M-60 520 C 160 440, 360 600, 860 470 L 860 560 C 420 680, 180 520, -60 610 Z" fill="url(#silk)"/>
+    <path d="M-60 700 C 220 620, 420 790, 860 650 L 860 720 C 460 860, 200 700, -60 780 Z" fill="url(#silk)" opacity=".8"/>
+    <path d="M-60 860 C 240 800, 520 940, 860 830 L 860 900 C 520 1010, 240 880, -60 940 Z" fill="url(#silk)" opacity=".6"/>
+    <path d="M-60 330 C 200 300, 420 400, 860 300 L 860 350 C 440 450, 180 360, -60 390 Z" fill="url(#silk)" opacity=".5"/>
+  </g>
+  <!-- боке -->
+  <g filter="url(#b6)">
+    <circle cx="560" cy="150" r="46" fill="#f8d39a" opacity=".22"/>
+    <circle cx="660" cy="250" r="30" fill="#ffe2b0" opacity=".28"/>
+    <circle cx="470" cy="90" r="22" fill="#fff0cf" opacity=".3"/>
+    <circle cx="720" cy="120" r="58" fill="#f0b77a" opacity=".16"/>
+    <circle cx="380" cy="210" r="18" fill="#ffe6bd" opacity=".26"/>
+    <circle cx="620" cy="360" r="14" fill="#fff3dc" opacity=".32"/>
+    <circle cx="150" cy="180" r="36" fill="#e9a46c" opacity=".12"/>
+    <circle cx="250" cy="110" r="20" fill="#ffd9a0" opacity=".18"/>
+    <circle cx="760" cy="420" r="40" fill="#f6c88e" opacity=".14"/>
+  </g>
+  <!-- тень колец -->
+  <ellipse cx="400" cy="742" rx="250" ry="46" fill="#000" opacity=".55" filter="url(#b18)"/>
+  <!-- лежащее кольцо: толщина, затем лицевая грань -->
+  <g transform="translate(330 690)">
+    <path fill="#4a2f10" fill-rule="evenodd" d="M-150 14a150 56 0 1 0 300 0a150 56 0 1 0 -300 0Z M-122 16a122 42 0 1 0 244 0a122 42 0 1 0 -244 0Z"/>
+    <path fill="url(#gold)" fill-rule="evenodd" d="M-150 0a150 56 0 1 0 300 0a150 56 0 1 0 -300 0Z M-122 2a122 42 0 1 0 244 0a122 42 0 1 0 -244 0Z"/>
+    <path d="M-122 2 a122 42 0 0 0 244 0" fill="none" stroke="#2b1a08" stroke-width="10" opacity=".55"/>
+    <path d="M-136 -6 a140 50 0 0 1 120 -44" fill="none" stroke="#fffbe8" stroke-width="3" stroke-linecap="round" opacity=".9"/>
+    <path d="M60 46 a150 56 0 0 0 70 -26" fill="none" stroke="#fff6d8" stroke-width="2.5" stroke-linecap="round" opacity=".7"/>
+  </g>
+  <!-- стоящее кольцо с камнем (розовое золото) -->
+  <g transform="translate(470 560) rotate(-14)">
+    <path fill="#5c2f22" fill-rule="evenodd" d="M-88 0a98 128 0 1 0 196 0a98 128 0 1 0 -196 0Z M-70 2a80 110 0 1 0 160 0a80 110 0 1 0 -160 0Z"/>
+    <path fill="url(#rose)" fill-rule="evenodd" d="M-98 0a98 128 0 1 0 196 0a98 128 0 1 0 -196 0Z M-80 2a80 110 0 1 0 160 0a80 110 0 1 0 -160 0Z"/>
+    <path d="M-86 -40 a92 122 0 0 1 64 -80" fill="none" stroke="#fff8f2" stroke-width="3" stroke-linecap="round" opacity=".85"/>
+    <path d="M80 30 a98 128 0 0 1 -30 86" fill="none" stroke="#fff1e8" stroke-width="2" stroke-linecap="round" opacity=".6"/>
+    <!-- камень -->
+    <g transform="translate(0 -136)">
+      <path d="M-26 0 L26 0 L34 -14 L18 -30 L-18 -30 L-34 -14 Z" fill="#eaf6ff"/>
+      <path d="M-34 -14 L34 -14 L0 30 Z" fill="#cfe6f7"/>
+      <path d="M-18 -30 L0 -14 L18 -30 Z M-34 -14 L-18 -30 L-8 -14 Z" fill="#ffffff"/>
+      <path d="M0 30 L-14 -14 L14 -14 Z" fill="#a9cbe4"/>
+      <path d="M-30 6 L-46 4 L-30 2 Z" fill="#d8b39a"/>
+    </g>
+  </g>
+  <!-- блик камня -->
+  <g transform="translate(430 398)" opacity=".95">
+    <circle r="26" fill="#fff" opacity=".25" filter="url(#b6)"/>
+    <path d="M0 -42 L4 -4 L42 0 L4 4 L0 42 L-4 4 L-42 0 L-4 -4 Z" fill="#fff"/>
+  </g>
+  <rect width="800" height="1000" filter="url(#grain)"/>
+</svg>

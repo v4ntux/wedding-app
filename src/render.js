@@ -205,6 +205,20 @@ const WATERMARK = `
 document.addEventListener('selectstart',function(e){e.preventDefault()});</script>
 <style>body{-webkit-user-select:none;user-select:none}</style>`;
 
+/* Снимки для демо: столько, сколько просит сам дизайн (minPhotos), но не меньше
+   двух — у старых тем вторая фотография стоит в отдельной секции. Сюжеты
+   разные (пара, кольца, арка, букет), чтобы галерея демо не повторяла кадр. */
+const DEMO_PHOTOS = ['/demo/couple.svg', '/demo/rings.svg', '/demo/arch.svg', '/demo/bouquet.svg'];
+const demoPhotos = (count) => Array.from({ length: Math.max(2, count) }, (_, i) => DEMO_PHOTOS[i % DEMO_PHOTOS.length]);
+
+/* Дата демо всегда впереди: ближайшая суббота месяца через два с половиной.
+   С жёсткой датой пример со временем уходил в прошлое, и отсчёт стоял на нулях. */
+function demoDate(now = new Date()) {
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 75, 12));
+  d.setUTCDate(d.getUTCDate() + ((6 - d.getUTCDay() + 7) % 7));
+  return d.toISOString().slice(0, 10);
+}
+
 // Демо шаблона: те же рендеры, данные подставляются из формы (имена, язык).
 export function renderDemo(templateId, opts = {}) {
   const tpl = getTemplate(templateId);
@@ -216,7 +230,7 @@ export function renderDemo(templateId, opts = {}) {
     lang,
     groom_name: String(opts.groom ?? '').slice(0, 100).trim() || 'Ali',
     bride_name: String(opts.bride ?? '').slice(0, 100).trim() || 'Zebo',
-    wedding_date: '2026-09-19',
+    wedding_date: demoDate(),
     wedding_time: '18:00',
     address: String(opts.address ?? '').slice(0, 140).trim() || 'To‘yxona «Navro‘z», Mang‘it',
     lat: Number.isFinite(demoLat) ? demoLat : 42.1151,
@@ -232,13 +246,13 @@ export function renderDemo(templateId, opts = {}) {
       ),
       ...(opts.venue && venueExtra(findVenue(String(opts.venue))) ? { venue: venueExtra(findVenue(String(opts.venue))) } : {}),
     }),
-    photos: JSON.stringify(['/demo/sample1.svg', '/demo/sample2.svg']),
+    photos: JSON.stringify(demoPhotos(tpl.minPhotos)),
   };
   const html = renderInvitation(sample, null);
   if (opts.card) {
     const cardMode = `<style>
 html,body{width:100%;min-height:100%;overflow:hidden!important;scrollbar-width:none;scroll-behavior:auto!important;touch-action:none;user-select:none}
-body::-webkit-scrollbar{display:none}.envx,.cinematic-intro,.envelope-scene,.ev-scene,#mbtn{display:none!important}
+body::-webkit-scrollbar{display:none}.envx,.cinematic-intro,.envelope-scene,.ev-scene,[data-envelope-scene],#mbtn{display:none!important}
 /* Витрина в студии показывает сразу несколько карточек. Тяжёлые фоновые слои
    (блюры, конические градиенты, частицы) в миниатюре не читаются, а рендерер
    кладут — поэтому в режиме карточки они выключены. */

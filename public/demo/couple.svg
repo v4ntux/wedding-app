@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6f5a86"/><stop offset=".28" stop-color="#c98a9a"/><stop offset=".52" stop-color="#f4b08a"/>
+      <stop offset=".66" stop-color="#ffd59e"/><stop offset=".72" stop-color="#ffe6bf"/>
+    </linearGradient>
+    <radialGradient id="sun" cx=".5" cy=".66" r=".42">
+      <stop offset="0" stop-color="#fffaf0"/><stop offset=".12" stop-color="#fff0cf"/><stop offset=".35" stop-color="#ffd59a" stop-opacity=".55"/><stop offset="1" stop-color="#ffb37a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="m1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9879a"/><stop offset="1" stop-color="#d9a29a"/></linearGradient>
+    <linearGradient id="m2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8d6680"/><stop offset="1" stop-color="#a77584"/></linearGradient>
+    <linearGradient id="field" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7b5464"/><stop offset=".4" stop-color="#4c3140"/><stop offset="1" stop-color="#22151d"/></linearGradient>
+    <linearGradient id="veil" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff6ee" stop-opacity=".85"/><stop offset="1" stop-color="#fff2e6" stop-opacity=".12"/></linearGradient>
+    <filter id="b3"><feGaussianBlur stdDeviation="3"/></filter>
+    <filter id="b10" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="10"/></filter>
+    <filter id="rim" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="a"/>
+      <feFlood flood-color="#ffd9a6" flood-opacity=".9"/><feComposite in2="a" operator="in" result="g"/>
+      <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 .5  0 0 0 0 .42  0 0 0 0 .4  0 0 0 .07 0"/></filter>
+  </defs>
+  <rect width="800" height="1000" fill="url(#sky)"/>
+  <rect width="800" height="1000" fill="url(#sun)"/>
+  <circle cx="400" cy="640" r="70" fill="#fffaf0" opacity=".95" filter="url(#b3)"/>
+  <!-- облака -->
+  <g fill="#ffe1c6" opacity=".55" filter="url(#b10)">
+    <ellipse cx="160" cy="300" rx="150" ry="16"/><ellipse cx="620" cy="250" rx="190" ry="14"/><ellipse cx="520" cy="420" rx="140" ry="10"/>
+  </g>
+  <!-- горы в дымке -->
+  <path d="M0 660 L70 610 L140 640 L230 560 L300 610 L360 590 L440 640 L520 580 L600 630 L680 570 L760 620 L800 600 L800 720 L0 720 Z" fill="url(#m1)" opacity=".75"/>
+  <path d="M0 700 L90 650 L180 690 L270 640 L340 680 L430 650 L520 690 L620 640 L710 690 L800 660 L800 760 L0 760 Z" fill="url(#m2)" opacity=".9"/>
+  <!-- поле -->
+  <path d="M0 730 C 200 712, 600 712, 800 730 L800 1000 L0 1000 Z" fill="url(#field)"/>
+  <!-- травинки на переднем плане -->
+  <g stroke="#1a0f15" stroke-width="2" stroke-linecap="round" opacity=".8">
+    <path d="M40 1000 Q 46 940 30 900"/><path d="M60 1000 Q 70 950 84 910"/><path d="M90 1000 Q 92 960 80 930"/>
+    <path d="M700 1000 Q 694 950 712 905"/><path d="M730 1000 Q 744 960 736 925"/><path d="M760 1000 Q 754 950 770 915"/>
+    <path d="M150 1000 Q 160 966 150 940"/><path d="M640 1000 Q 632 962 646 940"/>
+  </g>
+  <!-- пара со спины: он слева, она справа, держатся за руки -->
+  <g filter="url(#rim)" fill="#24161d">
+    <!-- фата летит по ветру вправо, за спину -->
+    <path d="M486 596 C 520 610, 560 640, 600 690 C 640 740, 690 790, 760 830 C 700 840, 640 820, 590 780 C 540 740, 510 690, 492 640 Z" fill="url(#veil)"/>
+    <!-- он -->
+    <ellipse cx="338" cy="594" rx="21" ry="25"/>
+    <path d="M328 614 L348 614 L350 628 L326 628 Z"/>
+    <path d="M302 632 Q 292 636 290 650 L 284 742 Q 283 756 290 762 L 300 760 L 304 694 L 306 748 L 308 770 L 306 934 L 332 936 L 336 800 L 340 800 L 344 936 L 370 934 L 368 770 L 371 748 L 374 700 L 392 742 Q 398 752 408 750 L 412 742 L 386 686 L 386 650 Q 384 636 374 632 Z"/>
+    <!-- она -->
+    <ellipse cx="478" cy="604" rx="18" ry="22"/>
+    <circle cx="482" cy="584" r="12"/>
+    <path d="M470 624 L486 624 L488 636 L468 636 Z"/>
+    <path d="M454 640 Q 446 644 444 656 L 440 700 Q 432 720 424 744 L 414 750 L 418 760 L 436 750 L 450 714 L 452 726 Q 424 820, 392 940 Q 470 958, 560 954 Q 630 950, 690 930 Q 590 900, 526 820 Q 506 770, 504 724 L 508 700 L 512 660 Q 510 644, 500 640 Z"/>
+  </g>
+  <!-- блики заката в воздухе -->
+  <g fill="#fff3d9" filter="url(#b3)">
+    <circle cx="560" cy="560" r="6" opacity=".7"/><circle cx="240" cy="520" r="5" opacity=".6"/><circle cx="640" cy="480" r="4" opacity=".6"/>
+    <circle cx="180" cy="610" r="7" opacity=".45"/><circle cx="700" cy="600" r="5" opacity=".5"/>
+  </g>
+  <rect width="800" height="1000" filter="url(#grain)"/>
+</svg>

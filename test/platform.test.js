@@ -111,10 +111,12 @@ test('upload type detection trusts signatures, not filenames', () => {
   assert.equal(detectFileType(Buffer.from('not an image payload')), null);
 });
 
-const PUBLIC_IDS = ['nafis', 'chizgi', 'oqshom', 'gulzor', 'anor', 'charos', 'deco'];
-const HIDDEN_IDS = ['nur', 'marvarid', 'shirin', 'atlas'];
+// Линейка 2026: новые темы со своими сценами открытия + три прежние, которые
+// и так ни на кого не похожи. Снятые с витрины продолжают рендерить оплаченные ссылки.
+const PUBLIC_IDS = ['darvoza', 'uzuk', 'kitob', 'hikoya', 'oqshom', 'chizgi', 'anor'];
+const HIDDEN_IDS = ['nur', 'marvarid', 'shirin', 'atlas', 'nafis', 'gulzor', 'deco', 'charos'];
 
-test('catalog exposes seven designs and keeps the legacy renderer alive', () => {
+test('catalog exposes the new line-up and keeps the legacy renderers alive', () => {
   assert.deepEqual(publicTemplates().map((template) => template.id), PUBLIC_IDS);
   // Снятые с витрины темы не предлагаются парам, но оплаченные ссылки на них
   // обязаны открываться — поэтому они остаются в allTemplates().
@@ -122,15 +124,38 @@ test('catalog exposes seven designs and keeps the legacy renderer alive', () => 
   for (const id of HIDDEN_IDS) assert.equal(allTemplates().find((t) => t.id === id).listed, false, `${id} должен быть скрыт`);
 });
 
-test('every public design ships the shared finish: envelope, glass and gilded type', () => {
+test('every public design opens with a scene of its own, not one shared envelope', () => {
+  const scenes = new Map();
   for (const id of PUBLIC_IDS) {
     const html = renderDemo(id, { lang: 'ru' });
-    assert.match(html, /class="ev-env"/, `${id}: нет конверта`);
-    assert.match(html, /class="ev-wax"/, `${id}: нет сургучной печати`);
-    assert.match(html, /--ev-paper:#[0-9a-f]{6}/i, `${id}: конверт не принял цвет темы`);
-    assert.match(html, /gilt-dust/, `${id}: нет золотой пыли`);
-    assert.ok((html.match(/glass card fx/g) || []).length >= 2, `${id}: стеклянных карточек меньше двух`);
-    assert.match(html, /hero__names fx fx--rise gilt/, `${id}: имена не золотые`);
+    const scene = html.match(/<div class="([^"]+)"[^>]*data-envelope-scene/);
+    assert.ok(scene, `${id}: нет сцены открытия`);
+    assert.match(html, /data-envelope-trigger/, `${id}: сцену нечем открыть`);
+    const kind = scene[1].split(/\s+/)[0];
+    scenes.set(kind, [...(scenes.get(kind) || []), id]);
+  }
+  // Общий конверт остаётся только у прежних тем; у каждой новой — своя сцена.
+  for (const [kind, ids] of scenes) {
+    if (kind !== 'ev-scene') assert.equal(ids.length, 1, `сцену ${kind} делят ${ids.join(', ')}`);
+  }
+  assert.ok(scenes.size >= PUBLIC_IDS.length - 2, 'линейка снова открывается одним конвертом');
+});
+
+test('custom opening scenes set their own timing and the shared script honours it', () => {
+  const html = renderDemo('darvoza', { lang: 'uz' });
+  assert.match(html, /data-envelope-scene data-leave="\d+" data-done="\d+"/);
+  assert.match(html, /beat\('leave',3400\)/, 'скрипт открытия не читает партитуру сцены');
+  assert.match(html, /emit\('nv:ready'/);
+  assert.match(html, /function scrub\(\)/, 'нет драйвера скролл-сцен');
+});
+
+test('the demo shows as many photos as the design asks for and a date that is still ahead', () => {
+  for (const id of PUBLIC_IDS) {
+    const tpl = allTemplates().find((t) => t.id === id);
+    const html = renderDemo(id, { lang: 'uz' });
+    const target = html.match(/new Date\('(\d{4}-\d{2}-\d{2})T/);
+    assert.ok(target && new Date(target[1]) > new Date(), `${id}: дата демо уже прошла`);
+    if (tpl.minPhotos > 2) assert.match(html, /\/demo\/arch\.svg/, `${id}: демо показывает меньше фото, чем просит дизайн`);
   }
 });
 
@@ -147,6 +172,10 @@ test('each design keeps its own palette — линейка не должна с�
 test('each design lays the page out differently — не только цветом', () => {
   // Подача даты — самый заметный узел страницы: у каждого дизайна он свой.
   const dateBlocks = {
+    darvoza: /class="dz-star"/,
+    uzuk: /class="uz-stage uz-datestage"/,
+    kitob: /class="kb-cal"/,
+    hikoya: /class="hk-date"/,
     oqshom: /when glass card fx/,
     nafis: /class="nafis-date/,
     chizgi: /class="chizgi-date/,
@@ -347,16 +376,16 @@ test('envelope opens in four beats and hands the page over on the dolly', () => 
 
 test('admin pricing overrides the manifest and falls back when cleared', async () => {
   const { templatePrice, guestPrice, updatePricing } = await import('../src/pricing.js');
-  const base = allTemplates().find((t) => t.id === 'deco');
-  (await updatePricing({ templates: { deco: 999000 }, guestLink: 25000 }, allTemplates().map((t) => t.id)));
-  assert.equal(templatePrice('deco', base.basePrice), 999000);
+  const base = allTemplates().find((t) => t.id === 'oqshom');
+  (await updatePricing({ templates: { oqshom: 999000 }, guestLink: 25000 }, allTemplates().map((t) => t.id)));
+  assert.equal(templatePrice('oqshom', base.basePrice), 999000);
   assert.equal(guestPrice(), 25000);
-  assert.equal(publicTemplates().find((t) => t.id === 'deco').price, 999000);
+  assert.equal(publicTemplates().find((t) => t.id === 'oqshom').price, 999000);
   // Пустое значение возвращает заводскую цену из manifest.json.
-  (await updatePricing({ templates: { deco: null }, guestLink: null }, allTemplates().map((t) => t.id)));
-  assert.equal(templatePrice('deco', base.basePrice), base.basePrice);
+  (await updatePricing({ templates: { oqshom: null }, guestLink: null }, allTemplates().map((t) => t.id)));
+  assert.equal(templatePrice('oqshom', base.basePrice), base.basePrice);
   assert.equal(guestPrice(), 10000);
-  await assert.rejects(updatePricing({ templates: { deco: -5 } }, ['deco']), /цена/i);
+  await assert.rejects(updatePricing({ templates: { oqshom: -5 } }, ['oqshom']), /цена/i);
 });
 
 test('the admin switch hides a design from the shelf and brings it back', async () => {
@@ -364,18 +393,18 @@ test('the admin switch hides a design from the shelf and brings it back', async 
   const ids = allTemplates().map((t) => t.id);
 
   // Выключили — тема исчезла из витрины, но осталась в каталоге рендера.
-  (await updatePricing({ listed: { deco: false } }, ids));
-  assert.equal(publicTemplates().some((t) => t.id === 'deco'), false, 'deco остался в витрине');
-  assert.equal(allTemplates().find((t) => t.id === 'deco').listed, false);
-  assert.ok(allTemplates().some((t) => t.id === 'deco'), 'deco пропал из каталога рендера');
+  (await updatePricing({ listed: { oqshom: false } }, ids));
+  assert.equal(publicTemplates().some((t) => t.id === 'oqshom'), false, 'oqshom остался в витрине');
+  assert.equal(allTemplates().find((t) => t.id === 'oqshom').listed, false);
+  assert.ok(allTemplates().some((t) => t.id === 'oqshom'), 'oqshom пропал из каталога рендера');
 
   // Включили скрытую заводскую тему — она появилась у пар.
   (await updatePricing({ listed: { nur: true } }, ids));
   assert.ok(publicTemplates().some((t) => t.id === 'nur'), 'nur не вернулся в витрину');
 
   // Пустое значение возвращает заводское из manifest.json.
-  (await updatePricing({ listed: { deco: null, nur: null } }, ids));
-  assert.ok(publicTemplates().some((t) => t.id === 'deco'));
+  (await updatePricing({ listed: { oqshom: null, nur: null } }, ids));
+  assert.ok(publicTemplates().some((t) => t.id === 'oqshom'));
   assert.equal(publicTemplates().some((t) => t.id === 'nur'), false);
 });
 

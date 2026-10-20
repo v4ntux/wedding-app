@@ -479,21 +479,67 @@ setTimeout(function(){try{c.close()}catch(e){}},3800)}catch(e){}}
 
 function music(delay){setTimeout(function(){if(window.__music)window.__music.start()},delay)}
 
-function start(){reveal();parallax();progress()}
+/* Скролл-сцены. Элемент с data-scrub получает --p от 0 до 1 — где он сейчас
+   относительно экрана, — и тема ведёт по нему анимацию одним CSS, без своего
+   кода: --p умножается на поворот, сдвиг, маску. Режимы:
+     view   (по умолчанию) — 0, когда верх вошёл снизу; 1, когда низ ушёл вверх;
+     enter  — 0 → 1 за время, пока блок въезжает в экран;
+     sticky — высокая обёртка со sticky-сценой внутри: 0 → 1 за её прокрутку.
+   Считаем только блоки рядом с экраном и не чаще кадра. */
+function scrub(){
+  var els=[].slice.call(document.querySelectorAll('[data-scrub]'));
+  if(!els.length)return;
+  if(rm){els.forEach(function(el){el.style.setProperty('--p','1')});return}
+  var near=[],tick=false;
+  function measure(el){
+    var r=el.getBoundingClientRect(),vh=innerHeight,mode=el.getAttribute('data-scrub'),p;
+    if(mode==='sticky'){var d=r.height-vh;p=d>0?-r.top/d:(r.top<=0?1:0)}
+    else if(mode==='enter'){p=(vh-r.top)/Math.max(1,Math.min(vh,r.height))}
+    else p=(vh-r.top)/(vh+r.height);
+    p=Math.max(0,Math.min(1,p));
+    if(el.__p!==p){el.__p=p;el.style.setProperty('--p',p.toFixed(4))}
+  }
+  function frame(){tick=false;for(var i=0;i<near.length;i++)measure(near[i])}
+  function queue(){if(!tick){tick=true;requestAnimationFrame(frame)}}
+  if('IntersectionObserver' in window){
+    var io=new IntersectionObserver(function(en){en.forEach(function(e){
+      var at=near.indexOf(e.target);
+      if(e.isIntersecting){if(at<0)near.push(e.target)}
+      else{measure(e.target);if(at>=0)near.splice(at,1)}
+    });queue()},{rootMargin:'25% 0px 25% 0px'});
+    els.forEach(function(el){measure(el);io.observe(el)});
+  }else near=els;
+  addEventListener('scroll',queue,{passive:true});
+  addEventListener('resize',queue,{passive:true});
+  window.nvScrub={refresh:function(){els.forEach(measure)}};
+  frame();
+}
+
+// Тема узнаёт о фазах открытия событиями: nv:open — гость нажал, nv:leave —
+// сцена уходит, nv:ready — страница открыта и живёт (в карточке витрины тоже).
+function emit(name,detail){try{document.dispatchEvent(new CustomEvent(name,{detail:detail||{}}))}catch(e){}}
+
+function start(){reveal();parallax();progress();scrub()}
 
 // Карусель шаблонов в форме рендерит страницу без открытия.
 if(document.body.hasAttribute('data-card-preview')){
   if(scene)scene.hidden=true;
   if(legacy)legacy.style.display='none';
-  document.body.classList.remove('locked');start();return;
+  document.body.classList.remove('locked');start();emit('nv:ready',{card:true});return;
 }
 
 // ── Открытие конвертом ───────────────────────────────────────────────────
 // Одна партитура на все темы: печать откалывается (0.9 c), клапан откидывается
 // (0.42–1.92 c), письмо выезжает (1.25–3.15 c), камера наезжает (3.4–4.8 c).
 // Медленно — это осознанно: гость должен успеть рассмотреть конверт.
+// Тема со своей сценой (двери, книга, плёнка…) задаёт партитуру атрибутами
+// сцены: data-leave и data-done — когда сцена уходит и когда её нет совсем,
+// data-music — когда вступает песня, data-sfx="0" — без шелеста бумаги.
 if(scene){
   var trigger=scene.querySelector('[data-envelope-trigger]'),running=false,finished=false;
+  var beat=function(name,fallback){var v=Number(scene.getAttribute('data-'+name));return isFinite(v)&&v>=0&&scene.hasAttribute('data-'+name)?v:fallback};
+  var tLeave=beat('leave',3400),tDone=beat('done',4700),tMusic=beat('music',900);
+  var paper=scene.getAttribute('data-sfx')!=='0';
   document.body.classList.add('locked');
   function finish(){
     if(finished)return;finished=true;
@@ -501,17 +547,19 @@ if(scene){
     document.body.classList.remove('ev-handoff');
     document.body.classList.remove('locked');
     start();
+    emit('nv:ready',{card:false});
   }
   function openEnvelope(){
     if(running)return;running=true;
     scene.classList.add('is-running');
-    if(!rm)sfx();
-    music(rm?0:900);
+    emit('nv:open',{reduced:rm});
+    if(!rm&&paper)sfx();
+    music(rm?0:tMusic);
     if(rm){finish();return}
     // Клапан перевалил за вертикаль — прячем его за конверт.
     setTimeout(function(){scene.classList.add('is-flap-back')},1500);
-    setTimeout(function(){document.body.classList.add('ev-handoff');scene.classList.add('is-leaving')},3400);
-    setTimeout(finish,4700);
+    setTimeout(function(){document.body.classList.add('ev-handoff');scene.classList.add('is-leaving');emit('nv:leave')},tLeave);
+    setTimeout(finish,tDone);
   }
   trigger.addEventListener('click',openEnvelope);
   trigger.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();openEnvelope()}});
@@ -519,16 +567,16 @@ if(scene){
 }
 
 // ── Legacy-конверт: старые оплаченные ссылки ─────────────────────────────
-if(!legacy){start();return}
+if(!legacy){start();emit('nv:ready',{card:false});return}
 var env=document.getElementById('env');
-if(!env){legacy.style.display='none';start();return}
+if(!env){legacy.style.display='none';start();emit('nv:ready',{card:false});return}
 document.body.classList.add('locked');
 var fin=false;
 function openLegacy(){if(fin)return;fin=true;legacy.classList.add('open');
 if(!rm)sfx();
 music(rm?50:1250);
 setTimeout(function(){legacy.classList.add('gone')},rm?50:2550);
-setTimeout(function(){legacy.style.display='none';document.body.classList.remove('locked');start()},rm?400:3450);}
+setTimeout(function(){legacy.style.display='none';document.body.classList.remove('locked');start();emit('nv:ready',{card:false})},rm?400:3450);}
 env.addEventListener('click',openLegacy);
 env.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();openLegacy()}});
 })();</script>`;

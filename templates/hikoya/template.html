@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111111">
+<title>{{groom}} &amp; {{bride}} · {{L.sub}}</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
+{{{experienceCSS}}}
+{{{coreCSS}}}
+<style>
+/* Hikoya — история, которую листают как презентацию. Ни одной «карточки»:
+   страница из сцен, каждая держится на экране (sticky) и разыгрывается
+   прокруткой. Имена — вырез в бумаге, сквозь который видно фото; камера
+   влетает в буквы. Дата собирается из цифр, летящих с разных сторон.
+   Галерея едет вбок. Карта раскрывается кругом из точки. Финальная фраза
+   загорается по словам. */
+:root{
+  --paper:#f1ece4; --paper-2:#e7e0d5; --paper-3:#d9d0c2;
+  --ink:#111111; --muted:#6b655d;
+  --accent:#ff5a36; --accent-2:#ff3d7f;
+  --line:rgba(17,17,17,.18); --line-soft:rgba(17,17,17,.08);
+  --gold:#ff5a36; --gold-hi:#ffd2c4; --gold-lo:#c23a1c; --gold-rgb:255,90,54;
+  --hot:linear-gradient(100deg,#ff5a36,#ff3d7f);
+  --display:'Dela Gothic One',Impact,sans-serif;
+  --sans:'Inter Tight',ui-sans-serif,system-ui,sans-serif;
+  --script:'Dela Gothic One',Impact,sans-serif;
+}
+html{background:var(--paper)}
+body{background:var(--paper);color:var(--ink)}
+.inv{position:relative;z-index:1;overflow:clip}
+.made{background:#111;color:#bdb6ab;--paper:#111;--ink:#f1ece4}
+
+/* ══ Сцена открытия: фраза и кнопка ═════════════════════════════════ */
+.hk-scene{position:fixed;inset:0;z-index:9000;display:grid;align-content:center;justify-items:start;gap:28px;padding:0 clamp(22px,7vw,80px);
+  background:#111;color:#f1ece4;overflow:hidden;touch-action:none}
+.hk-scene[hidden]{display:none}
+.hk-big{display:grid;gap:.02em;font:400 var(--fit,clamp(2.6rem,13vw,9rem))/.92 var(--display);text-transform:uppercase;letter-spacing:-.01em}
+.hk-big span{display:block;opacity:0;transform:translateY(40%);animation:hkWord .8s cubic-bezier(.2,.8,.2,1) forwards;animation-delay:calc(.25s + var(--i) * .18s)}
+.hk-big span:last-child{background:var(--hot);-webkit-background-clip:text;background-clip:text;color:transparent}
+@keyframes hkWord{to{opacity:1;transform:none}}
+.hk-meta{display:flex;gap:18px;color:#8d867b;font:500 .78rem/1 var(--sans);letter-spacing:.18em;text-transform:uppercase;opacity:0;animation:hkWord .8s ease 1s forwards}
+.hk-trigger{position:absolute;inset:0;z-index:3;display:grid;align-content:end;justify-items:end;padding:0 clamp(22px,7vw,80px) max(34px,env(safe-area-inset-bottom));
+  border:0;background:transparent;color:#111;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.hk-trigger:focus-visible{outline:2px solid #ff5a36;outline-offset:-10px}
+.hk-go{position:relative;display:inline-flex;align-items:center;gap:14px;padding:10px 12px 10px 24px;border-radius:999px;background:#f1ece4;
+  font:600 .9rem/1 var(--sans);letter-spacing:.02em;opacity:0;animation:hkWord .7s ease 1.2s forwards}
+.hk-go i{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;background:var(--hot);color:#fff}
+.hk-go i svg{width:16px;height:16px;fill:currentColor}
+.hk-wipe{position:absolute;right:clamp(44px,calc(7vw + 34px),110px);bottom:max(56px,calc(env(safe-area-inset-bottom) + 22px));z-index:4;width:20px;height:20px;border-radius:50%;
+  background:var(--paper);transform:translate(50%,50%) scale(0);pointer-events:none}
+.hk-scene.is-running .hk-big span{animation:hkFly .7s cubic-bezier(.6,0,.4,1) forwards;animation-delay:calc(var(--i) * .07s)}
+@keyframes hkFly{from{opacity:1;transform:none}to{opacity:0;transform:translateY(-120%) rotate(-4deg)}}
+.hk-scene.is-running .hk-meta,.hk-scene.is-running .hk-go{animation:hkFade .3s ease forwards}
+@keyframes hkFade{to{opacity:0}}
+.hk-scene.is-running .hk-wipe{animation:hkWipe 1s cubic-bezier(.7,0,.3,1) .45s forwards}
+@keyframes hkWipe{to{transform:translate(50%,50%) scale(220)}}
+
+/* ══ Сцена 1: имена-вырез, камера влетает в фото ══════════════════════ */
+.hk-zoom{position:relative;height:330svh;--p:0}
+.hk-pin{position:sticky;top:0;height:100svh;overflow:hidden}
+.hk-zoom__photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 40%;
+  transform:scale(calc(1.3 - var(--p) * .3))}
+.hk-tint{position:absolute;inset:0;background:linear-gradient(180deg,rgba(17,17,17,.5),rgba(17,17,17,.25));opacity:calc(1 - var(--p) * 1.8)}
+.hk-cut{position:absolute;inset:0;width:100%;height:100%;opacity:calc(1 - (var(--p) - .42) * 4)}
+.hk-cut__txt{transform-box:fill-box;transform-origin:50% 50%;transform:scale(calc(1 + var(--p) * var(--p) * 7))}
+.hk-cut text{font-family:var(--display);text-transform:uppercase}
+.hk-top{position:absolute;left:0;right:0;top:max(18px,env(safe-area-inset-top));display:flex;justify-content:space-between;padding:0 clamp(18px,6vw,60px);
+  color:var(--ink);font:600 .68rem/1 var(--sans);letter-spacing:.2em;text-transform:uppercase;opacity:calc(1 - var(--p) * 5)}
+.hk-down{position:absolute;left:50%;bottom:max(20px,env(safe-area-inset-bottom));display:grid;justify-items:center;gap:8px;transform:translateX(-50%);
+  color:var(--muted);font:600 .64rem/1 var(--sans);letter-spacing:.2em;text-transform:uppercase;opacity:calc(1 - var(--p) * 6)}
+.hk-down:after{content:'';width:1px;height:36px;background:linear-gradient(var(--ink),transparent);animation:hkDrop 1.8s ease-in-out infinite}
+@keyframes hkDrop{0%{transform:scaleY(0);transform-origin:top}50%{transform:scaleY(1);transform-origin:top}51%{transform-origin:bottom}100%{transform:scaleY(0);transform-origin:bottom}}
+.hk-zoom__copy{position:absolute;left:0;right:0;bottom:0;padding:120px clamp(22px,7vw,80px) max(48px,calc(env(safe-area-inset-bottom) + 36px));
+  background:linear-gradient(180deg,transparent,rgba(10,10,10,.82) 46%);color:#f6f1ea;
+  opacity:calc((var(--p) - .66) * 5);transform:translateY(calc((1 - var(--p)) * 120px))}
+.hk-zoom__copy small{display:block;margin-bottom:14px;color:#ffb39e;font:600 .68rem/1 var(--sans);letter-spacing:.22em;text-transform:uppercase}
+.hk-zoom__copy h2{max-width:16ch;font:400 clamp(1.9rem,8vw,3.6rem)/1.05 var(--display);text-transform:uppercase;text-wrap:balance}
+.hk-zoom__copy p{max-width:36ch;margin-top:16px;color:#d9d2c8;font:400 clamp(1rem,3.8vw,1.15rem)/1.6 var(--sans)}
+
+/* ══ Сцена 2: дата собирается ═════════════════════════════════════════ */
+.hk-date{position:relative;height:240svh;background:#111;color:#f1ece4;--p:0}
+.hk-date .hk-pin{display:grid;align-content:center;justify-items:center;gap:clamp(6px,2vh,14px);padding:0 18px;text-align:center}
+.hk-over{color:#8d867b;font:600 .7rem/1 var(--sans);letter-spacing:.24em;text-transform:uppercase}
+.hk-d{display:block;font:400 clamp(4.4rem,28vw,15rem)/.84 var(--display);letter-spacing:-.03em;--a:clamp(0,calc((var(--p) - var(--s)) * 3.2),1)}
+.hk-d--1{--s:0;transform:translateX(calc((1 - var(--a)) * -110vw)) rotate(calc((1 - var(--a)) * -8deg))}
+.hk-d--2{--s:.12;font-size:clamp(2.2rem,12vw,7rem);background:var(--hot);-webkit-background-clip:text;background-clip:text;color:transparent;
+  transform:translateX(calc((1 - var(--a)) * 110vw)) rotate(calc((1 - var(--a)) * 8deg))}
+.hk-d--3{--s:.24;transform:translateY(calc((1 - var(--a)) * 70vh)) scale(calc(.6 + var(--a) * .4))}
+.hk-dline{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:10px;opacity:clamp(0,calc((var(--p) - .5) * 4),1)}
+.hk-dline span{padding:12px 18px;border-radius:999px;border:1px solid rgba(241,236,228,.25);font:600 .8rem/1 var(--sans);letter-spacing:.12em;text-transform:uppercase}
+.hk-dline b{color:#ff8a6b;font-weight:600}
+
+/* ══ Сцена 3: лента едет вбок ═════════════════════════════════════════ */
+.hk-track{position:relative;height:380svh;--p:0}
+.hk-track .hk-pin{display:grid;align-content:center}
+.hk-track__head{padding:0 clamp(22px,7vw,80px) 26px;display:flex;justify-content:space-between;align-items:end;gap:20px}
+.hk-track__head h2{font:400 clamp(1.5rem,6.6vw,4.4rem)/.95 var(--display);text-transform:uppercase;text-wrap:balance}
+.hk-track__head span{color:var(--muted);font:600 .7rem/1 var(--sans);letter-spacing:.2em;text-transform:uppercase;white-space:nowrap}
+.hk-rail{display:flex;gap:clamp(14px,4vw,28px);width:max-content;padding:0 clamp(22px,7vw,80px);
+  transform:translate3d(calc(var(--p) * (100vw - 100%)),0,0);will-change:transform}
+.hk-card{position:relative;flex:none;width:min(76vw,520px);height:min(62svh,620px);overflow:hidden;border-radius:22px;background:#111;color:#f1ece4}
+.hk-card img{width:100%;height:100%;object-fit:cover;display:block;transform:scale(1.06)}
+.hk-card figcaption{position:absolute;left:18px;bottom:16px;padding:9px 14px;border-radius:999px;background:rgba(241,236,228,.92);color:#111;
+  font:600 .72rem/1 var(--sans);letter-spacing:.12em;text-transform:uppercase}
+.hk-card--quote{display:grid;align-content:end;padding:clamp(22px,6vw,40px);background:var(--hot)}
+.hk-card--quote p{font:400 clamp(1.9rem,8.6vw,3.6rem)/1.02 var(--display);text-transform:uppercase;text-wrap:balance}
+.hk-card--text{display:grid;align-content:space-between;padding:clamp(22px,6vw,40px);background:#e7e0d5;color:#111}
+.hk-card--text b{font:400 clamp(3rem,16vw,6rem)/1 var(--display);color:#ff5a36}
+.hk-card--text p{font:500 clamp(1.05rem,4.4vw,1.4rem)/1.45 var(--sans)}
+
+/* ══ Отсчёт ═══════════════════════════════════════════════════════════ */
+.hk-cdsec{padding:clamp(80px,16vh,140px) clamp(18px,6vw,60px);text-align:center}
+.hk-cdsec h2{margin-bottom:28px;font:400 clamp(1.8rem,8vw,3.4rem)/1 var(--display);text-transform:uppercase}
+.hk-cd{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(6px,2vw,14px);width:min(100%,760px);margin:0 auto}
+.hk-cd>div{display:grid;gap:10px;justify-items:center;padding:clamp(18px,5vw,30px) 4px;border-radius:18px;background:#111;color:#f1ece4}
+.hk-cd>div:nth-child(2){background:#ff5a36}.hk-cd>div:nth-child(3){background:#ff3d7f}.hk-cd>div:nth-child(4){background:#e7e0d5;color:#111}
+.hk-cd b{color:inherit;font:400 clamp(1.9rem,9.6vw,4.4rem)/1.12 var(--display);font-variant-numeric:tabular-nums}
+.hk-cd>div>span{font:600 .58rem/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;opacity:.85}
+
+/* ══ Сцена 4: карта раскрывается кругом ═══════════════════════════════ */
+.hk-venue{position:relative;height:220svh;--p:0}
+.hk-venue .hk-pin{display:grid}
+.hk-map{position:absolute;inset:0;clip-path:circle(calc(7% + var(--p) * 95%) at 50% 46%);background:#111}
+.hk-map .venue__map,.hk-map .mapbox{height:100%}
+.hk-map .mapbox .nvmap{height:100svh}
+.hk-map .mapbox:after{display:none}
+.hk-map .venue-type{min-height:100svh;margin:0;color:#ff5a36;--paper:#f1ece4;border:0;background:#111}
+.hk-venue__label{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);color:#fff;font:400 clamp(1.4rem,6vw,2.6rem)/1 var(--display);text-transform:uppercase;
+  pointer-events:none;opacity:calc(1 - var(--p) * 4);mix-blend-mode:difference}
+.hk-venue__card{position:absolute;left:clamp(14px,5vw,40px);right:clamp(14px,5vw,40px);bottom:max(18px,calc(env(safe-area-inset-bottom) + 10px));
+  margin:0 auto;max-width:620px;padding:22px;border-radius:22px;background:#f1ece4;box-shadow:0 30px 60px -20px rgba(0,0,0,.5);
+  opacity:clamp(0,calc((var(--p) - .55) * 4),1);transform:translateY(calc((1 - clamp(0,calc((var(--p) - .5) * 3),1)) * 60px))}
+.hk-venue__card small{color:var(--muted);font:600 .64rem/1 var(--sans);letter-spacing:.2em;text-transform:uppercase}
+.hk-venue__card h2{margin:10px 0 6px;font:400 clamp(1.3rem,5.6vw,2rem)/1.1 var(--display);text-transform:uppercase}
+.hk-venue__card p{color:var(--muted);font:500 .8rem/1.5 var(--sans)}
+.hk-venue__card .routes{margin-top:14px}
+.hk-venue__card .routes a{border-color:#111;background:#111;color:#f1ece4;font-weight:600}
+.hk-venue__card .routes a:hover{background:#ff5a36;border-color:#ff5a36}
+
+/* ══ Сцена 5: финальная фраза загорается по словам ════════════════════ */
+.hk-final{position:relative;height:260svh;background:#111;color:#f1ece4;--p:0}
+.hk-final .hk-pin{display:grid;align-content:center;padding:0 clamp(22px,7vw,80px)}
+.hk-hl{max-width:18ch;font:400 clamp(2.1rem,10vw,5.6rem)/1.02 var(--display);text-transform:uppercase}
+.hk-hl span{opacity:clamp(.14,calc(var(--p) * 1.25 * var(--n) - var(--w) + .3),1);transition:none}
+.hk-hl span.hot{background:var(--hot);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hk-sign{margin-top:28px;color:#8d867b;font:600 .78rem/1.6 var(--sans);letter-spacing:.18em;text-transform:uppercase;opacity:clamp(0,calc((var(--p) - .8) * 6),1)}
+
+#mbtn{border-color:#111;background:#f1ece4;color:#111}
+#mbtn.on{background:#ff5a36;border-color:#ff5a36;color:#fff}
+
+@media (prefers-reduced-motion:reduce){
+  .hk-zoom,.hk-date,.hk-track,.hk-venue,.hk-final{height:auto}
+  .hk-pin{position:relative;height:auto;min-height:100svh}
+  .hk-track .hk-pin{overflow-x:auto}
+  .hk-rail{transform:none}
+  .hk-cut{display:none}
+  .hk-zoom__copy,.hk-venue__card{position:relative;opacity:1;transform:none}
+  .hk-down:after{animation:none}
+}
+</style>
+</head>
+<body>
+<div class="hk-scene" data-envelope-scene data-leave="1250" data-done="1500" data-music="900" data-sfx="0">
+  <div class="hk-big" aria-hidden="true">{{L.big}}</div>
+  <div class="hk-meta"><span>{{groom}} &amp; {{bride}}</span><span>{{dateIso}}</span></div>
+  <button type="button" class="hk-trigger" data-envelope-trigger aria-label="{{L.openHint}}">
+    <span class="hk-go">{{L.openHint}}<i aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M5 3l8 5-8 5z"/></svg></i></span>
+  </button>
+  <div class="hk-wipe" aria-hidden="true"></div>
+</div>
+<script>
+// Фраза открытия — по словам: каждое выезжает своим тактом. Кегль подбирается
+// так, чтобы самое длинное слово встало в ширину экрана.
+(function(){var el=document.querySelector('.hk-big');if(!el)return;
+var words=el.textContent.trim().split(/\s+/);el.textContent='';
+words.forEach(function(w,i){var s=document.createElement('span');s.textContent=w;s.style.setProperty('--i',i);el.appendChild(s)});
+function fit(){el.style.removeProperty('--fit');var max=0,fs=parseFloat(getComputedStyle(el).fontSize)||60;
+[].forEach.call(el.children,function(s){s.style.display='inline-block';max=Math.max(max,s.getBoundingClientRect().width);s.style.display=''});
+var room=Math.min(innerWidth*.86,1100);if(max>0)el.style.setProperty('--fit',Math.min(fs*room/max,innerHeight*.2,150).toFixed(1)+'px')}
+fit();if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fit);addEventListener('resize',fit)})();
+</script>
+
+<main class="inv hk">
+
+  <section class="hk-zoom" data-scrub="sticky">
+    <div class="hk-pin">
+      {{#if photos.0}}<img class="hk-zoom__photo" src="{{photos.0}}" alt="{{groom}} &amp; {{bride}}">{{/if}}
+      <div class="hk-tint" aria-hidden="true"></div>
+      <svg class="hk-cut" aria-hidden="true" preserveAspectRatio="none">
+        <defs><mask id="hkMask" maskUnits="userSpaceOnUse">
+          <rect x="-10%" y="-10%" width="120%" height="120%" fill="#fff"/>
+          <g class="hk-cut__txt" fill="#000">
+            <text class="hk-l1" text-anchor="middle">{{groom}}</text>
+            <text class="hk-l2" text-anchor="middle">&amp;</text>
+            <text class="hk-l3" text-anchor="middle">{{bride}}</text>
+          </g>
+        </mask></defs>
+        <rect x="-10%" y="-10%" width="120%" height="120%" fill="#f1ece4" mask="url(#hkMask)"/>
+      </svg>
+      <div class="hk-top"><span>{{L.sub}}</span><span>{{dateText}}</span></div>
+      <div class="hk-down" aria-hidden="true">{{L.down}}</div>
+      <div class="hk-zoom__copy">
+        {{#if guestName}}
+          <small>{{L.greet}} {{guestName}}</small>
+          <h2>{{L.greetTail}}</h2>
+        {{else}}
+          <small>{{groom}} &amp; {{bride}}</small>
+          <h2>{{L.invite}}</h2>
+        {{/if}}
+      </div>
+    </div>
+  </section>
+
+  <section class="hk-date" data-scrub="sticky">
+    <div class="hk-pin">
+      <span class="hk-over">{{L.save}}</span>
+      <span class="hk-d hk-d--1">{{day}}</span>
+      <span class="hk-d hk-d--2">{{monthName}}</span>
+      <span class="hk-d hk-d--3">{{year}}</span>
+      <div class="hk-dline"><span>{{weekday}}</span><span><b>{{time}}</b></span></div>
+    </div>
+  </section>
+
+  <section class="hk-track" data-scrub="sticky">
+    <div class="hk-pin">
+      <div class="hk-track__head"><h2>{{L.story}}</h2><span>{{groom}} &amp; {{bride}}</span></div>
+      <div class="hk-rail">
+        {{#if photos.1}}<figure class="hk-card"><img src="{{photos.1}}" alt="{{groom}} &amp; {{bride}}" loading="lazy"><figcaption>{{L.gallery}}</figcaption></figure>{{/if}}
+        <div class="hk-card hk-card--quote"><p>{{L.quote}}</p></div>
+        {{#if photos.2}}<figure class="hk-card"><img src="{{photos.2}}" alt="{{groom}} &amp; {{bride}}" loading="lazy"><figcaption>{{dateText}}</figcaption></figure>{{/if}}
+        <div class="hk-card hk-card--text"><b>&amp;</b><p>{{L.emo}}</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="hk-cdsec">
+    <h2 class="fx">{{L.until}}</h2>
+    <div class="hk-cd cd fx">
+      <div><b id="cd">00</b><span>{{L.days}}</span></div>
+      <div><b id="ch">00</b><span>{{L.hours}}</span></div>
+      <div><b id="cm">00</b><span>{{L.min}}</span></div>
+      <div><b id="cs">00</b><span>{{L.sec}}</span></div>
+    </div>
+  </section>
+
+  <section class="hk-venue" data-scrub="sticky">
+    <div class="hk-pin">
+      <div class="hk-map"><div class="venue__map">{{{map}}}</div></div>
+      <div class="hk-venue__label" aria-hidden="true">{{L.where}}</div>
+      <div class="hk-venue__card">
+        <small>{{L.where}}</small>
+        <h2>{{address}}</h2>
+        {{#if venueLine}}<p>{{venueLine}}</p>{{/if}}
+        {{#if gmaps}}
+        <div class="routes">
+          <a href="{{gmaps}}" target="_blank" rel="noopener"><span>{{L.gmaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+          <a href="{{ymaps}}" target="_blank" rel="noopener"><span>{{L.ymaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+        </div>
+        {{/if}}
+      </div>
+    </div>
+  </section>
+
+  <section class="hk-final" data-scrub="sticky">
+    <div class="hk-pin">
+      <p class="hk-hl">{{L.final}}</p>
+      <p class="hk-sign">{{L.sign}} {{groom}} {{L.and}} {{bride}}</p>
+    </div>
+  </section>
+
+  {{{made}}}
+</main>
+
+<script>
+// Имена-вырез: размер строк подбирается под экран, вырез — по реальной ширине текста.
+(function(){
+  var svg=document.querySelector('.hk-cut');if(!svg)return;
+  var l=[svg.querySelector('.hk-l1'),svg.querySelector('.hk-l2'),svg.querySelector('.hk-l3')];
+  function lay(){
+    var w=innerWidth,h=innerHeight;svg.setAttribute('viewBox','0 0 '+w+' '+h);
+    var base=100;l.forEach(function(t){t.setAttribute('font-size',base)});
+    var widest=Math.max(l[0].getComputedTextLength(),l[2].getComputedTextLength(),1);
+    var size=Math.min(base*(w*.86)/widest,h*.2,320);
+    var amp=size*.62,gap=size*.04,total=size*.86*2+amp+gap*2,top=(h-total)/2+size*.1;
+    l[0].setAttribute('font-size',size);l[2].setAttribute('font-size',size);l[1].setAttribute('font-size',amp);
+    [l[0],l[1],l[2]].forEach(function(t){t.setAttribute('x',w/2)});
+    l[0].setAttribute('y',top+size*.78);l[1].setAttribute('y',top+size*.86+gap+amp*.82);l[2].setAttribute('y',top+size*.86+amp+gap*2+size*.78);
+  }
+  lay();
+  if(document.fonts&&document.fonts.ready)document.fonts.ready.then(lay);
+  var t=0;addEventListener('resize',function(){clearTimeout(t);t=setTimeout(lay,120)});
+})();
+// Финальная фраза: слова получают номер, загораются по мере прокрутки.
+(function(){
+  var p=document.querySelector('.hk-hl');if(!p)return;
+  var words=p.textContent.trim().split(/\s+/);p.textContent='';p.style.setProperty('--n',words.length);
+  words.forEach(function(w,i){var s=document.createElement('span');s.textContent=w;s.style.setProperty('--w',i);if(i===words.length-1)s.className='hot';p.appendChild(s);p.appendChild(document.createTextNode(' '))});
+})();
+</script>
+
+{{{audioWidget}}}
+{{{experienceScript}}}
+{{{countdown}}}
+</body>
+</html>

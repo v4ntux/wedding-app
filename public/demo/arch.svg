@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4cfae"/><stop offset=".45" stop-color="#f7e3cc"/><stop offset=".7" stop-color="#efe6d2"/><stop offset="1" stop-color="#c9c7a4"/>
+    </linearGradient>
+    <radialGradient id="sun" cx=".78" cy=".2" r=".5">
+      <stop offset="0" stop-color="#fff6e2" stop-opacity="1"/><stop offset=".25" stop-color="#ffe7c2" stop-opacity=".7"/><stop offset="1" stop-color="#ffd6a8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="grass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a7b083"/><stop offset="1" stop-color="#5f6e45"/>
+    </linearGradient>
+    <linearGradient id="aisle" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#efe5d4"/><stop offset="1" stop-color="#d8c6a8"/>
+    </linearGradient>
+    <linearGradient id="wood" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#e9dfcf"/><stop offset=".5" stop-color="#fffaf1"/><stop offset="1" stop-color="#d9ccb6"/>
+    </linearGradient>
+    <radialGradient id="blush" cx=".38" cy=".34" r=".7"><stop offset="0" stop-color="#fff2ef"/><stop offset=".55" stop-color="#f2b9b0"/><stop offset="1" stop-color="#c97f7a"/></radialGradient>
+    <radialGradient id="ivory" cx=".38" cy=".34" r=".7"><stop offset="0" stop-color="#ffffff"/><stop offset=".6" stop-color="#f6eee2"/><stop offset="1" stop-color="#d6c7b0"/></radialGradient>
+    <radialGradient id="peach" cx=".38" cy=".34" r=".7"><stop offset="0" stop-color="#fff1e2"/><stop offset=".6" stop-color="#f4c79e"/><stop offset="1" stop-color="#d08e62"/></radialGradient>
+    <radialGradient id="leaf" cx=".4" cy=".3" r=".8"><stop offset="0" stop-color="#9fb48c"/><stop offset="1" stop-color="#4f6a45"/></radialGradient>
+    <filter id="b4"><feGaussianBlur stdDeviation="4"/></filter>
+    <filter id="b10" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="10"/></filter>
+    <filter id="b24" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="24"/></filter>
+    <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 .5  0 0 0 0 .45  0 0 0 0 .38  0 0 0 .06 0"/></filter>
+    <g id="flower">
+      <circle r="18" fill="url(#blush)"/>
+      <path d="M-9 -2 a9 9 0 0 1 18 0 M-5 3 a6 6 0 0 1 10 -1" fill="none" stroke="#b56d68" stroke-width="1.6" opacity=".55"/>
+    </g>
+    <g id="rose2">
+      <circle r="15" fill="url(#ivory)"/>
+      <path d="M-7 -1 a7 7 0 0 1 14 0 M-4 3 a4 4 0 0 1 8 0" fill="none" stroke="#b9a68a" stroke-width="1.4" opacity=".6"/>
+    </g>
+    <g id="rose3">
+      <circle r="13" fill="url(#peach)"/>
+      <path d="M-6 0 a6 6 0 0 1 12 0" fill="none" stroke="#b9774f" stroke-width="1.3" opacity=".6"/>
+    </g>
+    <ellipse id="lf" rx="16" ry="6" fill="url(#leaf)"/>
+  </defs>
+  <rect width="800" height="1000" fill="url(#sky)"/>
+  <!-- деревья вдали, вне фокуса -->
+  <g filter="url(#b24)" opacity=".9">
+    <ellipse cx="90" cy="560" rx="170" ry="190" fill="#8ea37a"/>
+    <ellipse cx="260" cy="610" rx="140" ry="120" fill="#a5b58f"/>
+    <ellipse cx="720" cy="560" rx="190" ry="210" fill="#7d9468"/>
+    <ellipse cx="560" cy="630" rx="150" ry="110" fill="#9aad85"/>
+    <ellipse cx="400" cy="660" rx="260" ry="70" fill="#b4bf98"/>
+  </g>
+  <rect width="800" height="1000" fill="url(#sun)"/>
+  <!-- гирлянда огней -->
+  <g filter="url(#b4)" fill="#fff3d6">
+    <circle cx="60" cy="300" r="7" opacity=".8"/><circle cx="130" cy="330" r="6" opacity=".7"/><circle cx="210" cy="346" r="8" opacity=".85"/>
+    <circle cx="590" cy="346" r="8" opacity=".85"/><circle cx="670" cy="330" r="6" opacity=".7"/><circle cx="740" cy="300" r="7" opacity=".8"/>
+    <circle cx="300" cy="120" r="10" opacity=".35"/><circle cx="520" cy="80" r="14" opacity=".3"/><circle cx="700" cy="160" r="12" opacity=".4"/>
+  </g>
+  <!-- земля и проход -->
+  <path d="M0 720 L800 720 L800 1000 L0 1000 Z" fill="url(#grass)"/>
+  <path d="M352 720 L448 720 L640 1000 L160 1000 Z" fill="url(#aisle)"/>
+  <!-- лепестки на дорожке -->
+  <g fill="#f3b3aa" opacity=".9">
+    <ellipse cx="380" cy="770" rx="5" ry="3"/><ellipse cx="430" cy="800" rx="6" ry="3"/><ellipse cx="350" cy="850" rx="7" ry="4"/>
+    <ellipse cx="460" cy="880" rx="8" ry="4"/><ellipse cx="300" cy="930" rx="9" ry="5"/><ellipse cx="520" cy="960" rx="10" ry="5"/>
+    <ellipse cx="410" cy="910" rx="7" ry="4" fill="#fff"/><ellipse cx="370" cy="980" rx="9" ry="5" fill="#fff"/>
+  </g>
+  <!-- ряды стульев -->
+  <g fill="#fbf7ef" stroke="#cdbfa6" stroke-width="1.2">
+    <rect x="300" y="736" width="26" height="22" rx="5"/><rect x="262" y="736" width="26" height="22" rx="5"/><rect x="224" y="736" width="26" height="22" rx="5"/>
+    <rect x="474" y="736" width="26" height="22" rx="5"/><rect x="512" y="736" width="26" height="22" rx="5"/><rect x="550" y="736" width="26" height="22" rx="5"/>
+    <rect x="262" y="786" width="34" height="30" rx="6"/><rect x="214" y="786" width="34" height="30" rx="6"/><rect x="166" y="786" width="34" height="30" rx="6"/>
+    <rect x="504" y="786" width="34" height="30" rx="6"/><rect x="552" y="786" width="34" height="30" rx="6"/><rect x="600" y="786" width="34" height="30" rx="6"/>
+    <rect x="200" y="860" width="46" height="40" rx="8"/><rect x="136" y="860" width="46" height="40" rx="8"/><rect x="72" y="860" width="46" height="40" rx="8"/>
+    <rect x="554" y="860" width="46" height="40" rx="8"/><rect x="618" y="860" width="46" height="40" rx="8"/><rect x="682" y="860" width="46" height="40" rx="8"/>
+  </g>
+  <!-- тень арки -->
+  <ellipse cx="400" cy="728" rx="200" ry="18" fill="#3b4a2a" opacity=".35" filter="url(#b10)"/>
+  <!-- арка -->
+  <path d="M250 724 L250 420 A150 150 0 0 1 550 420 L550 724 L528 724 L528 420 A128 128 0 0 0 272 420 L272 724 Z" fill="url(#wood)" stroke="#cdbfa6" stroke-width="1.5"/>
+  <!-- цветочная композиция: верх слева и низ справа -->
+  <g>
+    <g transform="translate(262 380)">
+      <use href="#lf" x="-30" y="-40" transform="rotate(-30)"/><use href="#lf" x="10" y="-60" transform="rotate(20)"/><use href="#lf" x="-40" y="20" transform="rotate(60)"/>
+      <use href="#lf" x="40" y="-30" transform="rotate(-10)"/><use href="#lf" x="60" y="-70" transform="rotate(35)"/><use href="#lf" x="-12" y="50" transform="rotate(80)"/>
+      <use href="#flower" x="0" y="0"/><use href="#rose2" x="30" y="-26"/><use href="#rose3" x="-20" y="-34"/><use href="#flower" x="18" y="22"/>
+      <use href="#rose2" x="-26" y="12"/><use href="#rose3" x="52" y="-50"/><use href="#flower" x="70" y="-84"/><use href="#rose2" x="96" y="-104"/>
+      <use href="#rose3" x="-8" y="44"/><use href="#rose2" x="-30" y="64"/><use href="#flower" x="-12" y="92"/><use href="#rose3" x="-28" y="120"/>
+      <use href="#rose2" x="120" y="-118"/><use href="#rose3" x="146" y="-128"/>
+    </g>
+    <g transform="translate(540 650)">
+      <use href="#lf" x="-30" y="-20" transform="rotate(-40)"/><use href="#lf" x="20" y="-40" transform="rotate(30)"/><use href="#lf" x="-20" y="30" transform="rotate(70)"/>
+      <use href="#lf" x="34" y="20" transform="rotate(-20)"/>
+      <use href="#flower" x="0" y="0"/><use href="#rose2" x="-24" y="-22"/><use href="#rose3" x="22" y="-28"/><use href="#rose2" x="20" y="24"/>
+      <use href="#flower" x="-18" y="30"/><use href="#rose3" x="-8" y="-54"/><use href="#rose2" x="4" y="-80"/><use href="#rose3" x="40" y="4"/>
+    </g>
+  </g>
+  <!-- свечение заката поверх -->
+  <rect width="800" height="1000" fill="url(#sun)" opacity=".45"/>
+  <rect width="800" height="1000" filter="url(#grain)"/>
+</svg>

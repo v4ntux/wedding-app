@@ -26,6 +26,11 @@ export const STATIONERY = Object.freeze({
   // Без золота и ночи: печатная полоса и гранатовый плакат
   chizgi: { name: 'Chizgi', theme: 'press', tile: '100% 100%', effect: 'none', ink: '#14140f', paper: '#ece9e1', accent: '#d93a1e', envelope: '#14140f', ru: 'Типографская полоса · бумага, штрих и киноварь', uz: 'Bosma chizgi · qog‘oz, shtrix va qizil' },
   anor: { name: 'Anor', theme: 'riso', tile: '0% 0%', effect: 'petals', ink: '#fdeed6', paper: '#a92a3c', accent: '#f4a259', envelope: '#5e0f1e', ru: 'Гранатовый плакат · ризография и сливки', uz: 'Anor plakati · rizografiya va qaymoq' },
+  // Линейка 2026: у каждой темы своя сцена открытия, своя геометрия и свой моушн
+  darvoza: { name: 'Darvoza', theme: 'gate', tile: '50% 0%', effect: 'none', ink: '#3a2618', paper: '#efe2cc', accent: '#1f9c9a', envelope: '#4a2e1c', ru: 'Резные ворота Хивы · 3D-створки, изразец и свет двора', uz: 'Xiva darvozasi · 3D eshik, koshin va hovli nuri' },
+  uzuk: { name: 'Uzuk', theme: 'rings3d', tile: '50% 50%', effect: 'none', ink: '#f3eee6', paper: '#0a0a0b', accent: '#d9b56c', envelope: '#1a1a1d', ru: 'Два кольца в 3D · WebGL, золото и студийный свет', uz: 'Ikki uzuk 3D · WebGL, oltin va studiya nuri' },
+  kitob: { name: 'Kitob', theme: 'book3d', tile: '0% 50%', effect: 'none', ink: '#2b2622', paper: '#f7f1e3', accent: '#8e2c2c', envelope: '#1c2a44', ru: 'Семейная книга · 3D-обложка и страницы, которые листаются', uz: 'Oilaviy kitob · 3D muqova va varaqlanadigan sahifalar' },
+  hikoya: { name: 'Hikoya', theme: 'story', tile: '100% 50%', effect: 'none', ink: '#111111', paper: '#f1ece4', accent: '#ff5a36', envelope: '#111111', ru: 'История в сценах · имена-вырез, лента и слова, которые загораются', uz: 'Sahnalardagi hikoya · ism-kesma, lenta va yonadigan so‘zlar' },
   // Legacy — витрину покинули, но старые ссылки продолжают открываться
   atlas: { name: 'Atlas', theme: 'heritage', tile: '100% 0%', effect: 'sparkles', ink: '#703f32', paper: '#faf1dd', accent: '#b9784d', envelope: '#d6a06e', ru: 'Узбекский атлас · золотые нити', uz: 'O‘zbek atlasi · oltin iplar' },
 });

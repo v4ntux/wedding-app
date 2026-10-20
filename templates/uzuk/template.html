@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0b">
+<title>{{groom}} &amp; {{bride}} · {{L.sub}}</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,400;1,500&family=Tenor+Sans&display=swap" rel="stylesheet">
+{{{experienceCSS}}}
+{{{coreCSS}}}
+<style>
+/* Uzuk — два кольца в темноте. Настоящий 3D: WebGL без библиотек, кольца
+   отражают студийный свет (софтбоксы по бокам, верхний свет, тёплая подсветка
+   снизу), поэтому блик бежит по металлу, когда пара поворачивается. Кольца
+   соединяются, когда гость открывает приглашение, и дальше сопровождают
+   страницу: каждая секция задаёт им позу (data-pose), кольца плавно
+   переходят из одной в другую. Без WebGL — нарисованная пара колец. */
+:root{
+  --paper:#0a0a0b; --paper-2:#121214; --paper-3:#1a1a1d;
+  --ink:#f3eee6; --muted:#8f897f;
+  --accent:#d9b56c; --accent-2:#e3a389;
+  --line:rgba(217,181,108,.32); --line-soft:rgba(243,238,230,.1);
+  --gold:#d9b56c; --gold-hi:#fff1c9; --gold-lo:#8a6a2f; --gold-rgb:217,181,108;
+  --shot-edge:rgba(217,181,108,.3);
+  --display:'Tenor Sans',ui-sans-serif,system-ui,sans-serif;
+  --sans:'Tenor Sans',ui-sans-serif,system-ui,sans-serif;
+  --script:'Playfair Display',Georgia,serif;
+}
+html{background:#0a0a0b}
+body{background:
+  radial-gradient(80% 50% at 50% 0,rgba(217,181,108,.12),transparent 70%),
+  radial-gradient(60% 40% at 50% 100%,rgba(227,163,137,.07),transparent 70%),
+  #0a0a0b;color:var(--ink)}
+#uz-gl{position:fixed;inset:0;z-index:0;width:100%;height:100%;display:block;pointer-events:none}
+.uz-glow{position:fixed;left:0;top:0;z-index:0;width:520px;height:520px;margin:-260px 0 0 -260px;pointer-events:none;
+  background:radial-gradient(closest-side,rgba(217,181,108,.26),rgba(217,181,108,.08) 45%,transparent 72%);
+  transform:translate3d(var(--gx,50vw),var(--gy,30vh),0) scale(var(--gs,1));opacity:var(--go,1);will-change:transform}
+.inv{position:relative;z-index:1;transition:opacity 1.2s ease}
+body.locked .inv{opacity:0}
+.made{position:relative;z-index:1;background:rgba(10,10,11,.9);border-top:1px solid var(--line-soft)}
+
+/* ══ Сцена открытия: кольца врозь ═══════════════════════════════════ */
+.uz-scene{position:fixed;inset:0;z-index:9000;display:grid;grid-template-rows:auto 1fr auto auto;justify-items:center;
+  padding:max(28px,env(safe-area-inset-top)) 22px 0;pointer-events:auto;touch-action:none}
+.uz-scene[hidden]{display:none}
+.uz-scene__veil{position:absolute;inset:0;z-index:-1;background:radial-gradient(70% 55% at 50% 42%,transparent 40%,rgba(0,0,0,.6) 100%)}
+.uz-scene__top{display:flex;align-items:center;gap:14px;color:var(--gold);font:400 .62rem/1 var(--sans);letter-spacing:.5em;text-transform:uppercase;padding-top:4vh}
+.uz-scene__top:before,.uz-scene__top:after{content:'';width:28px;height:1px;background:currentColor;opacity:.5}
+.uz-scene__quote{grid-row:3;max-width:22ch;margin:0 0 calc(116px + env(safe-area-inset-bottom));text-align:center;color:var(--ink);font:italic 400 clamp(1.3rem,5.4vw,1.9rem)/1.35 var(--script)}
+.uz-trigger{position:absolute;inset:0;z-index:2;display:grid;align-content:end;justify-items:center;padding:0 20px max(30px,env(safe-area-inset-bottom));
+  border:0;background:transparent;color:var(--ink);cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.uz-trigger:focus-visible{outline:1px solid var(--gold);outline-offset:-14px}
+.uz-hint{position:relative;display:inline-flex;align-items:center;gap:14px;padding:14px 26px;border:1px solid rgba(217,181,108,.45);border-radius:999px;
+  background:rgba(10,10,11,.55);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  font:400 .66rem/1 var(--sans);letter-spacing:.24em;text-transform:uppercase}
+.uz-hint i{position:relative;width:20px;height:12px;flex:none}
+.uz-hint i:before,.uz-hint i:after{content:'';position:absolute;top:0;width:12px;height:12px;border-radius:50%;border:1.5px solid var(--gold)}
+.uz-hint i:before{left:0}.uz-hint i:after{right:0;border-color:var(--accent-2)}
+.uz-hint:after{content:'';position:absolute;inset:-1px;border-radius:inherit;border:1px solid var(--gold);opacity:0;animation:uzPing 2.4s ease-out infinite}
+@keyframes uzPing{0%{opacity:.8;transform:scale(1)}100%{opacity:0;transform:scale(1.25,1.6)}}
+.uz-flash{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:0;
+  background:radial-gradient(circle at var(--fx,50%) var(--fy,34%),rgba(255,244,214,.95),rgba(255,226,170,.35) 22%,transparent 55%)}
+.uz-scene.is-running .uz-hint,.uz-scene.is-running .uz-scene__quote,.uz-scene.is-running .uz-scene__top{opacity:0;transition:opacity .5s ease}
+.uz-scene.is-running .uz-flash{animation:uzFlash 1.1s ease-out 1.05s forwards}
+@keyframes uzFlash{0%{opacity:0}35%{opacity:1}100%{opacity:0}}
+.uz-scene.is-leaving .uz-scene__veil{opacity:0;transition:opacity .8s ease}
+
+/* ══ Страница ═══════════════════════════════════════════════════════ */
+.uz-stage{position:relative;display:grid;align-content:end;justify-items:center;min-height:104svh;
+  padding:0 22px clamp(56px,9vh,90px);text-align:center}
+.uz-sec{position:relative;padding:clamp(90px,18vh,150px) 22px;text-align:center}
+.uz-kicker,.uz-over{display:inline-flex;align-items:center;gap:12px;margin-bottom:18px;color:var(--gold);
+  font:400 .6rem/1 var(--sans);letter-spacing:.46em;text-transform:uppercase}
+.uz-over:before,.uz-over:after{content:'';width:20px;height:1px;background:currentColor;opacity:.45}
+.uz-names{display:grid;justify-items:center;gap:.06em;color:var(--ink);text-shadow:0 2px 30px rgba(0,0,0,.6);
+  font:400 clamp(2.2rem,10.6vw,4.4rem)/1 var(--display);letter-spacing:.14em;text-transform:uppercase}
+.uz-names i{color:var(--gold);font:italic 400 .62em/1.1 var(--script);letter-spacing:0;text-transform:none}
+.uz-date{margin-top:18px;color:var(--muted);font:400 .74rem/1 var(--sans);letter-spacing:.32em;text-transform:uppercase}
+.uz-copy{width:min(100%,560px);margin:0 auto}
+.uz-h{margin:0 auto .5em;max-width:20ch;color:var(--ink);font:400 clamp(1.6rem,6.8vw,2.6rem)/1.25 var(--display);letter-spacing:.04em;text-wrap:balance}
+.uz-p{max-width:34ch;margin:0 auto;color:#b8b1a6;font:400 clamp(1rem,3.9vw,1.1rem)/1.85 var(--sans)}
+.uz-rule{width:1px;height:58px;margin:26px auto;background:linear-gradient(180deg,transparent,var(--gold),transparent)}
+
+/* Фото: два кадра внахлёст, как разворот ювелирного каталога. */
+.uz-photos{display:grid;justify-items:center}
+.uz-gallery{position:relative;width:min(100%,560px);margin:0 auto;padding-bottom:clamp(60px,18vw,120px)}
+.uz-frame{position:relative;margin:0;padding:10px;border:1px solid rgba(217,181,108,.35);background:rgba(18,18,20,.6)}
+.uz-frame img{display:block;width:100%;height:100%;object-fit:cover;filter:grayscale(1) contrast(1.05);transition:filter 2.4s ease .3s}
+.uz-frame.in img{filter:grayscale(0) contrast(1.02)}
+.uz-frame--a{width:76%;aspect-ratio:4/5}
+.uz-frame--b{position:absolute;right:0;bottom:0;width:52%;aspect-ratio:4/5;box-shadow:0 30px 60px -20px rgba(0,0,0,.8)}
+.uz-frame--b.fx{--d:.25s}
+
+.uz-datestage .uz-dnum{position:relative;color:var(--ink);font:400 clamp(6rem,36vw,12rem)/.8 var(--display);letter-spacing:-.04em;
+  text-shadow:0 10px 60px rgba(0,0,0,.7)}
+.uz-dmonth{margin-top:16px;color:var(--gold);font:italic 400 clamp(1.4rem,6vw,2rem)/1 var(--script)}
+.uz-dweek{margin-top:16px;color:var(--muted);font:400 .74rem/1 var(--sans);letter-spacing:.32em;text-transform:uppercase}
+
+.uz-cd{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:min(100%,560px);margin:0 auto;
+  border-block:1px solid var(--line-soft)}
+.uz-cd>div{position:relative;display:grid;justify-items:center;gap:12px;padding:26px 4px}
+.uz-cd>div+div:before{content:'';position:absolute;left:0;top:28%;bottom:28%;width:1px;background:var(--line-soft)}
+.uz-cd b{color:var(--ink);font:400 clamp(1.9rem,9vw,3.2rem)/1.12 var(--display);font-variant-numeric:tabular-nums}
+.uz-cd>div>span{color:var(--muted);font:400 .54rem/1 var(--sans);letter-spacing:.26em;text-transform:uppercase}
+
+.uz-venue{width:min(100%,600px);margin:0 auto}
+.uz-venue .uz-h{font-size:clamp(1.5rem,6.4vw,2.3rem)}
+.uz-venue__meta{margin:-6px 0 22px;color:var(--muted);font:400 .7rem/1.6 var(--sans);letter-spacing:.2em;text-transform:uppercase}
+.uz-map{border:1px solid rgba(217,181,108,.3);padding:8px;background:rgba(18,18,20,.7)}
+.uz-map .mapbox:after{box-shadow:none}
+.uz-map .venue-type{margin:0;color:var(--gold);--paper:var(--ink);background:transparent}
+.uz-venue .routes a{border-color:rgba(217,181,108,.4);background:rgba(10,10,11,.6);color:var(--ink);letter-spacing:.12em}
+.uz-venue .routes a:hover{background:var(--gold);color:#0a0a0b}
+
+.uz-final__text{max-width:16ch;color:var(--ink);font:400 clamp(1.8rem,8vw,3rem)/1.2 var(--display);letter-spacing:.06em;text-transform:uppercase;text-wrap:balance}
+.uz-sign{margin-top:22px;color:var(--gold);font:italic 400 1.2rem/1.4 var(--script)}
+
+/* Без WebGL: нарисованная пара колец в титуле и финале. */
+.uz-fallback{display:none;width:min(70vw,340px);margin:0 auto 6vh}
+.uz-nogl .uz-fallback{display:block}
+.uz-nogl .uz-glow{display:none}
+
+#mbtn{border-color:rgba(217,181,108,.4);background:rgba(10,10,11,.7);color:var(--gold)}
+#mbtn.on{background:var(--gold);color:#0a0a0b}
+
+@media (prefers-reduced-motion:reduce){.uz-hint:after{animation:none}.uz-frame img{transition:none;filter:none}}
+</style>
+</head>
+<body>
+<canvas id="uz-gl" aria-hidden="true"></canvas>
+<div class="uz-glow" aria-hidden="true"></div>
+
+<div class="uz-scene" data-envelope-scene data-leave="1900" data-done="2700" data-music="1300" data-sfx="0">
+  <div class="uz-scene__veil" aria-hidden="true"></div>
+  <div class="uz-scene__top">{{L.sub}}</div>
+  <p class="uz-scene__quote">{{L.quote}}</p>
+  <button type="button" class="uz-trigger" data-envelope-trigger aria-label="{{L.openHint}}">
+    <span class="uz-hint"><i aria-hidden="true"></i>{{L.openHint}}</span>
+  </button>
+  <div class="uz-flash" aria-hidden="true"></div>
+</div>
+
+<main class="inv uz">
+  <section class="uz-stage uz-hero" data-pose="0 .42 0 .32 .1 1 1">
+    <svg class="uz-fallback" viewBox="0 0 340 200" aria-hidden="true">
+      <defs><linearGradient id="uzFbG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7a5a24"/><stop offset=".45" stop-color="#fff1c9"/><stop offset="1" stop-color="#b98d3e"/></linearGradient>
+      <linearGradient id="uzFbR" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8a4c3a"/><stop offset=".5" stop-color="#ffe6da"/><stop offset="1" stop-color="#c98a70"/></linearGradient></defs>
+      <circle cx="135" cy="100" r="74" fill="none" stroke="url(#uzFbG)" stroke-width="16"/>
+      <circle cx="205" cy="100" r="64" fill="none" stroke="url(#uzFbR)" stroke-width="10"/>
+    </svg>
+    <p class="uz-kicker fx">{{L.sub}}</p>
+    <h1 class="uz-names fx" style="--d:.15s"><span>{{groom}}</span><i>&amp;</i><span>{{bride}}</span></h1>
+    <p class="uz-date fx" style="--d:.3s">{{dateText}} · {{time}}</p>
+  </section>
+
+  <section class="uz-sec" data-pose=".6 .9 -1.2 .5 .2 .34 .6">
+    <div class="uz-copy">
+      {{#if guestName}}
+        <p class="uz-over fx">{{L.greet}}</p>
+        <h2 class="uz-h fx">{{guestName}}</h2>
+        <p class="uz-p fx">{{L.greetTail}}</p>
+      {{else}}
+        <p class="uz-over fx">{{L.sub}}</p>
+        <h2 class="uz-h fx">{{L.invite}}</h2>
+      {{/if}}
+      <div class="uz-rule fx" aria-hidden="true"></div>
+      <p class="uz-p words">{{L.emo}}</p>
+    </div>
+  </section>
+
+  {{#if photos.0}}
+  <section class="uz-sec uz-photos" data-pose="-.6 .9 -1.2 .9 -.2 .34 .6">
+    <p class="uz-over fx">{{L.gallery}}</p>
+    <div class="uz-gallery">
+      <figure class="uz-frame uz-frame--a fx"><img src="{{photos.0}}" alt="{{groom}} &amp; {{bride}}" loading="lazy"></figure>
+      {{#if photos.1}}<figure class="uz-frame uz-frame--b fx"><img src="{{photos.1}}" alt="{{groom}} &amp; {{bride}}" loading="lazy"></figure>{{/if}}
+    </div>
+  </section>
+  {{/if}}
+
+  <section class="uz-stage uz-datestage" data-pose="0 .58 0 1.25 0 .74 1">
+    <p class="uz-over fx">{{L.when}}</p>
+    <div class="uz-dnum fx" style="--d:.1s">{{day}}</div>
+    <p class="uz-dmonth fx" style="--d:.2s">{{monthName}} {{year}}</p>
+    <p class="uz-dweek fx" style="--d:.3s">{{weekday}} · {{time}}</p>
+  </section>
+
+  <section class="uz-sec" data-pose=".6 .9 -1.2 .6 .1 .34 .7">
+    <p class="uz-over fx">{{L.until}}</p>
+    <div class="uz-cd cd fx">
+      <div><b id="cd">00</b><span>{{L.days}}</span></div>
+      <div><b id="ch">00</b><span>{{L.hours}}</span></div>
+      <div><b id="cm">00</b><span>{{L.min}}</span></div>
+      <div><b id="cs">00</b><span>{{L.sec}}</span></div>
+    </div>
+  </section>
+
+  <section class="uz-sec" data-pose="-.6 .92 -1.6 .4 .2 .3 .5">
+    <div class="uz-venue">
+      <p class="uz-over fx">{{L.where}}</p>
+      <h2 class="uz-h fx">{{address}}</h2>
+      {{#if venueLine}}<p class="uz-venue__meta fx">{{venueLine}}</p>{{/if}}
+      <div class="uz-map fx"><div class="venue__map">{{{map}}}</div></div>
+      {{#if gmaps}}
+      <div class="routes fx">
+        <a href="{{gmaps}}" target="_blank" rel="noopener"><span>{{L.gmaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+        <a href="{{ymaps}}" target="_blank" rel="noopener"><span>{{L.ymaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+      </div>
+      {{/if}}
+    </div>
+  </section>
+
+  <section class="uz-stage uz-final" data-pose="0 .58 0 .26 .05 .9 1">
+    <svg class="uz-fallback" viewBox="0 0 340 200" aria-hidden="true">
+      <circle cx="135" cy="100" r="74" fill="none" stroke="url(#uzFbG)" stroke-width="16"/>
+      <circle cx="205" cy="100" r="64" fill="none" stroke="url(#uzFbR)" stroke-width="10"/>
+    </svg>
+    <p class="uz-final__text fx">{{L.final}}</p>
+    <p class="uz-sign fx" style="--d:.2s">{{L.sign}} {{groom}} {{L.and}} {{bride}}</p>
+  </section>
+
+  {{{made}}}
+</main>
+
+<script>
+(function(){
+var cv=document.getElementById('uz-gl'),glow=document.querySelector('.uz-glow'),flash=document.querySelector('.uz-flash');
+var force=(location.hostname==='localhost'||location.hostname==='127.0.0.1')&&/[?&]__motion_test/.test(location.search);
+var calm=!force&&window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+var gl=null;
+try{gl=cv.getContext('webgl',{antialias:true,alpha:true,premultipliedAlpha:true})||cv.getContext('experimental-webgl')}catch(e){}
+if(!gl){document.documentElement.classList.add('uz-nogl');return}
+
+var VS='attribute vec3 aP;attribute vec3 aN;uniform mat4 uM;uniform mat4 uVP;uniform mat3 uN;varying vec3 vN;varying vec3 vW;'+
+'void main(){vec4 w=uM*vec4(aP,1.0);vW=w.xyz;vN=uN*aN;gl_Position=uVP*w;}';
+/* Студийное окружение: тёмный пол, два вертикальных софтбокса, верхний свет
+   и тёплый отсвет снизу. Металл отражает его по Френелю (Шлик), камень
+   получает радужную «игру» по нормали грани. */
+var FS='precision mediump float;varying vec3 vN;varying vec3 vW;uniform vec3 uEye;uniform vec3 uBase;uniform float uGem;uniform float uFade;'+
+'vec3 env(vec3 r){float y=r.y;vec3 c=mix(vec3(.025,.02,.018),vec3(.2,.17,.14),smoothstep(-.35,.65,y));'+
+'c+=vec3(1.7,1.55,1.3)*smoothstep(.62,.97,y);float a=atan(r.x,r.z);float band=smoothstep(.62,.18,abs(y-.05));'+
+'c+=vec3(2.6,2.35,2.0)*smoothstep(.16,.02,abs(a-1.15))*band;c+=vec3(1.5,1.4,1.3)*smoothstep(.13,.02,abs(a+1.95))*band;'+
+'c+=vec3(.9,.85,.8)*smoothstep(.2,.05,abs(a-2.9))*smoothstep(.5,0.,abs(y-.3));c+=vec3(.55,.32,.16)*smoothstep(-.45,-.95,y);'+
+'c+=vec3(.3,.27,.24)*smoothstep(.55,1.,r.z);return c;}'+
+'void main(){vec3 N=normalize(vN);vec3 V=normalize(uEye-vW);vec3 R=reflect(-V,N);float ndv=clamp(dot(N,V),0.,1.);'+
+'vec3 F=uBase+(1.-uBase)*pow(1.-ndv,5.);vec3 col=env(R)*F;vec3 L=normalize(vec3(.5,.8,.6));'+
+'col+=vec3(1.,.95,.85)*pow(max(dot(R,L),0.),120.)*1.6*F;'+
+'if(uGem>.5){col=env(R)*1.3+vec3(.1)+.24*sin(vec3(0.,2.1,4.2)+dot(N,vec3(17.,11.,7.)));}'+
+'col=col/(col+vec3(.55))*1.3;col=pow(col,vec3(.4545));gl_FragColor=vec4(col*uFade,uFade);}';
+
+function sh(t,src){var s=gl.createShader(t);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s}
+var pr;
+try{pr=gl.createProgram();gl.attachShader(pr,sh(gl.VERTEX_SHADER,VS));gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,FS));gl.linkProgram(pr);
+  if(!gl.getProgramParameter(pr,gl.LINK_STATUS))throw new Error('link')}
+catch(e){document.documentElement.classList.add('uz-nogl');return}
+gl.useProgram(pr);
+var A={p:gl.getAttribLocation(pr,'aP'),n:gl.getAttribLocation(pr,'aN')};
+var U={};['uM','uVP','uN','uEye','uBase','uGem','uFade'].forEach(function(k){U[k]=gl.getUniformLocation(pr,k)});
+gl.enableVertexAttribArray(A.p);gl.enableVertexAttribArray(A.n);
+gl.enable(gl.DEPTH_TEST);
+
+/* Кольцо: профиль-суперэллипс, протянутый по окружности. e<1 — обручальная
+   «комфорт»-шинка: плоская снаружи, скруглённая по краям. */
+function band(R,a,b,nu,nv,e){
+  var P=[],N=[],I=[],i,j;
+  for(i=0;i<=nu;i++){var u=i/nu*Math.PI*2,cu=Math.cos(u),su=Math.sin(u);
+    for(j=0;j<=nv;j++){var v=j/nv*Math.PI*2,c=Math.cos(v),s=Math.sin(v),sc=c<0?-1:1,ss=s<0?-1:1;
+      var x=a*sc*Math.pow(Math.abs(c),e),y=b*ss*Math.pow(Math.abs(s),e);
+      var nx=sc*Math.pow(Math.abs(c),2-e)/a,ny=ss*Math.pow(Math.abs(s),2-e)/b,l=Math.sqrt(nx*nx+ny*ny)||1;nx/=l;ny/=l;
+      P.push((R+x)*cu,(R+x)*su,y);N.push(nx*cu,nx*su,ny)}}
+  for(i=0;i<nu;i++)for(j=0;j<nv;j++){var k=i*(nv+1)+j,k2=k+nv+1;I.push(k,k+1,k2,k+1,k2+1,k2)}
+  return mesh(new Float32Array(P),new Float32Array(N),new Uint16Array(I));
+}
+/* Камень: площадка, корона и павильон восьмигранником, грани плоские. */
+function gem(){
+  var P=[],N=[],n=8,t=.42,g=1,h1=.32,h2=.9,k;
+  function tri(a,b,c){var ux=b[0]-a[0],uy=b[1]-a[1],uz=b[2]-a[2],vx=c[0]-a[0],vy=c[1]-a[1],vz=c[2]-a[2];
+    var nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx,l=Math.sqrt(nx*nx+ny*ny+nz*nz)||1;
+    [a,b,c].forEach(function(p){P.push(p[0],p[1],p[2]);N.push(nx/l,ny/l,nz/l)})}
+  function ring(r,y,o){var out=[];for(var i=0;i<n;i++){var q=(i+o)/n*Math.PI*2;out.push([Math.cos(q)*r,y,Math.sin(q)*r])}return out}
+  var top=ring(t,h1,.5),gir=ring(g,0,0),cen=[0,h1,0],tip=[0,-h2,0];
+  for(k=0;k<n;k++){var k1=(k+1)%n;
+    tri(cen,top[k1],top[k]);
+    tri(top[k],top[k1],gir[k1]);tri(top[k],gir[k1],gir[k]);
+    tri(gir[k],gir[k1],tip)}
+  return mesh(new Float32Array(P),new Float32Array(N),null);
+}
+function mesh(P,N,I){var o={c:I?I.length:P.length/3,pb:gl.createBuffer(),nb:gl.createBuffer(),ib:null};
+  gl.bindBuffer(gl.ARRAY_BUFFER,o.pb);gl.bufferData(gl.ARRAY_BUFFER,P,gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER,o.nb);gl.bufferData(gl.ARRAY_BUFFER,N,gl.STATIC_DRAW);
+  if(I){o.ib=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,o.ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,I,gl.STATIC_DRAW)}
+  return o}
+var RG=1,RB=.86,D=.56;
+var groom=band(RG,.085,.21,160,36,.62),bride=band(RB,.07,.115,160,30,.7),stone=gem();
+
+// Матрицы: столбцами, как ждёт WebGL.
+function I4(){return new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1])}
+function mul(a,b){var o=new Float32Array(16),c,r,k,s;for(c=0;c<4;c++)for(r=0;r<4;r++){s=0;for(k=0;k<4;k++)s+=a[k*4+r]*b[c*4+k];o[c*4+r]=s}return o}
+function T(x,y,z){var m=I4();m[12]=x;m[13]=y;m[14]=z;return m}
+function S(s){var m=I4();m[0]=m[5]=m[10]=s;return m}
+function RX(t){var c=Math.cos(t),s=Math.sin(t),m=I4();m[5]=c;m[6]=s;m[9]=-s;m[10]=c;return m}
+function RY(t){var c=Math.cos(t),s=Math.sin(t),m=I4();m[0]=c;m[2]=-s;m[8]=s;m[10]=c;return m}
+function RZ(t){var c=Math.cos(t),s=Math.sin(t),m=I4();m[0]=c;m[1]=s;m[4]=-s;m[5]=c;return m}
+function persp(f,asp,n,fa){var t=1/Math.tan(f/2),m=new Float32Array(16);m[0]=t/asp;m[5]=t;m[10]=(fa+n)/(n-fa);m[11]=-1;m[14]=2*fa*n/(n-fa);return m}
+function nm(m){var s=Math.sqrt(m[0]*m[0]+m[1]*m[1]+m[2]*m[2])||1;return new Float32Array([m[0]/s,m[1]/s,m[2]/s,m[4]/s,m[5]/s,m[6]/s,m[8]/s,m[9]/s,m[10]/s])}
+function draw(o,M,base,isGem){
+  gl.uniformMatrix4fv(U.uM,false,M);gl.uniformMatrix3fv(U.uN,false,nm(M));
+  gl.uniform3fv(U.uBase,base);gl.uniform1f(U.uGem,isGem?1:0);
+  gl.bindBuffer(gl.ARRAY_BUFFER,o.pb);gl.vertexAttribPointer(A.p,3,gl.FLOAT,false,0,0);
+  gl.bindBuffer(gl.ARRAY_BUFFER,o.nb);gl.vertexAttribPointer(A.n,3,gl.FLOAT,false,0,0);
+  if(o.ib){gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,o.ib);gl.drawElements(gl.TRIANGLES,o.c,gl.UNSIGNED_SHORT,0)}
+  else gl.drawArrays(gl.TRIANGLES,0,o.c);
+}
+
+var W=1,H=1,DPR=1,FOV=.56,CAM=6,VP=null,PROJ=null;
+function resize(){DPR=Math.min(window.devicePixelRatio||1,2);W=innerWidth;H=innerHeight;
+  cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);gl.viewport(0,0,cv.width,cv.height);
+  PROJ=persp(FOV,W/H,.1,50);VP=mul(PROJ,T(0,0,-CAM));need=true}
+
+/* Позы: каждая секция задаёт «x y z наклон крен масштаб» в долях экрана.
+   Цель — секция, чей центр ближе к середине экрана; кольца догоняют её
+   с затуханием, а вращение вокруг оси идёт само, медленно. */
+var poses=[].slice.call(document.querySelectorAll('[data-pose]')).map(function(el){
+  var v=el.getAttribute('data-pose').split(/\s+/).map(Number);return {el:el,v:v}});
+var cur=poses.length?poses[0].v.slice():[0,.4,0,.3,.1,1,1],tgt=cur.slice();
+function pick(){var mid=innerHeight/2,best=null,bd=1e9;
+  poses.forEach(function(p){var r=p.el.getBoundingClientRect(),d=Math.abs(r.top+r.height/2-mid);if(d<bd){bd=d;best=p}});
+  if(best)tgt=best.v.slice();need=true}
+
+var unite=0,uniteFrom=0,uniteAt=-1,spin=0,last=0,need=true,running=true,visible=true,shown=false;
+function ease(t){return t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2}
+function lerp(a,b,t){return a+(b-a)*t}
+
+function frame(now){
+  if(!running)return;
+  var dt=last?Math.min(.05,(now-last)/1000):0;last=now;
+  if(uniteAt>=0){var k=Math.min(1,(now-uniteAt)/1500);unite=lerp(uniteFrom,1,ease(k));if(k>=1)uniteAt=-1;need=true}
+  var damp=1-Math.exp(-dt*2.4);
+  for(var i=0;i<7;i++){if(Math.abs(tgt[i]-cur[i])>1e-4){cur[i]+=(tgt[i]-cur[i])*(calm?1:damp);need=true}}
+  if(!calm){spin+=dt*.38;need=true}
+  if(need&&visible){render();need=false}
+  if(!calm)requestAnimationFrame(frame);
+}
+
+function render(){
+  var asp=W/H,halfH=Math.tan(FOV/2)*CAM,halfW=halfH*asp;
+  // На узком экране пара занимает почти всю ширину, а не вылезает за неё.
+  var fit=Math.max(.46,Math.min(1,asp*1.15));
+  var u=ease(Math.min(1,Math.max(0,unite)));
+  var x=cur[0]*halfW*.72,y=(cur[1]*halfH*.82-halfH*.12)*(.35+.65*u),z=cur[2],s=cur[5]*fit*(asp<.9?lerp(.82,1,u):1);
+  var G=mul(mul(mul(mul(T(x,y,z),RY(spin+.5)),RX(cur[3])),RZ(cur[4])),S(s));
+  /* Врозь: на широком экране кольца по бокам, на телефоне — одно над другим
+     (так оба целиком в кадре). Вместе — сцеплены, кольцо невесты продето в
+     кольцо жениха. */
+  var tall=asp<.9,ax=tall?.18:1.9/fit,ay=tall?1.2:.2;
+  var Mg=mul(G,mul(T(lerp(-ax,-D/2,u),lerp(ay,0,u),lerp(-.4,0,u)),RY(lerp(.9,0,u))));
+  var Mb=mul(G,mul(T(lerp(ax,D/2,u),lerp(-ay,0,u),lerp(.5,0,u)),mul(RX(lerp(.25,Math.PI/2,u)),RY(lerp(-.8,0,u)))));
+  var Ms=mul(Mb,mul(T(0,RB+.1,0),S(.1)));
+  gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  gl.uniformMatrix4fv(U.uVP,false,VP);gl.uniform3fv(U.uEye,[0,0,CAM]);gl.uniform1f(U.uFade,cur[6]==null?1:cur[6]);
+  draw(groom,Mg,[1,.77,.36],false);
+  draw(bride,Mb,[.97,.66,.55],false);
+  draw(stone,Ms,[.9,.9,.9],true);
+  // Свечение за кольцами — CSS-слой в той же точке экрана.
+  var c=mul(VP,G),cx=c[12]/c[15],cy=c[13]/c[15];
+  var gx=(cx*.5+.5)*W,gy=(1-(cy*.5+.5))*H;
+  glow.style.setProperty('--gx',gx.toFixed(1)+'px');glow.style.setProperty('--gy',gy.toFixed(1)+'px');
+  glow.style.setProperty('--gs',(s*(.75+u*.35)).toFixed(3));glow.style.setProperty('--go',(cur[6]==null?1:cur[6]).toFixed(3));
+  if(flash){flash.style.setProperty('--fx',(gx/W*100).toFixed(1)+'%');flash.style.setProperty('--fy',(gy/H*100).toFixed(1)+'%')}
+}
+
+resize();pick();
+var rt=0;addEventListener('resize',function(){clearTimeout(rt);rt=setTimeout(function(){resize();if(calm)render()},120)});
+var st=false;addEventListener('scroll',function(){if(!st){st=true;requestAnimationFrame(function(){st=false;pick();if(calm)render()})}},{passive:true});
+document.addEventListener('visibilitychange',function(){visible=!document.hidden;if(visible&&!calm){last=0;need=true}});
+document.addEventListener('nv:open',function(){uniteFrom=unite;uniteAt=performance.now();if(calm){unite=1;render()}});
+document.addEventListener('nv:ready',function(){if(unite<1&&uniteAt<0){unite=1;need=true;if(calm)render()}});
+if(!document.querySelector('[data-envelope-scene]'))unite=1;
+render();
+if(!calm)requestAnimationFrame(frame);
+})();
+</script>
+
+{{{audioWidget}}}
+{{{experienceScript}}}
+{{{countdown}}}
+</body>
+</html>

@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#3a2414">
+<title>{{groom}} &amp; {{bride}} · {{L.sub}}</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Forum&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet">
+{{{experienceCSS}}}
+{{{coreCSS}}}
+<style>
+/* Darvoza — резные ворота хивинского двора. Гость стоит перед порталом:
+   изразцовая рамка, тимпан с именами, две створки из ореха с медными
+   кольцами. Касание — створки уходят внутрь в 3D, из двора бьёт тёплый свет,
+   камера проходит в проём. Дальше — сам двор: глина, бирюза и кобальт,
+   арки-окна вместо рамок, восьмиконечная звезда-гирих вместо календаря. */
+:root{
+  --paper:#efe2cc; --paper-2:#e6d5b8; --paper-3:#d8c3a0;
+  --ink:#3a2618; --muted:#7a6048;
+  --accent:#1f9c9a; --accent-2:#1f3c78;
+  --line:rgba(58,38,24,.22); --line-soft:rgba(58,38,24,.1);
+  --gold:#c8a04f; --gold-hi:#f6dc9a; --gold-lo:#8a6a2f; --gold-rgb:200,160,79;
+  --walnut:#4a2e1c; --walnut-2:#2a180c; --brick:#a8643e; --turq:#1f9c9a; --cobalt:#1f3c78;
+  --shot-edge:transparent;
+  --display:'Forum',Georgia,serif;
+  --sans:'Golos Text',ui-sans-serif,system-ui,sans-serif;
+  --script:'Forum',Georgia,serif;
+  /* Изразец: восьмиконечная звезда (два квадрата) и кобальтовые ромбы на стыках. */
+  --tile:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%231c8987'/%3E%3Cpath d='M0 0h9L0 9zM40 0h-9l9 9zM0 40h9L0 31zM40 40h-9l9-9z' fill='%231f3c78'/%3E%3Cpath d='M33 20L29.2 23.8V29.2H23.8L20 33L16.2 29.2H10.8V23.8L7 20L10.8 16.2V10.8H16.2L20 7L23.8 10.8H29.2V16.2Z' fill='%23f4ead6'/%3E%3Cpath d='M20 12.5l7.5 7.5-7.5 7.5-7.5-7.5z' fill='%231f3c78'/%3E%3Ccircle cx='20' cy='20' r='2.6' fill='%23e0b45a'/%3E%3C/svg%3E");
+  /* Кирпичная кладка с перевязкой: каждый второй ряд сдвинут на полкирпича. */
+  --brickwork:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='28'%3E%3Cpath d='M0 .5H56M0 14.5H56M.5 0V14M28.5 14V28' stroke='%23855a36' stroke-opacity='.2' fill='none'/%3E%3C/svg%3E");
+  --arch:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 140' preserveAspectRatio='none'%3E%3Cpath d='M0 140V50C0 26 27 9 50 0C73 9 100 26 100 50V140Z'/%3E%3C/svg%3E");
+}
+
+html{background:var(--paper)}
+body{background:
+  radial-gradient(90% 50% at 50% 0,rgba(255,236,196,.9),transparent 70%),
+  var(--brickwork),
+  linear-gradient(180deg,#f3e7d2,#ead9bd 60%,#e2cdac);
+  background-size:auto,56px 28px,auto}
+.inv{position:relative;z-index:1;overflow:clip}
+.made{background:#2a180c;color:#d9c3a3;--paper:#2a180c;--ink:#f3e6cc}
+
+/* ══ Сцена открытия: портал ══════════════════════════════════════════ */
+.dz-scene{position:fixed;inset:0;z-index:9000;display:grid;place-items:center;overflow:hidden;
+  background:
+    radial-gradient(70% 46% at 50% 6%,rgba(255,214,150,.42),transparent 70%),
+    radial-gradient(120% 70% at 50% 110%,rgba(30,14,4,.55),transparent 60%),
+    var(--brickwork),
+    linear-gradient(180deg,#d9bf98,#c9a77c 55%,#a98258);
+  background-size:auto,auto,56px 28px,auto;
+  touch-action:none}
+.dz-scene[hidden]{display:none}
+.dz-portal{position:relative;width:min(84vw,400px,calc((100svh - 150px) * .667));aspect-ratio:2/3;
+  margin-top:-6svh;transform-origin:50% 79%;will-change:transform}
+/* Пиштак: изразцовая рамка, в ней ниша со стрельчатым верхом. */
+.dz-pishtaq{position:absolute;inset:0;background:var(--tile);background-size:28px 28px;
+  box-shadow:0 40px 80px -30px rgba(40,18,4,.7),0 0 0 3px #e9d9bb,0 0 0 5px #8a5a33}
+.dz-pishtaq:before{content:'';position:absolute;inset:4.6% 5.6% 0;background:#f3e6cc;
+  -webkit-mask:var(--arch) center/100% 100% no-repeat;mask:var(--arch) center/100% 100% no-repeat}
+.dz-niche{position:absolute;inset:5.6% 7% 0;
+  background:
+    linear-gradient(180deg,rgba(60,32,12,.42),transparent 34%),
+    radial-gradient(100% 60% at 50% 100%,#efdcbc,#d6b98f 70%,#bf9a6c);
+  -webkit-mask:var(--arch) center/100% 100% no-repeat;mask:var(--arch) center/100% 100% no-repeat}
+/* Тимпан над дверью: кобальтовая мозаика и лента с именами. */
+.dz-tymp{position:absolute;left:14%;right:14%;top:14%;height:30%;
+  background:
+    radial-gradient(circle at 50% 100%,#f0d58e 0 4%,#c8a04f 4.6%,transparent 5.2%),
+    radial-gradient(circle at 50% 100%,transparent 0 21%,rgba(224,180,90,.85) 21.4% 22.2%,transparent 22.6% 44%,rgba(224,180,90,.6) 44.4% 45%,transparent 45.4%),
+    repeating-conic-gradient(from -90deg at 50% 100%,rgba(240,213,142,.75) 0 .6deg,transparent .6deg 12deg),
+    repeating-conic-gradient(from -90deg at 50% 100%,#1d3a74 0 6deg,#26498f 6deg 12deg);
+  -webkit-mask:var(--arch) center/100% 100% no-repeat;mask:var(--arch) center/100% 100% no-repeat}
+.dz-tymp:after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,16,40,.35),transparent 70%)}
+.dz-band-names{position:absolute;left:12%;right:12%;top:43.5%;z-index:2;display:grid;place-items:center;height:7.6%;
+  background:linear-gradient(180deg,#24468a,#1a3266);box-shadow:inset 0 0 0 1.5px #e0b45a,0 6px 12px -6px rgba(0,0,0,.5);
+  color:#f6ebd2;font:400 clamp(.82rem,3.6vw,1.12rem)/1 var(--display);letter-spacing:.2em;text-transform:uppercase;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 8px}
+/* Проём: двери на петлях, за ними — свет двора. */
+.dz-doorway{position:absolute;left:18%;right:18%;bottom:3.4%;height:44%;perspective:900px;perspective-origin:50% 40%;
+  background:#1a0d05;box-shadow:inset 0 0 0 2px #2a1709,0 0 0 4px #6e4526,0 0 0 6px #d9c09a}
+.dz-glow{position:absolute;inset:-30% -40%;opacity:0;transform:scale(.7);
+  background:radial-gradient(closest-side,#fffaf0 0,#ffe7b3 28%,rgba(255,196,110,.55) 52%,transparent 76%)}
+.dz-rays{position:absolute;inset:-60% -80%;opacity:0;
+  background:repeating-conic-gradient(from 0deg at 50% 60%,rgba(255,240,205,.28) 0 4deg,transparent 4deg 13deg);
+  -webkit-mask:radial-gradient(closest-side,#000 20%,transparent 75%);mask:radial-gradient(closest-side,#000 20%,transparent 75%)}
+/* Свет из щели между створками и под дверью: двор живой ещё до открытия. */
+.dz-doorway:before{content:'';position:absolute;z-index:3;left:50%;top:6%;bottom:0;width:2px;margin-left:-1px;
+  background:linear-gradient(180deg,transparent,rgba(255,226,160,.9) 30%,#fff1cf 85%);filter:blur(.6px);
+  animation:dzSeam 3.2s ease-in-out infinite}
+.dz-doorway:after{content:'';position:absolute;z-index:3;left:4%;right:4%;bottom:-1px;height:3px;
+  background:radial-gradient(closest-side,#ffe9b8,transparent);animation:dzSeam 3.2s ease-in-out .8s infinite}
+@keyframes dzSeam{0%,100%{opacity:.55}50%{opacity:1}}
+.dz-leaf{position:absolute;top:0;bottom:0;width:50%;transform-style:preserve-3d;will-change:transform}
+.dz-leaf--l{left:0;transform-origin:0 50%}
+.dz-leaf--r{right:0;transform-origin:100% 50%}
+.dz-leaf svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.dz-leaf--r svg{transform:scaleX(-1)}
+.dz-shade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(10,4,0,.15),rgba(10,4,0,.7));opacity:0;pointer-events:none}
+.dz-leaf--r .dz-shade{background:linear-gradient(270deg,rgba(10,4,0,.15),rgba(10,4,0,.7))}
+/* Торец створки: толщина доски видна, когда дверь распахнута. */
+.dz-edge{position:absolute;top:0;bottom:0;width:12px;background:linear-gradient(90deg,#3a2210,#6b4426,#3a2210)}
+.dz-leaf--l .dz-edge{right:0;transform-origin:100% 50%;transform:rotateY(-90deg)}
+.dz-leaf--r .dz-edge{left:0;transform-origin:0 50%;transform:rotateY(90deg)}
+/* Медные кольца-молотки: на воротах их два, мужской и женский. */
+.dz-knock{position:absolute;top:47%;width:22%;aspect-ratio:1;transform-origin:50% 0}
+.dz-leaf--l .dz-knock{right:9%}
+.dz-leaf--r .dz-knock{left:9%;width:17%}
+.dz-knock:before{content:'';position:absolute;left:50%;top:-12%;width:42%;aspect-ratio:1;border-radius:50%;transform:translateX(-50%);
+  background:radial-gradient(circle at 35% 30%,#fff1c2,#c99a3e 45%,#6e4c18);box-shadow:0 2px 3px rgba(0,0,0,.5)}
+.dz-knock:after{content:'';position:absolute;inset:8% 0 -8%;border-radius:50%;border:3px solid #c39a45;
+  border-color:#f0d58e #9d7128 #6b4a17 #d2a957;box-shadow:0 3px 4px rgba(0,0,0,.45)}
+.dz-step{position:absolute;left:12%;right:12%;bottom:0;height:3.4%;background:linear-gradient(180deg,#d8c3a0,#a88660);
+  box-shadow:0 -1px 0 rgba(255,255,255,.4)}
+.dz-flash{position:absolute;inset:0;z-index:5;background:radial-gradient(circle at 50% 62%,#fffaf0,#ffe9bf 60%,#f6d9a6);opacity:0;pointer-events:none}
+.dz-trigger{position:absolute;inset:0;z-index:8;display:grid;align-content:end;justify-items:center;
+  padding:0 20px max(28px,env(safe-area-inset-bottom));border:0;background:transparent;cursor:pointer;
+  color:#3a2414;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.dz-trigger:focus-visible{outline:2px solid #1f3c78;outline-offset:-12px}
+.dz-hint{display:flex;align-items:center;gap:12px;padding:12px 20px;border-radius:999px;
+  background:rgba(250,240,220,.78);box-shadow:0 10px 30px -12px rgba(40,18,4,.6),inset 0 0 0 1px rgba(122,80,40,.25);
+  font:500 .66rem/1.2 var(--sans);letter-spacing:.2em;text-transform:uppercase;animation:dzHint 2.8s ease-in-out infinite}
+.dz-hint i{width:16px;height:16px;border-radius:50%;border:2px solid #b8893a;border-top-color:#f0d58e;flex:none}
+@keyframes dzHint{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+
+.dz-scene.is-running .dz-hint{opacity:0;transition:opacity .4s ease}
+.dz-scene.is-running .dz-knock{animation:dzKnock .55s ease-out}
+@keyframes dzKnock{0%{transform:rotate(0)}30%{transform:rotate(-24deg)}60%{transform:rotate(12deg)}100%{transform:rotate(0)}}
+.dz-scene.is-running .dz-leaf--l{animation:dzOpenL 1.9s cubic-bezier(.55,.06,.24,1) .45s forwards}
+.dz-scene.is-running .dz-leaf--r{animation:dzOpenR 1.9s cubic-bezier(.55,.06,.24,1) .45s forwards}
+@keyframes dzOpenL{0%{transform:rotateY(0)}12%{transform:rotateY(4deg)}100%{transform:rotateY(104deg)}}
+@keyframes dzOpenR{0%{transform:rotateY(0)}12%{transform:rotateY(-4deg)}100%{transform:rotateY(-104deg)}}
+.dz-scene.is-running .dz-shade{animation:dzShade 1.9s ease .45s forwards}
+@keyframes dzShade{to{opacity:1}}
+.dz-scene.is-running .dz-glow{animation:dzGlow 2.2s ease .55s forwards}
+@keyframes dzGlow{to{opacity:1;transform:scale(1.25)}}
+.dz-scene.is-running .dz-rays{animation:dzRays 2.4s ease .9s forwards}
+@keyframes dzRays{to{opacity:1;transform:rotate(8deg)}}
+.dz-scene.is-running .dz-doorway:before,.dz-scene.is-running .dz-doorway:after{animation:none;opacity:0;transition:opacity .3s}
+.dz-scene.is-running .dz-portal{animation:dzDolly 1.7s cubic-bezier(.6,0,.4,1) 1.55s forwards}
+@keyframes dzDolly{to{transform:scale(4.6)}}
+.dz-scene.is-running .dz-flash{animation:dzFlash 1.1s ease 2.05s forwards}
+@keyframes dzFlash{to{opacity:1}}
+.dz-scene.is-leaving{animation:dzOut .9s ease .05s forwards}
+@keyframes dzOut{to{opacity:0}}
+body.ev-handoff .dz-hero__light{animation:dzSun 1.6s ease forwards}
+@keyframes dzSun{from{opacity:1}to{opacity:.55}}
+
+/* ══ Страница: двор ══════════════════════════════════════════════════ */
+.dz-hero{position:relative;display:grid;justify-items:center;align-content:center;gap:clamp(14px,3vh,24px);
+  min-height:100svh;padding:clamp(64px,10vh,96px) 22px clamp(56px,9vh,84px);text-align:center}
+.dz-hero__light{position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.55;
+  background:radial-gradient(70% 45% at 50% 30%,#fffaf0,rgba(255,236,196,.6) 45%,transparent 75%)}
+.dz-kicker{display:flex;align-items:center;gap:14px;color:var(--brick);font:500 .64rem/1 var(--sans);letter-spacing:.42em;text-transform:uppercase}
+.dz-kicker:before,.dz-kicker:after{content:'';width:26px;height:9px;background:var(--tile);background-size:9px 9px;border-radius:1px}
+/* Арка-окно: изразцовый наличник и снимок внутри стрельчатого проёма. */
+.dz-window{position:relative;width:min(74vw,360px);aspect-ratio:100/134;--p:1;
+  transform:perspective(1100px) rotateX(calc((1 - var(--p)) * 0deg)) translateY(calc(var(--p) * -18px));transform-origin:50% 100%}
+.dz-window__tile,.dz-arch__tile{position:absolute;inset:0;background:var(--tile);background-size:22px 22px;
+  -webkit-mask:var(--arch) center/100% 100% no-repeat;mask:var(--arch) center/100% 100% no-repeat}
+.dz-window__tile:before,.dz-arch__tile:before{content:'';position:absolute;inset:3.2% 4.2% 0;background:#f6ecd8;
+  -webkit-mask:var(--arch) center/100% 100% no-repeat;mask:var(--arch) center/100% 100% no-repeat}
+.dz-window__glass,.dz-arch__glass{position:absolute;inset:5% 6.4% 0;overflow:hidden;background:linear-gradient(180deg,#f3c38c,#f8e3bf);
+  -webkit-mask:var(--arch) center/100% 100% no-repeat;mask:var(--arch) center/100% 100% no-repeat}
+.dz-window__glass img,.dz-arch__glass img{width:100%;height:100%;object-fit:cover;object-position:50% 40%;display:block;
+  filter:sepia(.14) saturate(1.04) contrast(1.02);transform:scale(calc(1.14 - var(--p,1) * .14))}
+.dz-window__sill{position:absolute;left:-4%;right:-4%;bottom:-10px;height:12px;border-radius:2px;
+  background:linear-gradient(180deg,#d8c09a,#a9845d);box-shadow:0 10px 20px -8px rgba(60,30,8,.5)}
+.dz-names{display:grid;justify-items:center;gap:2px;margin-top:6px;color:var(--walnut);
+  font:400 clamp(2.5rem,12.4vw,4.6rem)/.95 var(--display);letter-spacing:.06em;text-transform:uppercase}
+.dz-names i{font:400 .5em/1 var(--display);font-style:normal;color:var(--turq);letter-spacing:0}
+.dz-date{display:flex;align-items:center;gap:14px;color:var(--muted);font:500 .72rem/1 var(--sans);letter-spacing:.22em;text-transform:uppercase}
+.dz-date b{width:7px;height:7px;background:var(--turq);transform:rotate(45deg)}
+.dz-cue{position:absolute;bottom:max(18px,env(safe-area-inset-bottom));left:50%;width:22px;height:36px;margin-left:-11px;
+  border:1.5px solid rgba(58,38,24,.4);border-radius:12px}
+.dz-cue:after{content:'';position:absolute;left:50%;top:7px;width:3px;height:7px;margin-left:-1.5px;border-radius:2px;background:var(--brick);
+  animation:dzCue 2s ease-in-out infinite}
+@keyframes dzCue{0%{opacity:0;transform:translateY(-3px)}40%{opacity:1}100%{opacity:0;transform:translateY(10px)}}
+
+/* Изразцовый пояс-разделитель: растёт от центра, пока въезжает в экран. */
+.dz-band{height:clamp(22px,6vw,30px);background:var(--tile);background-size:auto 100%;
+  box-shadow:0 -2px 0 #e0b45a,0 2px 0 #e0b45a,0 -5px 0 #8a5a33,0 5px 0 #8a5a33;
+  transform:scaleX(calc(.08 + var(--p,1) * .92));transform-origin:50% 50%;margin-block:6px}
+
+.dz-sec{position:relative;padding:clamp(64px,14vw,120px) 22px;text-align:center}
+.dz-wrap{width:min(100%,620px);margin:0 auto}
+.dz-title{margin:0 auto .5em;color:var(--walnut);font:400 clamp(1.9rem,8vw,2.9rem)/1.05 var(--display);letter-spacing:.06em;text-transform:uppercase}
+.dz-over{display:inline-block;margin-bottom:14px;color:var(--brick);font:600 .6rem/1 var(--sans);letter-spacing:.38em;text-transform:uppercase}
+.dz-lead{max-width:34ch;margin:clamp(26px,7vw,40px) auto 0;color:var(--muted);font:400 clamp(1rem,3.9vw,1.1rem)/1.75 var(--sans)}
+
+/* Китоба: надпись на кобальтовой плитке, как ленты на медресе. */
+.dz-kitoba{position:relative;padding:clamp(34px,9vw,56px) clamp(22px,6vw,44px);color:#f6ebd2;
+  background:radial-gradient(120% 90% at 50% 0,#2b4f96,#1a3266 70%);
+  box-shadow:inset 0 0 0 2px #e0b45a,inset 0 0 0 12px #1a3266,inset 0 0 0 14px rgba(224,180,90,.55),0 30px 60px -36px rgba(20,30,70,.8);
+  border-radius:4px}
+.dz-kitoba:before,.dz-kitoba:after{content:'';position:absolute;left:50%;width:46px;height:46px;margin-left:-23px;background:var(--tile);background-size:46px 46px;
+  border-radius:50%;box-shadow:0 0 0 3px #e0b45a,0 0 0 6px #f3e6cc}
+.dz-kitoba:before{top:-23px}
+.dz-kitoba:after{bottom:-23px}
+.dz-kitoba__greet{color:#9fd6d3;font:500 .62rem/1 var(--sans);letter-spacing:.34em;text-transform:uppercase}
+.dz-kitoba__title{margin:.5em 0 .45em;font:400 clamp(1.8rem,7.6vw,2.7rem)/1.08 var(--display);letter-spacing:.05em;text-transform:uppercase}
+.dz-kitoba__text{max-width:30ch;margin:0 auto;font:400 clamp(1.02rem,4vw,1.16rem)/1.7 var(--sans);color:#e9dfc7}
+
+/* Аркада: снимки в арках, арка поднимается к зрителю из наклона. */
+.dz-arcade{display:grid;grid-template-columns:1fr 1fr;gap:clamp(14px,4vw,26px);align-items:end;width:min(100%,640px);margin:0 auto}
+.dz-arch{position:relative;aspect-ratio:100/140;--p:1;
+  transform:perspective(900px) rotateX(calc((1 - var(--p)) * 34deg)) translateY(calc((1 - var(--p)) * 70px));
+  transform-origin:50% 100%;opacity:calc(.15 + var(--p) * .85)}
+.dz-arch:nth-child(2){margin-bottom:clamp(40px,12vw,80px)}
+.dz-arch__base{position:absolute;left:-3%;right:-3%;bottom:-9px;height:9px;background:linear-gradient(180deg,#d8c09a,#a9845d)}
+@media (max-width:520px){.dz-arcade{grid-template-columns:1fr;gap:56px;width:min(78vw,360px)}.dz-arch:nth-child(2){margin-bottom:0}}
+
+/* Дата в звезде-гирих: звезда доворачивается на место по ходу прокрутки. */
+.dz-star{position:relative;width:min(86vw,420px);aspect-ratio:1;margin:0 auto;display:grid;place-items:center;--p:1}
+.dz-star svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;
+  transform:rotate(calc((1 - var(--p)) * -135deg)) scale(calc(.82 + var(--p) * .18))}
+.dz-star__in{position:relative;display:grid;justify-items:center;gap:6px}
+.dz-star__month{color:var(--brick);font:600 .64rem/1 var(--sans);letter-spacing:.34em;text-transform:uppercase}
+.dz-star__day{color:var(--cobalt);font:400 clamp(4.6rem,24vw,7.4rem)/.86 var(--display)}
+.dz-star__year{color:var(--walnut);font:400 1.1rem/1 var(--display);letter-spacing:.3em}
+.dz-when{display:flex;justify-content:center;flex-wrap:wrap;gap:10px;margin-top:clamp(26px,7vw,40px)}
+.dz-when span{padding:11px 18px;border-radius:999px;border:1px solid rgba(31,60,120,.25);background:rgba(255,250,240,.6);
+  color:var(--ink);font:500 .76rem/1 var(--sans);letter-spacing:.12em;text-transform:uppercase}
+.dz-when b{color:var(--turq);font-weight:600}
+
+/* Отсчёт в четырёх нишах. */
+.dz-cd{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(8px,2.6vw,16px);width:min(100%,560px);margin:0 auto}
+.dz-cd>div{position:relative;display:grid;justify-items:center;gap:8px;padding:clamp(22px,6vw,30px) 4px clamp(14px,4vw,18px);
+  border-radius:999px 999px 6px 6px/70px 70px 6px 6px;background:linear-gradient(180deg,#f8eedb,#efe0c4);
+  box-shadow:inset 0 0 0 1.5px rgba(31,60,120,.28),inset 0 10px 18px -12px rgba(60,32,12,.5),0 16px 30px -22px rgba(60,32,12,.6)}
+.dz-cd b{color:var(--cobalt);font:400 clamp(1.7rem,8vw,2.8rem)/1.12 var(--display);font-variant-numeric:tabular-nums}
+.dz-cd>div>span{color:var(--muted);font:600 .52rem/1 var(--sans);letter-spacing:.18em;text-transform:uppercase}
+
+/* Место: карта в арке. */
+.dz-venue{width:min(100%,600px);margin:0 auto}
+.dz-mapframe{position:relative;padding:10px;background:var(--tile);background-size:20px 20px;border-radius:999px 999px 10px 10px/220px 220px 10px 10px;
+  box-shadow:0 30px 60px -36px rgba(60,32,12,.7)}
+.dz-mapframe>div{overflow:hidden;border-radius:999px 999px 4px 4px/210px 210px 4px 4px;background:#f6ecd8}
+.dz-mapframe .mapbox{border-radius:0}
+.dz-mapframe .mapbox:after{display:none}
+.dz-mapframe .venue-type{margin:0;min-height:clamp(300px,60vh,460px);color:var(--cobalt);--paper:var(--walnut);
+  background:radial-gradient(circle at 50% 55%,rgba(31,156,154,.18),transparent 45%),#f6ecd8}
+.dz-venue__name{margin:clamp(22px,6vw,32px) auto 8px;max-width:22ch;color:var(--walnut);font:400 clamp(1.6rem,7vw,2.4rem)/1.1 var(--display);letter-spacing:.04em;text-transform:uppercase}
+.dz-venue__meta{color:var(--muted);font:500 .72rem/1.6 var(--sans);letter-spacing:.14em;text-transform:uppercase}
+.dz-venue .routes{margin-top:22px}
+.dz-venue .routes a{border-radius:999px;border-color:rgba(31,60,120,.35);background:#f8efdd;color:var(--cobalt);font-weight:600}
+.dz-venue .routes a:hover{background:var(--cobalt);border-color:var(--cobalt);color:#f6ebd2}
+
+/* Финал: ворота закрыты — до встречи. */
+.dz-final{padding-block:clamp(80px,18vw,150px)}
+.dz-final__arch{position:relative;width:min(80vw,380px);aspect-ratio:100/124;margin:0 auto;display:grid;place-items:center}
+.dz-final__arch .dz-arch__glass{inset:5% 6.4% 0;background:radial-gradient(120% 80% at 50% 100%,#2b4f96,#1a3266 70%)}
+.dz-final__copy{position:relative;z-index:2;padding:22% 14% 8%;color:#f6ebd2;text-align:center}
+.dz-final__copy p{font:400 clamp(1.5rem,6.6vw,2.2rem)/1.15 var(--display);letter-spacing:.04em;text-transform:uppercase}
+.dz-final__copy small{display:block;margin-top:18px;color:#9fd6d3;font:500 .6rem/1.6 var(--sans);letter-spacing:.28em;text-transform:uppercase}
+.dz-final__rings{display:flex;justify-content:center;gap:14px;margin-top:22px}
+.dz-final__rings i{width:22px;height:22px;border-radius:50%;border:2.5px solid #e0b45a;box-shadow:0 0 0 1px rgba(0,0,0,.2)}
+.dz-final__rings i+i{width:17px;height:17px;margin-top:3px}
+
+#mbtn{border-color:rgba(31,60,120,.3);background:rgba(248,239,221,.92);color:var(--cobalt)}
+#mbtn.on{background:var(--cobalt);color:#f6ebd2}
+
+@media (min-width:900px){
+  .dz-scene .dz-portal{width:min(400px,calc((100svh - 150px) * .667))}
+}
+@media (prefers-reduced-motion:reduce){
+  .dz-doorway:before,.dz-doorway:after,.dz-hint,.dz-cue:after{animation:none}
+  .dz-window,.dz-arch,.dz-star svg,.dz-band{transform:none!important;opacity:1!important}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="dzWood" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3b2312"/><stop offset=".18" stop-color="#5b3a22"/><stop offset=".5" stop-color="#6a452a"/><stop offset=".82" stop-color="#553520"/><stop offset="1" stop-color="#3b2312"/>
+    </linearGradient>
+    <linearGradient id="dzPanel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3e2615"/><stop offset="1" stop-color="#4d301c"/>
+    </linearGradient>
+    <filter id="dzGrain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency=".012 .34" numOctaves="3" seed="4"/>
+      <feColorMatrix values="0 0 0 0 .1  0 0 0 0 .05  0 0 0 0 .02  0 0 0 1.1 -.45"/>
+    </filter>
+    <pattern id="dzLattice" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="12" height="12" fill="#3e2615"/>
+      <path d="M0 0H12V12" fill="none" stroke="#1c0f06" stroke-width="2.2"/>
+      <path d="M1 1H11V11" fill="none" stroke="#9a6d43" stroke-width=".7" opacity=".7"/>
+    </pattern>
+    <symbol id="dzLeaf" viewBox="0 0 120 300" preserveAspectRatio="none">
+      <rect width="120" height="300" fill="url(#dzWood)"/>
+      <rect width="120" height="300" filter="url(#dzGrain)" opacity=".55"/>
+      <g fill="url(#dzPanel)" stroke="#1c0f06" stroke-width="1.4">
+        <rect x="14" y="16" width="92" height="56" rx="3"/>
+        <rect x="14" y="86" width="92" height="124" rx="3"/>
+        <rect x="14" y="224" width="92" height="62" rx="3"/>
+      </g>
+      <rect x="15" y="225" width="90" height="60" rx="2.5" fill="url(#dzLattice)"/>
+      <g fill="none" stroke="#a87a4e" stroke-opacity=".55" stroke-width=".9">
+        <rect x="16.5" y="18.5" width="87" height="51" rx="2"/>
+        <rect x="16.5" y="88.5" width="87" height="119" rx="2"/>
+        <rect x="16.5" y="226.5" width="87" height="57" rx="2"/>
+      </g>
+      <!-- ислими: два завитка навстречу -->
+      <g fill="none" stroke-linecap="round" stroke-width="2.4">
+        <g stroke="#1c0f06" transform="translate(.8 .8)">
+          <path d="M26 54 C 26 30, 52 26, 54 42 C 55 52, 42 54, 41 46 C 40 40, 47 39, 48 43"/>
+          <path d="M94 54 C 94 30, 68 26, 66 42 C 65 52, 78 54, 79 46 C 80 40, 73 39, 72 43"/>
+          <path d="M60 24 C 56 32, 56 40, 60 46 C 64 40, 64 32, 60 24 Z"/>
+        </g>
+        <g stroke="#b88a58" stroke-opacity=".8">
+          <path d="M26 54 C 26 30, 52 26, 54 42 C 55 52, 42 54, 41 46 C 40 40, 47 39, 48 43"/>
+          <path d="M94 54 C 94 30, 68 26, 66 42 C 65 52, 78 54, 79 46 C 80 40, 73 39, 72 43"/>
+          <path d="M60 24 C 56 32, 56 40, 60 46 C 64 40, 64 32, 60 24 Z"/>
+        </g>
+      </g>
+      <!-- гирих: восьмиконечная звезда из двух квадратов -->
+      <g fill="none" stroke-linejoin="round" stroke-width="2.6">
+        <g stroke="#1c0f06" transform="translate(.9 .9)">
+          <rect x="34" y="122" width="52" height="52"/>
+          <path d="M60 111.2 L96.8 148 L60 184.8 L23.2 148 Z"/>
+          <circle cx="60" cy="148" r="13"/>
+          <path d="M14 86 L34 122 M106 86 L86 122 M14 210 L34 174 M106 210 L86 174"/>
+        </g>
+        <g stroke="#b88a58" stroke-opacity=".85">
+          <rect x="34" y="122" width="52" height="52"/>
+          <path d="M60 111.2 L96.8 148 L60 184.8 L23.2 148 Z"/>
+          <circle cx="60" cy="148" r="13"/>
+          <path d="M14 86 L34 122 M106 86 L86 122 M14 210 L34 174 M106 210 L86 174"/>
+        </g>
+      </g>
+      <circle cx="60" cy="148" r="5" fill="#c99a3e"/>
+      <!-- шляпки медных гвоздей по стойкам -->
+      <g fill="#b38a3c">
+        <circle cx="7" cy="40" r="2.2"/><circle cx="7" cy="110" r="2.2"/><circle cx="7" cy="190" r="2.2"/><circle cx="7" cy="260" r="2.2"/>
+        <circle cx="113" cy="40" r="2.2"/><circle cx="113" cy="110" r="2.2"/><circle cx="113" cy="190" r="2.2"/><circle cx="113" cy="260" r="2.2"/>
+      </g>
+      <rect width="120" height="300" fill="none" stroke="#1c0f06" stroke-width="2"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="dz-scene" data-envelope-scene data-leave="2700" data-done="3650" data-music="900" data-sfx="0">
+  <div class="dz-portal" aria-hidden="true">
+    <div class="dz-pishtaq"></div>
+    <div class="dz-niche"></div>
+    <div class="dz-tymp"></div>
+    <div class="dz-band-names">{{groom}} · {{bride}}</div>
+    <div class="dz-doorway">
+      <div class="dz-glow"></div>
+      <div class="dz-rays"></div>
+      <div class="dz-leaf dz-leaf--l"><svg viewBox="0 0 120 300" preserveAspectRatio="none"><use href="#dzLeaf"/></svg><b class="dz-shade"></b><span class="dz-edge"></span><i class="dz-knock"></i></div>
+      <div class="dz-leaf dz-leaf--r"><svg viewBox="0 0 120 300" preserveAspectRatio="none"><use href="#dzLeaf"/></svg><b class="dz-shade"></b><span class="dz-edge"></span><i class="dz-knock"></i></div>
+    </div>
+    <div class="dz-step"></div>
+  </div>
+  <div class="dz-flash" aria-hidden="true"></div>
+  <button type="button" class="dz-trigger" data-envelope-trigger aria-label="{{L.openHint}}">
+    <span class="dz-hint"><i aria-hidden="true"></i>{{L.openHint}}</span>
+  </button>
+</div>
+
+<main class="inv dz">
+
+  <section class="dz-hero">
+    <div class="dz-hero__light" aria-hidden="true"></div>
+    <p class="dz-kicker fx">{{L.sub}}</p>
+    <div class="dz-window fx" data-scrub="view" style="--d:.1s">
+      <div class="dz-window__tile"></div>
+      <div class="dz-window__glass">{{#if photos.0}}<img src="{{photos.0}}" alt="{{groom}} &amp; {{bride}}">{{/if}}</div>
+      <div class="dz-window__sill" aria-hidden="true"></div>
+    </div>
+    <h1 class="dz-names fx" style="--d:.25s"><span>{{groom}}</span><i>&amp;</i><span>{{bride}}</span></h1>
+    <p class="dz-date fx" style="--d:.4s"><span>{{dateText}}</span><b aria-hidden="true"></b><span>{{time}}</span></p>
+    <span class="dz-cue" aria-hidden="true"></span>
+  </section>
+
+  <div class="dz-band" data-scrub="enter" aria-hidden="true"></div>
+
+  <section class="dz-sec">
+    <div class="dz-wrap">
+      <div class="dz-kitoba fx">
+        {{#if guestName}}
+          <p class="dz-kitoba__greet">{{L.greet}}</p>
+          <h2 class="dz-kitoba__title">{{guestName}}</h2>
+          <p class="dz-kitoba__text">{{L.greetTail}}</p>
+        {{else}}
+          <p class="dz-kitoba__greet">{{groom}} &amp; {{bride}}</p>
+          <h2 class="dz-kitoba__title">{{L.sub}}</h2>
+          <p class="dz-kitoba__text">{{L.invite}}</p>
+        {{/if}}
+      </div>
+      <p class="dz-lead words">{{L.emo}}</p>
+    </div>
+  </section>
+
+  {{#if photos.1}}
+  <section class="dz-sec">
+    <span class="dz-over fx">{{L.gallery}}</span>
+    <div class="dz-arcade">
+      <figure class="dz-arch" data-scrub="enter">
+        <div class="dz-arch__tile"></div>
+        <div class="dz-arch__glass"><img src="{{photos.1}}" alt="{{groom}} &amp; {{bride}}" loading="lazy"></div>
+        <div class="dz-arch__base" aria-hidden="true"></div>
+      </figure>
+      {{#if photos.2}}
+      <figure class="dz-arch" data-scrub="enter">
+        <div class="dz-arch__tile"></div>
+        <div class="dz-arch__glass"><img src="{{photos.2}}" alt="{{groom}} &amp; {{bride}}" loading="lazy"></div>
+        <div class="dz-arch__base" aria-hidden="true"></div>
+      </figure>
+      {{/if}}
+    </div>
+  </section>
+  {{/if}}
+
+  <div class="dz-band" data-scrub="enter" aria-hidden="true"></div>
+
+  <section class="dz-sec">
+    <span class="dz-over fx">{{L.when}}</span>
+    <div class="dz-star" data-scrub="enter">
+      <svg viewBox="0 0 200 200" aria-hidden="true">
+        <defs>
+          <radialGradient id="dzStarFill" cx=".5" cy=".5" r=".6"><stop offset="0" stop-color="#fbf4e6"/><stop offset="1" stop-color="#efdfc2"/></radialGradient>
+        </defs>
+        <path d="M100 8 L127 46 L173 27 L154 73 L192 100 L154 127 L173 173 L127 154 L100 192 L73 154 L27 173 L46 127 L8 100 L46 73 L27 27 L73 46 Z" fill="#1f3c78"/>
+        <path d="M100 16 L124 50 L165 35 L150 76 L184 100 L150 124 L165 165 L124 150 L100 184 L76 150 L35 165 L50 124 L16 100 L50 76 L35 35 L76 50 Z" fill="url(#dzStarFill)"/>
+        <g fill="none" stroke="#1f9c9a" stroke-width="1.6">
+          <rect x="47" y="47" width="106" height="106"/>
+          <rect x="47" y="47" width="106" height="106" transform="rotate(45 100 100)"/>
+          <circle cx="100" cy="100" r="50"/>
+        </g>
+        <g fill="#c8a04f"><circle cx="100" cy="27" r="3"/><circle cx="173" cy="100" r="3"/><circle cx="100" cy="173" r="3"/><circle cx="27" cy="100" r="3"/></g>
+      </svg>
+      <div class="dz-star__in">
+        <span class="dz-star__month">{{monthName}}</span>
+        <span class="dz-star__day">{{day}}</span>
+        <span class="dz-star__year">{{year}}</span>
+      </div>
+    </div>
+    <div class="dz-when fx"><span>{{weekday}}</span><span><b>{{time}}</b></span></div>
+  </section>
+
+  <section class="dz-sec">
+    <span class="dz-over fx">{{L.until}}</span>
+    <div class="dz-cd cd fx">
+      <div><b id="cd">00</b><span>{{L.days}}</span></div>
+      <div><b id="ch">00</b><span>{{L.hours}}</span></div>
+      <div><b id="cm">00</b><span>{{L.min}}</span></div>
+      <div><b id="cs">00</b><span>{{L.sec}}</span></div>
+    </div>
+  </section>
+
+  <div class="dz-band" data-scrub="enter" aria-hidden="true"></div>
+
+  <section class="dz-sec">
+    <span class="dz-over fx">{{L.where}}</span>
+    <div class="dz-venue fx">
+      <div class="dz-mapframe"><div class="venue__map">{{{map}}}</div></div>
+      <h2 class="dz-venue__name">{{address}}</h2>
+      {{#if venueLine}}<p class="dz-venue__meta">{{venueLine}}</p>{{/if}}
+      {{#if gmaps}}
+      <div class="routes">
+        <a href="{{gmaps}}" target="_blank" rel="noopener"><span>{{L.gmaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+        <a href="{{ymaps}}" target="_blank" rel="noopener"><span>{{L.ymaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+      </div>
+      {{/if}}
+    </div>
+  </section>
+
+  <section class="dz-sec dz-final">
+    <div class="dz-final__arch fx">
+      <div class="dz-arch__tile"></div>
+      <div class="dz-arch__glass"></div>
+      <div class="dz-final__copy">
+        <p>{{L.final}}</p>
+        <small>{{L.sign}} {{groom}} {{L.and}} {{bride}}</small>
+        <div class="dz-final__rings" aria-hidden="true"><i></i><i></i></div>
+      </div>
+    </div>
+  </section>
+
+  {{{made}}}
+</main>
+
+{{{audioWidget}}}
+{{{experienceScript}}}
+{{{countdown}}}
+</body>
+</html>

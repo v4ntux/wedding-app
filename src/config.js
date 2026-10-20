@@ -28,6 +28,10 @@ const RAW_BASE = (process.env.BASE_URL ?? 'http://localhost:3000').trim().replac
 export const BASE_URL = /^https?:\/\//i.test(RAW_BASE) ? RAW_BASE : `https://${RAW_BASE}`;
 export const PORT = Number(process.env.PORT ?? 3000);
 export const DEV_NO_AUTH = process.env.DEV_NO_AUTH === '1';
+// Стенд без бота (бета на отдельном домене): работают демо, студия на сайте и
+// предпросмотр, а админка остаётся закрытой — подписать вход в неё нечем.
+// В отличие от DEV_NO_AUTH, никого не пускает без сессии.
+export const SITE_ONLY = process.env.NVATE_SITE_ONLY === '1';
 // Ссылка поддержки для кнопки Support в боте (напр. https://t.me/username). Необязательно.
 export const SUPPORT_URL = (process.env.SUPPORT_URL ?? 'https://t.me/nvate_admin').trim();
 

@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1b130d">
+<title>{{groom}} &amp; {{bride}} · {{L.sub}}</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Marck+Script&display=swap" rel="stylesheet">
+{{{experienceCSS}}}
+{{{coreCSS}}}
+<style>
+/* Kitob — семейная книга в льняном переплёте. На столе под лампой лежит
+   закрытый том: касание — книга поднимается к гостю и раскрывает обложку.
+   Дальше приглашение листается: прокрутка переворачивает страницы в 3D,
+   каждый жест — один лист (snap), страница тенью ложится на следующую.
+   Стрелки и тап по краю страницы листают так же. */
+:root{
+  --paper:#f7f1e3; --paper-2:#efe6d2; --paper-3:#e2d5bb;
+  --ink:#2b2622; --muted:#7a6a58;
+  --accent:#8e2c2c; --accent-2:#8a6a4a;
+  --line:rgba(43,38,34,.2); --line-soft:rgba(43,38,34,.1);
+  --gold:#d4b26a; --gold-hi:#fff0c8; --gold-lo:#8a6a2f; --gold-rgb:212,178,106;
+  --navy:#1c2a44; --navy-2:#24365a;
+  --shot-edge:transparent;
+  --display:'EB Garamond',Georgia,serif;
+  --sans:'EB Garamond',Georgia,serif;
+  --script:'Marck Script',cursive;
+  --bw:min(86vw,440px,calc((100svh - 150px) * .7));
+  --bh:calc(var(--bw) / .7);
+  --th:calc(var(--bw) * .07);
+  --desk:
+    radial-gradient(60% 45% at 30% 18%,rgba(255,214,150,.38),transparent 70%),
+    radial-gradient(120% 80% at 50% 110%,rgba(0,0,0,.55),transparent 60%),
+    repeating-linear-gradient(97deg,rgba(255,220,180,.035) 0 2px,transparent 2px 9px,rgba(0,0,0,.05) 9px 11px,transparent 11px 23px),
+    linear-gradient(170deg,#4a3020,#2f1e13 55%,#1d120b);
+}
+html{background:#1d120b}
+body{background:var(--desk);background-attachment:fixed;color:var(--ink)}
+@media (prefers-reduced-motion:no-preference){html:has(.kb-book){scroll-snap-type:y mandatory}}
+.inv{position:relative;z-index:1}
+.made{background:#1d120b;color:#cdbb9c;border-top:1px solid rgba(212,178,106,.18);scroll-snap-align:end;--paper:#1d120b;--ink:#f3e6cc}
+
+/* ══ Бумага и типографика страницы ════════════════════════════════════ */
+.kb-paper{position:absolute;inset:0;overflow:hidden;
+  background:
+    radial-gradient(120% 90% at 100% 50%,transparent 60%,rgba(120,90,50,.12)),
+    linear-gradient(90deg,rgba(90,60,30,.16),transparent 9%),
+    var(--grain),
+    linear-gradient(180deg,#faf5e9,#f4ecda);
+  box-shadow:inset 0 0 0 1px rgba(120,90,50,.12)}
+.kb-pg{position:absolute;inset:0;display:grid;grid-template-rows:auto 1fr auto;padding:9% 10% 7%;text-align:center}
+.kb-run{color:var(--muted);font:500 calc(var(--bw) * .026)/1 var(--sans);letter-spacing:.32em;text-transform:uppercase}
+.kb-folio{color:var(--muted);font:italic 400 calc(var(--bw) * .034)/1 var(--display)}
+.kb-body{display:grid;align-content:center;justify-items:center;gap:calc(var(--bw) * .03);min-height:0}
+.kb-fleuron{width:calc(var(--bw) * .34);height:auto;color:var(--accent-2)}
+.kb-small{color:var(--accent);font:500 calc(var(--bw) * .03)/1 var(--sans);letter-spacing:.34em;text-transform:uppercase}
+.kb-names{color:var(--ink);font:italic 400 calc(var(--bw) * .14)/1 var(--display);letter-spacing:-.01em;text-wrap:balance}
+.kb-names i{display:block;margin:.1em 0;color:var(--accent-2);font:400 .38em/1 var(--script)}
+.kb-date{color:var(--muted);font:400 calc(var(--bw) * .042)/1.4 var(--display);letter-spacing:.06em}
+.kb-h{color:var(--ink);font:italic 400 calc(var(--bw) * .074)/1.15 var(--display);text-wrap:balance}
+.kb-text{max-width:28ch;color:#4b4036;font:400 calc(var(--bw) * .043)/1.55 var(--display);text-align:left;hyphens:auto}
+.kb-text--c{text-align:center}
+.kb-text:first-letter{float:left;margin:.06em .1em 0 0;color:var(--accent);font:500 3.1em/.8 var(--display)}
+.kb-text--c:first-letter{float:none;margin:0;font:inherit;color:inherit}
+.kb-sign{color:var(--accent-2);font:400 calc(var(--bw) * .062)/1.2 var(--script)}
+
+/* Фото, вклеенное уголками. */
+.kb-photo{position:relative;width:78%;aspect-ratio:4/5;margin:0 auto;padding:4.5%;background:#fffdf8;
+  box-shadow:0 1px 2px rgba(60,40,20,.25),0 14px 26px -16px rgba(60,40,20,.55);transform:rotate(-1.6deg)}
+.kb-photo img{display:block;width:100%;height:100%;object-fit:cover;filter:sepia(.18) saturate(.95) contrast(1.02)}
+.kb-photo:before,.kb-photo:after,.kb-photo i:before,.kb-photo i:after{content:'';position:absolute;width:15%;aspect-ratio:1;
+  background:linear-gradient(135deg,#1c2a44 50%,transparent 50%);opacity:.92}
+.kb-photo:before{left:-2%;top:-2%}
+.kb-photo:after{right:-2%;top:-2%;transform:rotate(90deg)}
+.kb-photo i:before{right:-2%;bottom:-2%;transform:rotate(180deg)}
+.kb-photo i:after{left:-2%;bottom:-2%;transform:rotate(270deg)}
+.kb-photo--b{width:70%;transform:rotate(1.8deg)}
+.kb-cap{color:var(--accent-2);font:400 calc(var(--bw) * .056)/1.2 var(--script)}
+
+/* Календарь месяца: день свадьбы обведён «чернилами». */
+.kb-big{color:var(--accent);font:400 calc(var(--bw) * .3)/.8 var(--display);font-feature-settings:"onum" 1}
+.kb-cal{width:88%;border-collapse:collapse;color:var(--muted);font:400 calc(var(--bw) * .036)/1 var(--display)}
+.kb-cal caption{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.kb-cal th{padding-bottom:.6em;font:500 .7em/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--accent-2)}
+.kb-cal td{position:relative;padding:.38em 0;text-align:center}
+.kb-cal td.on{color:var(--accent);font-weight:500}
+.kb-cal td.on:before{content:'';position:absolute;left:50%;top:50%;width:2.1em;height:1.9em;margin:-.95em 0 0 -1.05em;
+  border:1.5px solid var(--accent);border-radius:50% 46% 52% 48%/48% 52% 46% 50%;transform:rotate(-8deg)}
+
+/* Отсчёт — старостильными цифрами, как в книжном наборе. */
+.kb-cd{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:calc(var(--bw) * .04) calc(var(--bw) * .06);width:82%}
+.kb-cd>div{display:grid;justify-items:center;gap:.3em;padding-bottom:.6em;border-bottom:1px solid var(--line-soft)}
+.kb-cd b{color:var(--ink);font:400 calc(var(--bw) * .12)/1.12 var(--display);font-feature-settings:"onum" 1,"tnum" 1}
+.kb-cd>div>span{color:var(--muted);font:italic 400 calc(var(--bw) * .04)/1 var(--display)}
+
+/* Место: карта вклеена вырезкой. */
+.kb-clip{position:relative;width:92%;padding:3%;background:#fffdf8;box-shadow:0 1px 2px rgba(60,40,20,.2),0 10px 20px -14px rgba(60,40,20,.5);transform:rotate(.8deg)}
+.kb-clip:before{content:'';position:absolute;left:50%;top:-9px;width:34%;height:18px;margin-left:-17%;background:rgba(214,196,160,.75);transform:rotate(-2deg)}
+.kb-clip .mapbox .nvmap{height:calc(var(--bh) * .3)}
+.kb-clip .mapbox iframe{height:calc(var(--bh) * .3)}
+.kb-clip .venue-type{min-height:calc(var(--bh) * .3);margin:0;padding:18px;color:var(--accent);--paper:var(--ink);background:#faf5e9}
+.kb-clip .venue-type b{font-size:calc(var(--bw) * .07)}
+.kb-addr{color:var(--ink);font:italic 400 calc(var(--bw) * .058)/1.2 var(--display);text-wrap:balance}
+.kb-meta{color:var(--muted);font:500 calc(var(--bw) * .028)/1.5 var(--sans);letter-spacing:.16em;text-transform:uppercase}
+.kb-links{display:flex;gap:1.2em;justify-content:center}
+.kb-links a{color:var(--accent);font:italic 400 calc(var(--bw) * .045)/1 var(--display);text-decoration:underline;text-underline-offset:.2em;text-decoration-thickness:1px}
+
+/* ══ Книга на странице: стопка листов в 3D ═══════════════════════════ */
+.kb-book{position:relative;height:calc((var(--f) + 1) * 100svh);--p:0;--t:calc(var(--p) * var(--f))}
+.kb-stage{position:sticky;top:0;height:100svh;margin-bottom:-100svh;display:grid;grid-template-rows:1fr auto;justify-items:center;
+  padding:max(18px,env(safe-area-inset-top)) 0 max(14px,env(safe-area-inset-bottom));perspective:1700px;perspective-origin:50% 42%;overflow:hidden;z-index:1}
+.kb-volume{position:relative;align-self:center;width:var(--bw);height:var(--bh);transform-style:preserve-3d;transform:rotateX(3deg)}
+/* Толщина непрочитанных страниц справа тает по мере чтения. */
+.kb-volume:before{content:'';position:absolute;top:1.2%;bottom:1.2%;left:100%;width:calc((var(--f) - var(--t)) * 1.5px + 2px);
+  background:repeating-linear-gradient(90deg,#efe5cf 0 1px,#d9cbaf 1px 2px);box-shadow:4px 6px 14px rgba(0,0,0,.4);border-radius:0 3px 3px 0}
+.kb-volume:after{content:'';position:absolute;inset:-1.2% -2.4% -1.2% -1.4%;z-index:-1;background:linear-gradient(90deg,#141e33,#1c2a44 8%,#1c2a44);
+  border-radius:4px 6px 6px 4px;transform:translateZ(-6px);box-shadow:0 30px 60px -20px rgba(0,0,0,.7)}
+.kb-leaf{position:absolute;inset:0;transform-origin:0 50%;transform-style:preserve-3d;
+  --a:clamp(0,calc(var(--t) - var(--i)),1);--pv:clamp(0,calc(var(--t) - var(--i) + 1),1);
+  transform:rotateY(calc(var(--a) * -178deg)) translateZ(calc(var(--i) * -.6px));will-change:transform}
+.kb-front,.kb-back{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.kb-back{transform:rotateY(180deg)}
+/* Лист поднимается — темнеет к краю; на следующую страницу ложится его тень. */
+.kb-front:after{content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(90deg,rgba(40,25,10,.05),rgba(40,25,10,.38));opacity:calc(var(--a) * 1.5)}
+.kb-front:before{content:'';position:absolute;inset:0;z-index:2;pointer-events:none;
+  background:linear-gradient(90deg,rgba(30,18,6,.55),rgba(30,18,6,.12) 40%,transparent 70%);opacity:calc(var(--pv) * (1 - var(--pv)) * 2.4)}
+.kb-back .kb-paper{background:radial-gradient(120% 90% at 0 50%,transparent 60%,rgba(120,90,50,.12)),linear-gradient(270deg,rgba(90,60,30,.16),transparent 9%),var(--grain),linear-gradient(180deg,#f6f0e2,#efe6d2)}
+.kb-back:after{content:'';position:absolute;inset:0;background:linear-gradient(270deg,rgba(40,25,10,.3),transparent);opacity:calc((1 - var(--a)) * 1.4);pointer-events:none}
+.kb-verso{position:absolute;inset:0;display:grid;place-items:center;color:rgba(138,106,74,.22)}
+.kb-verso b{font:italic 400 calc(var(--bw) * .3)/1 var(--display)}
+.kb-verso span{position:absolute;bottom:7%;left:0;right:0;text-align:center;color:var(--muted);font:italic 400 calc(var(--bw) * .034)/1 var(--display)}
+.kb-ribbon{position:absolute;right:16%;top:-1.5%;width:4.5%;height:calc(100% + 9%);background:linear-gradient(90deg,#6e1f1f,#a33b3b 50%,#6e1f1f);
+  clip-path:polygon(0 0,100% 0,100% 100%,50% 94%,0 100%);transform:translateZ(calc(var(--f) * -.6px - 1px));box-shadow:0 4px 8px rgba(0,0,0,.3)}
+
+.kb-nav{display:flex;align-items:center;gap:18px;padding-top:12px;color:#e8d9bb}
+.kb-nav button{display:grid;place-items:center;width:44px;height:44px;border-radius:50%;border:1px solid rgba(212,178,106,.4);
+  background:rgba(29,18,11,.5);color:var(--gold);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.kb-nav button:disabled{opacity:.3;cursor:default}
+.kb-nav button svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.kb-count{min-width:70px;text-align:center;font:italic 400 1.05rem/1 var(--display);color:#e8d9bb}
+.kb-hint{display:flex;align-items:center;gap:8px;color:var(--muted);font:italic 400 calc(var(--bw) * .036)/1 var(--display)}
+.kb-hint svg{width:1.1em;height:1.1em;fill:none;stroke:currentColor;stroke-width:1.6;animation:kbNudge 2.2s ease-in-out infinite}
+@keyframes kbNudge{0%,100%{transform:translateY(2px)}50%{transform:translateY(-4px)}}
+.kb-snap{height:100svh;scroll-snap-align:start;scroll-snap-stop:always}
+
+/* ══ Сцена открытия: книга на столе ═══════════════════════════════════ */
+.kb-scene{position:fixed;inset:0;z-index:9000;display:grid;place-items:center;overflow:hidden;background:var(--desk);perspective:1700px;perspective-origin:50% 42%;
+  padding-bottom:calc(52px + env(safe-area-inset-bottom) - env(safe-area-inset-top));touch-action:none}
+.kb-scene[hidden]{display:none}
+.kb-lift{position:relative;width:var(--bw);height:var(--bh);transform-style:preserve-3d;
+  transform:translateY(4%) rotateX(48deg) rotateZ(-16deg) scale(.8)}
+.kb-c{position:absolute;inset:0;transform-style:preserve-3d}
+.kb-c__back{position:absolute;inset:0;background:#141e33;border-radius:4px;transform:translateZ(calc(var(--th) * -1));box-shadow:0 40px 60px -10px rgba(0,0,0,.6)}
+.kb-c__block{position:absolute;inset:1.4% 1.6% 1.4% 1.4%;transform:translateZ(-2px)}
+.kb-c__edge{position:absolute;background:repeating-linear-gradient(0deg,#f0e6d0 0 1px,#d6c7a9 1px 2px)}
+.kb-c__edge--r{top:1.4%;bottom:1.4%;left:calc(var(--bw) * .984 - var(--th) / 2);width:var(--th);
+  transform:translateZ(calc(var(--th) / -2)) rotateY(90deg)}
+.kb-c__edge--b{left:1.4%;right:1.6%;top:calc(var(--bh) * .986 - var(--th) / 2);height:var(--th);
+  background:repeating-linear-gradient(90deg,#f0e6d0 0 1px,#d6c7a9 1px 2px);transform:translateZ(calc(var(--th) / -2)) rotateX(90deg)}
+.kb-c__edge--t{left:1.4%;right:1.6%;top:calc(var(--bh) * .014 - var(--th) / 2);height:var(--th);
+  background:repeating-linear-gradient(90deg,#f0e6d0 0 1px,#d6c7a9 1px 2px);transform:translateZ(calc(var(--th) / -2)) rotateX(90deg)}
+.kb-c__spine{position:absolute;top:0;bottom:0;left:0;width:var(--th);background:linear-gradient(90deg,#141e33,#24365a,#141e33);
+  transform-origin:0 50%;transform:rotateY(90deg)}
+.kb-c__cover{position:absolute;inset:0;transform-origin:0 50%;transform-style:preserve-3d;transform:translateZ(1px)}
+.kb-c__face,.kb-c__inside{position:absolute;inset:0;border-radius:3px 6px 6px 3px;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.kb-c__face{display:grid;place-items:center;
+  background:
+    linear-gradient(90deg,rgba(0,0,0,.35),rgba(255,255,255,.06) 3%,transparent 7%),
+    repeating-linear-gradient(0deg,rgba(255,255,255,.035) 0 1px,transparent 1px 3px),
+    repeating-linear-gradient(90deg,rgba(0,0,0,.08) 0 1px,transparent 1px 3px),
+    radial-gradient(120% 90% at 30% 20%,#2c4270,#1c2a44 60%,#141e33);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.kb-c__inside{transform:rotateY(180deg);
+  background:radial-gradient(circle at 25% 25%,rgba(212,178,106,.35) 0 1.5px,transparent 2px) 0 0/14px 14px,
+    radial-gradient(circle at 75% 75%,rgba(212,178,106,.25) 0 1.2px,transparent 1.6px) 0 0/14px 14px,linear-gradient(135deg,#24365a,#1c2a44)}
+.kb-foil{position:absolute;inset:7%;border:1.5px solid rgba(212,178,106,.85);box-shadow:inset 0 0 0 4px rgba(28,42,68,1),inset 0 0 0 5px rgba(212,178,106,.6)}
+.kb-foil:before,.kb-foil:after{content:'';position:absolute;width:14%;aspect-ratio:1;border:1.5px solid rgba(212,178,106,.85);border-radius:50%}
+.kb-foil:before{left:-7%;top:-7%;border-color:rgba(212,178,106,.85) transparent transparent rgba(212,178,106,.85)}
+.kb-foil:after{right:-7%;bottom:-7%;border-color:transparent rgba(212,178,106,.85) rgba(212,178,106,.85) transparent}
+.kb-c__title{position:relative;display:grid;justify-items:center;gap:calc(var(--bw) * .035);padding:0 14%;text-align:center}
+.kb-gold{background:linear-gradient(110deg,#9c7a3a,#f6dfa4 40%,#d4b26a 55%,#fff1c9 70%,#a8843f);-webkit-background-clip:text;background-clip:text;color:transparent}
+.kb-c__mono{display:grid;place-items:center;width:calc(var(--bw) * .24);aspect-ratio:1;border-radius:50%;border:1.5px solid rgba(212,178,106,.85);
+  font:italic 400 calc(var(--bw) * .085)/1 var(--display)}
+.kb-c__mono span{background:linear-gradient(110deg,#9c7a3a,#f6dfa4 40%,#d4b26a 55%,#fff1c9 70%,#a8843f);-webkit-background-clip:text;background-clip:text;color:transparent}
+.kb-c__names{font:italic 400 calc(var(--bw) * .088)/1.1 var(--display);text-wrap:balance}
+.kb-c__small{color:rgba(212,178,106,.9);font:500 calc(var(--bw) * .028)/1 var(--sans);letter-spacing:.4em;text-transform:uppercase}
+.kb-c__ribbon{position:absolute;right:16%;bottom:-9%;width:4.5%;height:12%;background:linear-gradient(90deg,#6e1f1f,#a33b3b 50%,#6e1f1f);
+  clip-path:polygon(0 0,100% 0,100% 100%,50% 88%,0 100%);transform:translateZ(-3px)}
+.kb-trigger{position:absolute;inset:0;z-index:5;display:grid;align-content:end;justify-items:center;padding:0 20px max(28px,env(safe-area-inset-bottom));
+  border:0;background:transparent;color:#efe1c4;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.kb-trigger:focus-visible{outline:1px solid var(--gold);outline-offset:-14px}
+.kb-trigger span{display:flex;align-items:center;gap:12px;font:italic 400 1.15rem/1 var(--display);letter-spacing:.02em;text-shadow:0 2px 12px rgba(0,0,0,.6);animation:kbHint 3s ease-in-out infinite}
+.kb-trigger span:before,.kb-trigger span:after{content:'';width:26px;height:1px;background:currentColor;opacity:.5}
+@keyframes kbHint{0%,100%{opacity:.65}50%{opacity:1}}
+
+.kb-scene.is-running .kb-trigger span{opacity:0;animation:none;transition:opacity .4s}
+.kb-scene.is-running .kb-lift{animation:kbLift 1.2s cubic-bezier(.5,0,.2,1) forwards}
+@keyframes kbLift{to{transform:translateY(0) rotateX(3deg) rotateZ(0) scale(1)}}
+.kb-scene.is-running .kb-c__cover{animation:kbCover 1.5s cubic-bezier(.55,.05,.3,1) 1.05s forwards}
+@keyframes kbCover{to{transform:translateZ(1px) rotateY(-172deg)}}
+.kb-scene.is-leaving{animation:kbOut .8s ease forwards}
+@keyframes kbOut{to{opacity:0}}
+body.ev-handoff .kb-volume{animation:none}
+
+#mbtn{border-color:rgba(212,178,106,.4);background:rgba(29,18,11,.75);color:var(--gold)}
+#mbtn.on{background:var(--gold);color:#1d120b}
+
+/* Без анимации — та же книга, страницы просто идут одна под другой. */
+@media (prefers-reduced-motion:reduce){
+  .kb-book{height:auto}
+  .kb-stage{position:static;height:auto;margin:0;display:block;padding:40px 0;perspective:none}
+  .kb-volume{transform:none;height:auto;display:grid;gap:28px;margin:0 auto}
+  .kb-volume:before,.kb-volume:after,.kb-ribbon,.kb-snap,.kb-nav{display:none}
+  .kb-leaf{position:relative;height:var(--bh);transform:none!important}
+  .kb-back,.kb-front:before,.kb-front:after{display:none}
+  .kb-hint svg,.kb-trigger span{animation:none}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="kbFleuron" viewBox="0 0 160 24"><g fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round">
+    <path d="M4 12 H58 M102 12 H156"/><path d="M58 12 C 64 4, 72 4, 74 10 C 75 14, 70 16, 68 13"/><path d="M102 12 C 96 4, 88 4, 86 10 C 85 14, 90 16, 92 13"/>
+    <path d="M58 12 C 64 20, 72 20, 74 14 M102 12 C 96 20, 88 20, 86 14"/></g>
+    <path d="M80 5 L85 12 L80 19 L75 12 Z" fill="currentColor"/></symbol>
+</svg>
+
+<div class="kb-scene" data-envelope-scene data-leave="2500" data-done="3300" data-music="1400">
+  <div class="kb-lift" aria-hidden="true">
+    <div class="kb-c">
+      <div class="kb-c__back"></div>
+      <div class="kb-c__edge kb-c__edge--r"></div>
+      <div class="kb-c__edge kb-c__edge--b"></div>
+      <div class="kb-c__edge kb-c__edge--t"></div>
+      <div class="kb-c__block">
+        <div class="kb-paper"></div>
+        <div class="kb-pg">
+          <div class="kb-run">{{L.sub}}</div>
+          <div class="kb-body">
+            <svg class="kb-fleuron" viewBox="0 0 160 24"><use href="#kbFleuron"/></svg>
+            <div class="kb-names">{{groom}}<i>{{L.and}}</i>{{bride}}</div>
+            <svg class="kb-fleuron" viewBox="0 0 160 24"><use href="#kbFleuron"/></svg>
+            <div class="kb-date">{{dateText}}</div>
+          </div>
+          <div class="kb-folio">i</div>
+        </div>
+      </div>
+      <div class="kb-c__ribbon"></div>
+      <div class="kb-c__cover">
+        <div class="kb-c__face">
+          <div class="kb-foil"></div>
+          <div class="kb-c__title">
+            <div class="kb-c__small">{{L.sub}}</div>
+            <div class="kb-c__mono"><span>{{groomInitial}}&amp;{{brideInitial}}</span></div>
+            <div class="kb-c__names kb-gold">{{groom}} &amp; {{bride}}</div>
+            <div class="kb-c__small">{{year}}</div>
+          </div>
+        </div>
+        <div class="kb-c__inside"></div>
+      </div>
+    </div>
+  </div>
+  <button type="button" class="kb-trigger" data-envelope-trigger aria-label="{{L.openHint}}"><span>{{L.openHint}}</span></button>
+</div>
+
+<main class="inv kb">
+  <section class="kb-book" data-scrub="sticky" style="--f:7">
+    <div class="kb-stage">
+      <div class="kb-volume" role="group" aria-roledescription="book">
+
+        <div class="kb-leaf" style="--i:0">
+          <div class="kb-front"><div class="kb-paper"></div><div class="kb-pg">
+            <div class="kb-run">{{L.sub}}</div>
+            <div class="kb-body">
+              <svg class="kb-fleuron" viewBox="0 0 160 24" aria-hidden="true"><use href="#kbFleuron"/></svg>
+              <h1 class="kb-names">{{groom}}<i>{{L.and}}</i>{{bride}}</h1>
+              <svg class="kb-fleuron" viewBox="0 0 160 24" aria-hidden="true"><use href="#kbFleuron"/></svg>
+              <div class="kb-date">{{dateText}}</div>
+            </div>
+            <div class="kb-hint"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 16V4M5 9l5-5 5 5"/></svg>{{L.turn}}</div>
+          </div></div>
+          <div class="kb-back"><div class="kb-paper"></div><div class="kb-verso"><b>{{groomInitial}}</b><span>ii</span></div></div>
+        </div>
+
+        <div class="kb-leaf" style="--i:1">
+          <div class="kb-front"><div class="kb-paper"></div><div class="kb-pg">
+            <div class="kb-run">{{groom}} &amp; {{bride}}</div>
+            <div class="kb-body">
+              {{#if guestName}}
+                <div class="kb-small">{{L.greet}}</div>
+                <h2 class="kb-h">{{guestName}}</h2>
+                <p class="kb-text kb-text--c">{{L.greetTail}}</p>
+              {{else}}
+                <div class="kb-small">{{L.sub}}</div>
+                <h2 class="kb-h">{{L.invite}}</h2>
+              {{/if}}
+              <p class="kb-text">{{L.emo}}</p>
+              <div class="kb-sign">{{groom}} {{L.and}} {{bride}}</div>
+            </div>
+            <div class="kb-folio">1</div>
+          </div></div>
+          <div class="kb-back"><div class="kb-paper"></div><div class="kb-verso"><b>&amp;</b><span>2</span></div></div>
+        </div>
+
+        <div class="kb-leaf" style="--i:2">
+          <div class="kb-front"><div class="kb-paper"></div><div class="kb-pg">
+            <div class="kb-run">{{L.gallery}}</div>
+            <div class="kb-body">
+              {{#if photos.0}}<figure class="kb-photo"><img src="{{photos.0}}" alt="{{groom}} &amp; {{bride}}" loading="lazy"><i aria-hidden="true"></i></figure>{{/if}}
+              <div class="kb-cap">{{groom}} &amp; {{bride}}</div>
+            </div>
+            <div class="kb-folio">3</div>
+          </div></div>
+          <div class="kb-back"><div class="kb-paper"></div><div class="kb-verso"><b>{{brideInitial}}</b><span>4</span></div></div>
+        </div>
+
+        <div class="kb-leaf" style="--i:3">
+          <div class="kb-front"><div class="kb-paper"></div><div class="kb-pg">
+            <div class="kb-run">{{L.when}}</div>
+            <div class="kb-body">
+              <div class="kb-big">{{day}}</div>
+              <div class="kb-h">{{monthName}} {{year}}</div>
+              <div class="kb-date">{{weekday}} · {{time}}</div>
+              <table class="kb-cal" data-cal="{{dateIso}}"><caption>{{monthName}} {{year}}</caption></table>
+            </div>
+            <div class="kb-folio">5</div>
+          </div></div>
+          <div class="kb-back"><div class="kb-paper"></div><div class="kb-verso"><b>{{day}}</b><span>6</span></div></div>
+        </div>
+
+        <div class="kb-leaf" style="--i:4">
+          <div class="kb-front"><div class="kb-paper"></div><div class="kb-pg">
+            <div class="kb-run">{{L.until}}</div>
+            <div class="kb-body">
+              <svg class="kb-fleuron" viewBox="0 0 160 24" aria-hidden="true"><use href="#kbFleuron"/></svg>
+              <div class="kb-cd cd">
+                <div><b id="cd">00</b><span>{{L.days}}</span></div>
+                <div><b id="ch">00</b><span>{{L.hours}}</span></div>
+                <div><b id="cm">00</b><span>{{L.min}}</span></div>
+                <div><b id="cs">00</b><span>{{L.sec}}</span></div>
+              </div>
+              <svg class="kb-fleuron" viewBox="0 0 160 24" aria-hidden="true"><use href="#kbFleuron"/></svg>
+            </div>
+            <div class="kb-folio">7</div>
+          </div></div>
+          <div class="kb-back"><div class="kb-paper"></div><div class="kb-verso"><b>&#8734;</b><span>8</span></div></div>
+        </div>
+
+        <div class="kb-leaf" style="--i:5">
+          <div class="kb-front"><div class="kb-paper"></div><div class="kb-pg">
+            <div class="kb-run">{{L.where}}</div>
+            <div class="kb-body">
+              <div class="kb-clip"><div class="venue__map">{{{map}}}</div></div>
+              <div class="kb-addr">{{address}}</div>
+              {{#if venueLine}}<div class="kb-meta">{{venueLine}}</div>{{/if}}
+              {{#if gmaps}}<div class="kb-links"><a href="{{gmaps}}" target="_blank" rel="noopener">{{L.gmaps}}</a><a href="{{ymaps}}" target="_blank" rel="noopener">{{L.ymaps}}</a></div>{{/if}}
+            </div>
+            <div class="kb-folio">9</div>
+          </div></div>
+          <div class="kb-back"><div class="kb-paper"></div><div class="kb-verso"><b>&#10086;</b><span>10</span></div></div>
+        </div>
+
+        <div class="kb-leaf" style="--i:6">
+          <div class="kb-front"><div class="kb-paper"></div><div class="kb-pg">
+            <div class="kb-run">{{L.story}}</div>
+            <div class="kb-body">
+              {{#if photos.1}}<figure class="kb-photo kb-photo--b"><img src="{{photos.1}}" alt="{{groom}} &amp; {{bride}}" loading="lazy"><i aria-hidden="true"></i></figure>{{/if}}
+              <p class="kb-h">{{L.quote}}</p>
+            </div>
+            <div class="kb-folio">11</div>
+          </div></div>
+          <div class="kb-back"><div class="kb-paper"></div><div class="kb-verso"><b>{{groomInitial}}</b><span>12</span></div></div>
+        </div>
+
+        <div class="kb-leaf" style="--i:7">
+          <div class="kb-front"><div class="kb-paper"></div><div class="kb-pg">
+            <div class="kb-run">{{L.sub}}</div>
+            <div class="kb-body">
+              <svg class="kb-fleuron" viewBox="0 0 160 24" aria-hidden="true"><use href="#kbFleuron"/></svg>
+              <p class="kb-names" style="font-size:calc(var(--bw) * .095)">{{L.final}}</p>
+              <div class="kb-sign">{{L.sign}}<br>{{groom}} {{L.and}} {{bride}}</div>
+              <svg class="kb-fleuron" viewBox="0 0 160 24" aria-hidden="true"><use href="#kbFleuron"/></svg>
+            </div>
+            <div class="kb-folio">13</div>
+          </div></div>
+        </div>
+
+        <div class="kb-ribbon" aria-hidden="true"></div>
+      </div>
+      <nav class="kb-nav">
+        <button type="button" class="kb-prev" aria-label="&#8592;"><svg viewBox="0 0 20 20"><path d="M12.5 4.5L7 10l5.5 5.5"/></svg></button>
+        <span class="kb-count"><b>1</b> / 8</span>
+        <button type="button" class="kb-next" aria-label="&#8594;"><svg viewBox="0 0 20 20"><path d="M7.5 4.5L13 10l-5.5 5.5"/></svg></button>
+      </nav>
+    </div>
+    <div class="kb-snap"></div><div class="kb-snap"></div><div class="kb-snap"></div><div class="kb-snap"></div>
+    <div class="kb-snap"></div><div class="kb-snap"></div><div class="kb-snap"></div><div class="kb-snap"></div>
+  </section>
+
+  {{{made}}}
+</main>
+
+<script>
+// Календарь месяца свадьбы: неделя с понедельника, день обведён чернилами.
+(function(){
+  var el=document.querySelector('[data-cal]');if(!el)return;
+  var iso=(el.getAttribute('data-cal')||'').split('-').map(Number);if(iso.length!==3||!iso[0])return;
+  var y=iso[0],m=iso[1]-1,day=iso[2];
+  var head=(document.documentElement.lang==='ru')?['пн','вт','ср','чт','пт','сб','вс']:['du','se','ch','pa','ju','sh','ya'];
+  var first=(new Date(y,m,1).getDay()+6)%7,total=new Date(y,m+1,0).getDate();
+  var html='<thead><tr>'+head.map(function(d){return '<th scope="col">'+d+'</th>'}).join('')+'</tr></thead><tbody><tr>';
+  for(var k=0;k<first;k++)html+='<td></td>';
+  for(var d=1;d<=total;d++){if((first+d-1)%7===0&&d>1)html+='</tr><tr>';html+='<td'+(d===day?' class="on"':'')+'>'+d+'</td>'}
+  el.insertAdjacentHTML('beforeend',html+'</tr></tbody>');
+})();
+// Листание: стрелки, тап по краю страницы, горизонтальный свайп — к соседнему листу.
+(function(){
+  var book=document.querySelector('.kb-book');if(!book)return;
+  var vol=book.querySelector('.kb-volume'),n=book.querySelectorAll('.kb-snap').length;
+  var prev=book.querySelector('.kb-prev'),next=book.querySelector('.kb-next'),count=book.querySelector('.kb-count b');
+  function at(){var r=book.getBoundingClientRect();return Math.max(0,Math.min(n-1,Math.round(-r.top/innerHeight)))}
+  function go(i){i=Math.max(0,Math.min(n-1,i));var top=book.getBoundingClientRect().top+scrollY+i*innerHeight;
+    if(i===n-1&&at()===n-1){var m=document.querySelector('.made');if(m)m.scrollIntoView({behavior:'smooth',block:'end'});return}
+    window.scrollTo({top:Math.round(top),behavior:'smooth'})}
+  function sync(){var i=at();count.textContent=String(i+1);prev.disabled=i===0}
+  prev.addEventListener('click',function(){go(at()-1)});
+  next.addEventListener('click',function(){go(at()+1)});
+  vol.addEventListener('click',function(e){if(e.target.closest('a,button'))return;var r=vol.getBoundingClientRect();go(at()+(e.clientX>r.left+r.width*.35?1:-1))});
+  var sx=0,sy=0;
+  vol.addEventListener('touchstart',function(e){var t=e.touches[0];sx=t.clientX;sy=t.clientY},{passive:true});
+  vol.addEventListener('touchend',function(e){var t=e.changedTouches[0],dx=t.clientX-sx,dy=t.clientY-sy;
+    if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)*1.4)go(at()+(dx<0?1:-1))},{passive:true});
+  var tick=false;addEventListener('scroll',function(){if(!tick){tick=true;requestAnimationFrame(function(){tick=false;sync()})}},{passive:true});
+  sync();
+})();
+</script>
+
+{{{audioWidget}}}
+{{{experienceScript}}}
+{{{countdown}}}
+</body>
+</html>
