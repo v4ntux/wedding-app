@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#eeeaf6">
+<title>{{groom}} &amp; {{bride}} · {{L.sub}}</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600&family=Unbounded:wght@300;500;700&display=swap" rel="stylesheet">
+{{{experienceCSS}}}
+{{{coreCSS}}}
+<style>
+/* Jilo — голографическая карта. Фольга переливается вслед за наклоном
+   телефона (гироскоп) или курсором: блик и радуга едут по поверхности.
+   Открытие — карта в воздухе переворачивается и летит к гостю. Дальше
+   секции — карты кошелька: каждая поднимается из наклона и ложится в
+   стопку; дата — пропуск на праздник со штрихкодом. */
+:root{
+  --paper:#f4f3f8; --paper-2:#ebe8f3; --paper-3:#dcd8e8;
+  --ink:#1d1b26; --muted:#6c6880;
+  --accent:#7a5cff; --accent-2:#22b8a0;
+  --line:rgba(29,27,38,.14); --line-soft:rgba(29,27,38,.07);
+  --gold:#7a5cff; --gold-hi:#e6dcff; --gold-lo:#4a32c9; --gold-rgb:122,92,255;
+  --display:'Unbounded',ui-sans-serif,system-ui,sans-serif;
+  --sans:'Onest',ui-sans-serif,system-ui,sans-serif;
+  --script:'Unbounded',ui-sans-serif,system-ui,sans-serif;
+  --mx:0;--my:0;
+  --rx:calc(var(--my) * -14deg);--ry:calc(var(--mx) * 16deg);
+  --holo:linear-gradient(115deg,#ffd1e8 0%,#c9b8ff 18%,#a8f0d8 36%,#b5d8ff 54%,#ffd2b8 72%,#ffd1e8 90%,#c9b8ff 100%);
+  --chrome:linear-gradient(180deg,#ffffff 0%,#c9c7d8 28%,#3d3a4f 48%,#eceaf6 60%,#6e6a85 100%);
+}
+html{background:#eeeaf6}
+body{background:#eeeaf6;color:var(--ink)}
+.inv{position:relative;z-index:1;overflow:clip}
+.made{position:relative;background:rgba(244,243,248,.85);border-top:1px solid var(--line-soft)}
+
+/* Жидкий перламутр за всей страницей: большие пятна плывут медленно. */
+.jl-liquid{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;background:#eeeaf6}
+.jl-liquid i{position:absolute;width:80vmax;height:80vmax;border-radius:50%;opacity:.75;will-change:transform}
+.jl-liquid i:nth-child(1){left:-30vmax;top:-30vmax;background:radial-gradient(closest-side,#c9b8ff,transparent);animation:jlBlob 22s ease-in-out infinite alternate}
+.jl-liquid i:nth-child(2){right:-34vmax;top:10vh;background:radial-gradient(closest-side,#a8f0d8,transparent);animation:jlBlob 26s ease-in-out -6s infinite alternate-reverse}
+.jl-liquid i:nth-child(3){left:-10vmax;bottom:-40vmax;background:radial-gradient(closest-side,#ffd2b8,transparent);animation:jlBlob 30s ease-in-out -12s infinite alternate}
+.jl-liquid i:nth-child(4){right:-20vmax;bottom:-30vmax;background:radial-gradient(closest-side,#ffd1e8,transparent);animation:jlBlob 24s ease-in-out -3s infinite alternate-reverse}
+@keyframes jlBlob{from{transform:translate(0,0) scale(1)}to{transform:translate(12vmax,8vmax) scale(1.18)}}
+
+/* ── Голографическая фольга: радуга и блик едут вслед за наклоном ── */
+.jl-holo{position:relative;overflow:hidden;isolation:isolate;
+  background:var(--holo);background-size:260% 260%;
+  background-position:calc(50% + var(--mx) * 40%) calc(50% + var(--my) * 40%)}
+.jl-holo:before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.55;mix-blend-mode:overlay;
+  background:repeating-linear-gradient(calc(60deg + var(--mx) * 30deg),rgba(255,255,255,.9) 0 2px,rgba(255,255,255,0) 2px 7px),
+    repeating-linear-gradient(calc(-60deg + var(--my) * 30deg),rgba(120,100,200,.35) 0 1px,transparent 1px 9px)}
+.jl-holo:after{content:'';position:absolute;inset:-30%;z-index:-1;pointer-events:none;
+  background:radial-gradient(circle at calc(50% + var(--mx) * 30%) calc(40% + var(--my) * 30%),rgba(255,255,255,.95),rgba(255,255,255,0) 32%)}
+.jl-chrome{background:var(--chrome);-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 1px 0 rgba(255,255,255,.8)) drop-shadow(0 6px 10px rgba(60,40,140,.25))}
+
+/* ══ Сцена открытия: карта в воздухе ═══════════════════════════════ */
+.jl-scene{position:fixed;inset:0;z-index:9000;display:grid;place-items:center;overflow:hidden;perspective:1100px;touch-action:none;
+  background:radial-gradient(60% 40% at 30% 20%,#d9ccff,transparent 70%),radial-gradient(50% 40% at 80% 80%,#bff3e2,transparent 70%),radial-gradient(50% 40% at 80% 20%,#ffd9e9,transparent 70%),#eeeaf6}
+.jl-scene[hidden]{display:none}
+.jl-float{perspective:1100px;animation:jlFloat 5s ease-in-out infinite alternate}
+@keyframes jlFloat{from{transform:translateY(-8px)}to{transform:translateY(8px)}}
+.jl-card{position:relative;width:min(70vw,330px,calc((100svh - 200px) * .7));aspect-ratio:5/7;transform-style:preserve-3d;
+  transform:rotateX(var(--rx)) rotateY(var(--ry))}
+.jl-face{position:absolute;inset:0;border-radius:26px;overflow:hidden;backface-visibility:hidden;-webkit-backface-visibility:hidden;transform:translateZ(1px);
+  box-shadow:0 40px 80px -30px rgba(70,40,160,.45),inset 0 0 0 1px rgba(255,255,255,.7)}
+.jl-face>.jl-fill{position:absolute;inset:0;z-index:0}
+.jl-face>*:not(.jl-fill){position:relative;z-index:1}
+.jl-face--front{display:grid;align-content:space-between;justify-items:start;padding:22px}
+.jl-face--back{transform:rotateY(180deg) translateZ(1px);display:grid;align-content:center;justify-items:center;gap:12px;padding:24px;text-align:center}
+.jl-chip{width:44px;height:34px;border-radius:8px;background:linear-gradient(135deg,#f5f5fb,#b9b7c9 40%,#f1f0f8 60%,#9d9ab3);box-shadow:inset 0 0 0 1px rgba(255,255,255,.7)}
+.jl-mono{align-self:center;justify-self:center;font:700 clamp(3.4rem,17vw,5.2rem)/1 var(--display);letter-spacing:-.04em}
+.jl-cardfoot{display:flex;justify-content:space-between;width:100%;color:rgba(29,27,38,.7);font:500 .66rem/1 var(--sans);letter-spacing:.18em;text-transform:uppercase}
+.jl-face--back small{color:rgba(29,27,38,.6);font:500 .62rem/1 var(--sans);letter-spacing:.3em;text-transform:uppercase}
+.jl-face--back b{font:500 clamp(1.5rem,7vw,2.1rem)/1.15 var(--display);color:var(--ink)}
+.jl-face--back span{font:500 .82rem/1 var(--sans);color:var(--muted)}
+.jl-trigger{position:absolute;inset:0;z-index:5;display:grid;align-content:end;justify-items:center;padding:0 20px max(28px,env(safe-area-inset-bottom));
+  border:0;background:transparent;color:var(--ink);cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.jl-trigger:focus-visible{outline:2px solid var(--accent);outline-offset:-12px}
+.jl-trigger span{display:inline-flex;align-items:center;gap:10px;padding:13px 20px;border-radius:999px;background:rgba(255,255,255,.7);
+  box-shadow:0 10px 30px -14px rgba(70,40,160,.5),inset 0 0 0 1px rgba(255,255,255,.9);font:500 .82rem/1 var(--sans)}
+.jl-trigger span i{width:18px;height:18px;border-radius:5px;background:var(--holo);background-size:200% 200%;animation:jlSpin 3s linear infinite}
+@keyframes jlSpin{to{background-position:200% 0}}
+.jl-tilt{position:absolute;top:max(26px,env(safe-area-inset-top));left:0;right:0;text-align:center;color:var(--muted);font:500 .66rem/1 var(--sans);letter-spacing:.24em;text-transform:uppercase}
+.jl-scene.is-running .jl-trigger span,.jl-scene.is-running .jl-tilt{opacity:0;transition:opacity .4s}
+/* Прозрачность меняем у обёртки, а не у самой карты: opacity на элементе с
+   preserve-3d сплющивает его, и вместо оборота гость видел зеркальное лицо. */
+.jl-scene.is-running .jl-float{animation:jlFly .9s cubic-bezier(.7,0,.3,1) 1.1s forwards}
+.jl-scene.is-running .jl-card{animation:jlFlip 1s cubic-bezier(.5,0,.2,1) forwards}
+@keyframes jlFlip{to{transform:rotateY(180deg)}}
+@keyframes jlFly{from{transform:none}to{transform:scale(2.8);opacity:0}}
+.jl-scene.is-leaving{animation:jlOut .7s ease forwards}
+@keyframes jlOut{to{opacity:0}}
+
+/* ══ Страница ═══════════════════════════════════════════════════════ */
+.jl-hero{position:relative;display:grid;justify-items:center;align-content:center;gap:26px;min-height:100svh;padding:70px 20px 60px;perspective:1000px;text-align:center}
+.jl-hero .jl-card{width:min(76vw,360px,calc((100svh - 260px) * .7));transform:rotateX(var(--rx)) rotateY(var(--ry))}
+.jl-hero .jl-face--front{align-content:space-between}
+.jl-hero__names{display:grid;gap:4px;justify-self:stretch;text-align:left}
+.jl-hero__names b{font:700 clamp(1.7rem,8.4vw,2.6rem)/1.02 var(--display);letter-spacing:-.02em;color:var(--ink);overflow-wrap:anywhere}
+.jl-hero__names i{font:300 .9rem/1 var(--display);font-style:normal;color:rgba(29,27,38,.6)}
+.jl-hero__meta{color:var(--muted);font:500 .74rem/1 var(--sans);letter-spacing:.24em;text-transform:uppercase}
+/* Хромовые капли вокруг карты. */
+.jl-drop{position:absolute;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle at 32% 28%,#fff 0 8%,#e6e4f2 22%,#8d8aa3 52%,#2c2a3a 72%,#b9b6cc 92%);
+  box-shadow:0 20px 30px -10px rgba(40,30,90,.35);animation:jlBob 6s ease-in-out infinite alternate}
+.jl-drop--a{width:64px;height:64px;left:8%;top:18%}
+.jl-drop--b{width:34px;height:34px;right:12%;top:26%;animation-delay:-2s}
+.jl-drop--c{width:46px;height:46px;right:10%;bottom:20%;animation-delay:-4s}
+.jl-drop--d{width:22px;height:22px;left:16%;bottom:26%;animation-delay:-1s}
+@keyframes jlBob{from{transform:translate(calc(var(--mx) * 10px),-10px)}to{transform:translate(calc(var(--mx) * -10px),12px)}}
+
+.jl-sec{position:relative;padding:clamp(40px,10vw,70px) 18px;perspective:1100px}
+/* Карта кошелька: въезжает из наклона, пока секция входит в экран. */
+.jl-w{position:relative;width:min(100%,560px);margin:0 auto;border-radius:26px;padding:clamp(24px,6vw,36px);
+  background:rgba(255,255,255,.62);box-shadow:0 30px 60px -36px rgba(70,40,160,.45),inset 0 0 0 1px rgba(255,255,255,.85);
+  -webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4);
+  transform-origin:50% 100%;transform:translateY(calc((1 - var(--p,1)) * 90px)) rotateX(calc((1 - var(--p,1)) * 50deg + var(--my) * -3deg)) rotateY(calc(var(--mx) * 4deg));
+  opacity:calc(.2 + var(--p,1) * .8)}
+.jl-w:before{content:'';position:absolute;inset:0;border-radius:inherit;padding:1.5px;pointer-events:none;
+  background:var(--holo);background-size:260% 260%;background-position:calc(50% + var(--mx) * 40%) 50%;
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+.jl-tag{display:inline-flex;align-items:center;gap:8px;margin-bottom:16px;padding:7px 12px;border-radius:999px;background:rgba(122,92,255,.1);
+  color:var(--accent);font:600 .62rem/1 var(--sans);letter-spacing:.2em;text-transform:uppercase}
+.jl-tag:before{content:'';width:8px;height:8px;border-radius:3px;background:var(--holo);background-size:200% 200%}
+.jl-h{font:500 clamp(1.5rem,6.6vw,2.4rem)/1.15 var(--display);letter-spacing:-.02em;text-wrap:balance}
+.jl-p{margin-top:14px;color:var(--muted);font:400 clamp(1rem,3.9vw,1.1rem)/1.7 var(--sans)}
+.jl-photo{margin:0;border-radius:20px;padding:8px;aspect-ratio:4/5}
+.jl-photo img{display:block;width:100%;height:100%;object-fit:cover;border-radius:14px}
+.jl-photos{display:grid;grid-template-columns:1fr;gap:16px}
+.jl-photos .jl-photo+.jl-photo{width:72%;justify-self:end;margin-top:-28%;box-shadow:0 30px 50px -20px rgba(40,30,90,.5)}
+
+/* Пропуск на праздник: дата, время, место, штрихкод. */
+.jl-pass{padding:0;overflow:hidden}
+.jl-pass__top{display:flex;justify-content:space-between;align-items:center;padding:20px 24px;color:var(--ink)}
+.jl-pass__top b{font:700 .9rem/1 var(--display);letter-spacing:-.01em}
+.jl-pass__top span{font:600 .62rem/1 var(--sans);letter-spacing:.2em;text-transform:uppercase;color:rgba(29,27,38,.7)}
+.jl-pass__big{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:end;padding:18px 24px 22px;background:rgba(255,255,255,.75)}
+.jl-pass__day{font:700 clamp(4.4rem,22vw,6.4rem)/.82 var(--display);letter-spacing:-.05em}
+.jl-pass__rows{display:grid;gap:10px;padding-bottom:6px}
+.jl-pass__rows div{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--line);padding-bottom:8px;font:500 .9rem/1.2 var(--sans)}
+.jl-pass__rows div:last-child{border:0}
+.jl-pass__rows em{color:var(--muted);font-style:normal;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase}
+.jl-pass__foot{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;padding:18px 24px;background:rgba(255,255,255,.88);border-top:2px dashed var(--line)}
+.jl-bar{height:54px;background:repeating-linear-gradient(90deg,#1d1b26 0 2px,transparent 2px 4px,#1d1b26 4px 7px,transparent 7px 8px,#1d1b26 8px 9px,transparent 9px 12px,#1d1b26 12px 15px,transparent 15px 16px)}
+.jl-qr{width:54px;height:54px;border-radius:8px;
+  background:conic-gradient(from 90deg at 30% 30%,#1d1b26 25%,transparent 0) 0 0/12px 12px,linear-gradient(#fff,#fff);box-shadow:inset 0 0 0 4px #fff,inset 0 0 0 6px #1d1b26}
+
+.jl-cd{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.jl-cd>div{display:grid;gap:8px;justify-items:center;padding:16px 4px;border-radius:18px;background:rgba(255,255,255,.7);box-shadow:inset 0 0 0 1px rgba(255,255,255,.9)}
+.jl-cd b{font:700 clamp(1.6rem,8vw,2.8rem)/1.12 var(--display);letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:var(--ink)}
+.jl-cd>div>span{color:var(--muted);font:600 .54rem/1 var(--sans);letter-spacing:.14em;text-transform:uppercase}
+
+.jl-mapwrap{margin-top:16px;overflow:hidden;border-radius:18px;box-shadow:inset 0 0 0 1px var(--line)}
+.jl-mapwrap .mapbox:after{display:none}
+.jl-mapwrap .venue-type{margin:0;color:var(--accent);--paper:var(--ink);background:var(--holo);background-size:200% 200%;border:0}
+.jl-w .routes a{border:0;background:var(--ink);color:#fff;font-weight:500}
+.jl-w .routes a:hover{background:var(--accent)}
+.jl-final{text-align:center}
+.jl-final .jl-h{font-size:clamp(1.7rem,7.4vw,2.8rem)}
+
+#mbtn{border-color:rgba(255,255,255,.9);background:rgba(255,255,255,.7);color:var(--accent)}
+#mbtn.on{background:var(--ink);color:#fff}
+
+@media (max-width:560px){.jl-w{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(255,255,255,.84)}}
+@media (prefers-reduced-motion:reduce){
+  .jl-liquid i,.jl-float,.jl-drop,.jl-trigger span i{animation:none}
+  .jl-w{transform:none;opacity:1}
+}
+</style>
+</head>
+<body>
+<div class="jl-liquid" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+
+<div class="jl-scene" data-envelope-scene data-leave="1900" data-done="2600" data-music="1000" data-sfx="0">
+  <div class="jl-tilt" aria-hidden="true">{{L.tilt}}</div>
+  <div class="jl-float">
+    <div class="jl-card" aria-hidden="true">
+      <div class="jl-face jl-face--front"><div class="jl-fill jl-holo"></div>
+        <span class="jl-chip"></span>
+        <span class="jl-mono jl-chrome">{{groomInitial}}{{brideInitial}}</span>
+        <div class="jl-cardfoot"><span>{{L.sub}}</span><span>{{year}}</span></div>
+      </div>
+      <div class="jl-face jl-face--back"><div class="jl-fill jl-holo"></div>
+        <small>{{L.sub}}</small>
+        <b>{{groom}} &amp; {{bride}}</b>
+        <span>{{dateText}}</span>
+      </div>
+    </div>
+  </div>
+  <button type="button" class="jl-trigger" data-envelope-trigger aria-label="{{L.openHint}}"><span><i aria-hidden="true"></i>{{L.openHint}}</span></button>
+</div>
+
+<main class="inv jl">
+  <section class="jl-hero">
+    <span class="jl-drop jl-drop--a" aria-hidden="true"></span><span class="jl-drop jl-drop--b" aria-hidden="true"></span>
+    <span class="jl-drop jl-drop--c" aria-hidden="true"></span><span class="jl-drop jl-drop--d" aria-hidden="true"></span>
+    <div class="jl-card fx">
+      <div class="jl-face jl-face--front"><div class="jl-fill jl-holo"></div>
+        <span class="jl-chip" aria-hidden="true"></span>
+        <h1 class="jl-hero__names"><i>{{L.sub}}</i><b>{{groom}}</b><i>&amp;</i><b>{{bride}}</b></h1>
+        <div class="jl-cardfoot"><span>{{dateText}}</span><span>{{time}}</span></div>
+      </div>
+    </div>
+    <p class="jl-hero__meta fx" style="--d:.2s">{{L.tilt}} ✦</p>
+  </section>
+
+  <section class="jl-sec" data-scrub="enter">
+    <div class="jl-w">
+      {{#if guestName}}
+        <span class="jl-tag">{{L.greet}}</span>
+        <h2 class="jl-h">{{guestName}}</h2>
+        <p class="jl-p">{{L.greetTail}}</p>
+      {{else}}
+        <span class="jl-tag">{{L.sub}}</span>
+        <h2 class="jl-h">{{L.invite}}</h2>
+      {{/if}}
+      <p class="jl-p">{{L.emo}}</p>
+    </div>
+  </section>
+
+  {{#if photos.0}}
+  <section class="jl-sec" data-scrub="enter">
+    <div class="jl-w">
+      <span class="jl-tag">{{L.gallery}}</span>
+      <div class="jl-photos">
+        <figure class="jl-photo jl-holo"><img src="{{photos.0}}" alt="{{groom}} &amp; {{bride}}" loading="lazy"></figure>
+        {{#if photos.1}}<figure class="jl-photo jl-holo"><img src="{{photos.1}}" alt="{{groom}} &amp; {{bride}}" loading="lazy"></figure>{{/if}}
+      </div>
+    </div>
+  </section>
+  {{/if}}
+
+  <section class="jl-sec" data-scrub="enter">
+    <div class="jl-w jl-pass">
+      <div class="jl-pass__top jl-holo"><b>{{groom}} &amp; {{bride}}</b><span>{{L.pass}}</span></div>
+      <div class="jl-pass__big">
+        <span class="jl-pass__day jl-chrome">{{day}}</span>
+        <div class="jl-pass__rows">
+          <div><em>{{L.when}}</em><span>{{monthName}} {{year}}</span></div>
+          <div><em>{{weekday}}</em><span>{{time}}</span></div>
+          <div><em>{{L.guest}}</em><span>{{#if guestName}}{{guestName}}{{else}}{{L.entry}} ✦{{/if}}</span></div>
+        </div>
+      </div>
+      <div class="jl-pass__foot"><div class="jl-bar" aria-hidden="true"></div><div class="jl-qr" aria-hidden="true"></div></div>
+    </div>
+  </section>
+
+  <section class="jl-sec" data-scrub="enter">
+    <div class="jl-w">
+      <span class="jl-tag">{{L.until}}</span>
+      <div class="jl-cd cd">
+        <div><b id="cd">00</b><span>{{L.days}}</span></div>
+        <div><b id="ch">00</b><span>{{L.hours}}</span></div>
+        <div><b id="cm">00</b><span>{{L.min}}</span></div>
+        <div><b id="cs">00</b><span>{{L.sec}}</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="jl-sec" data-scrub="enter">
+    <div class="jl-w">
+      <span class="jl-tag">{{L.where}}</span>
+      <h2 class="jl-h">{{address}}</h2>
+      {{#if venueLine}}<p class="jl-p">{{venueLine}}</p>{{/if}}
+      <div class="jl-mapwrap"><div class="venue__map">{{{map}}}</div></div>
+      {{#if gmaps}}
+      <div class="routes">
+        <a href="{{gmaps}}" target="_blank" rel="noopener"><span>{{L.gmaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+        <a href="{{ymaps}}" target="_blank" rel="noopener"><span>{{L.ymaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+      </div>
+      {{/if}}
+    </div>
+  </section>
+
+  <section class="jl-sec" data-scrub="enter" style="padding-bottom:clamp(70px,16vw,120px)">
+    <div class="jl-w jl-holo jl-final">
+      <span class="jl-tag" style="background:rgba(255,255,255,.6)">✦</span>
+      <p class="jl-h">{{L.final}}</p>
+      <p class="jl-p" style="color:rgba(29,27,38,.75)">{{L.sign}} {{groom}} {{L.and}} {{bride}}</p>
+    </div>
+  </section>
+
+  {{{made}}}
+</main>
+
+<script>
+// Наклон: гироскоп телефона или курсор. Значения сглаживаются, цикл кадров
+// останавливается, когда карта успокоилась.
+(function(){
+  var force=(location.hostname==='localhost'||location.hostname==='127.0.0.1')&&/[?&]__motion_test/.test(location.search);
+  if(!force&&window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  var root=document.documentElement,tx=0,ty=0,cx=0,cy=0,raf=0,t0=performance.now(),touched=false;
+  function aim(x,y){tx=Math.max(-1,Math.min(1,x));ty=Math.max(-1,Math.min(1,y));if(!raf)raf=requestAnimationFrame(step)}
+  // Пока никто не наклонял телефон, карта сама покачивается — но только пока
+  // она в кадре: ниже по странице цикл кадров засыпает.
+  var hero=document.querySelector('.jl-hero'),seen=true;
+  if(hero&&'IntersectionObserver' in window)new IntersectionObserver(function(en){seen=en[0].isIntersecting||!!document.querySelector('.jl-scene:not([hidden])');if(seen&&!raf)raf=requestAnimationFrame(step)}).observe(hero);
+  function step(now){raf=0;
+    var idle=!touched&&seen;
+    if(idle){var t=(now-t0)/1000;tx=Math.sin(t*.7)*.5;ty=Math.cos(t*.5)*.35}
+    cx+=(tx-cx)*.08;cy+=(ty-cy)*.08;
+    root.style.setProperty('--mx',cx.toFixed(3));root.style.setProperty('--my',cy.toFixed(3));
+    if(idle||Math.abs(tx-cx)>.002||Math.abs(ty-cy)>.002)raf=requestAnimationFrame(step)}
+  addEventListener('pointermove',function(e){if(e.pointerType==='touch')return;touched=true;aim(e.clientX/innerWidth*2-1,e.clientY/innerHeight*2-1)},{passive:true});
+  function orient(e){if(e.gamma==null)return;touched=true;aim(e.gamma/28,(e.beta-45)/28)}
+  addEventListener('deviceorientation',orient,{passive:true});
+  // iOS спрашивает разрешение на гироскоп только по жесту — им и служит касание карты.
+  var trig=document.querySelector('[data-envelope-trigger]');
+  if(trig&&window.DeviceOrientationEvent&&typeof DeviceOrientationEvent.requestPermission==='function'){
+    trig.addEventListener('click',function(){try{DeviceOrientationEvent.requestPermission().catch(function(){})}catch(e){}},{once:true});
+  }
+  document.addEventListener('visibilitychange',function(){if(!document.hidden&&!raf)raf=requestAnimationFrame(step)});
+  raf=requestAnimationFrame(step);
+})();
+</script>
+
+{{{audioWidget}}}
+{{{experienceScript}}}
+{{{countdown}}}
+</body>
+</html>

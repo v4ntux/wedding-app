@@ -1,0 +1,18 @@
+{
+  "name": "Jilo",
+  "event": "wedding",
+  "price": 239000,
+  "minPhotos": 2,
+  "colors": [
+    "#F4F3F8",
+    "#C9B8FF",
+    "#A8F0D8",
+    "#1D1B26"
+  ],
+  "order": 7,
+  "listed": true,
+  "strings": {
+    "uz": { "openHint": "Kartani aylantirish uchun bosing", "tilt": "Telefonni qiyshaytiring", "pass": "Taklif kartasi", "guest": "Mehmon", "entry": "Kirish" },
+    "ru": { "openHint": "Коснитесь, чтобы перевернуть карту", "tilt": "Наклоните телефон", "pass": "Пригласительная карта", "guest": "Гость", "entry": "Вход" }
+  }
+}

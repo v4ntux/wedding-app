@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0c0b0a">
+<title>{{groom}} &amp; {{bride}} · {{L.sub}}</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@200;300;400;500;600&family=PT+Mono&display=swap" rel="stylesheet">
+{{{experienceCSS}}}
+{{{coreCSS}}}
+<style>
+/* Kino — свадьба как премьера. Открытие — ракорд плёнки: круг, перекрестие,
+   счёт 3-2-1 и вспышка проектора. Дальше фильм: афиша с биллинг-блоком,
+   приглашение субтитрами, плёнка с кадрами, которая едет вбок, билет, у
+   которого отрывается корешок, карта на экране под лучом проектора и
+   финальные титры. Поверх всего — зерно и лёгкое мерцание плёнки. */
+:root{
+  --paper:#0c0b0a; --paper-2:#151311; --paper-3:#201d19;
+  --ink:#efe6d2; --muted:#9b917f;
+  --accent:#c7372f; --accent-2:#ffd84d;
+  --line:rgba(239,230,210,.2); --line-soft:rgba(239,230,210,.08);
+  --gold:#ffd84d; --gold-hi:#fff2b8; --gold-lo:#b89324; --gold-rgb:255,216,77;
+  --display:'Oswald',Impact,sans-serif;
+  --sans:'Oswald',ui-sans-serif,system-ui,sans-serif;
+  --mono:'PT Mono',ui-monospace,monospace;
+  --noise:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1.6 -.55'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+html{background:#0c0b0a}
+body{background:#0c0b0a;color:var(--ink)}
+.inv{position:relative;z-index:1;overflow:clip}
+.made{position:relative;z-index:2;background:#0c0b0a;border-top:1px solid var(--line-soft)}
+/* Плёнка поверх всего: зерно дрожит ступеньками, царапины пробегают, кадр мерцает. */
+.kn-grain{position:fixed;inset:-60%;z-index:8400;pointer-events:none;background:var(--noise);opacity:.09;animation:knGrain .9s steps(6) infinite}
+@keyframes knGrain{0%{transform:translate(0,0)}20%{transform:translate(-4%,3%)}40%{transform:translate(3%,-5%)}60%{transform:translate(-2%,6%)}80%{transform:translate(5%,2%)}100%{transform:translate(0,0)}}
+.kn-flicker{position:fixed;inset:0;z-index:8399;pointer-events:none;background:radial-gradient(120% 90% at 50% 50%,transparent 55%,rgba(0,0,0,.55));animation:knFlick 3.2s steps(12) infinite}
+@keyframes knFlick{0%,100%{opacity:1}12%{opacity:.86}24%{opacity:1}52%{opacity:.92}64%{opacity:1}}
+
+/* ══ Сцена открытия: ракорд и счёт ══════════════════════════════════ */
+.kn-scene{position:fixed;inset:0;z-index:9000;display:grid;place-items:center;overflow:hidden;background:#1a1814;touch-action:none}
+.kn-scene[hidden]{display:none}
+.kn-scene:before{content:'';position:absolute;inset:-60%;background:var(--noise);opacity:.16;animation:knGrain .7s steps(5) infinite;pointer-events:none}
+.kn-scene:after{content:'';position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(90deg,transparent 0 37vw,rgba(255,255,255,.08) 37vw calc(37vw + 1px),transparent calc(37vw + 1px) 71vw),
+  radial-gradient(110% 80% at 50% 50%,transparent 50%,rgba(0,0,0,.7));animation:knScratch 1.1s steps(3) infinite}
+@keyframes knScratch{0%{background-position:0 0,0 0}50%{background-position:23vw 0,0 0}100%{background-position:-11vw 0,0 0}}
+.kn-leader{position:relative;width:min(78vw,420px);aspect-ratio:1;display:grid;place-items:center;color:#d8d0bf}
+.kn-leader:before{content:'';position:absolute;inset:-40vh -40vw;background:linear-gradient(transparent calc(50% - .5px),rgba(216,208,191,.35) calc(50% - .5px) calc(50% + .5px),transparent calc(50% + .5px)),
+  linear-gradient(90deg,transparent calc(50% - .5px),rgba(216,208,191,.35) calc(50% - .5px) calc(50% + .5px),transparent calc(50% + .5px))}
+.kn-ring{position:absolute;inset:0;border-radius:50%;border:2px solid rgba(216,208,191,.75)}
+.kn-ring+.kn-ring{inset:9%;border-width:1.5px;opacity:.6}
+.kn-sweep{position:absolute;inset:0;border-radius:50%;overflow:hidden;opacity:0}
+.kn-sweep:before{content:'';position:absolute;left:50%;top:-50%;width:100%;height:100%;transform-origin:0 100%;background:rgba(216,208,191,.22)}
+.kn-nums{position:relative;width:1em;height:1em;font:300 clamp(9rem,46vw,15rem)/1 var(--display)}
+.kn-nums b{position:absolute;inset:0;display:grid;place-items:center;font-weight:300;opacity:0}
+.kn-top{position:absolute;top:max(22px,env(safe-area-inset-top));left:0;right:0;display:flex;justify-content:space-between;padding:0 22px;
+  color:#9b917f;font:400 .66rem/1 var(--mono);letter-spacing:.18em;text-transform:uppercase}
+.kn-play{position:absolute;inset:0;z-index:5;display:grid;place-items:center;align-content:center;gap:22px;border:0;background:transparent;color:#efe6d2;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.kn-play:focus-visible{outline:2px solid #ffd84d;outline-offset:-14px}
+.kn-play i{display:grid;place-items:center;width:92px;height:92px;border-radius:50%;background:rgba(12,11,10,.75);border:1.5px solid rgba(239,230,210,.6);
+  box-shadow:0 0 0 10px rgba(239,230,210,.06)}
+.kn-play i svg{width:30px;height:30px;margin-left:5px;fill:#efe6d2}
+.kn-play span{padding:9px 16px;background:#c7372f;color:#fff;font:500 .78rem/1 var(--display);letter-spacing:.24em;text-transform:uppercase}
+.kn-flash{position:absolute;inset:0;z-index:6;background:#fff8e6;opacity:0;pointer-events:none}
+.kn-scene.is-running .kn-play{opacity:0;transition:opacity .25s;pointer-events:none}
+.kn-scene.is-running .kn-sweep{opacity:1}
+.kn-scene.is-running .kn-sweep:before{animation:knSweep .62s linear 3}
+@keyframes knSweep{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+.kn-scene.is-running .kn-nums b{animation:knNum .62s steps(1) forwards;animation-delay:calc(var(--k) * .62s)}
+@keyframes knNum{0%{opacity:1}99%{opacity:1}100%{opacity:0}}
+.kn-scene.is-running .kn-flash{animation:knFlash .9s ease 1.86s forwards}
+@keyframes knFlash{0%{opacity:0}18%{opacity:1}100%{opacity:1}}
+.kn-scene.is-leaving{animation:knOut .7s ease forwards}
+@keyframes knOut{to{opacity:0}}
+
+/* ══ Афиша ══════════════════════════════════════════════════════════ */
+.kn-poster{position:relative;display:grid;align-content:space-between;min-height:100svh;padding:max(70px,13vh) 20px max(26px,env(safe-area-inset-bottom));
+  text-align:center;overflow:hidden;--p:0}
+.kn-poster__img{position:absolute;inset:0;z-index:-2}
+.kn-poster__img img{width:100%;height:100%;object-fit:cover;object-position:50% 35%;filter:sepia(.35) contrast(1.15) brightness(.62) saturate(.8);
+  transform:scale(calc(1.12 - var(--p) * .12)) translateY(calc(var(--p) * 30px))}
+.kn-poster:before{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(12,11,10,.85),rgba(12,11,10,.1) 32%,rgba(12,11,10,.2) 55%,#0c0b0a 92%)}
+/* Кашетирование: чёрные полосы сверху и снизу расходятся, кадр становится широким. */
+.kn-bar{position:absolute;left:0;right:0;z-index:2;height:calc(9svh + var(--p) * 8svh);background:#0c0b0a}
+.kn-bar--t{top:0}.kn-bar--b{bottom:0;height:calc(5svh + var(--p) * 8svh)}
+.kn-presents{position:relative;z-index:3;color:#d8cdb6;font:300 .74rem/1.4 var(--display);letter-spacing:.42em;text-transform:uppercase}
+.kn-title{position:relative;z-index:3;display:grid;gap:6px;justify-items:center}
+.kn-tag{color:#ffd84d;font:400 .9rem/1 var(--mono);letter-spacing:.1em}
+.kn-names{color:#f6efdf;font:600 clamp(3.2rem,19vw,8rem)/.86 var(--display);letter-spacing:-.01em;text-transform:uppercase;text-shadow:0 6px 40px rgba(0,0,0,.6)}
+.kn-names i{display:block;margin:.12em 0;color:#c7372f;font:300 .32em/1 var(--display);font-style:normal;letter-spacing:.4em}
+.kn-prem{display:inline-flex;gap:12px;align-items:center;margin-top:10px;padding:8px 14px;border:1px solid rgba(239,230,210,.4);
+  font:400 .74rem/1 var(--display);letter-spacing:.3em;text-transform:uppercase}
+.kn-prem b{color:#ffd84d;font-weight:500}
+/* Биллинг-блок: сжатый высокий шрифт, как внизу любой киноафиши. */
+.kn-billing{position:relative;z-index:3;display:grid;gap:4px;justify-items:center;color:#b8ad98;text-transform:uppercase}
+.kn-billing p{font:200 clamp(.7rem,3vw,.92rem)/1.1 var(--display);letter-spacing:.06em;transform:scaleY(1.45);transform-origin:50% 0;margin-bottom:6px}
+.kn-billing p b{color:#f6efdf;font-weight:500}
+.kn-billing small{font:400 .6rem/1.4 var(--mono);letter-spacing:.14em;color:#8a806e}
+
+/* ══ Сцена 1: субтитры ══════════════════════════════════════════════ */
+.kn-subs{position:relative;height:300svh;--p:0}
+.kn-pin{position:sticky;top:0;height:100svh;overflow:hidden}
+.kn-still{position:absolute;inset:12svh 0;overflow:hidden}
+.kn-still img{width:100%;height:100%;object-fit:cover;filter:sepia(.4) contrast(1.1) brightness(.45) blur(1px);transform:scale(calc(1.15 - var(--p) * .1))}
+.kn-label{position:absolute;top:calc(12svh + 16px);left:18px;z-index:2;display:flex;gap:10px;color:#ffd84d;font:400 .66rem/1 var(--mono);letter-spacing:.16em;text-transform:uppercase}
+.kn-label span{color:#efe6d2}
+.kn-sub{position:absolute;left:6vw;right:6vw;bottom:calc(12svh + 34px);z-index:2;text-align:center;
+  color:#ffd84d;font:400 clamp(1.1rem,4.8vw,1.7rem)/1.35 var(--display);text-shadow:0 2px 0 #000,0 0 18px rgba(0,0,0,.9);
+  opacity:min(clamp(0,calc((var(--p) * var(--n) - var(--k)) * 7),1),clamp(0,calc((var(--k) + 1 - var(--p) * var(--n)) * 7),1))}
+.kn-sub:last-child{opacity:clamp(0,calc((var(--p) * var(--n) - var(--k)) * 7),1)}
+
+/* ══ Сцена 2: плёнка едет вбок ══════════════════════════════════════ */
+.kn-strip{position:relative;height:320svh;--p:0}
+.kn-strip .kn-pin{display:grid;align-content:center;gap:24px}
+.kn-strip__head{display:flex;justify-content:space-between;align-items:baseline;padding:0 20px;color:#efe6d2}
+.kn-strip__head h2{font:500 clamp(1.6rem,7vw,3rem)/1 var(--display);letter-spacing:.06em;text-transform:uppercase}
+.kn-strip__head span{color:#9b917f;font:400 .7rem/1 var(--mono);letter-spacing:.14em}
+.kn-film{display:flex;width:max-content;padding:26px 0;background:#141210;transform:translate3d(calc(var(--p) * (100vw - 100%)),0,0) rotate(-2deg);
+  box-shadow:0 30px 60px -20px rgba(0,0,0,.8);position:relative}
+.kn-film:before,.kn-film:after{content:'';position:absolute;left:0;right:0;height:14px;
+  background:repeating-linear-gradient(90deg,transparent 0 10px,#e8dfcc 10px 22px,transparent 22px 32px);opacity:.85;
+  -webkit-mask:linear-gradient(transparent 3px,#000 3px calc(100% - 3px),transparent calc(100% - 3px));mask:linear-gradient(transparent 3px,#000 3px calc(100% - 3px),transparent calc(100% - 3px))}
+.kn-film:before{top:6px}.kn-film:after{bottom:6px}
+.kn-frame{position:relative;flex:none;width:min(70vw,460px);aspect-ratio:3/2;margin:0 9px;background:#2a2621;overflow:hidden}
+.kn-frame img{width:100%;height:100%;object-fit:cover;filter:sepia(.3) contrast(1.08) saturate(.85)}
+.kn-frame em{position:absolute;left:6px;bottom:-22px;color:#e2843a;font:400 .58rem/1 var(--mono);font-style:normal;letter-spacing:.1em}
+.kn-frame--card{display:grid;place-items:center;align-content:center;gap:8px;background:#efe6d2;color:#0c0b0a;text-align:center;padding:16px}
+.kn-frame--card b{font:500 clamp(1.4rem,6vw,2.6rem)/1 var(--display);text-transform:uppercase;letter-spacing:.04em}
+.kn-frame--card span{font:400 .72rem/1.4 var(--mono);letter-spacing:.1em;color:#5b5346}
+.kn-frame--red{background:#c7372f;color:#fff}.kn-frame--red span{color:#ffd8d4}
+
+/* ══ Сцена 3: билет и отрывной корешок ══════════════════════════════ */
+.kn-ticketsec{position:relative;height:200svh;--p:0}
+.kn-ticketsec .kn-pin{display:grid;place-items:center;padding:0 18px}
+.kn-ticket{position:relative;display:grid;grid-template-columns:1fr auto;width:min(100%,560px);filter:drop-shadow(0 30px 40px rgba(0,0,0,.6));
+  --in:clamp(0,calc(var(--p) * 2.6),1);--tear:clamp(0,calc((var(--p) - .5) * 3),1);
+  transform:translateY(calc((1 - var(--in)) * 60svh)) rotate(calc((1 - var(--in)) * 14deg - 3deg))}
+.kn-ticket__main,.kn-ticket__stub{position:relative;background:#efe6d2;color:#1b1814}
+.kn-ticket__main{padding:22px 20px 20px;border-radius:12px 0 0 12px;
+  -webkit-mask:radial-gradient(circle at 100% 0,transparent 12px,#000 12.5px) top/100% 51% no-repeat,radial-gradient(circle at 100% 100%,transparent 12px,#000 12.5px) bottom/100% 51% no-repeat;
+  mask:radial-gradient(circle at 100% 0,transparent 12px,#000 12.5px) top/100% 51% no-repeat,radial-gradient(circle at 100% 100%,transparent 12px,#000 12.5px) bottom/100% 51% no-repeat}
+.kn-ticket__stub{display:grid;align-content:space-between;justify-items:center;width:clamp(86px,24vw,120px);padding:20px 10px;border-radius:0 12px 12px 0;
+  border-left:2px dashed rgba(27,24,20,.35);transform-origin:0 100%;
+  transform:translate(calc(var(--tear) * 34px),calc(var(--tear) * 30svh)) rotate(calc(var(--tear) * 28deg));opacity:calc(1 - var(--tear) * .9)}
+.kn-ticket small{display:block;color:#7a705f;font:400 .58rem/1 var(--mono);letter-spacing:.16em;text-transform:uppercase}
+.kn-ticket h3{margin:8px 0 14px;font:600 clamp(1.5rem,7vw,2.4rem)/1 var(--display);text-transform:uppercase}
+.kn-ticket h3 i{color:#c7372f;font-style:normal}
+.kn-tgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;padding-top:12px;border-top:1px solid rgba(27,24,20,.18)}
+.kn-tgrid div b{display:block;margin-top:4px;font:500 1rem/1.15 var(--display);letter-spacing:.02em;text-transform:uppercase}
+.kn-tgrid div.wide{grid-column:1/-1}
+.kn-stamp{position:absolute;right:16px;top:16px;padding:6px 8px;border:2px solid #c7372f;color:#c7372f;font:500 .62rem/1 var(--display);letter-spacing:.2em;text-transform:uppercase;transform:rotate(8deg);opacity:.85}
+.kn-bars{width:100%;height:46px;background:repeating-linear-gradient(90deg,#1b1814 0 2px,transparent 2px 4px,#1b1814 4px 5px,transparent 5px 8px,#1b1814 8px 11px,transparent 11px 12px)}
+.kn-stub-no{font:600 1.5rem/1 var(--display);writing-mode:vertical-rl;letter-spacing:.1em}
+
+/* ══ Отсчёт: табло премьеры ═════════════════════════════════════════ */
+.kn-cdsec{padding:clamp(80px,16vh,130px) 18px;text-align:center}
+.kn-cdsec h2{margin-bottom:24px;color:#efe6d2;font:500 clamp(1.5rem,7vw,2.6rem)/1 var(--display);letter-spacing:.14em;text-transform:uppercase}
+.kn-cd{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(6px,2vw,12px);width:min(100%,620px);margin:0 auto}
+.kn-cd>div{position:relative;display:grid;gap:10px;justify-items:center;padding:16px 4px 12px;background:#1b1916;border-radius:8px;box-shadow:inset 0 0 0 1px rgba(239,230,210,.08)}
+.kn-cd>div:after{content:'';position:absolute;left:0;right:0;top:calc(16px + .56em);height:1px;background:rgba(0,0,0,.7);font-size:clamp(2rem,10vw,3.6rem)}
+.kn-cd b{color:#ffd84d;font:500 clamp(2rem,10vw,3.6rem)/1.12 var(--display);font-variant-numeric:tabular-nums}
+.kn-cd>div>span{color:#9b917f;font:400 .56rem/1 var(--mono);letter-spacing:.14em;text-transform:uppercase}
+
+/* ══ Кинотеатр: карта на экране под лучом ═══════════════════════════ */
+.kn-venue{position:relative;padding:clamp(70px,14vh,120px) 18px clamp(60px,12vh,100px);text-align:center;overflow:hidden}
+.kn-venue h2{color:#efe6d2;font:500 clamp(1.5rem,7vw,2.6rem)/1 var(--display);letter-spacing:.14em;text-transform:uppercase}
+.kn-screen{position:relative;width:min(100%,640px);margin:26px auto 0;perspective:900px}
+.kn-screen__in{position:relative;padding:8px;background:#efe6d2;transform:rotateX(6deg);box-shadow:0 0 80px rgba(255,240,200,.18)}
+.kn-screen .mapbox:after{display:none}
+.kn-screen .venue-type{margin:0;color:#c7372f;--paper:#1b1814;background:#efe6d2;border:0}
+.kn-beam{position:absolute;left:50%;bottom:-40%;width:160%;height:120%;transform:translateX(-50%);pointer-events:none;
+  background:conic-gradient(from 160deg at 50% 100%,transparent 0deg,rgba(255,240,200,.14) 14deg,rgba(255,240,200,.05) 26deg,transparent 40deg);mix-blend-mode:screen}
+.kn-addr{margin:22px auto 6px;max-width:24ch;color:#efe6d2;font:400 clamp(1.2rem,5.4vw,1.8rem)/1.2 var(--display);text-transform:uppercase;letter-spacing:.04em}
+.kn-meta{color:#9b917f;font:400 .7rem/1.6 var(--mono);letter-spacing:.1em;text-transform:uppercase}
+.kn-venue .routes{width:min(100%,520px);margin:18px auto 0}
+.kn-venue .routes a{border-radius:0;border-color:rgba(239,230,210,.4);background:transparent;color:#efe6d2;font:400 .74rem/1 var(--display);letter-spacing:.18em;text-transform:uppercase}
+.kn-venue .routes a:hover{background:#c7372f;border-color:#c7372f}
+
+/* ══ Финальные титры ═════════════════════════════════════════════════ */
+.kn-credits{position:relative;height:300svh;--p:0}
+.kn-credits .kn-pin{display:grid;justify-items:center}
+.kn-roll{display:grid;gap:clamp(34px,7vh,60px);justify-items:center;width:min(100%,520px);padding:0 20px;text-align:center;
+  transform:translateY(calc(100svh - var(--p) * (100% + 55svh)))}
+.kn-roll div{display:grid;gap:8px}
+.kn-roll small{color:#9b917f;font:300 .74rem/1 var(--display);letter-spacing:.4em;text-transform:uppercase}
+.kn-roll b{color:#efe6d2;font:400 clamp(1.4rem,6vw,2.2rem)/1.1 var(--display);letter-spacing:.08em;text-transform:uppercase}
+.kn-roll .kn-final{color:#efe6d2;font:300 clamp(1.7rem,7.6vw,3rem)/1.2 var(--display);text-transform:uppercase;text-wrap:balance}
+.kn-roll .kn-end{color:#c7372f;font:500 clamp(1.4rem,6vw,2.2rem)/1 var(--display);letter-spacing:.3em;text-transform:uppercase}
+
+#mbtn{border-radius:0;border-color:rgba(239,230,210,.4);background:rgba(12,11,10,.8);color:#ffd84d}
+#mbtn.on{background:#c7372f;border-color:#c7372f;color:#fff}
+
+@media (prefers-reduced-motion:reduce){
+  .kn-grain,.kn-flicker,.kn-scene:before,.kn-scene:after{animation:none}
+  .kn-subs,.kn-strip,.kn-ticketsec,.kn-credits{height:auto}
+  .kn-pin{position:relative;height:auto;min-height:100svh}
+  .kn-sub{position:relative;opacity:1;left:auto;right:auto;bottom:auto;margin:12px 6vw}
+  .kn-film{transform:none;overflow-x:auto;width:auto}
+  .kn-ticket,.kn-ticket__stub{transform:none;opacity:1}
+  .kn-roll{transform:none;padding-block:80px}
+}
+</style>
+</head>
+<body>
+<div class="kn-grain" aria-hidden="true"></div>
+<div class="kn-flicker" aria-hidden="true"></div>
+
+<div class="kn-scene" data-envelope-scene data-leave="2350" data-done="3000" data-music="2000" data-sfx="0">
+  <div class="kn-top" aria-hidden="true"><span>{{L.premiere}}</span><span>{{dateIso}}</span></div>
+  <div class="kn-leader" aria-hidden="true">
+    <div class="kn-ring"></div><div class="kn-ring"></div>
+    <div class="kn-sweep"></div>
+    <div class="kn-nums"><b style="--k:0">3</b><b style="--k:1">2</b><b style="--k:2">1</b></div>
+  </div>
+  <button type="button" class="kn-play" data-envelope-trigger aria-label="{{L.openHint}}">
+    <i aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg></i>
+    <span>{{L.openHint}}</span>
+  </button>
+  <div class="kn-flash" aria-hidden="true"></div>
+</div>
+
+<main class="inv kn">
+
+  <section class="kn-poster" data-scrub="view">
+    <div class="kn-poster__img">{{#if photos.0}}<img src="{{photos.0}}" alt="{{groom}} &amp; {{bride}}">{{/if}}</div>
+    <div class="kn-bar kn-bar--t" aria-hidden="true"></div>
+    <p class="kn-presents fx">{{L.presents}}</p>
+    <div class="kn-title">
+      <span class="kn-tag fx">“{{L.tagline}}”</span>
+      <h1 class="kn-names fx" style="--d:.15s">{{groom}}<i>{{L.and}}</i>{{bride}}</h1>
+      <span class="kn-prem fx" style="--d:.3s">{{L.premiere}} <b>{{dateText}}</b></span>
+    </div>
+    <div class="kn-billing fx" style="--d:.4s">
+      <p>{{L.presents}} · {{L.starring}} <b>{{groom}}</b> {{L.and}} <b>{{bride}}</b> · {{L.director}} <b>{{L.destiny}}</b></p>
+      <small>{{weekday}} · {{time}} · {{address}}</small>
+    </div>
+    <div class="kn-bar kn-bar--b" aria-hidden="true"></div>
+  </section>
+
+  <section class="kn-subs" data-scrub="sticky">
+    <div class="kn-pin">
+      <div class="kn-still">{{#if photos.0}}<img src="{{photos.0}}" alt="" loading="lazy">{{/if}}</div>
+      <div class="kn-label"><b>{{L.scene}} 1</b><span>· {{L.sub}}</span></div>
+      <div class="kn-subtext" data-subs>{{#if guestName}}{{L.greet}} {{guestName}}! {{L.greetTail}} {{else}}{{L.invite}} {{/if}}{{L.emo}}</div>
+    </div>
+  </section>
+
+  <section class="kn-strip" data-scrub="sticky">
+    <div class="kn-pin">
+      <div class="kn-strip__head"><h2>{{L.scene}} 2</h2><span>{{L.story}}</span></div>
+      <div class="kn-film">
+        <div class="kn-frame kn-frame--card"><span>{{L.scene}} 2 · {{L.story}}</span><b>{{groom}} &amp; {{bride}}</b><span>35mm · 24 fps</span><em>NV 01 ▸</em></div>
+        {{#if photos.1}}<figure class="kn-frame"><img src="{{photos.1}}" alt="{{groom}} &amp; {{bride}}" loading="lazy"><em>NV 02 ▸ 24A</em></figure>{{/if}}
+        <div class="kn-frame kn-frame--card kn-frame--red"><span>{{L.quote}}</span><em>NV 03 ▸</em></div>
+        {{#if photos.2}}<figure class="kn-frame"><img src="{{photos.2}}" alt="{{groom}} &amp; {{bride}}" loading="lazy"><em>NV 04 ▸ 25</em></figure>{{/if}}
+        <div class="kn-frame kn-frame--card"><span>{{L.premiere}}</span><b>{{dateText}}</b><span>{{time}}</span><em>NV 05 ▸</em></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="kn-ticketsec" data-scrub="sticky">
+    <div class="kn-pin">
+      <div class="kn-ticket">
+        <div class="kn-ticket__main">
+          <span class="kn-stamp">{{L.admit}}</span>
+          <small>{{L.ticket}} · {{L.premiere}}</small>
+          <h3>{{groom}} <i>&amp;</i> {{bride}}</h3>
+          <div class="kn-tgrid">
+            <div><small>{{L.when}}</small><b>{{dateText}}</b></div>
+            <div><small>{{weekday}}</small><b>{{time}}</b></div>
+            <div class="wide"><small>{{L.hall}}</small><b>{{address}}</b></div>
+            <div><small>{{L.row}}</small><b>&#9829;</b></div>
+            <div><small>{{L.seat}}</small><b>&#9829;</b></div>
+          </div>
+        </div>
+        <div class="kn-ticket__stub">
+          <small>{{L.ticket}}</small>
+          <span class="kn-stub-no">{{day}}·{{year}}</span>
+          <div class="kn-bars" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="kn-cdsec">
+    <h2 class="fx">{{L.untilPremiere}}</h2>
+    <div class="kn-cd cd fx">
+      <div><b id="cd">00</b><span>{{L.days}}</span></div>
+      <div><b id="ch">00</b><span>{{L.hours}}</span></div>
+      <div><b id="cm">00</b><span>{{L.min}}</span></div>
+      <div><b id="cs">00</b><span>{{L.sec}}</span></div>
+    </div>
+  </section>
+
+  <section class="kn-venue">
+    <h2 class="fx">{{L.cinema}}</h2>
+    <div class="kn-screen fx">
+      <div class="kn-beam" aria-hidden="true"></div>
+      <div class="kn-screen__in"><div class="venue__map">{{{map}}}</div></div>
+    </div>
+    <p class="kn-addr fx">{{address}}</p>
+    {{#if venueLine}}<p class="kn-meta fx">{{venueLine}}</p>{{/if}}
+    {{#if gmaps}}
+    <div class="routes fx">
+      <a href="{{gmaps}}" target="_blank" rel="noopener"><span>{{L.gmaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+      <a href="{{ymaps}}" target="_blank" rel="noopener"><span>{{L.ymaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+    </div>
+    {{/if}}
+  </section>
+
+  <section class="kn-credits" data-scrub="sticky">
+    <div class="kn-pin">
+      <div class="kn-roll">
+        <div><small>{{L.starring}}</small><b>{{groom}}</b><b>{{bride}}</b></div>
+        <div><small>{{L.guests}}</small><b>{{#if guestName}}{{guestName}}{{else}}{{L.you}}{{/if}}</b></div>
+        <div><small>{{L.director}}</small><b>{{L.destiny}}</b></div>
+        <div><small>{{L.premiere}}</small><b>{{dateText}} · {{time}}</b></div>
+        <div><small>{{L.cinema}}</small><b>{{address}}</b></div>
+        <p class="kn-final">{{L.final}}</p>
+        <p class="kn-end">{{L.toBe}}</p>
+      </div>
+    </div>
+  </section>
+
+  {{{made}}}
+</main>
+
+<script>
+// Субтитры: текст режется на фразы, каждая показывается своим отрезком прокрутки.
+(function(){
+  var box=document.querySelector('[data-subs]');if(!box)return;
+  var text=box.textContent.replace(/\s+/g,' ').trim();
+  var parts=text.match(/[^.!?…]+[.!?…]+["»”]?|[^.!?…]+$/g)||[text];
+  parts=parts.map(function(s){return s.trim()}).filter(Boolean);
+  var pin=box.parentNode;box.remove();
+  pin.style.setProperty('--n',parts.length);
+  parts.forEach(function(s,k){var p=document.createElement('p');p.className='kn-sub';p.style.setProperty('--k',k);p.textContent=s;pin.appendChild(p)});
+})();
+</script>
+
+{{{audioWidget}}}
+{{{experienceScript}}}
+{{{countdown}}}
+</body>
+</html>

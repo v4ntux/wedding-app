@@ -1,0 +1,56 @@
+{
+  "name": "Kino",
+  "event": "wedding",
+  "price": 229000,
+  "minPhotos": 3,
+  "colors": [
+    "#0C0B0A",
+    "#EFE6D2",
+    "#C7372F",
+    "#FFD84D"
+  ],
+  "order": 5,
+  "listed": true,
+  "strings": {
+    "uz": {
+      "openHint": "Filmni boshlash",
+      "presents": "Sevgi studiyasi taqdim etadi",
+      "tagline": "Bir umrlik hikoya",
+      "premiere": "Premyera",
+      "starring": "Bosh rollarda",
+      "guests": "Taklif etilgan mehmon",
+      "you": "Siz",
+      "director": "Rejissyor",
+      "destiny": "Taqdir",
+      "scene": "Sahna",
+      "ticket": "Chipta",
+      "hall": "Zal",
+      "row": "Qator",
+      "seat": "Joy",
+      "admit": "Bir kishi uchun",
+      "untilPremiere": "Premyeragacha",
+      "cinema": "Kinoteatr",
+      "toBe": "Davomi bor…"
+    },
+    "ru": {
+      "openHint": "Начать фильм",
+      "presents": "Киностудия «Любовь» представляет",
+      "tagline": "История длиною в жизнь",
+      "premiere": "Премьера",
+      "starring": "В главных ролях",
+      "guests": "Приглашённый гость",
+      "you": "Вы",
+      "director": "Режиссёр",
+      "destiny": "Судьба",
+      "scene": "Сцена",
+      "ticket": "Билет",
+      "hall": "Зал",
+      "row": "Ряд",
+      "seat": "Место",
+      "admit": "На одно лицо",
+      "untilPremiere": "До премьеры",
+      "cinema": "Кинотеатр",
+      "toBe": "Продолжение следует…"
+    }
+  }
+}

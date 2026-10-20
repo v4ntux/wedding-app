@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#fbf6ee">
+<title>{{groom}} &amp; {{bride}} · {{L.sub}}</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+{{{experienceCSS}}}
+{{{coreCSS}}}
+<style>
+/* Lola — тюльпаны на акварельной бумаге. Открытие: бутон в центре листа,
+   касание — лепестки раскрываются, разлетаются, камера входит в цветок.
+   Дальше прокрутка сама растит сад: у каждой секции из-под края поднимается
+   стебель, раскрываются листья, и бутон распускается, когда секция в центре
+   экрана. В финале весь букет раскрывается разом. */
+:root{
+  --paper:#fbf6ee; --paper-2:#f5ede0; --paper-3:#ecdfcc;
+  --ink:#4a3b3b; --muted:#8a7570;
+  --accent:#c4505b; --accent-2:#8fa98a;
+  --line:rgba(74,59,59,.18); --line-soft:rgba(74,59,59,.09);
+  --gold:#c4505b; --gold-hi:#f7c9c0; --gold-lo:#8e3340; --gold-rgb:196,80,91;
+  --rose:#b8475a; --stem:#5f7d5c;
+  --display:'Lora',Georgia,serif;
+  --sans:'Lora',Georgia,serif;
+  --script:'Great Vibes',cursive;
+  --wash:
+    radial-gradient(38% 26% at 12% 18%,rgba(244,181,181,.38),transparent 70%),
+    radial-gradient(34% 24% at 88% 34%,rgba(143,169,138,.26),transparent 70%),
+    radial-gradient(40% 28% at 70% 82%,rgba(247,201,170,.34),transparent 72%),
+    radial-gradient(30% 22% at 22% 70%,rgba(233,114,122,.16),transparent 70%);
+}
+html{background:var(--paper)}
+body{background:var(--wash),var(--grain),linear-gradient(180deg,#fcf8f1,#f8f0e4);background-attachment:fixed;color:var(--ink)}
+.inv{position:relative;z-index:1;overflow:clip}
+.made{background:#f3e9da;border-top:1px solid rgba(196,80,91,.15)}
+
+/* ── Тюльпан: стебель прорисовывается (--g), бутон раскрывается (--o) ── */
+.lo-tulip{display:block;overflow:visible}
+.lo-stem{fill:none;stroke:var(--stem);stroke-width:3.2;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:calc(1 - var(--g,1))}
+.lo-leaf{fill:url(#loLeaf);opacity:.95}
+.lo-leaf--l{transform-origin:50px 236px;transform:scale(clamp(0,calc(var(--g,1) * 1.7 - .35),1)) rotate(calc((1 - var(--o,1)) * 4deg))}
+.lo-leaf--r{transform-origin:51px 200px;transform:scale(clamp(0,calc(var(--g,1) * 1.7 - .55),1)) rotate(calc((1 - var(--o,1)) * -4deg))}
+.lo-head{transform-origin:50px 98px;transform:scale(clamp(0,calc(var(--g,1) * 2.4 - 1.3),1))}
+.lo-pb{fill:url(#loBack)}
+.lo-pb--l{transform-origin:50px 92px;transform:rotate(calc(var(--o,1) * -16deg))}
+.lo-pb--r{transform-origin:50px 92px;transform:rotate(calc(var(--o,1) * 16deg))}
+.lo-pf{fill:url(#loPetal);stroke:rgba(150,40,55,.25);stroke-width:.6}
+.lo-pf--l{transform-origin:50px 97px;transform:rotate(calc(var(--o,1) * -30deg))}
+.lo-pf--r{transform-origin:50px 97px;transform:rotate(calc(var(--o,1) * 30deg))}
+.lo-pf--c{transform-origin:50px 97px;transform:scale(calc(1 - var(--o,1) * .06),calc(1 - var(--o,1) * .14))}
+.lo-stamen{fill:none;stroke:#5a2a2f;stroke-width:1.4;stroke-linecap:round;opacity:var(--o,1)}
+
+/* ══ Сцена открытия: бутон ══════════════════════════════════════════ */
+.lo-scene{position:fixed;inset:0;z-index:9000;display:grid;place-items:center;overflow:hidden;
+  background:var(--wash),var(--grain),linear-gradient(180deg,#fcf8f1,#f6ecdf);touch-action:none}
+.lo-scene[hidden]{display:none}
+.lo-scene__top{position:absolute;top:max(34px,8svh);left:0;right:0;text-align:center}
+.lo-scene__top small{display:block;color:var(--muted);font:500 .66rem/1 var(--sans);letter-spacing:.36em;text-transform:uppercase}
+.lo-scene__top b{display:block;margin-top:12px;color:var(--rose);font:400 clamp(2.2rem,10vw,3.4rem)/1 var(--script)}
+.lo-bud{position:relative;width:min(44vw,220px);margin-top:4svh;transform-origin:50% 22%}
+.lo-bud{--o:0;--g:1}
+.lo-bud .lo-tulip{width:100%;height:auto}
+.lo-burst{position:absolute;left:50%;top:20%;width:0;height:0}
+.lo-burst i{position:absolute;left:-7px;top:-12px;width:14px;height:24px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;
+  background:linear-gradient(180deg,#f7b9ad,#e9727a);opacity:0}
+.lo-trigger{position:absolute;inset:0;z-index:4;display:grid;align-content:end;justify-items:center;padding:0 20px max(30px,env(safe-area-inset-bottom));
+  border:0;background:transparent;color:var(--rose);cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.lo-trigger:focus-visible{outline:1px solid var(--rose);outline-offset:-14px}
+.lo-trigger span{display:flex;align-items:center;gap:12px;font:italic 400 1.08rem/1 var(--display);animation:loHint 3s ease-in-out infinite}
+.lo-trigger span:before,.lo-trigger span:after{content:'';width:22px;height:1px;background:currentColor;opacity:.4}
+@keyframes loHint{0%,100%{opacity:.6}50%{opacity:1}}
+.lo-scene:not(.is-running) .lo-bud{animation:loSway 4.5s ease-in-out infinite alternate}
+@keyframes loSway{from{transform:rotate(-2deg)}to{transform:rotate(2deg)}}
+.lo-scene.is-running .lo-trigger span,.lo-scene.is-running .lo-scene__top{opacity:0;animation:none;transition:opacity .5s}
+.lo-scene.is-running .lo-bud .lo-pf--l{animation:loOpenL 1.1s cubic-bezier(.3,.7,.2,1) forwards}
+.lo-scene.is-running .lo-bud .lo-pf--r{animation:loOpenR 1.1s cubic-bezier(.3,.7,.2,1) forwards}
+.lo-scene.is-running .lo-bud .lo-pb--l{animation:loBackL 1.1s cubic-bezier(.3,.7,.2,1) forwards}
+.lo-scene.is-running .lo-bud .lo-pb--r{animation:loBackR 1.1s cubic-bezier(.3,.7,.2,1) forwards}
+.lo-scene.is-running .lo-bud .lo-stamen{animation:loStamen .8s ease .4s forwards}
+@keyframes loOpenL{to{transform:rotate(-38deg)}}
+@keyframes loOpenR{to{transform:rotate(38deg)}}
+@keyframes loBackL{to{transform:rotate(-20deg)}}
+@keyframes loBackR{to{transform:rotate(20deg)}}
+@keyframes loStamen{to{opacity:1}}
+.lo-scene.is-running .lo-burst i{animation:loPetalFly 1.6s cubic-bezier(.2,.7,.3,1) .45s forwards}
+@keyframes loPetalFly{0%{opacity:0;transform:translate(0,0) rotate(0) scale(.6)}15%{opacity:1}
+  100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(var(--r)) scale(1)}}
+.lo-scene.is-running .lo-bud{animation:loZoom 1.3s cubic-bezier(.6,0,.3,1) 1.15s forwards}
+@keyframes loZoom{to{transform:scale(5.5);opacity:0}}
+.lo-scene.is-leaving{animation:loOut .8s ease forwards}
+@keyframes loOut{to{opacity:0}}
+
+/* ══ Страница ═══════════════════════════════════════════════════════ */
+.lo-sec{position:relative;padding:clamp(84px,18vw,140px) 24px;text-align:center}
+.lo-wrap{position:relative;z-index:2;width:min(100%,560px);margin:0 auto}
+.lo-over{display:block;margin-bottom:14px;color:var(--accent-2);font:500 .64rem/1 var(--sans);letter-spacing:.34em;text-transform:uppercase}
+.lo-h{color:var(--rose);font:400 clamp(2.4rem,11vw,3.8rem)/1.1 var(--script)}
+.lo-p{max-width:32ch;margin:18px auto 0;color:var(--ink);font:400 clamp(1rem,3.9vw,1.1rem)/1.8 var(--sans)}
+/* Стебли по краям секции: растут, пока секция проходит экран. */
+.lo-side{position:absolute;bottom:-2%;z-index:1;width:clamp(90px,24vw,190px);pointer-events:none;
+  --g:clamp(0,calc(var(--p,1) * 2.1 - .12 - var(--lag,0)),1);--o:clamp(0,calc(var(--p,1) * 3 - 1 - var(--lag,0)),1)}
+.lo-side--l{left:max(-6vw,-40px);transform:rotate(6deg);transform-origin:50% 100%}
+.lo-side--r{right:max(-6vw,-40px);transform:rotate(-7deg) scaleX(-1);transform-origin:50% 100%}
+.lo-side .lo-tulip{width:100%;height:auto}
+
+/* Титул: венок собирается по листику. */
+.lo-hero{position:relative;display:grid;place-items:center;min-height:100svh;padding:70px 20px 60px;text-align:center}
+.lo-wreath{position:relative;display:grid;place-items:center;width:min(86vw,440px);aspect-ratio:1}
+.lo-wreath i{position:absolute;left:50%;top:50%;width:9%;height:3.6%;margin:-1.8% 0 0 -4.5%;border-radius:50%;
+  background:linear-gradient(90deg,#6f8f69,#a9c29f);transform:rotate(var(--a)) translateX(var(--r)) rotate(var(--t)) scale(0);opacity:.92}
+.lo-wreath i.bud{width:5%;height:5%;margin:-2.5% 0 0 -2.5%;background:radial-gradient(circle at 35% 30%,#f7b9ad,#e9727a 60%,#c4505b)}
+.lo-wreath.on i{transform:rotate(var(--a)) translateX(var(--r)) rotate(var(--t)) scale(1);transition:transform .9s cubic-bezier(.3,1.4,.4,1) calc(var(--k) * 28ms)}
+.lo-hero__in{position:relative;display:grid;justify-items:center;gap:8px;max-width:76%}
+.lo-hero__in small{color:var(--muted);font:500 .62rem/1 var(--sans);letter-spacing:.36em;text-transform:uppercase}
+.lo-names{color:var(--rose);font:400 clamp(2.7rem,13vw,5rem)/1 var(--script);text-wrap:balance}
+.lo-names i{display:block;font:italic 400 .36em/1.4 var(--display);color:var(--accent-2)}
+.lo-hero__date{color:var(--ink);font:italic 400 clamp(.95rem,3.8vw,1.1rem)/1 var(--display);letter-spacing:.04em}
+/* Лепестки, которые медленно падают поверх страницы — их всего шесть. */
+.lo-fall{position:fixed;inset:0;z-index:3;pointer-events:none;overflow:hidden}
+.lo-fall i{position:absolute;top:-6%;left:var(--x);width:12px;height:18px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;
+  background:linear-gradient(180deg,#f7c3b8,#e98a8f);opacity:.55;animation:loFall var(--t) linear var(--dl) infinite}
+@keyframes loFall{0%{transform:translate(0,0) rotate(0)}50%{transform:translate(var(--dx),55vh) rotate(160deg)}100%{transform:translate(calc(var(--dx) * -.4),112vh) rotate(320deg)}}
+
+/* Фото в арках с акварельной подложкой. */
+.lo-photos{display:grid;grid-template-columns:1fr 1fr;gap:clamp(16px,4vw,28px);align-items:start;width:min(100%,600px);margin:0 auto}
+.lo-arch{position:relative;margin:0}
+.lo-arch:before{content:'';position:absolute;inset:-12% -14%;z-index:-1;background:radial-gradient(closest-side,rgba(244,181,181,.55),transparent);border-radius:50%}
+.lo-arch:nth-child(2){margin-top:clamp(48px,14vw,90px)}
+.lo-arch:nth-child(2):before{background:radial-gradient(closest-side,rgba(169,194,159,.5),transparent)}
+.lo-arch__img{aspect-ratio:3/4;overflow:hidden;border-radius:999px 999px 18px 18px;border:6px solid #fffaf3;box-shadow:0 22px 40px -26px rgba(120,60,60,.6)}
+.lo-arch__img img{width:100%;height:100%;object-fit:cover;filter:saturate(.92) contrast(1.02)}
+.lo-arch figcaption{margin-top:10px;color:var(--rose);font:400 1.5rem/1 var(--script)}
+@media (max-width:480px){.lo-photos{grid-template-columns:1fr;width:min(80vw,360px)}.lo-arch:nth-child(2){margin-top:30px}}
+
+/* Дата: засушенный тюльпан и календарь. */
+.lo-datecard{position:relative;display:grid;gap:18px;justify-items:center;padding:clamp(28px,7vw,44px) clamp(18px,5vw,36px);border-radius:28px;
+  background:rgba(255,251,245,.78);box-shadow:0 30px 60px -40px rgba(120,60,60,.5),inset 0 0 0 1px rgba(196,80,91,.12)}
+.lo-bigdate{display:flex;align-items:baseline;gap:14px;color:var(--rose)}
+.lo-bigdate b{font:400 clamp(4.2rem,20vw,6.4rem)/.9 var(--script)}
+.lo-bigdate span{color:var(--ink);font:italic 400 clamp(1.2rem,5vw,1.6rem)/1.1 var(--display);text-align:left}
+.lo-time{color:var(--muted);font:500 .74rem/1 var(--sans);letter-spacing:.24em;text-transform:uppercase}
+.lo-cal{width:min(100%,320px);border-collapse:collapse;color:var(--muted);font:400 .82rem/1 var(--sans)}
+.lo-cal caption{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.lo-cal th{padding-bottom:10px;color:var(--accent-2);font:500 .6rem/1 var(--sans);letter-spacing:.14em;text-transform:uppercase}
+.lo-cal td{position:relative;padding:8px 0;text-align:center}
+.lo-cal td.on{color:#fff;font-weight:500;isolation:isolate}
+.lo-cal td.on:before{content:'';position:absolute;left:50%;top:50%;z-index:-1;width:32px;height:36px;margin:-20px 0 0 -16px;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 36'%3E%3Cpath d='M16 34 C 6 32 3 18 6 6 C 10 10 13 14 16 18 C 19 14 22 10 26 6 C 29 18 26 32 16 34Z' fill='%23e9727a'/%3E%3C/svg%3E") center/contain no-repeat}
+
+/* Отсчёт в акварельных кругах. */
+.lo-cd{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(6px,2vw,14px);width:min(100%,540px);margin:0 auto}
+.lo-cd>div{position:relative;display:grid;place-items:center;align-content:center;gap:6px;aspect-ratio:1;border-radius:46% 54% 52% 48%/52% 46% 54% 48%;
+  background:radial-gradient(circle at 40% 35%,rgba(255,255,255,.7),rgba(244,181,181,.5) 60%,rgba(233,114,122,.35))}
+.lo-cd>div:nth-child(even){background:radial-gradient(circle at 40% 35%,rgba(255,255,255,.7),rgba(169,194,159,.5) 60%,rgba(111,143,105,.35))}
+.lo-cd b{color:var(--ink);font:500 clamp(1.5rem,7vw,2.4rem)/1.12 var(--display);font-variant-numeric:tabular-nums}
+.lo-cd>div>span{color:var(--muted);font:500 .52rem/1 var(--sans);letter-spacing:.14em;text-transform:uppercase}
+
+.lo-venue{width:min(100%,600px);margin:0 auto}
+.lo-mapframe{padding:8px;border-radius:30px;background:#fffaf3;box-shadow:0 30px 60px -40px rgba(120,60,60,.55),inset 0 0 0 1px rgba(196,80,91,.12)}
+.lo-mapframe>div{overflow:hidden;border-radius:24px}
+.lo-mapframe .mapbox:after{display:none}
+.lo-mapframe .venue-type{margin:0;color:var(--rose);--paper:var(--ink);background:radial-gradient(circle,rgba(244,181,181,.3),transparent 60%),#fffaf3}
+.lo-addr{margin:22px auto 6px;max-width:24ch;color:var(--ink);font:italic 400 clamp(1.3rem,5.6vw,1.8rem)/1.25 var(--display)}
+.lo-meta{color:var(--muted);font:500 .7rem/1.6 var(--sans);letter-spacing:.14em;text-transform:uppercase}
+.lo-venue .routes a{border-color:rgba(196,80,91,.3);background:#fffaf3;color:var(--rose)}
+.lo-venue .routes a:hover{background:var(--rose);border-color:var(--rose);color:#fff}
+
+/* Финал: букет раскрывается весь. */
+.lo-final{padding-bottom:clamp(60px,12vw,100px)}
+.lo-bouquet{position:relative;width:min(80vw,360px);height:min(96vw,430px);margin:0 auto 10px;--g:clamp(0,calc(var(--p,1) * 2.2 - .1),1);--o:clamp(0,calc(var(--p,1) * 2.6 - .9),1)}
+.lo-bouquet .lo-tulip{position:absolute;bottom:0;left:50%;width:34%;height:auto;transform-origin:50% 100%;transform:translateX(-50%) rotate(var(--rot))}
+.lo-bouquet:after{content:'';position:absolute;left:50%;bottom:12%;width:18%;height:5%;margin-left:-9%;border-radius:4px;background:linear-gradient(90deg,#d98a95,#f3c1c7,#d98a95)}
+.lo-final__text{margin-top:8px;color:var(--rose);font:400 clamp(2.2rem,10vw,3.4rem)/1.15 var(--script);text-wrap:balance}
+.lo-sign{margin-top:14px;color:var(--muted);font:italic 400 1.05rem/1.5 var(--display)}
+
+#mbtn{border-color:rgba(196,80,91,.3);background:rgba(255,250,243,.92);color:var(--rose)}
+#mbtn.on{background:var(--rose);color:#fff}
+
+@media (prefers-reduced-motion:reduce){
+  .lo-fall{display:none}
+  .lo-trigger span,.lo-scene:not(.is-running) .lo-bud{animation:none}
+  .lo-side,.lo-bouquet{--g:1;--o:1}
+  .lo-wreath i{transform:rotate(var(--a)) translateX(var(--r)) rotate(var(--t)) scale(1)}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="loPetal" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#c4505b"/><stop offset=".45" stop-color="#e9727a"/><stop offset="1" stop-color="#f8c0b4"/></linearGradient>
+    <linearGradient id="loBack" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#a23d4a"/><stop offset="1" stop-color="#e0767d"/></linearGradient>
+    <linearGradient id="loLeaf" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#5f7d5c"/><stop offset="1" stop-color="#a9c29f"/></linearGradient>
+  </defs>
+</svg>
+<template id="loTulip">
+  <svg class="lo-tulip" viewBox="0 0 100 260" aria-hidden="true">
+    <path class="lo-stem" pathLength="1" d="M50 258 C 47 212, 55 160, 50 96"/>
+    <path class="lo-leaf lo-leaf--l" d="M50 236 C 28 214, 16 170, 24 128 C 34 160, 44 196, 50 220 Z"/>
+    <path class="lo-leaf lo-leaf--r" d="M51 200 C 72 178, 84 146, 78 108 C 68 136, 58 166, 51 186 Z"/>
+    <g class="lo-head">
+      <path class="lo-pb lo-pb--l" d="M48 92 C 30 84, 28 56, 38 36 C 45 52, 50 68, 50 86 Z"/>
+      <path class="lo-pb lo-pb--r" d="M52 92 C 70 84, 72 56, 62 36 C 55 52, 50 68, 50 86 Z"/>
+      <path class="lo-stamen" d="M50 86 L45 60 M50 86 L50 56 M50 86 L55 60"/>
+      <path class="lo-pf lo-pf--l" d="M50 98 C 31 98, 22 72, 29 42 C 40 52, 48 68, 50 82 Z"/>
+      <path class="lo-pf lo-pf--r" d="M50 98 C 69 98, 78 72, 71 42 C 60 52, 52 68, 50 82 Z"/>
+      <path class="lo-pf lo-pf--c" d="M50 99 C 37 95, 34 64, 50 30 C 66 64, 63 95, 50 99 Z"/>
+    </g>
+  </svg>
+</template>
+
+<div class="lo-scene" data-envelope-scene data-leave="1900" data-done="2700" data-music="1100" data-sfx="0">
+  <div class="lo-scene__top"><small>{{L.sub}}</small><b>{{groom}} &amp; {{bride}}</b></div>
+  <div class="lo-bud" data-tulip>
+    <div class="lo-burst" aria-hidden="true">
+      <i style="--dx:-120px;--dy:-160px;--r:-120deg"></i><i style="--dx:110px;--dy:-180px;--r:140deg"></i>
+      <i style="--dx:-160px;--dy:-40px;--r:-200deg"></i><i style="--dx:170px;--dy:-60px;--r:220deg"></i>
+      <i style="--dx:-60px;--dy:-220px;--r:-80deg"></i><i style="--dx:60px;--dy:-240px;--r:90deg"></i>
+      <i style="--dx:-190px;--dy:-120px;--r:-260deg"></i><i style="--dx:200px;--dy:-130px;--r:280deg"></i>
+    </div>
+  </div>
+  <button type="button" class="lo-trigger" data-envelope-trigger aria-label="{{L.openHint}}"><span>{{L.openHint}}</span></button>
+</div>
+
+<div class="lo-fall" aria-hidden="true">
+  <i style="--x:8%;--t:19s;--dl:-3s;--dx:40px"></i><i style="--x:24%;--t:23s;--dl:-11s;--dx:-30px"></i><i style="--x:47%;--t:21s;--dl:-7s;--dx:50px"></i>
+  <i style="--x:66%;--t:25s;--dl:-15s;--dx:-45px"></i><i style="--x:82%;--t:18s;--dl:-1s;--dx:30px"></i><i style="--x:93%;--t:27s;--dl:-19s;--dx:-35px"></i>
+</div>
+
+<main class="inv lo">
+  <section class="lo-hero">
+    <div class="lo-wreath" data-wreath>
+      <div class="lo-hero__in">
+        <small class="fx">{{L.sub}}</small>
+        <h1 class="lo-names fx" style="--d:.15s">{{groom}}<i>{{L.and}}</i>{{bride}}</h1>
+        <p class="lo-hero__date fx" style="--d:.3s">{{dateText}} · {{time}}</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="lo-sec" data-scrub="view">
+    <div class="lo-side lo-side--l" data-tulip></div>
+    <div class="lo-side lo-side--r" data-tulip style="--lag:.12"></div>
+    <div class="lo-wrap">
+      {{#if guestName}}
+        <span class="lo-over fx">{{L.greet}}</span>
+        <h2 class="lo-h fx">{{guestName}}</h2>
+        <p class="lo-p fx">{{L.greetTail}}</p>
+      {{else}}
+        <span class="lo-over fx">{{L.sub}}</span>
+        <h2 class="lo-h fx">{{groom}} &amp; {{bride}}</h2>
+        <p class="lo-p fx">{{L.invite}}</p>
+      {{/if}}
+      <p class="lo-p words" style="color:var(--muted)">{{L.emo}}</p>
+    </div>
+  </section>
+
+  {{#if photos.0}}
+  <section class="lo-sec" data-scrub="view">
+    <div class="lo-side lo-side--r" data-tulip></div>
+    <div class="lo-wrap" style="width:min(100%,640px)">
+      <span class="lo-over fx">{{L.gallery}}</span>
+      <div class="lo-photos">
+        <figure class="lo-arch fx"><div class="lo-arch__img"><img src="{{photos.0}}" alt="{{groom}} &amp; {{bride}}" loading="lazy"></div><figcaption>{{groom}}</figcaption></figure>
+        {{#if photos.1}}<figure class="lo-arch fx" style="--d:.2s"><div class="lo-arch__img"><img src="{{photos.1}}" alt="{{groom}} &amp; {{bride}}" loading="lazy"></div><figcaption>{{bride}}</figcaption></figure>{{/if}}
+      </div>
+    </div>
+  </section>
+  {{/if}}
+
+  <section class="lo-sec" data-scrub="view">
+    <div class="lo-side lo-side--l" data-tulip style="--lag:.05"></div>
+    <div class="lo-wrap">
+      <span class="lo-over fx">{{L.when}}</span>
+      <div class="lo-datecard fx">
+        <div class="lo-bigdate"><b>{{day}}</b><span>{{monthName}}<br>{{year}}</span></div>
+        <div class="lo-time">{{weekday}} · {{time}}</div>
+        <table class="lo-cal" data-cal="{{dateIso}}"><caption>{{monthName}} {{year}}</caption></table>
+      </div>
+    </div>
+  </section>
+
+  <section class="lo-sec">
+    <div class="lo-wrap">
+      <span class="lo-over fx">{{L.until}}</span>
+      <div class="lo-cd cd fx">
+        <div><b id="cd">00</b><span>{{L.days}}</span></div>
+        <div><b id="ch">00</b><span>{{L.hours}}</span></div>
+        <div><b id="cm">00</b><span>{{L.min}}</span></div>
+        <div><b id="cs">00</b><span>{{L.sec}}</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="lo-sec" data-scrub="view">
+    <div class="lo-side lo-side--r" data-tulip style="--lag:.08"></div>
+    <div class="lo-wrap lo-venue">
+      <span class="lo-over fx">{{L.where}}</span>
+      <div class="lo-mapframe fx"><div class="venue__map">{{{map}}}</div></div>
+      <p class="lo-addr fx">{{address}}</p>
+      {{#if venueLine}}<p class="lo-meta fx">{{venueLine}}</p>{{/if}}
+      {{#if gmaps}}
+      <div class="routes fx">
+        <a href="{{gmaps}}" target="_blank" rel="noopener"><span>{{L.gmaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+        <a href="{{ymaps}}" target="_blank" rel="noopener"><span>{{L.ymaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+      </div>
+      {{/if}}
+    </div>
+  </section>
+
+  <section class="lo-sec lo-final" data-scrub="enter">
+    <div class="lo-wrap">
+      <div class="lo-bouquet" aria-hidden="true">
+        <div data-tulip style="--rot:-24deg"></div><div data-tulip style="--rot:24deg"></div>
+        <div data-tulip style="--rot:-11deg"></div><div data-tulip style="--rot:11deg"></div><div data-tulip style="--rot:0deg"></div>
+      </div>
+      <p class="lo-final__text fx">{{L.final}}</p>
+      <p class="lo-sign fx">{{L.sign}} {{groom}} {{L.and}} {{bride}}</p>
+    </div>
+  </section>
+
+  {{{made}}}
+</main>
+
+<script>
+// Тюльпаны из одного шаблона; в букете каждый стебель стоит под своим углом.
+(function(){
+  var tpl=document.getElementById('loTulip');if(!tpl)return;
+  [].forEach.call(document.querySelectorAll('[data-tulip]'),function(host){
+    var svg=tpl.content.firstElementChild.cloneNode(true);
+    if(host.parentNode&&host.parentNode.classList.contains('lo-bouquet')){svg.style.setProperty('--rot',host.style.getPropertyValue('--rot'));host.replaceWith(svg)}
+    else host.insertBefore(svg,host.firstChild);
+  });
+})();
+// Венок: листья по окружности, бутоны внизу; собирается, когда страница открылась.
+(function(){
+  var w=document.querySelector('[data-wreath]');if(!w)return;
+  var n=38,html='';
+  for(var k=0;k<n;k++){
+    var a=-90+k*(360/n),gap=Math.abs(((a+90)%360)-180)<16;if(gap)continue;
+    var side=(k%2?1:-1);html+='<i style="--a:'+a.toFixed(1)+'deg;--r:calc(min(86vw,440px) * .44);--t:'+(90+side*38)+'deg;--k:'+k+'"></i>';
+  }
+  [[78,.4],[90,.41],[102,.4],[262,.42],[278,.42]].forEach(function(b,i){html+='<i class="bud" style="--a:'+b[0]+'deg;--r:calc(min(86vw,440px) * '+b[1]+');--t:0deg;--k:'+(n+i)+'"></i>'});
+  w.insertAdjacentHTML('afterbegin',html);
+  function on(){w.classList.add('on')}
+  document.addEventListener('nv:ready',on);
+  if(!document.querySelector('[data-envelope-scene]'))on();
+})();
+// Календарь месяца свадьбы: день отмечен нарисованным тюльпаном.
+(function(){
+  var el=document.querySelector('[data-cal]');if(!el)return;
+  var iso=(el.getAttribute('data-cal')||'').split('-').map(Number);if(iso.length!==3||!iso[0])return;
+  var y=iso[0],m=iso[1]-1,day=iso[2];
+  var head=(document.documentElement.lang==='ru')?['пн','вт','ср','чт','пт','сб','вс']:['du','se','ch','pa','ju','sh','ya'];
+  var first=(new Date(y,m,1).getDay()+6)%7,total=new Date(y,m+1,0).getDate();
+  var html='<thead><tr>'+head.map(function(d){return '<th scope="col">'+d+'</th>'}).join('')+'</tr></thead><tbody><tr>';
+  for(var k=0;k<first;k++)html+='<td></td>';
+  for(var d=1;d<=total;d++){if((first+d-1)%7===0&&d>1)html+='</tr><tr>';html+='<td'+(d===day?' class="on"':'')+'>'+d+'</td>'}
+  el.insertAdjacentHTML('beforeend',html+'</tr></tbody>');
+})();
+</script>
+
+{{{audioWidget}}}
+{{{experienceScript}}}
+{{{countdown}}}
+</body>
+</html>

@@ -113,7 +113,7 @@ test('upload type detection trusts signatures, not filenames', () => {
 
 // Линейка 2026: новые темы со своими сценами открытия + три прежние, которые
 // и так ни на кого не похожи. Снятые с витрины продолжают рендерить оплаченные ссылки.
-const PUBLIC_IDS = ['darvoza', 'uzuk', 'kitob', 'hikoya', 'oqshom', 'chizgi', 'anor'];
+const PUBLIC_IDS = ['darvoza', 'uzuk', 'kitob', 'hikoya', 'kino', 'lola', 'jilo', 'oqshom', 'chizgi', 'anor'];
 const HIDDEN_IDS = ['nur', 'marvarid', 'shirin', 'atlas', 'nafis', 'gulzor', 'deco', 'charos'];
 
 test('catalog exposes the new line-up and keeps the legacy renderers alive', () => {
@@ -176,6 +176,9 @@ test('each design lays the page out differently — не только цвето
     uzuk: /class="uz-stage uz-datestage"/,
     kitob: /class="kb-cal"/,
     hikoya: /class="hk-date"/,
+    kino: /class="kn-ticket"/,
+    lola: /class="lo-datecard/,
+    jilo: /class="jl-w jl-pass"/,
     oqshom: /when glass card fx/,
     nafis: /class="nafis-date/,
     chizgi: /class="chizgi-date/,
