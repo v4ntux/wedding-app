@@ -1,0 +1,18 @@
+{
+  "name": "Ipak",
+  "event": "wedding",
+  "price": 199000,
+  "minPhotos": 2,
+  "colors": [
+    "#D6246E",
+    "#F2A516",
+    "#138A5E",
+    "#2A3A8F"
+  ],
+  "order": 8,
+  "listed": true,
+  "strings": {
+    "uz": { "openHint": "Ipakni ochish uchun bosing" },
+    "ru": { "openHint": "Коснитесь — шёлк раскроется" }
+  }
+}

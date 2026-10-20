@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f6f4ef">
+<title>{{groom}} &amp; {{bride}} · {{L.sub}}</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Noto+Serif+Display:ital,wght@0,100;0,300;1,100;1,300&display=swap" rel="stylesheet">
+{{{experienceCSS}}}
+{{{coreCSS}}}
+<style>
+/* Sof — тихая роскошь. Ни золота, ни орнамента: тёплая белая бумага, одна
+   тонкая антиква и гротеск мелким кеглем, чёрно-белые снимки, волосяные
+   линии и много воздуха. Открытие: поверх карточки лежит калька с именами;
+   касание — калька поднимается и уходит, под ней сама карточка. Движение
+   спокойное: строки выезжают из-под маски, линии дочерчиваются. */
+:root{
+  --paper:#f6f4ef; --paper-2:#eeebe4; --paper-3:#e2ded5;
+  --ink:#161616; --muted:#8b867e;
+  --accent:#161616; --accent-2:#8b867e;
+  --line:rgba(22,22,22,.14); --line-soft:rgba(22,22,22,.07);
+  --gold:#161616; --gold-hi:#8b867e; --gold-lo:#161616; --gold-rgb:22,22,22;
+  --display:'Noto Serif Display',Didot,Georgia,serif;
+  --sans:'Inter',ui-sans-serif,system-ui,sans-serif;
+  --script:'Noto Serif Display',Georgia,serif;
+}
+html{background:var(--paper)}
+body{background:var(--grain),var(--paper);color:var(--ink)}
+.inv{position:relative;z-index:1;overflow:clip}
+.made{background:var(--paper-2);border-top:1px solid var(--line)}
+
+/* ══ Калька поверх карточки ═════════════════════════════════════════ */
+.sf-scene{position:fixed;inset:0;z-index:9000;perspective:1400px;touch-action:none}
+.sf-scene[hidden]{display:none}
+.sf-vellum{position:absolute;inset:0;display:grid;place-items:center;align-content:center;gap:18px;text-align:center;transform-origin:50% 0;
+  background:linear-gradient(180deg,rgba(250,249,246,.72),rgba(246,244,239,.8)),var(--grain);
+  -webkit-backdrop-filter:blur(14px) saturate(.9);backdrop-filter:blur(14px) saturate(.9);
+  box-shadow:0 30px 60px -20px rgba(0,0,0,.25),inset 0 0 0 1px rgba(255,255,255,.6)}
+.sf-vellum small{color:rgba(22,22,22,.55);font:400 .62rem/1 var(--sans);letter-spacing:.42em;text-transform:uppercase}
+.sf-vellum b{color:rgba(22,22,22,.78);font:100 clamp(2.6rem,13vw,5rem)/1 var(--display);letter-spacing:-.01em}
+.sf-vellum b i{font-style:italic;font-weight:100;color:rgba(22,22,22,.5)}
+.sf-seal{width:58px;height:58px;margin-top:10px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fbfaf7,#e7e3da);
+  box-shadow:inset 1px 1px 2px rgba(255,255,255,.9),inset -1px -2px 3px rgba(0,0,0,.12),0 2px 4px rgba(0,0,0,.06);display:grid;place-items:center;
+  color:rgba(22,22,22,.42);font:300 .9rem/1 var(--display);font-style:italic}
+.sf-trigger{position:absolute;inset:0;z-index:3;display:grid;align-content:end;justify-items:center;padding:0 20px max(30px,env(safe-area-inset-bottom));
+  border:0;background:transparent;color:var(--ink);cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.sf-trigger:focus-visible{outline:1px solid var(--ink);outline-offset:-14px}
+.sf-trigger span{font:400 .66rem/1 var(--sans);letter-spacing:.32em;text-transform:uppercase;padding-bottom:6px;border-bottom:1px solid currentColor;opacity:.7}
+.sf-scene.is-running .sf-trigger span{opacity:0;transition:opacity .3s}
+.sf-scene.is-running .sf-vellum{animation:sfLift 1.2s cubic-bezier(.6,0,.2,1) forwards}
+@keyframes sfLift{0%{transform:none}30%{transform:translateY(-2%) rotateX(8deg)}100%{transform:translateY(-112%) rotateX(28deg);box-shadow:0 60px 80px -20px rgba(0,0,0,.2)}}
+
+/* ══ Страница: журнальный разворот ═════════════════════════════════ */
+.sf-hero{position:relative;display:grid;grid-template-rows:auto 1fr auto;min-height:100svh;padding:max(26px,env(safe-area-inset-top)) clamp(22px,7vw,72px) clamp(26px,5vh,44px)}
+.sf-top{display:flex;justify-content:space-between;color:var(--muted);font:400 .62rem/1 var(--sans);letter-spacing:.32em;text-transform:uppercase}
+.sf-names{align-self:center;display:grid;gap:.02em;font:100 clamp(3.4rem,19vw,10rem)/.92 var(--display);letter-spacing:-.03em;text-align:left}
+.sf-names>.sf-line{justify-self:start;padding-bottom:.1em;max-width:100%}
+.sf-names>.sf-line:nth-child(2){padding-left:18%}
+.sf-names>.sf-line:nth-child(3){justify-self:end;text-align:right}
+.sf-names i{font-style:italic;font-weight:100;color:var(--muted);font-size:.6em}
+.sf-hero__foot{display:flex;justify-content:space-between;align-items:end;gap:20px;padding-top:18px;border-top:1px solid var(--line)}
+.sf-hero__foot b{font:100 clamp(1.8rem,8vw,3.2rem)/1 var(--display);letter-spacing:-.02em}
+.sf-hero__foot span{color:var(--muted);font:400 .68rem/1.6 var(--sans);letter-spacing:.2em;text-transform:uppercase;text-align:right}
+/* Строка выезжает из-под невидимой маски. */
+.sf-line{display:block;overflow:hidden;overflow-wrap:anywhere}
+.sf-line>span{display:block;transform:translateY(105%)}
+.sf-line.in>span{transform:none;transition:transform 1.2s cubic-bezier(.2,.7,.1,1) var(--d,0s)}
+.sf-rule{height:1px;background:var(--ink);opacity:.18;transform:scaleX(0);transform-origin:0 50%}
+.sf-rule.in{transform:scaleX(1);transition:transform 1.6s cubic-bezier(.6,0,.2,1) var(--d,0s)}
+
+.sf-sec{position:relative;padding:clamp(80px,18vw,150px) clamp(22px,7vw,72px)}
+.sf-grid{display:grid;grid-template-columns:1fr;gap:28px;width:min(100%,980px);margin:0 auto}
+@media (min-width:820px){.sf-grid{grid-template-columns:1fr 1.4fr;gap:60px}}
+.sf-label{color:var(--muted);font:400 .62rem/1.6 var(--sans);letter-spacing:.32em;text-transform:uppercase}
+.sf-big{font:100 clamp(2rem,8.8vw,3.8rem)/1.12 var(--display);letter-spacing:-.015em;text-wrap:balance}
+.sf-big em{font-style:italic;color:var(--muted)}
+.sf-small{max-width:38ch;margin-top:22px;color:#4c4944;font:300 clamp(.98rem,3.8vw,1.06rem)/1.8 var(--sans)}
+
+.sf-photo{position:relative;width:min(100%,980px);margin:0 auto;overflow:hidden;aspect-ratio:4/5;background:var(--paper-3)}
+@media (min-width:820px){.sf-photo{aspect-ratio:16/10}}
+.sf-photo img{width:100%;height:100%;object-fit:cover;filter:grayscale(1) contrast(1.06) brightness(1.02);transform:scale(calc(1.16 - var(--p,1) * .16))}
+.sf-cap{display:flex;justify-content:space-between;width:min(100%,980px);margin:14px auto 0;color:var(--muted);font:400 .64rem/1.6 var(--sans);letter-spacing:.2em;text-transform:uppercase}
+.sf-photo--half{width:min(68%,560px);margin-left:auto;margin-right:0;aspect-ratio:3/4}
+
+.sf-date{display:grid;gap:0;width:min(100%,980px);margin:0 auto}
+.sf-date b{font:100 clamp(5rem,30vw,15rem)/.86 var(--display);letter-spacing:-.05em}
+.sf-date b:nth-child(2){justify-self:center;font-style:italic;color:var(--muted)}
+.sf-date b:nth-child(3){justify-self:end}
+.sf-date p{margin-top:20px;color:var(--muted);font:400 .7rem/1.6 var(--sans);letter-spacing:.24em;text-transform:uppercase}
+
+.sf-cd{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:min(100%,980px);margin:0 auto;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.sf-cd>div{display:grid;gap:8px;padding:22px 4px 18px}
+.sf-cd>div+div{border-left:1px solid var(--line);padding-left:clamp(8px,3vw,22px)}
+.sf-cd b{color:var(--ink);font:100 clamp(2rem,10vw,4.4rem)/1.12 var(--display);font-variant-numeric:tabular-nums lining-nums}
+.sf-cd>div>span{color:var(--muted);font:400 .56rem/1 var(--sans);letter-spacing:.24em;text-transform:uppercase}
+
+.sf-venue{width:min(100%,980px);margin:0 auto}
+.sf-venue .mapbox{margin-top:26px;filter:grayscale(1)}
+.sf-venue .mapbox:after{box-shadow:inset 0 0 0 1px var(--line)}
+.sf-venue .venue-type{margin:26px 0 0;color:var(--ink);--paper:var(--ink);border-color:var(--line);background:none}
+.sf-venue .venue-type b{font-family:var(--display);font-weight:100}
+.sf-links{display:flex;gap:28px;margin-top:22px}
+.sf-links a{color:var(--ink);font:400 .7rem/1 var(--sans);letter-spacing:.24em;text-transform:uppercase;text-decoration:none;padding-bottom:6px;border-bottom:1px solid var(--ink)}
+
+.sf-final{display:grid;justify-items:start;gap:24px;width:min(100%,980px);margin:0 auto;padding-block:clamp(60px,14vw,120px)}
+.sf-final b{font:100 clamp(3.6rem,20vw,10rem)/.9 var(--display);font-style:italic;letter-spacing:-.04em}
+.sf-final p{max-width:30ch;color:#4c4944;font:300 1rem/1.8 var(--sans)}
+.sf-final small{color:var(--muted);font:400 .64rem/1.6 var(--sans);letter-spacing:.28em;text-transform:uppercase}
+
+#mbtn{border-radius:50%;border-color:var(--line);background:rgba(246,244,239,.92);color:var(--ink)}
+#mbtn.on{background:var(--ink);color:var(--paper)}
+
+@media (prefers-reduced-motion:reduce){.sf-line>span,.sf-rule{transform:none!important}.sf-photo img{transform:none}}
+</style>
+</head>
+<body>
+<div class="sf-scene" data-envelope-scene data-leave="1150" data-done="1600" data-music="700" data-sfx="0">
+  <div class="sf-vellum" aria-hidden="true">
+    <small>{{L.sub}}</small>
+    <b>{{groom}} <i>&amp;</i> {{bride}}</b>
+    <small>{{dateText}}</small>
+    <span class="sf-seal">{{groomInitial}}{{brideInitial}}</span>
+  </div>
+  <button type="button" class="sf-trigger" data-envelope-trigger aria-label="{{L.openHint}}"><span>{{L.openHint}}</span></button>
+</div>
+
+<main class="inv sf">
+  <section class="sf-hero">
+    <div class="sf-top"><span>{{L.sub}}</span><span>{{year}}</span></div>
+    <h1 class="sf-names">
+      <span class="sf-line fx" style="--d:.1s"><span>{{groom}}</span></span>
+      <span class="sf-line fx" style="--d:.25s"><span><i>&amp;</i></span></span>
+      <span class="sf-line fx" style="--d:.4s"><span>{{bride}}</span></span>
+    </h1>
+    <div class="sf-hero__foot"><b>{{day}}.{{monthName}}</b><span>{{weekday}}<br>{{time}}</span></div>
+  </section>
+
+  <section class="sf-sec">
+    <div class="sf-grid">
+      <div><span class="sf-label fx">{{#if guestName}}{{L.greet}}{{else}}{{L.sub}}{{/if}}</span><div class="sf-rule fx" style="margin-top:14px;--d:.2s"></div></div>
+      <div>
+        {{#if guestName}}
+          <p class="sf-big fx">{{guestName}}, <em>{{L.greetTail}}</em></p>
+        {{else}}
+          <p class="sf-big fx">{{L.invite}}</p>
+        {{/if}}
+        <p class="sf-small fx" style="--d:.2s">{{L.emo}}</p>
+      </div>
+    </div>
+  </section>
+
+  {{#if photos.0}}
+  <section class="sf-sec" style="padding-top:0">
+    <figure class="sf-photo" data-scrub="view"><img src="{{photos.0}}" alt="{{groom}} &amp; {{bride}}" loading="lazy"></figure>
+    <div class="sf-cap fx"><span>{{groom}} &amp; {{bride}}</span><span>{{year}}</span></div>
+  </section>
+  {{/if}}
+
+  <section class="sf-sec">
+    <span class="sf-label fx" style="display:block;width:min(100%,980px);margin:0 auto 18px">{{L.when}}</span>
+    <div class="sf-date">
+      <b class="sf-line fx"><span>{{day}}</span></b>
+      <b class="sf-line fx" style="--d:.15s"><span>{{monthName}}</span></b>
+      <b class="sf-line fx" style="--d:.3s"><span>{{year}}</span></b>
+      <p class="fx" style="--d:.4s">{{weekday}} · {{time}}</p>
+    </div>
+  </section>
+
+  <section class="sf-sec" style="padding-top:0">
+    <span class="sf-label fx" style="display:block;width:min(100%,980px);margin:0 auto 18px">{{L.until}}</span>
+    <div class="sf-cd cd fx">
+      <div><b id="cd">00</b><span>{{L.days}}</span></div>
+      <div><b id="ch">00</b><span>{{L.hours}}</span></div>
+      <div><b id="cm">00</b><span>{{L.min}}</span></div>
+      <div><b id="cs">00</b><span>{{L.sec}}</span></div>
+    </div>
+  </section>
+
+  <section class="sf-sec" style="padding-top:0">
+    <div class="sf-venue">
+      <span class="sf-label fx">{{L.where}}</span>
+      <p class="sf-big fx" style="margin-top:14px">{{address}}</p>
+      {{#if venueLine}}<p class="sf-small fx">{{venueLine}}</p>{{/if}}
+      <div class="fx"><div class="venue__map">{{{map}}}</div></div>
+      {{#if gmaps}}<div class="sf-links fx"><a href="{{gmaps}}" target="_blank" rel="noopener">{{L.gmaps}}</a><a href="{{ymaps}}" target="_blank" rel="noopener">{{L.ymaps}}</a></div>{{/if}}
+    </div>
+  </section>
+
+  {{#if photos.1}}
+  <section class="sf-sec" style="padding-top:0">
+    <figure class="sf-photo sf-photo--half" data-scrub="view"><img src="{{photos.1}}" alt="{{groom}} &amp; {{bride}}" loading="lazy"></figure>
+  </section>
+  {{/if}}
+
+  <section class="sf-sec" style="padding-top:0">
+    <div class="sf-final">
+      <div class="sf-rule fx" style="width:100%"></div>
+      <b class="sf-line fx"><span>{{L.wait}}</span></b>
+      <p class="fx">{{L.final}}</p>
+      <small class="fx">{{L.sign}} {{groom}} {{L.and}} {{bride}}</small>
+    </div>
+  </section>
+
+  {{{made}}}
+</main>
+
+{{{audioWidget}}}
+{{{experienceScript}}}
+{{{countdown}}}
+</body>
+</html>

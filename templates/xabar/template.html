@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2f7fc1">
+<title>{{groom}} &amp; {{bride}} · {{L.sub}}</title>
+{{{experienceCSS}}}
+{{{coreCSS}}}
+<style>
+/* Xabar — приглашение как переписка. Экран блокировки, на нём уведомление
+   от пары; касание — экран уезжает вверх, открывается чат. Сообщения
+   приходят по одному, с «печатает…», по мере того как гость листает:
+   фото, приглашение, событие с кнопкой «в календарь», отсчёт, геопозиция
+   с картой, голосовое (это музыка приглашения), стикер. В конце — быстрые
+   ответы: они остаются только на экране гостя, никуда не отправляются. */
+:root{
+  --paper:#e9f0f5; --paper-2:#dfe8ee; --paper-3:#cfdbe3;
+  --ink:#1c2733; --muted:#6d7f8f;
+  --accent:#2f7fc1; --accent-2:#36a37a;
+  --line:rgba(28,39,51,.14); --line-soft:rgba(28,39,51,.07);
+  --gold:#2f7fc1; --gold-hi:#cfe6fb; --gold-lo:#1f5f96; --gold-rgb:47,127,193;
+  --display:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Roboto,'Noto Sans',Helvetica,Arial,sans-serif;
+  --sans:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Roboto,'Noto Sans',Helvetica,Arial,sans-serif;
+  --script:var(--display);
+  --doodle:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E %3Cg fill='none' stroke='%235f8fa8' stroke-opacity='.28' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E %3Cpath d='M30 44 C 20 36 16 28 22 23 C 26 20 30 23 30 26 C 30 23 34 20 38 23 C 44 28 40 36 30 44 Z'/%3E %3Cg transform='translate(120 30) rotate(18)'%3E%3Ccircle cx='0' cy='6' r='9'/%3E%3Cpath d='M-4 -4 L0 -9 L4 -4 Z'/%3E%3C/g%3E %3Cg transform='translate(70 90)'%3E%3Ccircle cx='0' cy='0' r='3'/%3E%3Ccircle cx='0' cy='-8' r='4.5'/%3E%3Ccircle cx='7.6' cy='-2.5' r='4.5'/%3E%3Ccircle cx='4.7' cy='6.5' r='4.5'/%3E%3Ccircle cx='-4.7' cy='6.5' r='4.5'/%3E%3Ccircle cx='-7.6' cy='-2.5' r='4.5'/%3E%3C/g%3E %3Cpath d='M150 110 l3 7 7 3 -7 3 -3 7 -3 -7 -7 -3 7 -3 Z'/%3E %3Cg transform='translate(28 140) rotate(-12)'%3E%3Crect x='-13' y='-9' width='26' height='18' rx='2'/%3E%3Cpath d='M-13 -9 L0 2 L13 -9'/%3E%3C/g%3E %3Cg transform='translate(118 150) rotate(10)'%3E%3Cpath d='M-6 -14 L6 -14 L4 -2 C 3 2 -3 2 -4 -2 Z M0 1 V12 M-5 12 H5'/%3E%3C/g%3E %3Cpath d='M85 20 l2 4 4 2 -4 2 -2 4 -2 -4 -4 -2 4 -2 Z'/%3E %3Cpath d='M168 60 C 162 55 160 50 163 47 C 165 45 168 47 168 49 C 168 47 171 45 173 47 C 176 50 174 55 168 60 Z'/%3E %3Ccircle cx='100' cy='130' r='2'/%3E%3Ccircle cx='12' cy='96' r='2'/%3E%3Ccircle cx='150' cy='170' r='2'/%3E %3C/g%3E%3C/svg%3E");
+  --in:#ffffff; --out:#dcebff;
+}
+html{background:#cfe0d6}
+body{background:var(--doodle),linear-gradient(160deg,#d9eadf 0%,#cfe3ee 50%,#e4dcf0 100%);background-attachment:fixed;background-size:180px 180px,auto;color:var(--ink);font-family:var(--sans)}
+.inv{position:relative;z-index:1}
+.made{background:rgba(233,240,245,.92);border-top:1px solid var(--line-soft)}
+
+/* ══ Экран блокировки ═══════════════════════════════════════════════ */
+.xb-lock{position:fixed;inset:0;z-index:9000;display:grid;grid-template-rows:auto auto 1fr auto;justify-items:center;overflow:hidden;color:#fff;
+  padding:max(54px,calc(env(safe-area-inset-top) + 36px)) 14px max(16px,env(safe-area-inset-bottom));
+  background:radial-gradient(80% 60% at 20% 10%,#6fa8dc,transparent 70%),radial-gradient(70% 60% at 90% 90%,#c48bd6,transparent 70%),linear-gradient(170deg,#3b6fb3,#5b4f9e 60%,#2b2f5e);touch-action:none}
+.xb-lock[hidden]{display:none}
+.xb-lock__lock{width:18px;height:18px;opacity:.9}
+.xb-lock__date{margin-top:10px;font:500 1.12rem/1 var(--sans);opacity:.92;text-transform:capitalize}
+.xb-lock__time{font:600 clamp(5rem,26vw,6.6rem)/1 var(--display);letter-spacing:-.03em;margin-top:2px}
+.xb-notif{align-self:start;width:min(100%,420px);margin-top:4vh;display:grid;grid-template-columns:auto 1fr auto;gap:10px 12px;align-items:start;
+  padding:12px 14px;border-radius:22px;background:rgba(255,255,255,.28);-webkit-backdrop-filter:blur(22px) saturate(1.6);backdrop-filter:blur(22px) saturate(1.6);
+  box-shadow:0 10px 30px rgba(0,0,0,.18);color:#fff;text-align:left;opacity:0;transform:translateY(-30px) scale(.96);animation:xbNotif .6s cubic-bezier(.2,1.2,.4,1) .7s forwards}
+@keyframes xbNotif{to{opacity:1;transform:none}}
+.xb-notif__icon{display:grid;place-items:center;width:38px;height:38px;border-radius:10px;background:linear-gradient(140deg,#46a3f0,#2f6fbf);font-size:1.15rem}
+.xb-notif b{display:block;font:600 .95rem/1.25 var(--sans)}
+.xb-notif span{display:block;margin-top:2px;font:400 .92rem/1.3 var(--sans);opacity:.95}
+.xb-notif time{font:400 .78rem/1.25 var(--sans);opacity:.8}
+.xb-lock__hint{display:grid;justify-items:center;gap:12px;font:500 .9rem/1 var(--sans);opacity:.9}
+.xb-lock__hint i{width:134px;height:5px;border-radius:3px;background:#fff;opacity:.9}
+.xb-lock__hint span{animation:xbPulse 2.4s ease-in-out infinite}
+@keyframes xbPulse{0%,100%{opacity:.55}50%{opacity:1}}
+.xb-trigger{position:absolute;inset:0;z-index:3;border:0;background:transparent;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.xb-trigger:focus-visible{outline:2px solid #fff;outline-offset:-10px}
+.xb-lock.is-running .xb-notif{animation:none;opacity:1;transform:scale(1.04);transition:transform .25s ease}
+.xb-lock.is-running{animation:xbUnlock .75s cubic-bezier(.6,0,.2,1) .2s forwards}
+@keyframes xbUnlock{to{transform:translateY(-104%)}}
+
+/* ══ Чат ═══════════════════════════════════════════════════════════ */
+.xb-head{position:sticky;top:0;z-index:20;display:grid;grid-template-columns:auto auto 1fr auto;gap:12px;align-items:center;
+  padding:max(10px,env(safe-area-inset-top)) 14px 10px;background:rgba(255,255,255,.86);-webkit-backdrop-filter:blur(18px) saturate(1.5);backdrop-filter:blur(18px) saturate(1.5);
+  box-shadow:0 1px 0 var(--line)}
+.xb-back{width:22px;height:22px;fill:none;stroke:var(--accent);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.xb-ava{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;background:linear-gradient(140deg,#f5a0b8,#a07ce6);color:#fff;font:600 .95rem/1 var(--sans)}
+.xb-who b{display:block;font:600 1rem/1.2 var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.xb-who span{display:block;font:400 .82rem/1.2 var(--sans);color:var(--accent)}
+.xb-dots{width:22px;height:22px;fill:var(--muted)}
+.xb-feed{display:grid;gap:6px;width:min(100%,640px);margin:0 auto;padding:14px 10px 30px}
+.xb-day{justify-self:center;margin:6px 0 8px;padding:5px 12px;border-radius:999px;background:rgba(40,60,80,.28);color:#fff;font:500 .8rem/1 var(--sans)}
+.xb-msg{position:relative;display:grid;justify-items:start;max-width:84%}
+.xb-msg--out{justify-self:end;justify-items:end}
+.xb-msg[hidden]{display:none}
+.xb-bubble{position:relative;padding:8px 12px 7px;border-radius:18px 18px 18px 6px;background:var(--in);box-shadow:0 1px 1px rgba(0,0,0,.08);
+  font:400 1rem/1.38 var(--sans);color:var(--ink);opacity:0;transform:translateY(8px) scale(.96);transform-origin:0 100%;
+  transition:opacity .28s ease,transform .38s cubic-bezier(.2,1.3,.4,1)}
+.xb-msg--out .xb-bubble{background:var(--out);border-radius:18px 18px 6px 18px;transform-origin:100% 100%}
+.xb-msg.shown .xb-bubble{opacity:1;transform:none}
+.xb-bubble time{float:right;margin:8px 0 -4px 10px;color:#8a9aa8;font:400 .72rem/1 var(--sans)}
+.xb-msg--out .xb-bubble time:after{content:' ✓✓';color:var(--accent)}
+.xb-typing{position:absolute;left:0;top:0;display:flex;gap:4px;padding:12px 14px;border-radius:18px 18px 18px 6px;background:var(--in);opacity:0;transition:opacity .2s}
+.xb-typing i{width:7px;height:7px;border-radius:50%;background:#9aabb9;animation:xbDot 1s ease-in-out infinite}
+.xb-typing i:nth-child(2){animation-delay:.15s}.xb-typing i:nth-child(3){animation-delay:.3s}
+@keyframes xbDot{0%,100%{transform:translateY(0);opacity:.5}50%{transform:translateY(-4px);opacity:1}}
+.xb-msg.typing .xb-typing{opacity:1}
+.xb-photo{padding:4px;overflow:hidden}
+.xb-photo img{display:block;width:min(70vw,320px);aspect-ratio:4/5;object-fit:cover;border-radius:14px}
+.xb-photo time{position:absolute;right:12px;bottom:10px;float:none;margin:0;padding:3px 7px;border-radius:999px;background:rgba(0,0,0,.4);color:#fff}
+.xb-big{font-size:1.06rem;font-weight:500}
+/* Событие и отсчёт — «карточка» внутри пузыря. */
+.xb-event{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center;min-width:min(70vw,300px)}
+.xb-cal{display:grid;grid-template-rows:auto 1fr;width:54px;height:58px;overflow:hidden;border-radius:12px;background:#fff;box-shadow:inset 0 0 0 1px var(--line);text-align:center}
+.xb-cal small{background:#e5484d;color:#fff;font:600 .62rem/1.6 var(--sans);text-transform:uppercase}
+.xb-cal b{display:grid;place-items:center;font:600 1.6rem/1 var(--display)}
+.xb-event strong{display:block;font:600 1rem/1.25 var(--sans)}
+.xb-event span{display:block;color:var(--muted);font:400 .88rem/1.35 var(--sans);text-transform:capitalize}
+.xb-btn{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;padding:10px 14px;border-radius:12px;background:rgba(47,127,193,.1);
+  color:var(--accent);font:600 .9rem/1 var(--sans);text-decoration:none;-webkit-tap-highlight-color:transparent}
+.xb-btn+.xb-btn{margin-top:6px}
+.xb-cd{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:8px;min-width:min(70vw,300px)}
+.xb-cd>div{display:grid;justify-items:center;gap:3px;padding:8px 2px;border-radius:12px;background:#f2f6f9}
+.xb-cd b{color:var(--ink);font:600 clamp(1.25rem,6vw,1.6rem)/1.12 var(--display);font-variant-numeric:tabular-nums}
+.xb-cd>div>span{color:var(--muted);font:500 .62rem/1 var(--sans);text-transform:uppercase;letter-spacing:.04em}
+.xb-loc{padding:4px;min-width:min(76vw,330px)}
+.xb-loc .venue__map{overflow:hidden;border-radius:14px}
+.xb-loc .mapbox .nvmap{height:180px}
+.xb-loc .mapbox:after{display:none}
+.xb-loc .venue-type{min-height:180px;margin:0;padding:20px;color:var(--accent);--paper:var(--ink);border:0;background:linear-gradient(140deg,#e7f1fa,#f3ecfa)}
+.xb-loc .venue-type b{font-size:1.6rem}
+.xb-loc p{padding:8px 8px 2px;font:600 .98rem/1.3 var(--sans)}
+.xb-loc small{display:block;padding:0 8px;color:var(--muted);font:400 .84rem/1.3 var(--sans)}
+.xb-loc .xb-btns{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px 4px 2px}
+.xb-loc .xb-btn{margin:0}
+.xb-voice{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;min-width:min(66vw,280px)}
+.xb-play{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;border:0;background:var(--accent);color:#fff;cursor:pointer}
+.xb-play svg{width:16px;height:16px;fill:currentColor}
+.xb-play .pa{display:none}.xb-voice.on .xb-play .pl{display:none}.xb-voice.on .xb-play .pa{display:block}
+.xb-wave{display:flex;align-items:center;gap:2px;height:28px}
+.xb-wave i{flex:1;max-width:3px;border-radius:2px;background:#9fc0dc;height:calc(var(--h) * 1%)}
+.xb-voice.on .xb-wave i{background:var(--accent);animation:xbWave .9s ease-in-out calc(var(--k) * -.07s) infinite alternate}
+@keyframes xbWave{to{transform:scaleY(.45)}}
+.xb-voice small{color:var(--muted);font:400 .8rem/1 var(--sans)}
+.xb-sticker{font-size:5rem;line-height:1;filter:drop-shadow(0 6px 10px rgba(0,0,0,.15))}
+.xb-sticker.shown{animation:xbBeat 1.4s ease-in-out .3s infinite}
+@keyframes xbBeat{0%,100%{transform:scale(1)}15%{transform:scale(1.15)}30%{transform:scale(1)}45%{transform:scale(1.1)}}
+.xb-replies{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:8px}
+.xb-replies button{padding:10px 14px;border-radius:999px;border:1px solid rgba(47,127,193,.35);background:rgba(255,255,255,.9);color:var(--accent);
+  font:600 .92rem/1 var(--sans);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.xb-replies button:disabled{opacity:.45}
+.xb-note{justify-self:end;margin-top:4px;color:var(--muted);font:400 .74rem/1.3 var(--sans)}
+
+#mbtn{border-color:rgba(47,127,193,.3);background:rgba(255,255,255,.9);color:var(--accent)}
+#mbtn.on{background:var(--accent);color:#fff}
+
+@media (prefers-reduced-motion:reduce){
+  .xb-notif{animation:none;opacity:1;transform:none}
+  .xb-bubble{opacity:1;transform:none;transition:none}
+  .xb-typing{display:none}
+  .xb-lock__hint span,.xb-sticker.shown{animation:none}
+}
+</style>
+</head>
+<body>
+<div class="xb-lock" data-envelope-scene data-leave="700" data-done="1000" data-music="900" data-sfx="0">
+  <svg class="xb-lock__lock" viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1h1zm2 0h6V7a3 3 0 0 0-6 0v3z"/></svg>
+  <div><div class="xb-lock__date" data-today></div><div class="xb-lock__time" data-clock>18:00</div></div>
+  <div class="xb-notif">
+    <span class="xb-notif__icon" aria-hidden="true">💍</span>
+    <div><b>{{groom}} &amp; {{bride}}</b><span>{{L.notif}}</span></div>
+    <time>{{L.now}}</time>
+  </div>
+  <div class="xb-lock__hint"><span>{{L.openHint}}</span><i aria-hidden="true"></i></div>
+  <button type="button" class="xb-trigger" data-envelope-trigger aria-label="{{L.openHint}}"></button>
+</div>
+
+<main class="inv xb">
+  <header class="xb-head">
+    <svg class="xb-back" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    <span class="xb-ava" aria-hidden="true">{{groomInitial}}{{brideInitial}}</span>
+    <div class="xb-who"><b>{{groom}} &amp; {{bride}}</b><span data-status data-online="{{L.online}}" data-typing="{{L.typing}}">{{L.online}}</span></div>
+    <svg class="xb-dots" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+  </header>
+
+  <div class="xb-feed">
+    <span class="xb-day">{{L.today}}</span>
+
+    <div class="xb-msg" data-in><div class="xb-typing"><i></i><i></i><i></i></div>
+      <div class="xb-bubble">{{L.hello}}{{#if guestName}}, {{guestName}}{{/if}}! 👋<time></time></div></div>
+
+    <div class="xb-msg" data-in><div class="xb-typing"><i></i><i></i><i></i></div>
+      <div class="xb-bubble xb-big">{{L.news}}<time></time></div></div>
+
+    {{#if photos.0}}
+    <div class="xb-msg" data-in><div class="xb-typing"><i></i><i></i><i></i></div>
+      <div class="xb-bubble xb-photo"><img src="{{photos.0}}" alt="{{groom}} &amp; {{bride}}" loading="lazy"><time></time></div></div>
+    {{/if}}
+
+    <div class="xb-msg" data-in><div class="xb-typing"><i></i><i></i><i></i></div>
+      <div class="xb-bubble">{{#if guestName}}{{L.greetTail}}{{else}}{{L.invite}}{{/if}}<time></time></div></div>
+
+    <div class="xb-msg" data-in><div class="xb-typing"><i></i><i></i><i></i></div>
+      <div class="xb-bubble">
+        <div class="xb-event">
+          <div class="xb-cal" aria-hidden="true"><small>{{monthName}}</small><b>{{day}}</b></div>
+          <div><strong>{{L.event}} · {{groom}} &amp; {{bride}}</strong><span>{{weekday}}, {{dateText}} · {{time}}</span></div>
+        </div>
+        <a class="xb-btn" data-ics data-start="{{targetIso}}" data-title="{{groom}} &amp; {{bride}} · {{L.event}}" data-place="{{address}}" href="#" download="toy.ics">📅 {{L.addCal}}</a>
+        <time></time>
+      </div></div>
+
+    <div class="xb-msg" data-in><div class="xb-typing"><i></i><i></i><i></i></div>
+      <div class="xb-bubble">{{L.until}} ⏳
+        <div class="xb-cd cd">
+          <div><b id="cd">00</b><span>{{L.days}}</span></div>
+          <div><b id="ch">00</b><span>{{L.hours}}</span></div>
+          <div><b id="cm">00</b><span>{{L.min}}</span></div>
+          <div><b id="cs">00</b><span>{{L.sec}}</span></div>
+        </div><time></time></div></div>
+
+    <div class="xb-msg" data-in><div class="xb-typing"><i></i><i></i><i></i></div>
+      <div class="xb-bubble xb-loc">
+        <div class="venue__map">{{{map}}}</div>
+        <p>📍 {{address}}</p>
+        {{#if venueLine}}<small>{{venueLine}}</small>{{/if}}
+        {{#if gmaps}}<div class="xb-btns"><a class="xb-btn" href="{{gmaps}}" target="_blank" rel="noopener">{{L.gmaps}}</a><a class="xb-btn" href="{{ymaps}}" target="_blank" rel="noopener">{{L.ymaps}}</a></div>{{/if}}
+        <time></time>
+      </div></div>
+
+    {{#if audioWidget}}
+    <div class="xb-msg" data-in><div class="xb-typing"><i></i><i></i><i></i></div>
+      <div class="xb-bubble xb-voice" data-voice>
+        <button type="button" class="xb-play" aria-label="{{L.voice}}"><svg class="pl" viewBox="0 0 16 16"><path d="M4 2l10 6-10 6z"/></svg><svg class="pa" viewBox="0 0 16 16"><path d="M3 2h3.5v12H3zM9.5 2H13v12H9.5z"/></svg></button>
+        <div class="xb-wave" aria-hidden="true"></div>
+        <small>{{L.voice}}</small>
+      </div></div>
+    {{/if}}
+
+    {{#if photos.1}}
+    <div class="xb-msg" data-in><div class="xb-typing"><i></i><i></i><i></i></div>
+      <div class="xb-bubble xb-photo"><img src="{{photos.1}}" alt="{{groom}} &amp; {{bride}}" loading="lazy"><time></time></div></div>
+    {{/if}}
+
+    <div class="xb-msg" data-in><div class="xb-typing"><i></i><i></i><i></i></div>
+      <div class="xb-bubble">{{L.emo}}<time></time></div></div>
+
+    <div class="xb-msg" data-in><div class="xb-typing"><i></i><i></i><i></i></div>
+      <div class="xb-bubble xb-big">{{L.final}} ❤️<br><span style="color:var(--muted);font-weight:400">{{L.sign}} {{groom}} {{L.and}} {{bride}}</span><time></time></div></div>
+
+    <div class="xb-msg" data-in><div class="xb-typing"><i></i><i></i><i></i></div>
+      <div class="xb-bubble xb-sticker" style="background:none;box-shadow:none" aria-hidden="true">💍</div></div>
+
+    <div class="xb-replies" data-replies>
+      <button type="button" data-reply="{{L.reply1}}">{{L.reply1}}</button>
+      <button type="button" data-reply="{{L.reply2}}">{{L.reply2}}</button>
+    </div>
+    <span class="xb-note">{{L.note}}</span>
+    <div class="xb-msg" data-answer hidden><div class="xb-typing"><i></i><i></i><i></i></div><div class="xb-bubble">{{L.answer}}<time></time></div></div>
+  </div>
+
+  {{{made}}}
+</main>
+
+<script>
+(function(){
+  var lang=document.documentElement.lang==='ru'?'ru':'uz';
+  var now=new Date(),hh=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  var wd={uz:['yakshanba','dushanba','seshanba','chorshanba','payshanba','juma','shanba'],ru:['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота']};
+  var mo={uz:['yanvar','fevral','mart','aprel','may','iyun','iyul','avgust','sentabr','oktabr','noyabr','dekabr'],ru:['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря']};
+  var clock=document.querySelector('[data-clock]');if(clock)clock.textContent=hh;
+  var today=document.querySelector('[data-today]');if(today)today.textContent=wd[lang][now.getDay()]+', '+now.getDate()+' '+mo[lang][now.getMonth()];
+  [].forEach.call(document.querySelectorAll('.xb-bubble time'),function(t){t.textContent=hh});
+
+  // Событие в календарь: .ics собирается из даты приглашения (Ташкент, UTC+5).
+  var ics=document.querySelector('[data-ics]');
+  if(ics){var s=new Date(ics.getAttribute('data-start'));if(!isNaN(s)){
+    var f=function(d){return d.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'')};
+    var e=new Date(s.getTime()+5*3600e3),esc=function(v){return String(v||'').replace(/([,;\\])/g,'\\$1')};
+    var body=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//nVate//Xabar//UZ','BEGIN:VEVENT','UID:'+f(s)+'@nvate.uz','DTSTAMP:'+f(new Date()),'DTSTART:'+f(s),'DTEND:'+f(e),
+      'SUMMARY:'+esc(ics.getAttribute('data-title')),'LOCATION:'+esc(ics.getAttribute('data-place')),'END:VEVENT','END:VCALENDAR'].join('\r\n');
+    ics.href='data:text/calendar;charset=utf-8,'+encodeURIComponent(body)}}
+
+  // Голосовое = музыка приглашения: кнопка пузыря управляет общим плеером.
+  var voice=document.querySelector('[data-voice]');
+  if(voice){var wave=voice.querySelector('.xb-wave'),hs=[30,55,80,45,70,95,60,35,75,50,85,40,65,90,55,30,70,45,80,60,35,50,75,40];
+    wave.innerHTML=hs.map(function(h,k){return '<i style="--h:'+h+';--k:'+k+'"></i>'}).join('');
+    var mb=document.getElementById('mbtn');
+    voice.querySelector('.xb-play').addEventListener('click',function(){if(mb)mb.click()});
+    if(mb&&'MutationObserver' in window)new MutationObserver(function(){voice.classList.toggle('on',mb.classList.contains('on'))}).observe(mb,{attributes:true,attributeFilter:['class']});
+  }
+
+  // Сообщения приходят по одному: «печатает…», затем пузырь. Дальше ленты не
+  // забегаем: следующее сообщение ждёт, пока гость до него долистает.
+  var msgs=[].slice.call(document.querySelectorAll('.xb-msg[data-in]')),status=document.querySelector('[data-status]');
+  var i=0,busy=false,started=false,calm=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches&&!/[?&]__motion_test/.test(location.search);
+  function showAll(){msgs.forEach(function(m){m.classList.add('shown')});i=msgs.length}
+  function setStatus(t){if(status)status.textContent=status.getAttribute(t?'data-typing':'data-online')}
+  function next(){
+    if(busy||i>=msgs.length)return;
+    var m=msgs[i],r=m.getBoundingClientRect();
+    if(r.top>innerHeight-60&&i>2)return;
+    busy=true;var behind=r.bottom<0,len=(m.textContent||'').length;
+    var wait=behind?120:Math.min(1500,520+len*14);
+    m.classList.add('typing');setStatus(true);
+    setTimeout(function(){m.classList.remove('typing');m.classList.add('shown');setStatus(false);i++;busy=false;setTimeout(next,behind?40:260)},wait);
+  }
+  function start(e){if(started)return;started=true;if(calm||(e&&e.detail&&e.detail.card)){showAll();return}setTimeout(next,350)}
+  document.addEventListener('nv:ready',start);
+  if(!document.querySelector('[data-envelope-scene]'))start();
+  var tick=false;addEventListener('scroll',function(){if(!tick){tick=true;requestAnimationFrame(function(){tick=false;if(started)next()})}},{passive:true});
+
+  // Быстрые ответы остаются на экране гостя: это не RSVP и никуда не уходит.
+  var replies=document.querySelector('[data-replies]'),answer=document.querySelector('[data-answer]');
+  if(replies)replies.addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;
+    [].forEach.call(replies.querySelectorAll('button'),function(x){x.disabled=true});
+    var out=document.createElement('div');out.className='xb-msg xb-msg--out';
+    out.innerHTML='<div class="xb-bubble"></div>';out.firstChild.textContent=b.getAttribute('data-reply');
+    var t=document.createElement('time');t.textContent=hh;out.firstChild.appendChild(t);
+    replies.parentNode.insertBefore(out,replies);requestAnimationFrame(function(){out.classList.add('shown')});
+    if(answer){setTimeout(function(){answer.hidden=false;answer.classList.add('typing');setStatus(true);
+      setTimeout(function(){answer.classList.remove('typing');answer.classList.add('shown');setStatus(false)},1100)},700)}
+  });
+})();
+</script>
+
+{{{audioWidget}}}
+{{{experienceScript}}}
+{{{countdown}}}
+</body>
+</html>

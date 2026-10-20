@@ -1,0 +1,18 @@
+{
+  "name": "Moviy",
+  "event": "wedding",
+  "price": 219000,
+  "minPhotos": 2,
+  "colors": [
+    "#1E3F8A",
+    "#FBFAF6",
+    "#2AA5B5",
+    "#C9A24E"
+  ],
+  "order": 11,
+  "listed": true,
+  "strings": {
+    "uz": { "openHint": "Koshinlarni ochish uchun bosing" },
+    "ru": { "openHint": "Коснитесь — изразцы раскроются" }
+  }
+}

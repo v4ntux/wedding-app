@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#d6246e">
+<title>{{groom}} &amp; {{bride}} · {{L.sub}}</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600&family=Yeseva+One&display=swap" rel="stylesheet">
+{{{experienceCSS}}}
+{{{coreCSS}}}
+<style>
+/* Ipak — узбекский икат (адрас): узор, окрашенный по нитям основы, поэтому
+   у ромбов и крюков «рваные», чуть растёкшиеся края. Здесь их даёт фильтр
+   смещения внутри самого узора — рисуется один раз, как картинка. Открытие:
+   занавес из шёлковых лент, ленты разворачиваются ребром от центра. Дальше —
+   смелые цветовые блоки: маджента, шафран, изумруд, индиго. */
+:root{
+  --paper:#fff8ee; --paper-2:#f6ecdc; --paper-3:#eadcc5;
+  --ink:#1f1633; --muted:#6a5f78;
+  --accent:#d6246e; --accent-2:#138a5e;
+  --line:rgba(31,22,51,.18); --line-soft:rgba(31,22,51,.08);
+  --gold:#f2a516; --gold-hi:#ffe3a6; --gold-lo:#b07408; --gold-rgb:242,165,22;
+  --mag:#d6246e; --saf:#f2a516; --emr:#138a5e; --ind:#2a3a8f;
+  --display:'Yeseva One',Georgia,serif;
+  --sans:'Rubik',ui-sans-serif,system-ui,sans-serif;
+  --script:'Yeseva One',Georgia,serif;
+  --ikat:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='160' viewBox='0 0 120 160'%3E %3Cdefs%3E%3Cfilter id='f' x='-10%25' y='-10%25' width='120%25' height='120%25'%3E %3CfeTurbulence type='fractalNoise' baseFrequency='.012 .55' numOctaves='2' seed='7'/%3E %3CfeDisplacementMap in='SourceGraphic' scale='10' xChannelSelector='R' yChannelSelector='A'/%3E%3C/filter%3E%3C/defs%3E %3Crect width='120' height='160' fill='%23fff8ee'/%3E %3Cg filter='url(%23f)'%3E %3Cpolygon points='60,6 104,80 60,154 16,80' fill='%23d6246e'/%3E %3Cpolygon points='60,34 86,80 60,126 34,80' fill='%23f2a516'/%3E %3Cpolygon points='60,58 73,80 60,102 47,80' fill='%232a3a8f'/%3E %3Cpolygon points='0,36 22,80 0,124' fill='%23138a5e'/%3E %3Cpolygon points='120,36 98,80 120,124' fill='%23138a5e'/%3E %3Cpolygon points='0,-30 14,0 0,30' fill='%232a3a8f'/%3E%3Cpolygon points='120,-30 106,0 120,30' fill='%232a3a8f'/%3E %3Cpolygon points='0,130 14,160 0,190' fill='%232a3a8f'/%3E%3Cpolygon points='120,130 106,160 120,190' fill='%232a3a8f'/%3E %3Crect x='57' y='0' width='6' height='6' fill='%23138a5e'/%3E%3Crect x='57' y='154' width='6' height='6' fill='%23138a5e'/%3E %3C/g%3E%3C/svg%3E");
+  --band:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='40' viewBox='0 0 60 40'%3E %3Cdefs%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.02 .7' numOctaves='2' seed='3'/%3E %3CfeDisplacementMap in='SourceGraphic' scale='6' xChannelSelector='R' yChannelSelector='A'/%3E%3C/filter%3E%3C/defs%3E %3Crect width='60' height='40' fill='%232a3a8f'/%3E %3Cg filter='url(%23f)'%3E%3Cpolygon points='30,2 52,20 30,38 8,20' fill='%23f2a516'/%3E%3Cpolygon points='30,11 41,20 30,29 19,20' fill='%23d6246e'/%3E %3Cpolygon points='0,8 8,20 0,32' fill='%23fff8ee'/%3E%3Cpolygon points='60,8 52,20 60,32' fill='%23fff8ee'/%3E%3C/g%3E%3C/svg%3E");
+}
+html{background:var(--paper)}
+body{background:var(--paper);color:var(--ink)}
+.inv{position:relative;z-index:1;overflow:clip}
+.made{background:var(--ind);color:#d9dcf3;--paper:#2a3a8f;--ink:#fff8ee}
+
+/* ══ Сцена открытия: ленты шёлка ════════════════════════════════════ */
+.ip-scene{position:fixed;inset:0;z-index:9000;display:flex;overflow:hidden;perspective:1200px;background:#1f1633;touch-action:none}
+.ip-scene[hidden]{display:none}
+.ip-strip{position:relative;flex:1 0 0;height:100%;transform-style:preserve-3d;transform-origin:50% 50%;
+  background:var(--ikat);background-size:calc(100vw / 2.2) auto;background-position:calc(var(--k) * -10vw) 0;
+  animation:ipWave 3.6s ease-in-out calc(var(--k) * -.35s) infinite alternate;box-shadow:inset -1px 0 0 rgba(0,0,0,.12)}
+.ip-strip:after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.18),rgba(255,255,255,.12) 45%,rgba(0,0,0,.14))}
+@keyframes ipWave{from{transform:rotateY(-7deg) translateZ(0)}to{transform:rotateY(7deg) translateZ(6px)}}
+.ip-medal{position:absolute;left:50%;top:44%;z-index:3;display:grid;place-items:center;align-content:center;gap:6px;width:min(58vw,250px);aspect-ratio:1;
+  margin:calc(min(58vw,250px) / -2) 0 0 calc(min(58vw,250px) / -2);border-radius:50%;background:var(--paper);color:var(--ink);text-align:center;
+  box-shadow:0 0 0 10px var(--emr),0 0 0 14px var(--paper),0 0 0 22px var(--mag),0 30px 60px rgba(0,0,0,.4)}
+.ip-medal small{color:var(--mag);font:600 .6rem/1 var(--sans);letter-spacing:.3em;text-transform:uppercase}
+.ip-medal b{font:400 clamp(2.6rem,13vw,3.8rem)/1 var(--display);color:var(--ind)}
+.ip-medal span{color:var(--muted);font:500 .74rem/1 var(--sans);letter-spacing:.12em}
+.ip-trigger{position:absolute;inset:0;z-index:4;display:grid;align-content:end;justify-items:center;padding:0 20px max(28px,env(safe-area-inset-bottom));
+  border:0;background:transparent;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.ip-trigger:focus-visible{outline:3px solid var(--saf);outline-offset:-12px}
+.ip-trigger span{padding:14px 22px;border-radius:999px;background:var(--paper);color:var(--ind);font:600 .78rem/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;
+  box-shadow:0 0 0 3px var(--saf),0 14px 30px rgba(0,0,0,.35)}
+.ip-scene.is-running .ip-trigger span{opacity:0;transition:opacity .3s}
+.ip-scene.is-running .ip-medal{animation:ipMedal .6s cubic-bezier(.5,0,.75,0) forwards}
+@keyframes ipMedal{to{transform:scale(0) rotate(-40deg);opacity:0}}
+.ip-scene.is-running .ip-strip{animation:ipTurn .9s cubic-bezier(.6,0,.3,1) forwards;animation-delay:calc(.35s + var(--d) * .07s)}
+@keyframes ipTurn{to{transform:rotateY(90deg) scaleX(.6)}}
+.ip-scene.is-running{background:transparent;transition:background .3s .4s}
+.ip-scene.is-leaving{animation:ipOut .5s ease forwards}
+@keyframes ipOut{to{opacity:0}}
+
+/* ══ Титул: икат во весь экран и медальон ═══════════════════════════ */
+.ip-hero{position:relative;display:grid;place-items:center;min-height:100svh;padding:60px 20px;overflow:hidden;
+  background:var(--ikat);background-size:clamp(150px,40vw,260px) auto;background-position:50% calc(var(--p,0) * 120px)}
+.ip-hero:after{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 46%,transparent 30%,rgba(31,22,51,.35))}
+.ip-medallion{position:relative;z-index:2;display:grid;place-items:center;align-content:center;gap:10px;width:min(84vw,430px);aspect-ratio:1;padding:12%;
+  border-radius:50%;background:var(--paper);text-align:center;
+  box-shadow:0 0 0 12px var(--emr),0 0 0 17px var(--paper),0 0 0 26px var(--mag),0 0 0 30px var(--paper),0 40px 80px rgba(31,22,51,.45)}
+.ip-medallion small{color:var(--mag);font:600 .62rem/1 var(--sans);letter-spacing:.34em;text-transform:uppercase}
+.ip-names{color:var(--ind);font:400 clamp(2.1rem,10.4vw,3.8rem)/1 var(--display);text-wrap:balance}
+.ip-names i{display:block;margin:.08em 0;color:var(--mag);font:400 .55em/1 var(--display);font-style:normal}
+.ip-ribbon{position:relative;display:inline-block;margin-top:6px;padding:9px 22px;background:var(--saf);color:var(--ink);font:600 .78rem/1 var(--sans);letter-spacing:.14em;text-transform:uppercase}
+.ip-ribbon:before,.ip-ribbon:after{content:'';position:absolute;top:0;bottom:0;width:14px;background:var(--saf)}
+.ip-ribbon:before{left:-12px;clip-path:polygon(0 0,100% 0,100% 100%,0 100%,55% 50%)}
+.ip-ribbon:after{right:-12px;clip-path:polygon(0 0,100% 0,45% 50%,100% 100%,0 100%)}
+
+/* Пояс-лента между блоками. */
+.ip-band{height:40px;background:var(--band);background-size:60px 40px;background-position:calc(var(--p,0) * -240px) 0}
+
+/* ══ Приглашение: блок маджента ═════════════════════════════════════ */
+.ip-block{position:relative;padding:clamp(70px,16vw,120px) 24px;text-align:center}
+.ip-block--mag{background:var(--mag);color:var(--paper)}
+.ip-block--paper{background:var(--paper)}
+.ip-wrap{width:min(100%,600px);margin:0 auto}
+.ip-over{display:inline-block;margin-bottom:16px;padding:7px 14px;border-radius:999px;background:rgba(255,248,238,.16);font:600 .64rem/1 var(--sans);letter-spacing:.24em;text-transform:uppercase}
+.ip-block--paper .ip-over{background:rgba(214,36,110,.1);color:var(--mag)}
+.ip-h{font:400 clamp(2rem,9vw,3.4rem)/1.08 var(--display);text-wrap:balance}
+.ip-p{max-width:34ch;margin:18px auto 0;font:400 clamp(1rem,3.9vw,1.12rem)/1.7 var(--sans);opacity:.92}
+
+/* Фото — лоскуты ткани со строчкой по краю. */
+.ip-swatches{display:grid;grid-template-columns:1fr 1fr;gap:clamp(14px,4vw,26px);width:min(100%,620px);margin:0 auto}
+.ip-swatch{position:relative;margin:0;padding:12px;background:var(--ikat);background-size:120px auto;
+  transform:rotate(calc(-3deg + var(--k) * 6deg)) translateY(calc((1 - var(--p,1)) * 80px));box-shadow:0 26px 40px -24px rgba(31,22,51,.6)}
+.ip-swatch:before{content:'';position:absolute;inset:5px;border:2px dashed rgba(255,248,238,.9);pointer-events:none}
+.ip-swatch img{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;border:4px solid var(--paper)}
+@media (max-width:480px){.ip-swatches{grid-template-columns:1fr;width:min(80vw,360px)}}
+
+/* Дата: три цветных блока, как полосы ткани. */
+.ip-date{display:grid;grid-template-columns:1fr 1.4fr 1fr;width:min(100%,640px);margin:0 auto;min-height:clamp(170px,44vw,260px)}
+.ip-date>div{display:grid;place-items:center;align-content:center;gap:8px;padding:12px 6px;color:var(--paper);
+  clip-path:inset(calc((1 - var(--a)) * 100%) 0 0 0);--a:clamp(0,calc(var(--p,1) * 2.6 - var(--k) * .35),1)}
+.ip-date>div:nth-child(1){background:var(--saf);color:var(--ink)}
+.ip-date>div:nth-child(2){background:var(--emr)}
+.ip-date>div:nth-child(3){background:var(--ind)}
+.ip-date b{font:400 clamp(2.6rem,13vw,4.6rem)/1 var(--display)}
+.ip-date>div:nth-child(2) b{font-size:clamp(1.5rem,7vw,2.6rem)}
+.ip-date span{font:600 .62rem/1 var(--sans);letter-spacing:.22em;text-transform:uppercase;opacity:.85}
+.ip-when{display:flex;justify-content:center;gap:10px;margin-top:20px;flex-wrap:wrap}
+.ip-when span{padding:11px 18px;border-radius:999px;background:var(--ink);color:var(--paper);font:600 .74rem/1 var(--sans);letter-spacing:.14em;text-transform:uppercase}
+.ip-when span+span{background:var(--mag)}
+
+.ip-cd{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(6px,2vw,12px);width:min(100%,600px);margin:0 auto}
+.ip-cd>div{display:grid;gap:10px;justify-items:center;padding:clamp(18px,5vw,28px) 4px;color:var(--paper)}
+.ip-cd>div:nth-child(1){background:var(--mag)}.ip-cd>div:nth-child(2){background:var(--saf);color:var(--ink)}
+.ip-cd>div:nth-child(3){background:var(--emr)}.ip-cd>div:nth-child(4){background:var(--ind)}
+.ip-cd b{color:inherit;font:400 clamp(1.8rem,9vw,3.2rem)/1.12 var(--display);font-variant-numeric:tabular-nums}
+.ip-cd>div>span{font:600 .54rem/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;opacity:.9}
+
+.ip-venue{width:min(100%,620px);margin:0 auto;padding:12px;background:var(--ikat);background-size:120px auto}
+.ip-venue__in{background:var(--paper);padding:0 0 22px}
+.ip-venue .mapbox:after{display:none}
+.ip-venue .venue-type{margin:0;color:var(--mag);--paper:var(--ink);border:0;background:var(--paper)}
+.ip-addr{margin:20px 18px 6px;color:var(--ink);font:400 clamp(1.4rem,6vw,2.1rem)/1.15 var(--display)}
+.ip-meta{color:var(--muted);font:500 .72rem/1.6 var(--sans);letter-spacing:.12em;text-transform:uppercase}
+.ip-venue .routes{padding:0 18px}
+.ip-venue .routes a{border:0;border-radius:0;background:var(--ind);color:var(--paper);font-weight:600}
+.ip-venue .routes a+a{background:var(--emr)}
+
+.ip-final{position:relative;padding:clamp(80px,18vw,130px) 24px;text-align:center;background:var(--ind);color:var(--paper);overflow:hidden}
+.ip-final:before,.ip-final:after{content:'';position:absolute;left:0;right:0;height:22px;background:var(--band);background-size:44px 22px}
+.ip-final:before{top:0}.ip-final:after{bottom:0}
+.ip-final .ip-h{color:var(--paper)}
+.ip-sign{margin-top:16px;color:var(--saf);font:600 .76rem/1.6 var(--sans);letter-spacing:.18em;text-transform:uppercase}
+
+#mbtn{border-color:var(--ind);background:var(--paper);color:var(--mag)}
+#mbtn.on{background:var(--mag);border-color:var(--mag);color:#fff}
+
+@media (prefers-reduced-motion:reduce){
+  .ip-strip{animation:none}
+  .ip-date>div{clip-path:none}
+  .ip-swatch{transform:rotate(calc(-3deg + var(--k) * 6deg))}
+}
+</style>
+</head>
+<body>
+<div class="ip-scene" data-envelope-scene data-leave="1500" data-done="2000" data-music="900">
+  <i class="ip-strip" style="--k:0;--d:4"></i><i class="ip-strip" style="--k:1;--d:3"></i><i class="ip-strip" style="--k:2;--d:2"></i>
+  <i class="ip-strip" style="--k:3;--d:1"></i><i class="ip-strip" style="--k:4;--d:0"></i><i class="ip-strip" style="--k:5;--d:0"></i>
+  <i class="ip-strip" style="--k:6;--d:1"></i><i class="ip-strip" style="--k:7;--d:2"></i><i class="ip-strip" style="--k:8;--d:3"></i>
+  <i class="ip-strip" style="--k:9;--d:4"></i>
+  <div class="ip-medal" aria-hidden="true"><small>{{L.sub}}</small><b>{{groomInitial}}&amp;{{brideInitial}}</b><span>{{dateIso}}</span></div>
+  <button type="button" class="ip-trigger" data-envelope-trigger aria-label="{{L.openHint}}"><span>{{L.openHint}}</span></button>
+</div>
+
+<main class="inv ip">
+  <section class="ip-hero" data-scrub="view">
+    <div class="ip-medallion fx">
+      <small>{{L.sub}}</small>
+      <h1 class="ip-names">{{groom}}<i>&amp;</i>{{bride}}</h1>
+      <span class="ip-ribbon">{{dateText}}</span>
+    </div>
+  </section>
+
+  <div class="ip-band" data-scrub="view" aria-hidden="true"></div>
+
+  <section class="ip-block ip-block--mag">
+    <div class="ip-wrap">
+      {{#if guestName}}
+        <span class="ip-over fx">{{L.greet}}</span>
+        <h2 class="ip-h fx">{{guestName}}</h2>
+        <p class="ip-p fx">{{L.greetTail}}</p>
+      {{else}}
+        <span class="ip-over fx">{{groom}} &amp; {{bride}}</span>
+        <h2 class="ip-h fx">{{L.invite}}</h2>
+      {{/if}}
+      <p class="ip-p words">{{L.emo}}</p>
+    </div>
+  </section>
+
+  <div class="ip-band" data-scrub="view" aria-hidden="true"></div>
+
+  {{#if photos.0}}
+  <section class="ip-block ip-block--paper">
+    <span class="ip-over fx">{{L.gallery}}</span>
+    <div class="ip-swatches">
+      <figure class="ip-swatch" data-scrub="enter" style="--k:0"><img src="{{photos.0}}" alt="{{groom}} &amp; {{bride}}" loading="lazy"></figure>
+      {{#if photos.1}}<figure class="ip-swatch" data-scrub="enter" style="--k:1"><img src="{{photos.1}}" alt="{{groom}} &amp; {{bride}}" loading="lazy"></figure>{{/if}}
+    </div>
+  </section>
+  {{/if}}
+
+  <section class="ip-block ip-block--paper" style="padding-top:0">
+    <span class="ip-over fx">{{L.when}}</span>
+    <div class="ip-date" data-scrub="enter">
+      <div style="--k:0"><b>{{day}}</b><span>{{L.days}}</span></div>
+      <div style="--k:1"><b>{{monthName}}</b><span>{{weekday}}</span></div>
+      <div style="--k:2"><b>{{year}}</b><span>{{time}}</span></div>
+    </div>
+    <div class="ip-when fx"><span>{{weekday}}</span><span>{{time}}</span></div>
+  </section>
+
+  <section class="ip-block ip-block--paper" style="padding-top:0">
+    <span class="ip-over fx">{{L.until}}</span>
+    <div class="ip-cd cd fx">
+      <div><b id="cd">00</b><span>{{L.days}}</span></div>
+      <div><b id="ch">00</b><span>{{L.hours}}</span></div>
+      <div><b id="cm">00</b><span>{{L.min}}</span></div>
+      <div><b id="cs">00</b><span>{{L.sec}}</span></div>
+    </div>
+  </section>
+
+  <section class="ip-block ip-block--paper" style="padding-top:0">
+    <span class="ip-over fx">{{L.where}}</span>
+    <div class="ip-venue fx">
+      <div class="ip-venue__in">
+        <div class="venue__map">{{{map}}}</div>
+        <p class="ip-addr">{{address}}</p>
+        {{#if venueLine}}<p class="ip-meta">{{venueLine}}</p>{{/if}}
+        {{#if gmaps}}
+        <div class="routes">
+          <a href="{{gmaps}}" target="_blank" rel="noopener"><span>{{L.gmaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+          <a href="{{ymaps}}" target="_blank" rel="noopener"><span>{{L.ymaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+        </div>
+        {{/if}}
+      </div>
+    </div>
+  </section>
+
+  <section class="ip-final">
+    <div class="ip-wrap">
+      <p class="ip-h fx">{{L.final}}</p>
+      <p class="ip-sign fx">{{L.sign}} {{groom}} {{L.and}} {{bride}}</p>
+    </div>
+  </section>
+
+  {{{made}}}
+</main>
+
+{{{audioWidget}}}
+{{{experienceScript}}}
+{{{countdown}}}
+</body>
+</html>

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1e3f8a">
+<title>{{groom}} &amp; {{bride}} · {{L.sub}}</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Commissioner:wght@400;500;600&family=Prata&display=swap" rel="stylesheet">
+{{{experienceCSS}}}
+{{{coreCSS}}}
+<style>
+/* Moviy — самаркандский изразец. Открытие: экран выложен плиткой, касание —
+   плитки переворачиваются волной от центральной звезды и открывают белый
+   фарфор страницы. Дальше всё рисуется линией: портал над именами, гирих-
+   розетка вокруг даты прочерчивается по ходу прокрутки, фото — в восьми-
+   конечных звёздах, в финале встаёт силуэт Регистана. Кобальт, бирюза,
+   фарфоровый белый и немного золота. */
+:root{
+  --paper:#fbfaf6; --paper-2:#f2f0e8; --paper-3:#e6e2d6;
+  --ink:#142a5e; --muted:#5e6b8c;
+  --accent:#1e3f8a; --accent-2:#2aa5b5;
+  --line:rgba(30,63,138,.2); --line-soft:rgba(30,63,138,.1);
+  --gold:#c9a24e; --gold-hi:#f3dfa8; --gold-lo:#8d6c25; --gold-rgb:201,162,78;
+  --cob:#1e3f8a; --tur:#2aa5b5;
+  --display:'Prata',Georgia,serif;
+  --sans:'Commissioner',ui-sans-serif,system-ui,sans-serif;
+  --script:'Prata',Georgia,serif;
+  --tileA:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E %3Crect width='100' height='100' fill='%231e3f8a'/%3E %3Cpolygon points='50.0,6.0 62.2,20.4 81.1,18.9 79.6,37.8 94.0,50.0 79.6,62.2 81.1,81.1 62.2,79.6 50.0,94.0 37.8,79.6 18.9,81.1 20.4,62.2 6.0,50.0 20.4,37.8 18.9,18.9 37.8,20.4' fill='%23fbfaf6'/%3E %3Cpolygon points='50.0,20.0 58.4,29.7 71.2,28.8 70.3,41.6 80.0,50.0 70.3,58.4 71.2,71.2 58.4,70.3 50.0,80.0 41.6,70.3 28.8,71.2 29.7,58.4 20.0,50.0 29.7,41.6 28.8,28.8 41.6,29.7' fill='%232aa5b5'/%3E %3Cpolygon points='50.0,32.0 54.6,38.9 62.7,37.3 61.1,45.4 68.0,50.0 61.1,54.6 62.7,62.7 54.6,61.1 50.0,68.0 45.4,61.1 37.3,62.7 38.9,54.6 32.0,50.0 38.9,45.4 37.3,37.3 45.4,38.9' fill='%231e3f8a'/%3E %3Ccircle cx='50' cy='50' r='5' fill='%23c9a24e'/%3E %3Cpath d='M0 0 L14 0 L0 14 Z M100 0 L86 0 L100 14 Z M0 100 L14 100 L0 86 Z M100 100 L86 100 L100 86 Z' fill='%232aa5b5'/%3E %3Cg fill='none' stroke='%23fbfaf6' stroke-width='1' stroke-opacity='.5'%3E%3Crect x='3' y='3' width='94' height='94'/%3E%3C/g%3E %3C/svg%3E");
+  --tileB:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E %3Crect width='100' height='100' fill='%23fbfaf6'/%3E %3Cpolygon points='50.0,6.0 62.2,20.4 81.1,18.9 79.6,37.8 94.0,50.0 79.6,62.2 81.1,81.1 62.2,79.6 50.0,94.0 37.8,79.6 18.9,81.1 20.4,62.2 6.0,50.0 20.4,37.8 18.9,18.9 37.8,20.4' fill='%231e3f8a'/%3E %3Cpolygon points='50.0,20.0 58.4,29.7 71.2,28.8 70.3,41.6 80.0,50.0 70.3,58.4 71.2,71.2 58.4,70.3 50.0,80.0 41.6,70.3 28.8,71.2 29.7,58.4 20.0,50.0 29.7,41.6 28.8,28.8 41.6,29.7' fill='%23fbfaf6'/%3E %3Cpolygon points='50.0,32.0 54.6,38.9 62.7,37.3 61.1,45.4 68.0,50.0 61.1,54.6 62.7,62.7 54.6,61.1 50.0,68.0 45.4,61.1 37.3,62.7 38.9,54.6 32.0,50.0 38.9,45.4 37.3,37.3 45.4,38.9' fill='%232aa5b5'/%3E %3Ccircle cx='50' cy='50' r='5' fill='%23c9a24e'/%3E %3Cpath d='M0 0 L14 0 L0 14 Z M100 0 L86 0 L100 14 Z M0 100 L14 100 L0 86 Z M100 100 L86 100 L100 86 Z' fill='%231e3f8a'/%3E %3C/svg%3E");
+  --band:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='20' viewBox='0 0 40 20'%3E %3Crect width='40' height='20' fill='%231e3f8a'/%3E%3Cpolygon points='20.0,1.0 22.3,4.5 26.4,3.6 25.5,7.7 29.0,10.0 25.5,12.3 26.4,16.4 22.3,15.5 20.0,19.0 17.7,15.5 13.6,16.4 14.5,12.3 11.0,10.0 14.5,7.7 13.6,3.6 17.7,4.5' fill='%23fbfaf6'/%3E%3Ccircle cx='20' cy='10' r='2.4' fill='%232aa5b5'/%3E %3Cpath d='M0 4 L4 10 L0 16 M40 4 L36 10 L40 16' fill='%232aa5b5'/%3E%3C/svg%3E");
+}
+html{background:var(--paper)}
+body{background:var(--paper);color:var(--ink)}
+.inv{position:relative;z-index:1;overflow:clip}
+.made{background:var(--cob);color:#cfd8f0;--paper:#1e3f8a;--ink:#fbfaf6}
+
+/* ══ Сцена открытия: изразцовая стена ═══════════════════════════════ */
+.mv-scene{position:fixed;inset:0;z-index:9000;overflow:hidden;background:var(--paper);perspective:900px;touch-action:none}
+.mv-scene[hidden]{display:none}
+.mv-wall{position:absolute;inset:0;display:grid;grid-template-columns:repeat(var(--c),1fr);grid-auto-rows:calc(100vw / var(--c));transform-style:preserve-3d}
+.mv-tile{position:relative;transform-style:preserve-3d}
+.mv-tile i,.mv-tile b{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.mv-tile i{background:var(--tileA) center/100% 100%}
+.mv-tile:nth-child(odd) i{background-image:var(--tileB)}
+.mv-tile b{background:var(--paper);transform:rotateY(180deg)}
+.mv-medal{position:absolute;left:50%;top:46%;z-index:3;display:grid;place-items:center;align-content:center;gap:6px;width:min(56vw,250px);aspect-ratio:1;
+  transform:translate(-50%,-50%);color:var(--paper);text-align:center;
+  background:var(--cob);clip-path:polygon(50% 0,61% 23%,85% 15%,77% 39%,100% 50%,77% 61%,85% 85%,61% 77%,50% 100%,39% 77%,15% 85%,23% 61%,0 50%,23% 39%,15% 15%,39% 23%)}
+.mv-medal small{color:#bfe9ee;font:600 .58rem/1 var(--sans);letter-spacing:.3em;text-transform:uppercase}
+.mv-medal b{font:400 clamp(2.1rem,11vw,3.2rem)/1 var(--display)}
+.mv-medal:before{content:'';position:absolute;inset:7%;z-index:-1;border:1px solid rgba(201,162,78,.8);clip-path:inherit}
+.mv-trigger{position:absolute;inset:0;z-index:4;display:grid;align-content:end;justify-items:center;padding:0 20px max(28px,env(safe-area-inset-bottom));
+  border:0;background:transparent;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.mv-trigger:focus-visible{outline:3px solid var(--gold);outline-offset:-12px}
+.mv-trigger span{padding:13px 22px;background:var(--paper);color:var(--cob);font:600 .76rem/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;box-shadow:0 0 0 2px var(--gold),0 14px 30px rgba(10,20,50,.35)}
+.mv-scene.is-running .mv-trigger span{opacity:0;transition:opacity .3s}
+.mv-scene.is-running .mv-medal{animation:mvMedal .7s cubic-bezier(.6,0,.4,1) forwards}
+@keyframes mvMedal{to{transform:translate(-50%,-50%) rotate(45deg) scale(0)}}
+.mv-scene.is-running .mv-tile{animation:mvFlip .8s cubic-bezier(.5,0,.3,1) forwards;animation-delay:calc(.25s + var(--d) * 1ms)}
+@keyframes mvFlip{to{transform:rotateY(180deg)}}
+.mv-scene.is-leaving{animation:mvOut .5s ease forwards}
+@keyframes mvOut{to{opacity:0}}
+
+/* ══ Титул: портал прорисовывается ══════════════════════════════════ */
+.mv-hero{position:relative;display:grid;justify-items:center;align-content:center;min-height:100svh;padding:50px 20px 40px;text-align:center}
+.mv-portalwrap{position:relative;width:min(84vw,420px);aspect-ratio:300/380}
+.mv-portal{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.mv-arch{stroke-dasharray:1;stroke-dashoffset:1}
+.mv-lat{stroke-dasharray:1;stroke-dashoffset:1}
+.on .mv-arch{stroke-dashoffset:0;transition:stroke-dashoffset 2.2s cubic-bezier(.6,0,.2,1) var(--dl,0s)}
+.on .mv-lat{stroke-dashoffset:0;transition:stroke-dashoffset 4s ease .5s}
+.mv-hero__in{position:absolute;left:12%;right:12%;top:30%;bottom:8%;display:grid;align-content:center;justify-items:center;gap:10px;
+  background:radial-gradient(closest-side,rgba(251,250,246,.96) 55%,rgba(251,250,246,0))}
+.mv-portalwrap:after{content:'';position:absolute;left:-5%;right:-5%;bottom:-2px;height:4px;background:var(--cob);box-shadow:0 6px 0 -2px var(--tur)}
+.mv-hero__in small{color:var(--tur);font:600 .6rem/1 var(--sans);letter-spacing:.34em;text-transform:uppercase}
+.mv-names{color:var(--cob);font:400 clamp(2.1rem,10.4vw,3.8rem)/1.05 var(--display);text-wrap:balance}
+.mv-names i{display:block;color:var(--gold);font:400 .5em/1.4 var(--display);font-style:normal}
+.mv-hero__date{padding:8px 14px;background:var(--cob);color:var(--paper);font:500 .74rem/1 var(--sans);letter-spacing:.14em;text-transform:uppercase}
+.mv-band{height:20px;background:var(--band);background-size:40px 20px}
+
+.mv-sec{position:relative;padding:clamp(70px,16vw,130px) 22px;text-align:center}
+.mv-wrap{width:min(100%,600px);margin:0 auto}
+.mv-over{display:inline-flex;align-items:center;gap:10px;margin-bottom:16px;color:var(--tur);font:600 .62rem/1 var(--sans);letter-spacing:.3em;text-transform:uppercase}
+.mv-over:before,.mv-over:after{content:'';width:8px;height:8px;background:var(--cob);transform:rotate(45deg)}
+.mv-h{color:var(--cob);font:400 clamp(1.9rem,8.4vw,3rem)/1.15 var(--display);text-wrap:balance}
+.mv-p{max-width:34ch;margin:16px auto 0;color:var(--muted);font:400 clamp(1rem,3.9vw,1.1rem)/1.75 var(--sans)}
+.mv-panel{padding:clamp(28px,7vw,46px) clamp(18px,5vw,36px);background:var(--paper);box-shadow:0 0 0 10px var(--paper),0 0 0 22px transparent;
+  border:12px solid transparent;border-image:var(--band) 10 round}
+
+/* Фото в восьмиконечных звёздах. */
+.mv-stars{display:grid;grid-template-columns:1fr 1fr;gap:clamp(10px,3vw,20px);width:min(100%,600px);margin:0 auto}
+.mv-star{position:relative;margin:0;aspect-ratio:1;background:var(--cob);
+  clip-path:polygon(50% 0,64.6% 14.6%,85.4% 14.6%,85.4% 35.4%,100% 50%,85.4% 64.6%,85.4% 85.4%,64.6% 85.4%,50% 100%,35.4% 85.4%,14.6% 85.4%,14.6% 64.6%,0 50%,14.6% 35.4%,14.6% 14.6%,35.4% 14.6%);
+  transform:rotate(calc((1 - var(--p,1)) * -45deg)) scale(calc(.7 + var(--p,1) * .3));opacity:calc(.3 + var(--p,1) * .7)}
+.mv-star img{position:absolute;inset:4%;width:92%;height:92%;object-fit:cover;
+  clip-path:polygon(50% 0,64.6% 14.6%,85.4% 14.6%,85.4% 35.4%,100% 50%,85.4% 64.6%,85.4% 85.4%,64.6% 85.4%,50% 100%,35.4% 85.4%,14.6% 85.4%,14.6% 64.6%,0 50%,14.6% 35.4%,14.6% 14.6%,35.4% 14.6%)}
+.mv-star:nth-child(2){margin-top:clamp(40px,14vw,90px);background:var(--tur)}
+@media (max-width:480px){.mv-stars{grid-template-columns:1fr;width:min(82vw,360px)}.mv-star:nth-child(2){margin-top:0}}
+
+/* Дата в розетке: линии дочерчиваются, пока секция въезжает. */
+.mv-datewrap{position:relative;width:min(90vw,440px);aspect-ratio:1;margin:0 auto;display:grid;place-items:center}
+.mv-rosette{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.mv-d{stroke-dasharray:1;stroke-dashoffset:calc(1 - clamp(0,calc((var(--p,1) - var(--s)) * 2.2),1))}
+.mv-date{position:relative;display:grid;justify-items:center;gap:4px}
+.mv-date span{color:var(--tur);font:600 .62rem/1 var(--sans);letter-spacing:.3em;text-transform:uppercase}
+.mv-date b{color:var(--cob);font:400 clamp(3.6rem,18vw,5.6rem)/.9 var(--display)}
+.mv-date em{color:var(--ink);font:400 1.1rem/1 var(--display);font-style:normal}
+.mv-when{display:flex;justify-content:center;gap:8px;margin-top:18px}
+.mv-when span{padding:10px 16px;border:1px solid var(--line);color:var(--cob);font:600 .72rem/1 var(--sans);letter-spacing:.14em;text-transform:uppercase}
+
+.mv-cd{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(6px,2vw,12px);width:min(100%,560px);margin:0 auto}
+.mv-cd>div{display:grid;gap:8px;justify-items:center;padding:clamp(16px,5vw,24px) 4px;background:var(--paper);
+  box-shadow:inset 0 0 0 2px var(--cob),inset 0 0 0 5px var(--paper),inset 0 0 0 6px var(--tur)}
+.mv-cd b{color:var(--cob);font:400 clamp(1.7rem,8vw,2.8rem)/1.12 var(--display);font-variant-numeric:tabular-nums}
+.mv-cd>div>span{color:var(--muted);font:600 .54rem/1 var(--sans);letter-spacing:.16em;text-transform:uppercase}
+
+.mv-venue{width:min(100%,600px);margin:0 auto;padding:10px;background:var(--band);background-size:28px 14px}
+.mv-venue__in{background:var(--paper);padding-bottom:20px}
+.mv-venue .mapbox:after{display:none}
+.mv-venue .venue-type{margin:0;color:var(--cob);--paper:var(--ink);border:0;background:var(--paper)}
+.mv-addr{margin:20px 16px 6px;color:var(--cob);font:400 clamp(1.3rem,5.8vw,1.9rem)/1.2 var(--display)}
+.mv-meta{color:var(--muted);font:500 .72rem/1.6 var(--sans);letter-spacing:.12em;text-transform:uppercase}
+.mv-venue .routes{padding:0 16px}
+.mv-venue .routes a{border-radius:0;border-color:var(--cob);background:var(--paper);color:var(--cob);font-weight:600}
+.mv-venue .routes a:hover{background:var(--cob);color:var(--paper)}
+
+.mv-final{position:relative;padding:clamp(70px,16vw,120px) 22px 0;text-align:center}
+.mv-final .mv-h{max-width:18ch;margin:0 auto}
+.mv-sign{margin-top:14px;color:var(--gold);font:600 .74rem/1.6 var(--sans);letter-spacing:.2em;text-transform:uppercase}
+.mv-registan{display:block;width:min(100%,760px);height:auto;margin:clamp(30px,8vw,60px) auto 0;transform:translateY(calc((1 - var(--p,1)) * 60px));opacity:calc(.2 + var(--p,1) * .8)}
+
+#mbtn{border-radius:0;border-color:var(--cob);background:var(--paper);color:var(--cob)}
+#mbtn.on{background:var(--cob);color:var(--paper)}
+
+@media (prefers-reduced-motion:reduce){
+  .mv-arch,.mv-lat,.mv-d{stroke-dashoffset:0!important;transition:none}
+  .mv-star,.mv-registan{transform:none;opacity:1}
+}
+</style>
+</head>
+<body>
+<div class="mv-scene" data-envelope-scene data-leave="1750" data-done="2250" data-music="900" data-sfx="0">
+  <div class="mv-wall" aria-hidden="true"></div>
+  <div class="mv-medal" aria-hidden="true"><small>{{L.sub}}</small><b>{{groomInitial}}&amp;{{brideInitial}}</b></div>
+  <button type="button" class="mv-trigger" data-envelope-trigger aria-label="{{L.openHint}}"><span>{{L.openHint}}</span></button>
+</div>
+<script>
+// Стена изразцов под размер экрана; задержка переворота — по расстоянию от центра.
+(function(){
+  var wall=document.querySelector('.mv-wall');if(!wall)return;
+  var c=innerWidth<640?6:innerWidth<1100?9:12,size=innerWidth/c,rows=Math.ceil(innerHeight/size)+1;
+  wall.style.setProperty('--c',c);
+  var cx=(c-1)/2,cy=(rows-1)/2*.92,html='';
+  for(var r=0;r<rows;r++)for(var k=0;k<c;k++){var d=Math.round(Math.hypot(k-cx,(r-cy))*95);html+='<span class="mv-tile" style="--d:'+d+'"><i></i><b></b></span>'}
+  wall.innerHTML=html;
+})();
+</script>
+
+<main class="inv mv">
+  <section class="mv-hero">
+    <div class="mv-portalwrap" data-portal>
+      <svg class="mv-portal" viewBox="0 0 300 380" aria-hidden="true">
+<defs><clipPath id="mvArchClip"><path d="M44 380 V156 C44 96 104 54 150 34 C196 54 256 96 256 156 V380 Z"/></clipPath></defs>
+<path d="M20 380 V150 C20 80 90 30 150 6 C210 30 280 80 280 150 V380 Z" fill="#fbfaf6"/>
+<g clip-path="url(#mvArchClip)"><path class="mv-lat" pathLength="1" d="M20.6 30.6 L-0.6 30.6 L-0.6 9.4 L20.6 9.4 Z M25.0 20.0 L10.0 35.0 L-5.0 20.0 L10.0 5.0 Z M60.6 30.6 L39.4 30.6 L39.4 9.4 L60.6 9.4 Z M65.0 20.0 L50.0 35.0 L35.0 20.0 L50.0 5.0 Z M100.6 30.6 L79.4 30.6 L79.4 9.4 L100.6 9.4 Z M105.0 20.0 L90.0 35.0 L75.0 20.0 L90.0 5.0 Z M140.6 30.6 L119.4 30.6 L119.4 9.4 L140.6 9.4 Z M145.0 20.0 L130.0 35.0 L115.0 20.0 L130.0 5.0 Z M180.6 30.6 L159.4 30.6 L159.4 9.4 L180.6 9.4 Z M185.0 20.0 L170.0 35.0 L155.0 20.0 L170.0 5.0 Z M220.6 30.6 L199.4 30.6 L199.4 9.4 L220.6 9.4 Z M225.0 20.0 L210.0 35.0 L195.0 20.0 L210.0 5.0 Z M260.6 30.6 L239.4 30.6 L239.4 9.4 L260.6 9.4 Z M265.0 20.0 L250.0 35.0 L235.0 20.0 L250.0 5.0 Z M300.6 30.6 L279.4 30.6 L279.4 9.4 L300.6 9.4 Z M305.0 20.0 L290.0 35.0 L275.0 20.0 L290.0 5.0 Z M340.6 30.6 L319.4 30.6 L319.4 9.4 L340.6 9.4 Z M345.0 20.0 L330.0 35.0 L315.0 20.0 L330.0 5.0 Z M40.6 70.6 L19.4 70.6 L19.4 49.4 L40.6 49.4 Z M45.0 60.0 L30.0 75.0 L15.0 60.0 L30.0 45.0 Z M80.6 70.6 L59.4 70.6 L59.4 49.4 L80.6 49.4 Z M85.0 60.0 L70.0 75.0 L55.0 60.0 L70.0 45.0 Z M120.6 70.6 L99.4 70.6 L99.4 49.4 L120.6 49.4 Z M125.0 60.0 L110.0 75.0 L95.0 60.0 L110.0 45.0 Z M160.6 70.6 L139.4 70.6 L139.4 49.4 L160.6 49.4 Z M165.0 60.0 L150.0 75.0 L135.0 60.0 L150.0 45.0 Z M200.6 70.6 L179.4 70.6 L179.4 49.4 L200.6 49.4 Z M205.0 60.0 L190.0 75.0 L175.0 60.0 L190.0 45.0 Z M240.6 70.6 L219.4 70.6 L219.4 49.4 L240.6 49.4 Z M245.0 60.0 L230.0 75.0 L215.0 60.0 L230.0 45.0 Z M280.6 70.6 L259.4 70.6 L259.4 49.4 L280.6 49.4 Z M285.0 60.0 L270.0 75.0 L255.0 60.0 L270.0 45.0 Z M320.6 70.6 L299.4 70.6 L299.4 49.4 L320.6 49.4 Z M325.0 60.0 L310.0 75.0 L295.0 60.0 L310.0 45.0 Z M360.6 70.6 L339.4 70.6 L339.4 49.4 L360.6 49.4 Z M365.0 60.0 L350.0 75.0 L335.0 60.0 L350.0 45.0 Z M20.6 110.6 L-0.6 110.6 L-0.6 89.4 L20.6 89.4 Z M25.0 100.0 L10.0 115.0 L-5.0 100.0 L10.0 85.0 Z M60.6 110.6 L39.4 110.6 L39.4 89.4 L60.6 89.4 Z M65.0 100.0 L50.0 115.0 L35.0 100.0 L50.0 85.0 Z M100.6 110.6 L79.4 110.6 L79.4 89.4 L100.6 89.4 Z M105.0 100.0 L90.0 115.0 L75.0 100.0 L90.0 85.0 Z M140.6 110.6 L119.4 110.6 L119.4 89.4 L140.6 89.4 Z M145.0 100.0 L130.0 115.0 L115.0 100.0 L130.0 85.0 Z M180.6 110.6 L159.4 110.6 L159.4 89.4 L180.6 89.4 Z M185.0 100.0 L170.0 115.0 L155.0 100.0 L170.0 85.0 Z M220.6 110.6 L199.4 110.6 L199.4 89.4 L220.6 89.4 Z M225.0 100.0 L210.0 115.0 L195.0 100.0 L210.0 85.0 Z M260.6 110.6 L239.4 110.6 L239.4 89.4 L260.6 89.4 Z M265.0 100.0 L250.0 115.0 L235.0 100.0 L250.0 85.0 Z M300.6 110.6 L279.4 110.6 L279.4 89.4 L300.6 89.4 Z M305.0 100.0 L290.0 115.0 L275.0 100.0 L290.0 85.0 Z M340.6 110.6 L319.4 110.6 L319.4 89.4 L340.6 89.4 Z M345.0 100.0 L330.0 115.0 L315.0 100.0 L330.0 85.0 Z M40.6 150.6 L19.4 150.6 L19.4 129.4 L40.6 129.4 Z M45.0 140.0 L30.0 155.0 L15.0 140.0 L30.0 125.0 Z M80.6 150.6 L59.4 150.6 L59.4 129.4 L80.6 129.4 Z M85.0 140.0 L70.0 155.0 L55.0 140.0 L70.0 125.0 Z M120.6 150.6 L99.4 150.6 L99.4 129.4 L120.6 129.4 Z M125.0 140.0 L110.0 155.0 L95.0 140.0 L110.0 125.0 Z M160.6 150.6 L139.4 150.6 L139.4 129.4 L160.6 129.4 Z M165.0 140.0 L150.0 155.0 L135.0 140.0 L150.0 125.0 Z M200.6 150.6 L179.4 150.6 L179.4 129.4 L200.6 129.4 Z M205.0 140.0 L190.0 155.0 L175.0 140.0 L190.0 125.0 Z M240.6 150.6 L219.4 150.6 L219.4 129.4 L240.6 129.4 Z M245.0 140.0 L230.0 155.0 L215.0 140.0 L230.0 125.0 Z M280.6 150.6 L259.4 150.6 L259.4 129.4 L280.6 129.4 Z M285.0 140.0 L270.0 155.0 L255.0 140.0 L270.0 125.0 Z M320.6 150.6 L299.4 150.6 L299.4 129.4 L320.6 129.4 Z M325.0 140.0 L310.0 155.0 L295.0 140.0 L310.0 125.0 Z M360.6 150.6 L339.4 150.6 L339.4 129.4 L360.6 129.4 Z M365.0 140.0 L350.0 155.0 L335.0 140.0 L350.0 125.0 Z M20.6 190.6 L-0.6 190.6 L-0.6 169.4 L20.6 169.4 Z M25.0 180.0 L10.0 195.0 L-5.0 180.0 L10.0 165.0 Z M60.6 190.6 L39.4 190.6 L39.4 169.4 L60.6 169.4 Z M65.0 180.0 L50.0 195.0 L35.0 180.0 L50.0 165.0 Z M100.6 190.6 L79.4 190.6 L79.4 169.4 L100.6 169.4 Z M105.0 180.0 L90.0 195.0 L75.0 180.0 L90.0 165.0 Z M140.6 190.6 L119.4 190.6 L119.4 169.4 L140.6 169.4 Z M145.0 180.0 L130.0 195.0 L115.0 180.0 L130.0 165.0 Z M180.6 190.6 L159.4 190.6 L159.4 169.4 L180.6 169.4 Z M185.0 180.0 L170.0 195.0 L155.0 180.0 L170.0 165.0 Z M220.6 190.6 L199.4 190.6 L199.4 169.4 L220.6 169.4 Z M225.0 180.0 L210.0 195.0 L195.0 180.0 L210.0 165.0 Z M260.6 190.6 L239.4 190.6 L239.4 169.4 L260.6 169.4 Z M265.0 180.0 L250.0 195.0 L235.0 180.0 L250.0 165.0 Z M300.6 190.6 L279.4 190.6 L279.4 169.4 L300.6 169.4 Z M305.0 180.0 L290.0 195.0 L275.0 180.0 L290.0 165.0 Z M340.6 190.6 L319.4 190.6 L319.4 169.4 L340.6 169.4 Z M345.0 180.0 L330.0 195.0 L315.0 180.0 L330.0 165.0 Z M40.6 230.6 L19.4 230.6 L19.4 209.4 L40.6 209.4 Z M45.0 220.0 L30.0 235.0 L15.0 220.0 L30.0 205.0 Z M80.6 230.6 L59.4 230.6 L59.4 209.4 L80.6 209.4 Z M85.0 220.0 L70.0 235.0 L55.0 220.0 L70.0 205.0 Z M120.6 230.6 L99.4 230.6 L99.4 209.4 L120.6 209.4 Z M125.0 220.0 L110.0 235.0 L95.0 220.0 L110.0 205.0 Z M160.6 230.6 L139.4 230.6 L139.4 209.4 L160.6 209.4 Z M165.0 220.0 L150.0 235.0 L135.0 220.0 L150.0 205.0 Z M200.6 230.6 L179.4 230.6 L179.4 209.4 L200.6 209.4 Z M205.0 220.0 L190.0 235.0 L175.0 220.0 L190.0 205.0 Z M240.6 230.6 L219.4 230.6 L219.4 209.4 L240.6 209.4 Z M245.0 220.0 L230.0 235.0 L215.0 220.0 L230.0 205.0 Z M280.6 230.6 L259.4 230.6 L259.4 209.4 L280.6 209.4 Z M285.0 220.0 L270.0 235.0 L255.0 220.0 L270.0 205.0 Z M320.6 230.6 L299.4 230.6 L299.4 209.4 L320.6 209.4 Z M325.0 220.0 L310.0 235.0 L295.0 220.0 L310.0 205.0 Z M360.6 230.6 L339.4 230.6 L339.4 209.4 L360.6 209.4 Z M365.0 220.0 L350.0 235.0 L335.0 220.0 L350.0 205.0 Z M20.6 270.6 L-0.6 270.6 L-0.6 249.4 L20.6 249.4 Z M25.0 260.0 L10.0 275.0 L-5.0 260.0 L10.0 245.0 Z M60.6 270.6 L39.4 270.6 L39.4 249.4 L60.6 249.4 Z M65.0 260.0 L50.0 275.0 L35.0 260.0 L50.0 245.0 Z M100.6 270.6 L79.4 270.6 L79.4 249.4 L100.6 249.4 Z M105.0 260.0 L90.0 275.0 L75.0 260.0 L90.0 245.0 Z M140.6 270.6 L119.4 270.6 L119.4 249.4 L140.6 249.4 Z M145.0 260.0 L130.0 275.0 L115.0 260.0 L130.0 245.0 Z M180.6 270.6 L159.4 270.6 L159.4 249.4 L180.6 249.4 Z M185.0 260.0 L170.0 275.0 L155.0 260.0 L170.0 245.0 Z M220.6 270.6 L199.4 270.6 L199.4 249.4 L220.6 249.4 Z M225.0 260.0 L210.0 275.0 L195.0 260.0 L210.0 245.0 Z M260.6 270.6 L239.4 270.6 L239.4 249.4 L260.6 249.4 Z M265.0 260.0 L250.0 275.0 L235.0 260.0 L250.0 245.0 Z M300.6 270.6 L279.4 270.6 L279.4 249.4 L300.6 249.4 Z M305.0 260.0 L290.0 275.0 L275.0 260.0 L290.0 245.0 Z M340.6 270.6 L319.4 270.6 L319.4 249.4 L340.6 249.4 Z M345.0 260.0 L330.0 275.0 L315.0 260.0 L330.0 245.0 Z M40.6 310.6 L19.4 310.6 L19.4 289.4 L40.6 289.4 Z M45.0 300.0 L30.0 315.0 L15.0 300.0 L30.0 285.0 Z M80.6 310.6 L59.4 310.6 L59.4 289.4 L80.6 289.4 Z M85.0 300.0 L70.0 315.0 L55.0 300.0 L70.0 285.0 Z M120.6 310.6 L99.4 310.6 L99.4 289.4 L120.6 289.4 Z M125.0 300.0 L110.0 315.0 L95.0 300.0 L110.0 285.0 Z M160.6 310.6 L139.4 310.6 L139.4 289.4 L160.6 289.4 Z M165.0 300.0 L150.0 315.0 L135.0 300.0 L150.0 285.0 Z M200.6 310.6 L179.4 310.6 L179.4 289.4 L200.6 289.4 Z M205.0 300.0 L190.0 315.0 L175.0 300.0 L190.0 285.0 Z M240.6 310.6 L219.4 310.6 L219.4 289.4 L240.6 289.4 Z M245.0 300.0 L230.0 315.0 L215.0 300.0 L230.0 285.0 Z M280.6 310.6 L259.4 310.6 L259.4 289.4 L280.6 289.4 Z M285.0 300.0 L270.0 315.0 L255.0 300.0 L270.0 285.0 Z M320.6 310.6 L299.4 310.6 L299.4 289.4 L320.6 289.4 Z M325.0 300.0 L310.0 315.0 L295.0 300.0 L310.0 285.0 Z M360.6 310.6 L339.4 310.6 L339.4 289.4 L360.6 289.4 Z M365.0 300.0 L350.0 315.0 L335.0 300.0 L350.0 285.0 Z M20.6 350.6 L-0.6 350.6 L-0.6 329.4 L20.6 329.4 Z M25.0 340.0 L10.0 355.0 L-5.0 340.0 L10.0 325.0 Z M60.6 350.6 L39.4 350.6 L39.4 329.4 L60.6 329.4 Z M65.0 340.0 L50.0 355.0 L35.0 340.0 L50.0 325.0 Z M100.6 350.6 L79.4 350.6 L79.4 329.4 L100.6 329.4 Z M105.0 340.0 L90.0 355.0 L75.0 340.0 L90.0 325.0 Z M140.6 350.6 L119.4 350.6 L119.4 329.4 L140.6 329.4 Z M145.0 340.0 L130.0 355.0 L115.0 340.0 L130.0 325.0 Z M180.6 350.6 L159.4 350.6 L159.4 329.4 L180.6 329.4 Z M185.0 340.0 L170.0 355.0 L155.0 340.0 L170.0 325.0 Z M220.6 350.6 L199.4 350.6 L199.4 329.4 L220.6 329.4 Z M225.0 340.0 L210.0 355.0 L195.0 340.0 L210.0 325.0 Z M260.6 350.6 L239.4 350.6 L239.4 329.4 L260.6 329.4 Z M265.0 340.0 L250.0 355.0 L235.0 340.0 L250.0 325.0 Z M300.6 350.6 L279.4 350.6 L279.4 329.4 L300.6 329.4 Z M305.0 340.0 L290.0 355.0 L275.0 340.0 L290.0 325.0 Z M340.6 350.6 L319.4 350.6 L319.4 329.4 L340.6 329.4 Z M345.0 340.0 L330.0 355.0 L315.0 340.0 L330.0 325.0 Z M40.6 390.6 L19.4 390.6 L19.4 369.4 L40.6 369.4 Z M45.0 380.0 L30.0 395.0 L15.0 380.0 L30.0 365.0 Z M80.6 390.6 L59.4 390.6 L59.4 369.4 L80.6 369.4 Z M85.0 380.0 L70.0 395.0 L55.0 380.0 L70.0 365.0 Z M120.6 390.6 L99.4 390.6 L99.4 369.4 L120.6 369.4 Z M125.0 380.0 L110.0 395.0 L95.0 380.0 L110.0 365.0 Z M160.6 390.6 L139.4 390.6 L139.4 369.4 L160.6 369.4 Z M165.0 380.0 L150.0 395.0 L135.0 380.0 L150.0 365.0 Z M200.6 390.6 L179.4 390.6 L179.4 369.4 L200.6 369.4 Z M205.0 380.0 L190.0 395.0 L175.0 380.0 L190.0 365.0 Z M240.6 390.6 L219.4 390.6 L219.4 369.4 L240.6 369.4 Z M245.0 380.0 L230.0 395.0 L215.0 380.0 L230.0 365.0 Z M280.6 390.6 L259.4 390.6 L259.4 369.4 L280.6 369.4 Z M285.0 380.0 L270.0 395.0 L255.0 380.0 L270.0 365.0 Z M320.6 390.6 L299.4 390.6 L299.4 369.4 L320.6 369.4 Z M325.0 380.0 L310.0 395.0 L295.0 380.0 L310.0 365.0 Z M360.6 390.6 L339.4 390.6 L339.4 369.4 L360.6 369.4 Z M365.0 380.0 L350.0 395.0 L335.0 380.0 L350.0 365.0 Z M20.6 430.6 L-0.6 430.6 L-0.6 409.4 L20.6 409.4 Z M25.0 420.0 L10.0 435.0 L-5.0 420.0 L10.0 405.0 Z M60.6 430.6 L39.4 430.6 L39.4 409.4 L60.6 409.4 Z M65.0 420.0 L50.0 435.0 L35.0 420.0 L50.0 405.0 Z M100.6 430.6 L79.4 430.6 L79.4 409.4 L100.6 409.4 Z M105.0 420.0 L90.0 435.0 L75.0 420.0 L90.0 405.0 Z M140.6 430.6 L119.4 430.6 L119.4 409.4 L140.6 409.4 Z M145.0 420.0 L130.0 435.0 L115.0 420.0 L130.0 405.0 Z M180.6 430.6 L159.4 430.6 L159.4 409.4 L180.6 409.4 Z M185.0 420.0 L170.0 435.0 L155.0 420.0 L170.0 405.0 Z M220.6 430.6 L199.4 430.6 L199.4 409.4 L220.6 409.4 Z M225.0 420.0 L210.0 435.0 L195.0 420.0 L210.0 405.0 Z M260.6 430.6 L239.4 430.6 L239.4 409.4 L260.6 409.4 Z M265.0 420.0 L250.0 435.0 L235.0 420.0 L250.0 405.0 Z M300.6 430.6 L279.4 430.6 L279.4 409.4 L300.6 409.4 Z M305.0 420.0 L290.0 435.0 L275.0 420.0 L290.0 405.0 Z M340.6 430.6 L319.4 430.6 L319.4 409.4 L340.6 409.4 Z M345.0 420.0 L330.0 435.0 L315.0 420.0 L330.0 405.0 Z" fill="none" stroke="#2aa5b5" stroke-width=".9" stroke-opacity=".55"/></g>
+<path class="mv-arch" pathLength="1" d="M20 380 V150 C20 80 90 30 150 6 C210 30 280 80 280 150 V380" fill="none" stroke="#1e3f8a" stroke-width="3"/>
+<path class="mv-arch" pathLength="1" d="M44 380 V156 C44 96 104 54 150 34 C196 54 256 96 256 156 V380" fill="none" stroke="#c9a24e" stroke-width="1.4" style="--dl:.3s"/>
+</svg>
+      <div class="mv-hero__in">
+        <small class="fx">{{L.sub}}</small>
+        <h1 class="mv-names fx" style="--d:.15s">{{groom}}<i>&amp;</i>{{bride}}</h1>
+        <span class="mv-hero__date fx" style="--d:.3s">{{dateText}}</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="mv-band" aria-hidden="true"></div>
+
+  <section class="mv-sec">
+    <div class="mv-wrap">
+      <div class="mv-panel fx">
+        {{#if guestName}}
+          <span class="mv-over">{{L.greet}}</span>
+          <h2 class="mv-h">{{guestName}}</h2>
+          <p class="mv-p">{{L.greetTail}}</p>
+        {{else}}
+          <span class="mv-over">{{groom}} &amp; {{bride}}</span>
+          <h2 class="mv-h">{{L.invite}}</h2>
+        {{/if}}
+        <p class="mv-p">{{L.emo}}</p>
+      </div>
+    </div>
+  </section>
+
+  {{#if photos.0}}
+  <section class="mv-sec" style="padding-top:0">
+    <span class="mv-over fx">{{L.gallery}}</span>
+    <div class="mv-stars">
+      <figure class="mv-star" data-scrub="enter"><img src="{{photos.0}}" alt="{{groom}} &amp; {{bride}}" loading="lazy"></figure>
+      {{#if photos.1}}<figure class="mv-star" data-scrub="enter"><img src="{{photos.1}}" alt="{{groom}} &amp; {{bride}}" loading="lazy"></figure>{{/if}}
+    </div>
+  </section>
+  {{/if}}
+
+  <section class="mv-sec" style="padding-top:0">
+    <span class="mv-over fx">{{L.when}}</span>
+    <div class="mv-datewrap" data-scrub="enter">
+      <svg class="mv-rosette" viewBox="0 0 200 200" aria-hidden="true">
+<g fill="none" stroke-linecap="round" stroke-linejoin="round">
+<circle class="mv-d" pathLength="1" cx="100" cy="100" r="97" stroke="#2aa5b5" stroke-width="1.2" style="--s:0"/>
+<path class="mv-d" pathLength="1" d="M165.1 165.1 L34.9 165.1 L34.9 34.9 L165.1 34.9 Z" stroke="#1e3f8a" stroke-width="1.6" style="--s:.06"/>
+<path class="mv-d" pathLength="1" d="M192.0 100.0 L100.0 192.0 L8.0 100.0 L100.0 8.0 Z" stroke="#1e3f8a" stroke-width="1.6" style="--s:.1"/>
+<path class="mv-d" pathLength="1" d="M100.0 8.0 L123.0 44.6 L165.1 34.9 M165.1 34.9 L155.4 77.0 L192.0 100.0 M192.0 100.0 L155.4 123.0 L165.1 165.1 M165.1 165.1 L123.0 155.4 L100.0 192.0 M100.0 192.0 L77.0 155.4 L34.9 165.1 M34.9 165.1 L44.6 123.0 L8.0 100.0 M8.0 100.0 L44.6 77.0 L34.9 34.9 M34.9 34.9 L77.0 44.6 L100.0 8.0" stroke="#2aa5b5" stroke-width="1.1" style="--s:.18"/>
+<path class="mv-d" pathLength="1" d="M100.0 40.0 L117.6 57.5 L142.4 57.6 L142.5 82.4 L160.0 100.0 L142.5 117.6 L142.4 142.4 L117.6 142.5 L100.0 160.0 L82.4 142.5 L57.6 142.4 L57.5 117.6 L40.0 100.0 L57.5 82.4 L57.6 57.6 L82.4 57.5 Z" stroke="#1e3f8a" stroke-width="1.4" style="--s:.26"/>
+<circle class="mv-d" pathLength="1" cx="100" cy="100" r="40" stroke="#c9a24e" stroke-width="1.2" style="--s:.34"/>
+</g></svg>
+      <div class="mv-date"><span>{{monthName}}</span><b>{{day}}</b><em>{{year}}</em></div>
+    </div>
+    <div class="mv-when fx"><span>{{weekday}}</span><span>{{time}}</span></div>
+  </section>
+
+  <section class="mv-sec" style="padding-top:0">
+    <span class="mv-over fx">{{L.until}}</span>
+    <div class="mv-cd cd fx">
+      <div><b id="cd">00</b><span>{{L.days}}</span></div>
+      <div><b id="ch">00</b><span>{{L.hours}}</span></div>
+      <div><b id="cm">00</b><span>{{L.min}}</span></div>
+      <div><b id="cs">00</b><span>{{L.sec}}</span></div>
+    </div>
+  </section>
+
+  <section class="mv-sec" style="padding-top:0">
+    <span class="mv-over fx">{{L.where}}</span>
+    <div class="mv-venue fx">
+      <div class="mv-venue__in">
+        <div class="venue__map">{{{map}}}</div>
+        <p class="mv-addr">{{address}}</p>
+        {{#if venueLine}}<p class="mv-meta">{{venueLine}}</p>{{/if}}
+        {{#if gmaps}}
+        <div class="routes">
+          <a href="{{gmaps}}" target="_blank" rel="noopener"><span>{{L.gmaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+          <a href="{{ymaps}}" target="_blank" rel="noopener"><span>{{L.ymaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+        </div>
+        {{/if}}
+      </div>
+    </div>
+  </section>
+
+  <section class="mv-final" data-scrub="enter">
+    <p class="mv-h fx">{{L.final}}</p>
+    <p class="mv-sign fx">{{L.sign}} {{groom}} {{L.and}} {{bride}}</p>
+    <svg class="mv-registan" viewBox="0 0 600 220" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
+<g fill="#1e3f8a">
+<rect x="18" y="38" width="13" height="172"/><rect x="16" y="30" width="17" height="10" rx="2"/>
+<rect x="169" y="38" width="13" height="172"/><rect x="167" y="30" width="17" height="10" rx="2"/>
+<rect x="40" y="78" width="120" height="132"/>
+<rect x="418" y="78" width="120" height="132"/>
+<rect x="398" y="38" width="13" height="172"/><rect x="396" y="30" width="17" height="10" rx="2"/>
+<rect x="569" y="38" width="13" height="172"/><rect x="567" y="30" width="17" height="10" rx="2"/>
+<rect x="222" y="66" width="156" height="144"/>
+<rect x="190" y="120" width="40" height="90"/><rect x="370" y="120" width="40" height="90"/>
+<rect x="0" y="206" width="600" height="14"/>
+</g>
+<g fill="#2aa5b5">
+<path d="M70 78 C70 46 130 46 130 78 Z"/><path d="M448 78 C448 46 508 46 508 78 Z"/>
+<path d="M256 66 C256 18 344 18 344 66 Z"/>
+<rect x="296" y="10" width="8" height="12" rx="2"/>
+</g>
+<g fill="#fbfaf6">
+<path d="M78 210 V128 C78 104 100 92 100 88 C100 92 122 104 122 128 V210 Z"/>
+<path d="M456 210 V128 C456 104 478 92 478 88 C478 92 500 104 500 128 V210 Z"/>
+<path d="M270 210 V122 C270 94 300 78 300 72 C300 78 330 94 330 122 V210 Z"/>
+</g>
+<g fill="#2aa5b5"><path d="M86 210 V134 C86 116 100 106 100 104 C100 106 114 116 114 134 V210 Z"/><path d="M464 210 V134 C464 116 478 106 478 104 C478 106 492 116 492 134 V210 Z"/><path d="M280 210 V128 C280 106 300 92 300 88 C300 92 320 106 320 128 V210 Z"/></g>
+<g fill="#c9a24e"><circle cx="100" cy="66" r="3"/><circle cx="478" cy="66" r="3"/><circle cx="300" cy="44" r="4"/></g>
+</svg>
+  </section>
+
+  {{{made}}}
+</main>
+
+<script>
+(function(){var p=document.querySelector('[data-portal]');if(!p)return;
+function on(){p.classList.add('on')}
+document.addEventListener('nv:ready',on);if(!document.querySelector('[data-envelope-scene]'))on();})();
+</script>
+
+{{{audioWidget}}}
+{{{experienceScript}}}
+{{{countdown}}}
+</body>
+</html>

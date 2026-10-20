@@ -1,0 +1,52 @@
+{
+  "name": "Xabar",
+  "event": "wedding",
+  "price": 189000,
+  "minPhotos": 2,
+  "colors": [
+    "#3E8ED0",
+    "#FFFFFF",
+    "#DCEBFF",
+    "#1C2733"
+  ],
+  "order": 9,
+  "listed": true,
+  "strings": {
+    "uz": {
+      "openHint": "Ochish uchun bosing",
+      "notif": "Sizga taklifnoma keldi 💌",
+      "now": "hozir",
+      "online": "onlayn",
+      "typing": "yozmoqda…",
+      "today": "Bugun",
+      "hello": "Assalomu alaykum",
+      "news": "Bizda katta yangilik bor — biz turmush quryapmiz! 💍",
+      "voice": "Ovozli xabar",
+      "location": "Joylashuv",
+      "event": "To‘y",
+      "addCal": "Taqvimga qo‘shish",
+      "reply1": "Albatta boraman! 🎉",
+      "reply2": "Tabriklayman! 💐",
+      "answer": "Rahmat! Sizni kutamiz 🥰",
+      "note": "Javob faqat sizning ekraningizda ko‘rinadi"
+    },
+    "ru": {
+      "openHint": "Нажмите, чтобы открыть",
+      "notif": "Вам пришло приглашение 💌",
+      "now": "сейчас",
+      "online": "в сети",
+      "typing": "печатает…",
+      "today": "Сегодня",
+      "hello": "Здравствуйте",
+      "news": "У нас большая новость — мы женимся! 💍",
+      "voice": "Голосовое сообщение",
+      "location": "Геопозиция",
+      "event": "Свадьба",
+      "addCal": "Добавить в календарь",
+      "reply1": "Обязательно приду! 🎉",
+      "reply2": "Поздравляю! 💐",
+      "answer": "Спасибо! Ждём вас 🥰",
+      "note": "Ответ виден только на вашем экране"
+    }
+  }
+}

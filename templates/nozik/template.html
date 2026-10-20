@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="{{lang}}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f7dfe3">
+<title>{{groom}} &amp; {{bride}} · {{L.sub}}</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Comforter&family=Cormorant+Infant:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+{{{experienceCSS}}}
+{{{coreCSS}}}
+<style>
+/* Nozik — атласные банты и жемчуг. Открытка перевязана лентой крест-накрест;
+   касание — бант развязывается, хвосты падают, ленты соскальзывают, и
+   открытка становится страницей. Дальше: нитка жемчуга провисает над
+   именами, фото в овалах с бантами, дата на ленте, отсчёт в жемчужинах,
+   в финале сердце, собранное из жемчуга по ходу прокрутки. */
+:root{
+  --paper:#fff8f3; --paper-2:#fbeee9; --paper-3:#f3dcd8;
+  --ink:#5c2a3a; --muted:#9a6f7b;
+  --accent:#d98a9b; --accent-2:#7a2e45;
+  --line:rgba(122,46,69,.18); --line-soft:rgba(122,46,69,.09);
+  --gold:#d98a9b; --gold-hi:#fbe1e7; --gold-lo:#b45f72; --gold-rgb:217,138,155;
+  --blush:#f7dfe3; --berry:#7a2e45; --rose:#d98a9b;
+  --satin:linear-gradient(180deg,#e79fb0 0%,#fbe1e7 34%,#f2b8c4 52%,#e595a8 78%,#f6c9d3 100%);
+  --satinX:linear-gradient(90deg,#e79fb0 0%,#fbe1e7 34%,#f2b8c4 52%,#e595a8 78%,#f6c9d3 100%);
+  --pearl:radial-gradient(circle at 34% 30%,#ffffff 0 16%,#fbf3f5 34%,#efdfe4 62%,#dcc4cc 84%,#cdb2bb);
+  --display:'Cormorant Infant',Georgia,serif;
+  --sans:'Cormorant Infant',Georgia,serif;
+  --script:'Comforter',cursive;
+  --bows:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E %3Cg fill='%23d98a9b' fill-opacity='.16'%3E %3Cg transform='translate(30 32) rotate(-12)'%3E%3Cpath d='M0 0 C -8 -9 -16 -6 -14 1 C -12 7 -4 4 0 0 Z M0 0 C 8 -9 16 -6 14 1 C 12 7 4 4 0 0 Z'/%3E%3Ccircle r='2.2'/%3E%3Cpath d='M-1 1 L-5 11 L-2 10 Z M1 1 L5 11 L2 10 Z'/%3E%3C/g%3E %3Cg transform='translate(90 88) rotate(14)'%3E%3Cpath d='M0 0 C -8 -9 -16 -6 -14 1 C -12 7 -4 4 0 0 Z M0 0 C 8 -9 16 -6 14 1 C 12 7 4 4 0 0 Z'/%3E%3Ccircle r='2.2'/%3E%3Cpath d='M-1 1 L-5 11 L-2 10 Z M1 1 L5 11 L2 10 Z'/%3E%3C/g%3E %3C/g%3E %3Cg fill='%23ffffff' fill-opacity='.7'%3E%3Ccircle cx='90' cy='28' r='2'/%3E%3Ccircle cx='26' cy='92' r='2'/%3E%3Ccircle cx='60' cy='60' r='1.4'/%3E%3C/g%3E %3C/svg%3E");
+}
+html{background:var(--blush)}
+body{background:var(--bows),linear-gradient(180deg,#fbe9ec,#f7dfe3 50%,#f5d9de);background-size:120px 120px,auto;color:var(--ink)}
+.inv{position:relative;z-index:1;overflow:clip}
+.made{background:#fbeee9;border-top:1px solid var(--line-soft)}
+
+/* ══ Сцена: открытка, перевязанная лентой ═══════════════════════════ */
+/* Бант сцены вставлен целиком, а не через <use>: правила анимации не
+   достают до клонов внутри теневого дерева <use>, и бант не развязывался. */
+.nz-scene{position:fixed;inset:0;z-index:9000;display:grid;place-items:center;overflow:hidden;
+  background:var(--bows),radial-gradient(80% 60% at 50% 40%,#fbeef0,#f2d3d9);background-size:120px 120px,auto;touch-action:none}
+.nz-scene[hidden]{display:none}
+.nz-card{position:relative;width:min(74vw,340px,calc((100svh - 170px) * .74));aspect-ratio:3/4;margin-top:-4svh;
+  background:linear-gradient(160deg,#fffdfa,#fbf1ea);border-radius:6px;box-shadow:0 30px 60px -24px rgba(122,46,69,.45),0 2px 6px rgba(122,46,69,.12)}
+.nz-card:before{content:'';position:absolute;inset:7%;border:1px solid rgba(217,138,155,.6);border-radius:4px}
+.nz-card__txt{position:absolute;left:0;right:0;bottom:12%;display:grid;justify-items:center;gap:6px;text-align:center}
+.nz-card__txt small{color:var(--muted);font:500 .62rem/1 var(--sans);letter-spacing:.32em;text-transform:uppercase}
+.nz-card__txt b{color:var(--berry);font:400 clamp(2rem,9vw,2.8rem)/1 var(--script)}
+.nz-band{position:absolute;box-shadow:0 2px 4px rgba(122,46,69,.18)}
+.nz-band--v{left:43%;width:14%;top:-3%;bottom:-3%;background:var(--satinX)}
+.nz-band--hl,.nz-band--hr{top:32%;height:11%;background:var(--satin)}
+.nz-band--hl{left:-3%;right:50%}
+.nz-band--hr{left:50%;right:-3%}
+.nz-bow{position:absolute;left:50%;top:37.5%;width:78%;transform:translate(-50%,-46%);overflow:visible;filter:drop-shadow(0 6px 8px rgba(122,46,69,.28))}
+.nz-trigger{position:absolute;inset:0;z-index:5;display:grid;align-content:end;justify-items:center;padding:0 20px max(30px,env(safe-area-inset-bottom));
+  border:0;background:transparent;color:var(--berry);cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.nz-trigger:focus-visible{outline:1px solid var(--berry);outline-offset:-14px}
+.nz-trigger span{display:flex;align-items:center;gap:10px;font:italic 500 1.12rem/1 var(--display);animation:nzHint 2.8s ease-in-out infinite}
+.nz-trigger span:before,.nz-trigger span:after{content:'';width:7px;height:7px;border-radius:50%;background:var(--pearl);box-shadow:0 1px 2px rgba(0,0,0,.15)}
+@keyframes nzHint{0%,100%{opacity:.6}50%{opacity:1}}
+.nz-loop--l,.nz-loop--r,.nz-knot{transform-origin:100px 62px}
+.nz-tail--l,.nz-tail--r{transform-origin:100px 66px}
+.nz-scene.is-running .nz-trigger span{opacity:0;animation:none;transition:opacity .3s}
+.nz-scene.is-running .nz-loop--l{animation:nzLoopL .7s cubic-bezier(.5,0,.6,1) forwards}
+.nz-scene.is-running .nz-loop--r{animation:nzLoopR .7s cubic-bezier(.5,0,.6,1) forwards}
+@keyframes nzLoopL{40%{transform:rotate(-14deg) scale(1.05)}100%{transform:rotate(-80deg) scale(.15);opacity:0}}
+@keyframes nzLoopR{40%{transform:rotate(14deg) scale(1.05)}100%{transform:rotate(80deg) scale(.15);opacity:0}}
+.nz-scene.is-running .nz-knot{animation:nzKnot .5s ease .45s forwards}
+@keyframes nzKnot{to{transform:scale(0);opacity:0}}
+.nz-scene.is-running .nz-tail--l{animation:nzTailL .8s cubic-bezier(.5,0,.8,.6) .35s forwards}
+.nz-scene.is-running .nz-tail--r{animation:nzTailR .8s cubic-bezier(.5,0,.8,.6) .35s forwards}
+@keyframes nzTailL{to{transform:translate(-30px,180px) rotate(-30deg);opacity:0}}
+@keyframes nzTailR{to{transform:translate(30px,180px) rotate(30deg);opacity:0}}
+.nz-scene.is-running .nz-band--v{animation:nzDown .8s cubic-bezier(.6,0,.4,1) .55s forwards}
+@keyframes nzDown{to{transform:translateY(120%)}}
+.nz-scene.is-running .nz-band--hl{animation:nzLeft .8s cubic-bezier(.6,0,.4,1) .6s forwards}
+.nz-scene.is-running .nz-band--hr{animation:nzRight .8s cubic-bezier(.6,0,.4,1) .6s forwards}
+@keyframes nzLeft{to{transform:translateX(-140%)}}
+@keyframes nzRight{to{transform:translateX(140%)}}
+.nz-scene.is-running .nz-card{animation:nzCard 1s cubic-bezier(.6,0,.3,1) 1.2s forwards}
+@keyframes nzCard{to{transform:scale(3.4);opacity:0}}
+.nz-scene.is-leaving{animation:nzOut .6s ease forwards}
+@keyframes nzOut{to{opacity:0}}
+
+/* ══ Страница ═══════════════════════════════════════════════════════ */
+.nz-hero{position:relative;display:grid;justify-items:center;align-content:center;gap:12px;min-height:100svh;padding:90px 22px 60px;text-align:center}
+.nz-garland{position:absolute;left:0;right:0;top:0;height:min(48vw,240px);pointer-events:none}
+.nz-garland svg{width:100%;height:100%;overflow:visible}
+.nz-garland circle{fill:url(#nzPearl);transform-box:fill-box;transform-origin:center;transform:scale(0)}
+.nz-garland.on circle{transform:scale(1);transition:transform .5s cubic-bezier(.3,1.6,.5,1) calc(var(--k) * 28ms)}
+.nz-hbow{width:min(36vw,150px);height:auto;overflow:visible;filter:drop-shadow(0 6px 8px rgba(122,46,69,.25))}
+.nz-hero small{color:var(--muted);font:500 .66rem/1 var(--sans);letter-spacing:.34em;text-transform:uppercase}
+.nz-names{color:var(--berry);font:400 clamp(3.2rem,16vw,6rem)/1 var(--script);text-wrap:balance}
+.nz-names i{display:block;font:italic 400 .34em/1.5 var(--display);color:var(--rose)}
+.nz-ribbon{position:relative;display:inline-block;padding:10px 26px;background:var(--satin);color:var(--berry);font:600 1rem/1 var(--display);letter-spacing:.06em}
+.nz-ribbon:before,.nz-ribbon:after{content:'';position:absolute;top:6px;bottom:-6px;width:20px;background:#e595a8;z-index:-1}
+.nz-ribbon:before{left:-14px;clip-path:polygon(0 0,100% 0,100% 100%,0 100%,40% 50%)}
+.nz-ribbon:after{right:-14px;clip-path:polygon(0 0,100% 0,60% 50%,100% 100%,0 100%)}
+
+.nz-sec{position:relative;padding:clamp(70px,16vw,120px) 22px;text-align:center}
+.nz-wrap{width:min(100%,560px);margin:0 auto}
+/* Кружевная карточка: фестоны по краю. */
+.nz-lace{position:relative;padding:clamp(34px,8vw,52px) clamp(20px,6vw,40px);background:var(--paper);
+  -webkit-mask:radial-gradient(circle at 50% 0,transparent 0,transparent 0) ,radial-gradient(10px at 10px 0,#0000 98%,#000) -10px 0/20px 100%,radial-gradient(10px at 10px 100%,#0000 98%,#000) -10px 0/20px 100%;
+  filter:drop-shadow(0 18px 30px rgba(122,46,69,.18))}
+.nz-lace{-webkit-mask:none;mask:none;border-radius:4px;box-shadow:0 0 0 6px var(--paper),0 0 0 7px rgba(217,138,155,.5),0 24px 40px -24px rgba(122,46,69,.45)}
+.nz-lace:before,.nz-lace:after{content:'';position:absolute;left:-7px;right:-7px;height:14px;
+  background:radial-gradient(circle at 7px 0,var(--paper) 6.5px,transparent 7px) 0 0/14px 14px repeat-x}
+.nz-lace:before{top:-19px;transform:scaleY(-1)}
+.nz-lace:after{bottom:-19px}
+.nz-over{display:block;margin-bottom:12px;color:var(--rose);font:600 .64rem/1 var(--sans);letter-spacing:.32em;text-transform:uppercase}
+.nz-h{color:var(--berry);font:400 clamp(2.4rem,11vw,3.6rem)/1.05 var(--script)}
+.nz-p{max-width:32ch;margin:14px auto 0;color:var(--ink);font:400 clamp(1.08rem,4.2vw,1.2rem)/1.65 var(--display)}
+
+/* Фото в овалах с жемчужной каймой и бантом. */
+.nz-ovals{display:grid;grid-template-columns:1fr 1fr;gap:clamp(18px,5vw,30px);width:min(100%,600px);margin:0 auto}
+.nz-oval{position:relative;margin:0;padding:10px;border-radius:50%;background:var(--paper);box-shadow:0 20px 40px -24px rgba(122,46,69,.5)}
+.nz-oval img{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:50%}
+.nz-oval:before{content:'';position:absolute;inset:3px;border-radius:50%;border:4px dotted #e8d2d9}
+.nz-oval svg{position:absolute;left:50%;top:-16px;width:44%;transform:translateX(-50%);overflow:visible;filter:drop-shadow(0 4px 5px rgba(122,46,69,.25))}
+.nz-oval:nth-child(2){margin-top:clamp(40px,12vw,80px)}
+@media (max-width:480px){.nz-ovals{grid-template-columns:1fr;width:min(74vw,320px)}.nz-oval:nth-child(2){margin-top:20px}}
+
+.nz-date{display:grid;justify-items:center;gap:12px}
+.nz-bigday{color:var(--berry);font:400 clamp(5rem,26vw,8rem)/.8 var(--script)}
+.nz-date .nz-ribbon{font-size:1.1rem}
+.nz-time{color:var(--muted);font:italic 500 1.1rem/1 var(--display)}
+
+.nz-cd{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(8px,2.6vw,16px);width:min(100%,520px);margin:0 auto}
+.nz-cd>div{display:grid;place-items:center;align-content:center;gap:4px;aspect-ratio:1;border-radius:50%;background:var(--pearl);
+  box-shadow:0 10px 18px -8px rgba(122,46,69,.35),inset -4px -6px 10px rgba(122,46,69,.08)}
+.nz-cd b{color:var(--berry);font:500 clamp(1.4rem,6.6vw,2.3rem)/1.12 var(--display);font-variant-numeric:tabular-nums}
+.nz-cd>div>span{color:var(--muted);font:600 .54rem/1 var(--sans);letter-spacing:.12em;text-transform:uppercase}
+
+.nz-venue{width:min(100%,580px);margin:0 auto;padding:10px;border-radius:24px;background:var(--paper);box-shadow:0 0 0 1px rgba(217,138,155,.4),0 24px 40px -26px rgba(122,46,69,.45)}
+.nz-venue>div{overflow:hidden;border-radius:16px}
+.nz-venue .mapbox:after{display:none}
+.nz-venue .venue-type{margin:0;color:var(--rose);--paper:var(--berry);border:0;background:#fff8f3}
+.nz-addr{margin:22px auto 6px;max-width:24ch;color:var(--berry);font:500 clamp(1.4rem,6vw,1.9rem)/1.2 var(--display)}
+.nz-meta{color:var(--muted);font:600 .7rem/1.6 var(--sans);letter-spacing:.14em;text-transform:uppercase}
+.nz-sec .routes a{border-color:rgba(217,138,155,.5);background:var(--paper);color:var(--berry);font:600 .9rem/1 var(--display)}
+.nz-sec .routes a:hover{background:var(--rose);color:#fff}
+
+.nz-heart{position:relative;width:min(70vw,300px);margin:0 auto 20px;aspect-ratio:1.1}
+.nz-heart svg{width:100%;height:100%;overflow:visible}
+.nz-heart circle{fill:url(#nzPearl);opacity:clamp(0,calc(var(--p,1) * 1.5 * var(--n) - var(--k)),1)}
+.nz-final .nz-h{max-width:16ch;margin:0 auto}
+.nz-sign{margin-top:14px;color:var(--muted);font:italic 500 1.1rem/1.5 var(--display)}
+
+#mbtn{border-color:rgba(217,138,155,.5);background:rgba(255,248,243,.92);color:var(--berry)}
+#mbtn.on{background:var(--rose);border-color:var(--rose);color:#fff}
+
+@media (prefers-reduced-motion:reduce){
+  .nz-trigger span{animation:none}
+  .nz-garland circle{transform:none}
+  .nz-heart circle{opacity:1}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <radialGradient id="nzPearl" cx=".34" cy=".3" r=".75"><stop offset="0" stop-color="#ffffff"/><stop offset=".3" stop-color="#fbf3f5"/><stop offset=".65" stop-color="#ecdbe0"/><stop offset="1" stop-color="#cfb4bd"/></radialGradient>
+    <linearGradient id="nzSatin" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e48ea3"/><stop offset=".35" stop-color="#fbe1e7"/><stop offset=".55" stop-color="#f0aebd"/><stop offset="1" stop-color="#d97d93"/></linearGradient>
+    <linearGradient id="nzSatinD" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c96a82"/><stop offset="1" stop-color="#e595a8"/></linearGradient>
+  </defs>
+  <symbol id="nzBow" viewBox="0 0 200 150" overflow="visible">
+    <path class="nz-tail--l" d="M96 66 C 86 92, 72 114, 56 142 L 74 138 L 82 148 C 92 116, 100 90, 104 68 Z" fill="url(#nzSatin)"/>
+    <path class="nz-tail--r" d="M104 66 C 114 92, 128 114, 144 142 L 126 138 L 118 148 C 108 116, 100 90, 96 68 Z" fill="url(#nzSatin)"/>
+    <g class="nz-loop--l"><path d="M100 62 C 72 20, 18 20, 22 56 C 26 88, 76 82, 100 62 Z" fill="url(#nzSatin)"/><path d="M100 62 C 80 42, 46 40, 44 58 C 46 72, 80 72, 100 62 Z" fill="url(#nzSatinD)" opacity=".55"/></g>
+    <g class="nz-loop--r"><path d="M100 62 C 128 20, 182 20, 178 56 C 174 88, 124 82, 100 62 Z" fill="url(#nzSatin)"/><path d="M100 62 C 120 42, 154 40, 156 58 C 154 72, 120 72, 100 62 Z" fill="url(#nzSatinD)" opacity=".55"/></g>
+    <ellipse class="nz-knot" cx="100" cy="63" rx="13" ry="15" fill="url(#nzSatin)" stroke="#d97d93" stroke-width="1"/>
+  </symbol>
+</svg>
+
+<div class="nz-scene" data-envelope-scene data-leave="1850" data-done="2400" data-music="1000">
+  <div class="nz-card" aria-hidden="true">
+    <div class="nz-card__txt"><small>{{L.sub}}</small><b>{{groom}} &amp; {{bride}}</b><small>{{dateIso}}</small></div>
+    <span class="nz-band nz-band--v"></span><span class="nz-band nz-band--hl"></span><span class="nz-band nz-band--hr"></span>
+    <svg class="nz-bow" viewBox="0 0 200 150"><path class="nz-tail--l" d="M96 66 C 86 92, 72 114, 56 142 L 74 138 L 82 148 C 92 116, 100 90, 104 68 Z" fill="url(#nzSatin)"/>
+    <path class="nz-tail--r" d="M104 66 C 114 92, 128 114, 144 142 L 126 138 L 118 148 C 108 116, 100 90, 96 68 Z" fill="url(#nzSatin)"/>
+    <g class="nz-loop--l"><path d="M100 62 C 72 20, 18 20, 22 56 C 26 88, 76 82, 100 62 Z" fill="url(#nzSatin)"/><path d="M100 62 C 80 42, 46 40, 44 58 C 46 72, 80 72, 100 62 Z" fill="url(#nzSatinD)" opacity=".55"/></g>
+    <g class="nz-loop--r"><path d="M100 62 C 128 20, 182 20, 178 56 C 174 88, 124 82, 100 62 Z" fill="url(#nzSatin)"/><path d="M100 62 C 120 42, 154 40, 156 58 C 154 72, 120 72, 100 62 Z" fill="url(#nzSatinD)" opacity=".55"/></g>
+    <ellipse class="nz-knot" cx="100" cy="63" rx="13" ry="15" fill="url(#nzSatin)" stroke="#d97d93" stroke-width="1"/></svg>
+  </div>
+  <button type="button" class="nz-trigger" data-envelope-trigger aria-label="{{L.openHint}}"><span>{{L.openHint}}</span></button>
+</div>
+
+<main class="inv nz">
+  <section class="nz-hero">
+    <div class="nz-garland" data-garland aria-hidden="true"><svg viewBox="0 0 400 200" preserveAspectRatio="none"><path id="nzG" d="M-10 30 Q 200 230 410 30" fill="none"/></svg></div>
+    <svg class="nz-hbow fx" viewBox="0 0 200 150" aria-hidden="true"><use href="#nzBow"/></svg>
+    <small class="fx" style="--d:.1s">{{L.sub}}</small>
+    <h1 class="nz-names fx" style="--d:.2s">{{groom}}<i>{{L.and}}</i>{{bride}}</h1>
+    <span class="nz-ribbon fx" style="--d:.35s">{{dateText}}</span>
+  </section>
+
+  <section class="nz-sec">
+    <div class="nz-wrap">
+      <div class="nz-lace fx">
+        {{#if guestName}}
+          <span class="nz-over">{{L.greet}}</span>
+          <h2 class="nz-h">{{guestName}}</h2>
+          <p class="nz-p">{{L.greetTail}}</p>
+        {{else}}
+          <span class="nz-over">{{L.sub}}</span>
+          <p class="nz-p" style="font-size:clamp(1.25rem,5vw,1.5rem)">{{L.invite}}</p>
+        {{/if}}
+        <p class="nz-p" style="color:var(--muted)">{{L.emo}}</p>
+      </div>
+    </div>
+  </section>
+
+  {{#if photos.0}}
+  <section class="nz-sec" style="padding-top:0">
+    <span class="nz-over fx">{{L.gallery}}</span>
+    <div class="nz-ovals">
+      <figure class="nz-oval fx"><img src="{{photos.0}}" alt="{{groom}} &amp; {{bride}}" loading="lazy"><svg viewBox="0 0 200 150" aria-hidden="true"><use href="#nzBow"/></svg></figure>
+      {{#if photos.1}}<figure class="nz-oval fx" style="--d:.2s"><img src="{{photos.1}}" alt="{{groom}} &amp; {{bride}}" loading="lazy"><svg viewBox="0 0 200 150" aria-hidden="true"><use href="#nzBow"/></svg></figure>{{/if}}
+    </div>
+  </section>
+  {{/if}}
+
+  <section class="nz-sec" style="padding-top:0">
+    <span class="nz-over fx">{{L.when}}</span>
+    <div class="nz-date">
+      <span class="nz-bigday fx">{{day}}</span>
+      <span class="nz-ribbon fx" style="--d:.15s">{{monthName}} {{year}}</span>
+      <span class="nz-time fx" style="--d:.25s">{{weekday}} · {{time}}</span>
+    </div>
+  </section>
+
+  <section class="nz-sec" style="padding-top:0">
+    <span class="nz-over fx">{{L.until}}</span>
+    <div class="nz-cd cd fx">
+      <div><b id="cd">00</b><span>{{L.days}}</span></div>
+      <div><b id="ch">00</b><span>{{L.hours}}</span></div>
+      <div><b id="cm">00</b><span>{{L.min}}</span></div>
+      <div><b id="cs">00</b><span>{{L.sec}}</span></div>
+    </div>
+  </section>
+
+  <section class="nz-sec" style="padding-top:0">
+    <span class="nz-over fx">{{L.where}}</span>
+    <div class="nz-venue fx"><div class="venue__map">{{{map}}}</div></div>
+    <p class="nz-addr fx">{{address}}</p>
+    {{#if venueLine}}<p class="nz-meta fx">{{venueLine}}</p>{{/if}}
+    {{#if gmaps}}
+    <div class="routes fx" style="width:min(100%,520px);margin-inline:auto">
+      <a href="{{gmaps}}" target="_blank" rel="noopener"><span>{{L.gmaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+      <a href="{{ymaps}}" target="_blank" rel="noopener"><span>{{L.ymaps}}</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 13.5l7-7M8 6.5h5.5V12"/></svg></a>
+    </div>
+    {{/if}}
+  </section>
+
+  <section class="nz-sec nz-final" data-scrub="enter">
+    <div class="nz-heart" data-heart aria-hidden="true"><svg viewBox="0 0 220 200"><path id="nzH" d="M110 186 C 60 150, 14 112, 14 66 C 14 34, 38 14, 66 14 C 86 14, 102 26, 110 42 C 118 26, 134 14, 154 14 C 182 14, 206 34, 206 66 C 206 112, 160 150, 110 186 Z" fill="none"/></svg></div>
+    <p class="nz-h fx">{{L.final}}</p>
+    <p class="nz-sign fx">{{L.sign}} {{groom}} {{L.and}} {{bride}}</p>
+  </section>
+
+  {{{made}}}
+</main>
+
+<script>
+// Жемчуг по кривой: нитка над именами и сердце в финале.
+(function(){
+  var NS='http://www.w3.org/2000/svg';
+  function beads(path,n,r,host){var len=path.getTotalLength(),svg=path.ownerSVGElement;
+    for(var k=0;k<n;k++){var p=path.getPointAtLength(len*(k+.5)/n),c=document.createElementNS(NS,'circle');
+      c.setAttribute('cx',p.x.toFixed(1));c.setAttribute('cy',p.y.toFixed(1));c.setAttribute('r',r(k));c.style.setProperty('--k',k);svg.appendChild(c)}
+    if(host)host.style.setProperty('--n',n)}
+  var g=document.getElementById('nzG');if(g)beads(g,34,function(k){return k%5===2?7:5},null);
+  var h=document.getElementById('nzH');if(h)beads(h,46,function(){return 5.4},document.querySelector('[data-heart]'));
+  var gar=document.querySelector('[data-garland]');
+  function on(){if(gar)gar.classList.add('on')}
+  document.addEventListener('nv:ready',on);if(!document.querySelector('[data-envelope-scene]'))on();
+})();
+</script>
+
+{{{audioWidget}}}
+{{{experienceScript}}}
+{{{countdown}}}
+</body>
+</html>
