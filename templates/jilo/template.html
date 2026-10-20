@@ -73,7 +73,7 @@ body{background:#eeeaf6;color:var(--ink)}
 .jl-mono{align-self:center;justify-self:center;font:700 clamp(3.4rem,17vw,5.2rem)/1 var(--display);letter-spacing:-.04em}
 .jl-cardfoot{display:flex;justify-content:space-between;width:100%;color:rgba(29,27,38,.7);font:500 .66rem/1 var(--sans);letter-spacing:.18em;text-transform:uppercase}
 .jl-face--back small{color:rgba(29,27,38,.6);font:500 .62rem/1 var(--sans);letter-spacing:.3em;text-transform:uppercase}
-.jl-face--back b{font:500 clamp(1.5rem,7vw,2.1rem)/1.15 var(--display);color:var(--ink)}
+.jl-face--back b{align-self:stretch;font:500 clamp(1.5rem,7vw,2.1rem)/1.15 var(--display);color:var(--ink)}
 .jl-face--back span{font:500 .82rem/1 var(--sans);color:var(--muted)}
 .jl-trigger{position:absolute;inset:0;z-index:5;display:grid;align-content:end;justify-items:center;padding:0 20px max(28px,env(safe-area-inset-bottom));
   border:0;background:transparent;color:var(--ink);cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
@@ -97,9 +97,9 @@ body{background:#eeeaf6;color:var(--ink)}
 .jl-hero{position:relative;display:grid;justify-items:center;align-content:center;gap:26px;min-height:100svh;padding:70px 20px 60px;perspective:1000px;text-align:center}
 .jl-hero .jl-card{width:min(76vw,360px,calc((100svh - 260px) * .7));transform:rotateX(var(--rx)) rotateY(var(--ry))}
 .jl-hero .jl-face--front{align-content:space-between}
-.jl-hero__names{display:grid;gap:4px;justify-self:stretch;text-align:left}
-.jl-hero__names b{font:700 clamp(1.7rem,8.4vw,2.6rem)/1.02 var(--display);letter-spacing:-.02em;color:var(--ink);overflow-wrap:anywhere}
-.jl-hero__names i{font:300 .9rem/1 var(--display);font-style:normal;color:rgba(29,27,38,.6)}
+.jl-hero__names{display:grid;gap:.12em;justify-self:stretch;text-align:left;font-size:clamp(1.7rem,8.4vw,2.6rem)}
+.jl-hero__names b{font:700 1em/1.02 var(--display);letter-spacing:-.02em;color:var(--ink)}
+.jl-hero__names i{font:300 .36em/1 var(--display);font-style:normal;color:rgba(29,27,38,.6)}
 .jl-hero__meta{color:var(--muted);font:500 .74rem/1 var(--sans);letter-spacing:.24em;text-transform:uppercase}
 /* Хромовые капли вокруг карты. */
 .jl-drop{position:absolute;border-radius:50%;pointer-events:none;
@@ -184,7 +184,7 @@ body{background:#eeeaf6;color:var(--ink)}
       </div>
       <div class="jl-face jl-face--back"><div class="jl-fill jl-holo"></div>
         <small>{{L.sub}}</small>
-        <b>{{groom}} &amp; {{bride}}</b>
+        <b data-fit-text>{{groom}} &amp; {{bride}}</b>
         <span>{{dateText}}</span>
       </div>
     </div>
@@ -199,7 +199,7 @@ body{background:#eeeaf6;color:var(--ink)}
     <div class="jl-card fx">
       <div class="jl-face jl-face--front"><div class="jl-fill jl-holo"></div>
         <span class="jl-chip" aria-hidden="true"></span>
-        <h1 class="jl-hero__names"><i>{{L.sub}}</i><b>{{groom}}</b><i>&amp;</i><b>{{bride}}</b></h1>
+        <h1 class="jl-hero__names" data-fit-text><i>{{L.sub}}</i><b>{{groom}}</b><i>&amp;</i><b>{{bride}}</b></h1>
         <div class="jl-cardfoot"><span>{{dateText}}</span><span>{{time}}</span></div>
       </div>
     </div>

@@ -515,6 +515,44 @@ function scrub(){
   frame();
 }
 
+/* Подгонка крупного набора под ширину. Длинное имя («Абдурахмонбек») не
+   вылезает за край и не рвётся посреди слова: кегль элемента с data-fit-text
+   уменьшается ровно настолько, чтобы самая длинная строка встала. Считаем
+   сразу (имена видны ещё до открытия), после загрузки шрифтов и на ресайзе. */
+function fitText(){
+  // Мерило — самое узкое место среди предков: элемент сетки сам растягивается
+  // под длинное слово (min-width:auto) и тянет за собой родителя, поэтому
+  // переполнения не видно ни в нём, ни уровнем выше — только у секции.
+  function room(el){
+    var r=Infinity,a=el.parentElement;
+    while(a&&a!==document.body){
+      var w=a.clientWidth;
+      if(w){var c=getComputedStyle(a);w-=parseFloat(c.paddingLeft)+parseFloat(c.paddingRight);if(w>0&&w<r)r=w}
+      a=a.parentElement;
+    }
+    return r;
+  }
+  // Ширина набора: свой размер и всё, что торчит из потомков, — строку под
+  // маской (overflow:hidden) родитель в своём scrollWidth не видит.
+  function width(el){
+    var r=el.getBoundingClientRect(),need=Math.max(el.scrollWidth,r.width);
+    [].forEach.call(el.querySelectorAll('*'),function(k){var b=k.getBoundingClientRect();need=Math.max(need,b.left-r.left+k.scrollWidth)});
+    return need;
+  }
+  [].forEach.call(document.querySelectorAll('[data-fit-text]'),function(el){
+    el.style.fontSize='';
+    for(var i=0;i<4;i++){
+      var free=room(el),need=width(el);
+      if(!isFinite(free)||need<=free+1)break;
+      var fs=parseFloat(getComputedStyle(el).fontSize)||16;
+      el.style.fontSize=Math.max(fs*free/need*.97,fs*.4).toFixed(2)+'px';
+    }
+  });
+}
+fitText();
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitText);
+var fitTimer=0;addEventListener('resize',function(){clearTimeout(fitTimer);fitTimer=setTimeout(fitText,150)});
+
 // Тема узнаёт о фазах открытия событиями: nv:open — гость нажал, nv:leave —
 // сцена уходит, nv:ready — страница открыта и живёт (в карточке витрины тоже).
 function emit(name,detail){try{document.dispatchEvent(new CustomEvent(name,{detail:detail||{}}))}catch(e){}}

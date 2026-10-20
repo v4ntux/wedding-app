@@ -63,7 +63,7 @@ body{background:var(--grain),var(--paper);color:var(--ink)}
 .sf-hero__foot b{font:100 clamp(1.8rem,8vw,3.2rem)/1 var(--display);letter-spacing:-.02em}
 .sf-hero__foot span{color:var(--muted);font:400 .68rem/1.6 var(--sans);letter-spacing:.2em;text-transform:uppercase;text-align:right}
 /* Строка выезжает из-под невидимой маски. */
-.sf-line{display:block;overflow:hidden;overflow-wrap:anywhere}
+.sf-line{display:block;overflow:hidden}
 .sf-line>span{display:block;transform:translateY(105%)}
 .sf-line.in>span{transform:none;transition:transform 1.2s cubic-bezier(.2,.7,.1,1) var(--d,0s)}
 .sf-rule{height:1px;background:var(--ink);opacity:.18;transform:scaleX(0);transform-origin:0 50%}
@@ -128,7 +128,7 @@ body{background:var(--grain),var(--paper);color:var(--ink)}
 <main class="inv sf">
   <section class="sf-hero">
     <div class="sf-top"><span>{{L.sub}}</span><span>{{year}}</span></div>
-    <h1 class="sf-names">
+    <h1 class="sf-names" data-fit-text>
       <span class="sf-line fx" style="--d:.1s"><span>{{groom}}</span></span>
       <span class="sf-line fx" style="--d:.25s"><span><i>&amp;</i></span></span>
       <span class="sf-line fx" style="--d:.4s"><span>{{bride}}</span></span>

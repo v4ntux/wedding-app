@@ -121,7 +121,7 @@ body{background:var(--paper);color:var(--ink)}
 .ip-venue{width:min(100%,620px);margin:0 auto;padding:12px;background:var(--ikat);background-size:120px auto}
 .ip-venue__in{background:var(--paper);padding:0 0 22px}
 .ip-venue .mapbox:after{display:none}
-.ip-venue .venue-type{margin:0;color:var(--mag);--paper:var(--ink);border:0;background:var(--paper)}
+.ip-venue .venue-type{margin:0;color:var(--mag);--paper:#1f1633;border:0;background:#fff8ee}
 .ip-addr{margin:20px 18px 6px;color:var(--ink);font:400 clamp(1.4rem,6vw,2.1rem)/1.15 var(--display)}
 .ip-meta{color:var(--muted);font:500 .72rem/1.6 var(--sans);letter-spacing:.12em;text-transform:uppercase}
 .ip-venue .routes{padding:0 18px}
@@ -158,7 +158,7 @@ body{background:var(--paper);color:var(--ink)}
   <section class="ip-hero" data-scrub="view">
     <div class="ip-medallion fx">
       <small>{{L.sub}}</small>
-      <h1 class="ip-names">{{groom}}<i>&amp;</i>{{bride}}</h1>
+      <h1 class="ip-names" data-fit-text>{{groom}}<i>&amp;</i>{{bride}}</h1>
       <span class="ip-ribbon">{{dateText}}</span>
     </div>
   </section>
